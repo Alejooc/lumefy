@@ -1,0 +1,21 @@
+# Backend/Python
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/.env
+backend/db.sqlite3
+backend/.pytest_cache/
+backend/htmlcov/
+backend/.coverage
+backend/logs/
+
+# Frontend/Angular
+frontend_mantis/node_modules/
+frontend_mantis/.angular/
+frontend_mantis/dist/
+frontend_mantis/.vscode/
+frontend_mantis/coverage/
+
+# OS
+.DS_Store
+Thumbs.db
