@@ -1,0 +1,62 @@
+from sqlalchemy import String, Float, ForeignKey, DateTime, Enum, Integer
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from app.models.base import BaseModel
+import uuid
+import enum
+from datetime import datetime
+from app.models.user import User
+from app.models.branch import Branch
+from app.models.product import Product
+
+class SaleStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
+class Sale(BaseModel):
+    __tablename__ = "sales"
+
+    branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=True) # Todo: Link to Client model
+    
+    status: Mapped[SaleStatus] = mapped_column(Enum(SaleStatus), default=SaleStatus.DRAFT)
+    
+    subtotal: Mapped[float] = mapped_column(Float, default=0.0)
+    tax: Mapped[float] = mapped_column(Float, default=0.0)
+    discount: Mapped[float] = mapped_column(Float, default=0.0)
+    total: Mapped[float] = mapped_column(Float, default=0.0)
+    
+    payment_method: Mapped[str] = mapped_column(String, nullable=True) # CASH, CARD, MIXED
+    
+    # Relationships
+    branch = relationship(Branch)
+    user = relationship(User)
+    items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
+    payments = relationship("Payment", back_populates="sale", cascade="all, delete-orphan")
+
+class SaleItem(BaseModel):
+    __tablename__ = "sale_items"
+
+    sale_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sales.id"), index=True)
+    product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"))
+    
+    quantity: Mapped[float] = mapped_column(Float)
+    price: Mapped[float] = mapped_column(Float) # Unit price at moment of sale
+    discount: Mapped[float] = mapped_column(Float, default=0.0)
+    total: Mapped[float] = mapped_column(Float)
+    
+    # Relationships
+    sale = relationship("Sale", back_populates="items")
+    product = relationship(Product)
+
+class Payment(BaseModel):
+    __tablename__ = "payments"
+    
+    sale_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sales.id"), index=True)
+    method: Mapped[str] = mapped_column(String) # CASH, CARD, TRANSFER
+    amount: Mapped[float] = mapped_column(Float)
+    reference: Mapped[str] = mapped_column(String, nullable=True) # Transaction ID, Authorization code
+    
+    sale = relationship("Sale", back_populates="payments")

@@ -22,8 +22,13 @@ class InventoryBase(BaseModel):
 class InventoryCreate(InventoryBase):
     pass
 
+from app.schemas.product import Product
+from app.schemas.branch import Branch
+
 class Inventory(InventoryBase):
     id: UUID
+    product: Optional[Product] = None
+    branch: Optional[Branch] = None
     
     class Config:
         from_attributes = True
@@ -40,12 +45,19 @@ class MovementBase(BaseModel):
 class MovementCreate(MovementBase):
     pass # user_id will be injected by backend
 
+from app.schemas.user import User
+
 class Movement(MovementBase):
     id: UUID
     user_id: Optional[UUID] = None
     previous_stock: float
     new_stock: float
     created_at: datetime
+    
+    # Nested objects for display
+    user: Optional[User] = None
+    product: Optional[Product] = None
+    branch: Optional[Branch] = None
     
     class Config:
         from_attributes = True

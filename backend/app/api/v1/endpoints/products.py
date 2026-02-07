@@ -1,7 +1,7 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 # from app.api.v1 import deps
 from app.core.database import get_db
@@ -17,6 +17,7 @@ async def read_products(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
+    search: str = None,
     current_user: User = Depends(auth.get_current_user),
 ) -> Any:
     """
@@ -26,6 +27,16 @@ async def read_products(
     query = select(Product).offset(skip).limit(limit)
     if current_user.company_id:
         query = query.where(Product.company_id == current_user.company_id)
+        
+    if search:
+        search_filter = f"%{search}%"
+        query = query.where(
+            or_(
+                Product.name.ilike(search_filter),
+                Product.sku.ilike(search_filter),
+                Product.barcode.ilike(search_filter)
+            )
+        )
         
     result = await db.execute(query)
     products = result.scalars().all()

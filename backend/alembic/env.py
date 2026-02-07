@@ -20,6 +20,9 @@ from app.models.branch import Branch
 from app.models.role import Role
 from app.models.product import Product
 from app.models.category import Category
+from app.models.inventory import Inventory
+from app.models.inventory_movement import InventoryMovement
+from app.models.sale import Sale, SaleItem, Payment
 # from app.models.client import Client
 # Add other models as they are created
 

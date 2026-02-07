@@ -14,6 +14,7 @@ class Company(BaseModel):
     email: Mapped[str] = mapped_column(String, nullable=True)
     website: Mapped[str] = mapped_column(String, nullable=True)
     currency: Mapped[str] = mapped_column(String, default="USD")
+    currency_symbol: Mapped[str] = mapped_column(String, default="$")
     logo_url: Mapped[str] = mapped_column(String, nullable=True)
     
     # Relationships

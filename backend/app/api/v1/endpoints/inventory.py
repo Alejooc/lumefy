@@ -12,6 +12,8 @@ import datetime
 
 router = APIRouter()
 
+from sqlalchemy.orm import selectinload
+
 @router.get("/", response_model=List[schemas.Inventory])
 async def read_inventory(
     db: AsyncSession = Depends(get_db),
@@ -22,7 +24,10 @@ async def read_inventory(
     """
     Retrieve current stock. Use filters needed.
     """
-    query = select(Inventory)
+    query = select(Inventory).options(
+        selectinload(Inventory.product),
+        selectinload(Inventory.branch)
+    )
     
     if branch_id:
         query = query.where(Inventory.branch_id == branch_id)
@@ -115,6 +120,16 @@ async def create_movement(
     try:
         await db.commit()
         await db.refresh(movement)
+        # Eager load relationships for the response
+        query = select(InventoryMovement).options(
+            selectinload(InventoryMovement.product),
+            selectinload(InventoryMovement.branch),
+            selectinload(InventoryMovement.user)
+        ).where(InventoryMovement.id == movement.id)
+        
+        result = await db.execute(query)
+        movement = result.scalars().first()
+        
         return movement
     except Exception as e:
         await db.rollback()
@@ -131,7 +146,11 @@ async def read_movements(
     """
     Get movement history.
     """
-    query = select(InventoryMovement).order_by(InventoryMovement.created_at.desc()).limit(limit)
+    query = select(InventoryMovement).options(
+        selectinload(InventoryMovement.product),
+        selectinload(InventoryMovement.branch),
+        selectinload(InventoryMovement.user)
+    ).order_by(InventoryMovement.created_at.desc()).limit(limit)
     
     if product_id:
         query = query.where(InventoryMovement.product_id == product_id)
