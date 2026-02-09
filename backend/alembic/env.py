@@ -23,7 +23,7 @@ from app.models.category import Category
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement
 from app.models.sale import Sale, SaleItem, Payment
-# from app.models.client import Client
+from app.models.client import Client
 # Add other models as they are created
 
 from app.core.config import settings

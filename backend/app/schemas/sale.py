@@ -5,6 +5,7 @@ from datetime import datetime
 from app.schemas.product import Product
 from app.schemas.user import User
 from app.schemas.branch import Branch
+from app.schemas.client import Client # Added Import
 
 # --- Payment Schemas ---
 class PaymentBase(BaseModel):
@@ -67,6 +68,7 @@ class Sale(SaleBase):
     payments: List[Payment] = []
     user: Optional[User] = None
     branch: Optional[Branch] = None
+    client: Optional[Client] = None # Added Client
     
     class Config:
         from_attributes = True

@@ -6,7 +6,7 @@ from app.core.config import settings
 engine = create_async_engine(settings.DATABASE_URL, echo=True)
 
 # Create Session Factory
-SessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession)
+SessionLocal = async_sessionmaker(autocommit=False, autoflush=False, expire_on_commit=False, bind=engine, class_=AsyncSession)
 
 Base = declarative_base()
 

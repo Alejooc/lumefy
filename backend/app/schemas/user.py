@@ -2,6 +2,7 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr
 from uuid import UUID
 from datetime import datetime
+from app.schemas.role import Role # Added Import
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -15,11 +16,13 @@ class UserCreate(UserBase):
 
 class UserUpdate(UserBase):
     password: Optional[str] = None
+    role_id: Optional[UUID] = None
 
 class User(UserBase):
     id: UUID
     company_id: Optional[UUID] = None
     role_id: Optional[UUID] = None
+    role: Optional[Role] = None # Added Role object
     created_at: datetime
     updated_at: datetime
 

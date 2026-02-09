@@ -8,6 +8,7 @@ from datetime import datetime
 from app.models.user import User
 from app.models.branch import Branch
 from app.models.product import Product
+from app.models.client import Client
 
 class SaleStatus(str, enum.Enum):
     DRAFT = "DRAFT"
@@ -19,7 +20,7 @@ class Sale(BaseModel):
 
     branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id"), index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
-    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=True) # Todo: Link to Client model
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True)
     
     status: Mapped[SaleStatus] = mapped_column(Enum(SaleStatus), default=SaleStatus.DRAFT)
     
@@ -33,6 +34,7 @@ class Sale(BaseModel):
     # Relationships
     branch = relationship(Branch)
     user = relationship(User)
+    client = relationship("Client")
     items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="sale", cascade="all, delete-orphan")
 

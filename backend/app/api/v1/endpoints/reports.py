@@ -1,6 +1,6 @@
 from typing import Any, List
 from datetime import datetime, timedelta
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -118,7 +118,7 @@ async def get_inventory_value(
             func.sum(Inventory.quantity).label("total_items"),
             func.sum(Inventory.quantity * Product.price).label("total_value"),
             func.sum(
-                func.case(
+                case(
                     (Inventory.quantity <= Product.min_stock, 1),
                     else_=0
                 )

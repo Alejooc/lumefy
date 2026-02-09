@@ -133,7 +133,8 @@ async def create_sale(
             selectinload(Sale.items).selectinload(SaleItem.product),
             selectinload(Sale.payments),
             selectinload(Sale.user),
-            selectinload(Sale.branch)
+            selectinload(Sale.branch),
+            selectinload(Sale.client)
         ).where(Sale.id == sale.id)
         
         result = await db.execute(query)

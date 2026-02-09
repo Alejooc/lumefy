@@ -4,7 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 import uuid
 # Import Role to ensure visibility for relationship mapping
-# from app.models.role import Role
+from app.models.role import Role
 print("DEBUG: User Model Loaded")
 
 class User(BaseModel):
@@ -14,9 +14,9 @@ class User(BaseModel):
     hashed_password: Mapped[str] = mapped_column(String)
     full_name: Mapped[str] = mapped_column(String, nullable=True)
     
-    role_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=True)
+    role_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=True)
     
     # Relationships
     # Relationships
-    # role = relationship(Role, back_populates="users")
+    role = relationship(Role, lazy="joined")
     # company = relationship("Company", back_populates="users")
