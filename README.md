@@ -1,111 +1,128 @@
-# <p align="center">✨ Lumefy SaaS Platform ✨</p>
+# <p align="center"> <img src="https://via.placeholder.com/200x80?text=LUMEFY" alt="Lumefy Logo" width="200" /> </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
-  <img src="https://img.shields.io/badge/Angular-DD0031?style=for-the-badge&logo=angular&logoColor=white" />
-  <img src="https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white" />
-  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" />
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <b>The Unified SaaS Solution for Modern Business Management</b><br>
+  <i>Inventory • POS • CRM • ERP • Multi-Tenant Architecture</i>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" />
+  <img src="https://img.shields.io/badge/Angular-DD0031?style=flat-square&logo=angular&logoColor=white" />
+  <img src="https://img.shields.io/badge/PostgreSQL-336791?style=flat-square&logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" />
+  <img src="https://img.shields.io/badge/LICENSE-MIT-green?style=flat-square" />
 </p>
 
 ---
 
-## 🚀 Overview
+## ⚡ Quick Start (Docker)
 
-**Lumefy** is a high-performance, multi-tenant SaaS platform designed to revolutionize business management. From core ERP functionalities to a seamless Point of Sale (POS) experience, Lumefy provides a unified solution for modern enterprises.
+The fastest way to deploy the entire stack is using **Docker Compose**.
 
-### 💎 Key Features
+1. **Clone & Configure**
+   ```bash
+   git clone https://github.com/Alejooc/lumefy.git
+   cd lumefy
+   cp backend/.env.example backend/.env
+   ```
 
-- **🏢 Multi-Tenant & Multi-Branch**: Built to scale. Manage multiple companies and their branches from a single dashboard.
-- **⚡ Real-time POS**: Fast, reliable, and intuitive point-of-sale interface.
-- **📦 Intelligent Inventory**: Track stock levels, history, and low-stock alerts with precision.
-- **👥 Advanced User Control**: Granular Role-Based Access Control (RBAC) to keep your data secure.
-- **📊 Rich Analytics**: Dynamic charts and reports powered by structured data insights.
-- **🔒 Secure Authentication**: JWT-based stateless authentication with secure password hashing.
+2. **Launch Services**
+   ```bash
+   docker-compose up --build -d
+   ```
 
----
-
-## 🛠️ Tech Stack
-
-### Backend (The Brain)
-- **FastAPI**: Modern, high-performance Python web framework.
-- **SQLAlchemy 2.0**: Next-gen async ORM for robust data management.
-- **Alembic**: Reliable database migration tool.
-- **PostgreSQL**: Industry-standard relational database.
-
-### Frontend (The Face)
-- **Angular 17+**: Enterprise-grade frontend framework.
-- **Mantis Template**: Premium UI/UX design foundation.
-- **RxJS & Signals**: Advanced state and event management.
-- **SweetAlert2**: Beautiful and responsive notifications.
+3. **Initialize Database**
+   ```bash
+   docker-compose exec backend alembic upgrade head
+   docker-compose exec backend python seed_roles.py
+   ```
 
 ---
 
 ## 🏗️ Architecture
 
+Lumefy is built on a modern, decoupled architecture designed for high availability and scalability.
+
 ```mermaid
-graph TD
-    User((User)) -->|HTTPS| Frontend[Angular Frontend]
-    Frontend -->|REST API| Backend[FastAPI Backend]
-    Backend -->|Async| DB[(PostgreSQL)]
-    Backend -->|Migrations| Alembic
+graph LR
+    User([User Agent]) -->|Frontend:4200| Angular[Angular SPA]
+    Angular -->|REST API| FastAPI[FastAPI Backend:8000]
+    FastAPI -->|Async Engine| Postgres[(PostgreSQL)]
+    FastAPI -->|Schemas| Pydantic[Pydantic Models]
+    FastAPI -->|Auth| JWT[JWT Bearer Token]
 ```
 
 ---
 
-## 🚦 Getting Started
+## 🛠️ Detailed Installation
 
-### 🐳 Quick Start with Docker
-The fastest way to get Lumefy up and running:
+### Backend (FastAPI)
+The backend requires Python 3.11+.
 
-```bash
-# Clone the repository
-git clone https://github.com/Alejooc/lumefy.git
-cd lumefy
+1. **Virtual Environment**
+   ```bash
+   cd backend
+   python -m venv venv
+   .\venv\Scripts\activate # Windows
+   pip install -r requirements.txt
+   ```
+2. **Environment Variables**
+   Create a `.env` file with the following:
+   ```env
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=postgres
+   POSTGRES_SERVER=localhost
+   POSTGRES_PORT=5432
+   POSTGRES_DB=lumefy
+   SECRET_KEY=super-secret-key-change-me
+   ```
+3. **Run Dev Server**
+   ```bash
+   uvicorn app.main:app --reload --port 8000
+   ```
 
-# Start the engine
-docker-compose up --build -d
+### Frontend (Angular)
+The frontend uses the premium **Mantis Template**.
 
-# Initialize Database
-docker-compose exec backend alembic upgrade head
-```
-
-### 💻 Local Development
-
-#### Backend Setup
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate # Windows: .\venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-
-#### Frontend Setup
-```bash
-cd frontend_mantis
-npm install
-npm start
-```
-
----
-
-## 📁 Project Structure
-
-```text
-lumefy/
-├── backend/            # FastAPI Microservice
-│   ├── app/            # Core logic & Endpoints
-│   └── alembic/        # DB Migrations
-├── frontend_mantis/    # Angular Application
-│   └── src/app/        # Feature Modules & UI
-└── docker-compose.yml  # System Orchestration
-```
+1. **Install Deps**
+   ```bash
+   cd frontend_mantis
+   npm install
+   ```
+2. **Launch**
+   ```bash
+   npm start # Runs on http://localhost:4200
+   ```
 
 ---
 
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 🛡️ Role-Based Access Control (RBAC)
+Lumefy uses a structured permission system stored as `JSONB` for flexibility.
+
+| Role | Permissions | Description |
+| :--- | :--- | :--- |
+| **ADMIN** | `{"all": true}` | Full system access |
+| **MANAGER** | `{"manage_users": true, ...}` | Store-level operations |
+| **CASHIER** | `{"pos_access": true, ...}` | Selling and inventory view |
 
 ---
-<p align="center">Created with ❤️ by the Lumefy Team</p>
+
+## 🧩 Modularity
+Each module is designed to be isolated yet integrated:
+- **`app/api/v1/`**: Versioned API endpoints.
+- **`app/models/`**: Domain models with SQLAlchemy.
+- **`src/app/modules/`**: Feature-based Angular modules.
+
+---
+
+## 🔧 Troubleshooting
+
+- **CORS Errors**: Ensure `BACKEND_CORS_ORIGINS` in your `.env` includes your development URL.
+- **Migration Issues**: If `alembic upgrade head` fails, verify your PostgreSQL connection string in `.env`.
+- **Node Modules**: If the frontend fails to build, try `npm cache clean --force` followed by a fresh `npm install`.
+
+---
+
+<p align="center">
+  <b>Developed by the Lumefy Engineering Team</b>
+</p>
