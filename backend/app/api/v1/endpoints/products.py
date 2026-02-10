@@ -9,6 +9,8 @@ from app.models.product import Product
 from app.schemas import product as schemas
 from app.models.user import User
 from app.core import auth
+from app.core.permissions import PermissionChecker
+from app.core.audit import log_activity
 
 router = APIRouter()
 
@@ -18,7 +20,7 @@ async def read_products(
     skip: int = 0,
     limit: int = 100,
     search: str = None,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("view_products")),
 ) -> Any:
     """
     Retrieve products.
@@ -47,7 +49,7 @@ async def create_product(
     *,
     db: AsyncSession = Depends(get_db),
     product_in: schemas.ProductCreate,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """
     Create new product.
@@ -57,6 +59,18 @@ async def create_product(
         db.add(product)
         await db.commit()
         await db.refresh(product)
+        
+        # Log Activity
+        await log_activity(
+            db,
+            action="CREATE",
+            entity_type="Product",
+            entity_id=product.id,
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            details=product_in.model_dump()
+        )
+        
         return product
     except Exception as e:
         import traceback
@@ -69,7 +83,7 @@ async def update_product(
     db: AsyncSession = Depends(get_db),
     product_id: str,
     product_in: schemas.ProductUpdate,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """
     Update a product.
@@ -86,6 +100,18 @@ async def update_product(
     db.add(product)
     await db.commit()
     await db.refresh(product)
+    
+    # Log Activity
+    await log_activity(
+        db,
+        action="UPDATE",
+        entity_type="Product",
+        entity_id=product.id,
+        user_id=current_user.id,
+        company_id=current_user.company_id,
+        details=update_data
+    )
+    
     return product
 
 @router.delete("/{product_id}", response_model=schemas.Product)
@@ -93,7 +119,7 @@ async def delete_product(
     *,
     db: AsyncSession = Depends(get_db),
     product_id: str,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """
     Delete a product.
@@ -105,13 +131,24 @@ async def delete_product(
         
     await db.delete(product)
     await db.commit()
+    
+    # Log Activity
+    await log_activity(
+        db,
+        action="DELETE",
+        entity_type="Product",
+        entity_id=product_id,
+        user_id=current_user.id,
+        company_id=current_user.company_id
+    )
+    
     return product
 
 @router.post("/import", response_model=dict)
 async def import_products(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """
     Import products from CSV or Excel file.

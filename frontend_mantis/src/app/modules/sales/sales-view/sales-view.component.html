@@ -1,0 +1,98 @@
+<div class="row" *ngIf="sale">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>
+                    {{ sale.status === 'QUOTE' ? 'Cotización' : 'Orden de Venta' }} #{{ sale.id | slice:0:8 }}
+                    <span [ngClass]="getStatusClass(sale.status)" class="ms-2">{{ sale.status }}</span>
+                </h5>
+                <div>
+                    <button class="btn btn-secondary btn-sm me-2" [routerLink]="['/sales']">Volver</button>
+                    <!-- Actions based on status -->
+                    <button *ngIf="sale.status === 'QUOTE' || sale.status === 'DRAFT'"
+                        class="btn btn-success btn-sm me-2" (click)="updateStatus('CONFIRMED')">
+                        Confirmar Orden
+                    </button>
+                    <button *ngIf="sale.status === 'CONFIRMED'" class="btn btn-info btn-sm me-2"
+                        (click)="updateStatus('DISPATCHED')">
+                        Despachar
+                    </button>
+                    <button *ngIf="sale.status === 'DISPATCHED'" class="btn btn-success btn-sm me-2"
+                        (click)="updateStatus('DELIVERED')">
+                        Entregar
+                    </button>
+                    <button
+                        *ngIf="sale.status !== 'CANCELLED' && sale.status !== 'COMPLETED' && sale.status !== 'DELIVERED'"
+                        class="btn btn-danger btn-sm" (click)="updateStatus('CANCELLED')">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <h6>Cliente</h6>
+                        <p class="mb-1 text-muted">{{ sale.client?.name || 'Cliente Ocasional' }}</p>
+                        <p class="mb-1 text-muted" *ngIf="sale.client?.email">{{ sale.client?.email }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Detalles</h6>
+                        <p class="mb-1"><strong>Fecha:</strong> {{ sale.created_at | date:'medium' }}</p>
+                        <p class="mb-1"><strong>Sucursal:</strong> {{ sale.branch?.name }}</p>
+                        <p class="mb-1" *ngIf="sale.valid_until"><strong>Válido Hasta:</strong> {{ sale.valid_until |
+                            date:'shortDate' }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Envío</h6>
+                        <p class="text-muted">{{ sale.shipping_address || 'No especificada' }}</p>
+                    </div>
+                </div>
+
+                <div class="row mb-4" *ngIf="sale.notes">
+                    <div class="col-12">
+                        <h6>Notas</h6>
+                        <p class="alert alert-light">{{ sale.notes }}</p>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-center">Cantidad</th>
+                                <th class="text-end">Precio Unit.</th>
+                                <th class="text-end">Desc.</th>
+                                <th class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let item of sale.items">
+                                <td>
+                                    <div class="fw-bold">{{ item.product?.name }}</div>
+                                    <small class="text-muted">{{ item.product?.sku }}</small>
+                                </td>
+                                <td class="text-center">{{ item.quantity }}</td>
+                                <td class="text-end">{{ item.price | currency }}</td>
+                                <td class="text-end">{{ item.discount | currency }}</td>
+                                <td class="text-end">{{ item.total | currency }}</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" class="text-end fw-bold">Total:</td>
+                                <td class="text-end fw-bold">{{ sale.total | currency }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div *ngIf="loading" class="text-center mt-5">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Cargando...</span>
+    </div>
+</div>

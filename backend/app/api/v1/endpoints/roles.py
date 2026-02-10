@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import auth
+from app.core.permissions import PermissionChecker
 from app.core.database import get_db
 from app.models.role import Role
 from app.models.user import User
@@ -16,7 +17,7 @@ async def read_roles(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_users")),
 ) -> Any:
     """
     Retrieve all roles.
@@ -30,7 +31,7 @@ async def read_role(
     *,
     db: AsyncSession = Depends(get_db),
     role_id: UUID,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_users")),
 ) -> Any:
     """
     Get role by ID.

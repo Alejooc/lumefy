@@ -1,0 +1,58 @@
+<div class="row">
+    <div class="col-sm-12">
+        <app-card [cardTitle]="'Inventario'">
+            <ng-template #headerOptionsTemplate>
+                <button class="btn btn-primary" routerLink="/inventory/movement">
+                    <i class="feather icon-plus"></i> Nuevo Movimiento
+                </button>
+            </ng-template>
+
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Sucursal</th>
+                            <th>Stock Actual</th>
+                            <th>Ubicación</th>
+                            <th>Lote</th>
+                            <th>Caducidad</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let item of inventoryItems">
+                            <td>{{ item.product?.name || 'Producto #' + item.product_id }}</td>
+                            <td>{{ item.branch?.name || 'Sucursal #' + item.branch_id }}</td>
+                            <td>
+                                <span class="badge"
+                                    [ngClass]="{'bg-success': item.quantity > 0, 'bg-danger': item.quantity <= 0}">
+                                    {{ item.quantity }}
+                                </span>
+                            </td>
+                            <td>{{ item.location || '-' }}</td>
+                            <td>{{ item.batch_number || '-' }}</td>
+                            <td>{{ item.expiry_date || '-' }}</td>
+                            <td>
+                                <button class="btn btn-icon btn-outline-info btn-sm" title="Ver Movimientos"
+                                    [routerLink]="['/inventory/history', item.product_id]"
+                                    [queryParams]="{branchId: item.branch_id}">
+                                    <i class="feather icon-list"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        <tr *ngIf="inventoryItems.length === 0 && !isLoading">
+                            <td colspan="7" class="text-center">No hay registros de inventario.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div *ngIf="isLoading" class="text-center p-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+        </app-card>
+    </div>
+</div>

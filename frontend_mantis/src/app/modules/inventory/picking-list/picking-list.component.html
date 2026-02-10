@@ -1,0 +1,50 @@
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Picking / Preparación de Pedidos</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Orden #</th>
+                                <th>Cliente</th>
+                                <th>Fecha Confirmación</th>
+                                <th>Items</th>
+                                <th>Ubicación (Ref)</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let sale of pendingSales">
+                                <td>{{ sale.id | slice:0:8 }}</td>
+                                <td>{{ sale.client?.name || 'Cliente Ocasional' }}</td>
+                                <td>{{ sale.updated_at || sale.created_at | date:'short' }}</td>
+                                <td>{{ sale.items?.length || 0 }} items</td>
+                                <td><span class="badge bg-secondary">General</span></td>
+                                <td>
+                                    <button class="btn btn-info btn-sm me-2" [routerLink]="['/sales/view', sale.id]">
+                                        <i class="feather icon-list"></i> Ver
+                                    </button>
+                                    <button class="btn btn-primary btn-sm me-2" (click)="dispatchOrder(sale.id)">
+                                        <i class="feather icon-box"></i> Despachar
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr *ngIf="pendingSales.length === 0 && !loading">
+                                <td colspan="6" class="text-center">No hay pedidos pendientes de preparacion.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div *ngIf="loading" class="text-center mt-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

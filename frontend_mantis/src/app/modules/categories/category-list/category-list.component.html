@@ -1,0 +1,50 @@
+<div class="row">
+    <div class="col-sm-12">
+        <app-card cardTitle="Categories">
+            <ng-template #headerOptionsTemplate>
+                <button [routerLink]="['/categories/create']" class="btn btn-primary" [disabled]="isLoading">
+                    <i class="feather icon-plus"></i> Create Category
+                </button>
+            </ng-template>
+
+            <div *ngIf="isLoading" class="text-center p-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="sr-only">Loading...</span>
+                </div>
+                <p class="mt-2">Loading categories...</p>
+            </div>
+
+            <div class="table-responsive" *ngIf="!isLoading">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let category of categories">
+                            <td>{{ category.name }}</td>
+                            <td>{{ category.description }}</td>
+                            <td>
+                                <a [routerLink]="['/categories/edit', category.id]"
+                                    class="btn btn-icon btn-outline-primary btn-sm me-2">
+                                    <i class="feather icon-edit"></i>
+
+                                </a>
+                                <button (click)="deleteCategory(category.id)"
+                                    class="btn btn-icon btn-outline-danger btn-sm" [disabled]="isLoading">
+                                    <i class="feather icon-trash-2"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        <tr *ngIf="categories.length === 0">
+                            <td colspan="3" class="text-center">No categories found.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </app-card>
+    </div>
+</div>

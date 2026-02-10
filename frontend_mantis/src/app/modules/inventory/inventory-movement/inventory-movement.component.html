@@ -1,0 +1,71 @@
+<div class="row">
+    <div class="col-sm-12">
+        <app-card [cardTitle]="'Registrar Movimiento de Inventario'">
+            <form [formGroup]="movementForm" (ngSubmit)="onSubmit()">
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Producto</label>
+                        <ng-select [items]="products" bindLabel="name" bindValue="id" formControlName="product_id"
+                            [typeahead]="productSearchInput$" [loading]="isLoading"
+                            placeholder="Buscar por nombre, SKU o código de barras"
+                            notFoundText="No se encontraron productos">
+                            <ng-template ng-option-tmp let-item="item">
+                                <div>
+                                    <span [ngClass]="{'fw-bold': true}">{{item.name}}</span>
+                                    <br>
+                                    <small class="text-muted">SKU: {{item.sku || 'N/A'}} | $ {{item.price}}</small>
+                                </div>
+                            </ng-template>
+                        </ng-select>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Sucursal</label>
+                        <!-- Todo: Populate branches from API -->
+                        <input type="text" class="form-control" formControlName="branch_id"
+                            placeholder="ID de Sucursal (Temporal)">
+                        <small class="text-muted">Si no tienes ID, usa uno existente en DB.</small>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Tipo de Movimiento</label>
+                        <select class="form-select" formControlName="type">
+                            <option value="IN">Entrada (Compra/Devolución)</option>
+                            <option value="OUT">Salida (Venta/Merma)</option>
+                            <option value="ADJ">Ajuste (Corrección)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Cantidad</label>
+                        <input type="number" class="form-control" formControlName="quantity" min="0">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Referencia (Opcional)</label>
+                        <input type="text" class="form-control" formControlName="reference_id"
+                            placeholder="Ej. Factura #123">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Motivo (Opcional)</label>
+                    <textarea class="form-control" formControlName="reason" rows="2"></textarea>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary" [disabled]="movementForm.invalid || isSubmitting">
+                        <span *ngIf="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status"
+                            aria-hidden="true"></span>
+                        Guardar
+                    </button>
+                    <button type="button" class="btn btn-secondary" (click)="cancel()">Cancelar</button>
+                </div>
+
+            </form>
+        </app-card>
+    </div>
+</div>

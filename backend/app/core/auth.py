@@ -48,13 +48,24 @@ async def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: As
             await db.commit()
             await db.refresh(company)
             
+            # Check/Create Default Admin Role
+            from app.models.role import Role
+            result = await db.execute(select(Role).where(Role.name == "Admin"))
+            role = result.scalars().first()
+            if not role:
+                role = Role(name="Admin", description="Super Admin", permissions={"all": True})
+                db.add(role)
+                await db.commit()
+                await db.refresh(role)
+
             # Create Default Admin User
             user = User(
                 email="admin@lumefy.com",
                 full_name="Admin User",
                 hashed_password=security.get_password_hash("admin"),
                 is_active=True,
-                company_id=company.id
+                company_id=company.id,
+                role_id=role.id
             )
             db.add(user)
             await db.commit()

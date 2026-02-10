@@ -16,6 +16,7 @@ export interface NavigationItem {
   link?: string;
   description?: string;
   path?: string;
+  permissions?: string[];
 }
 
 export const NavigationItems: NavigationItem[] = [
@@ -41,6 +42,7 @@ export const NavigationItems: NavigationItem[] = [
     title: 'Catálogo',
     type: 'group',
     icon: 'icon-navigation',
+    permissions: ['view_inventory'],
     children: [
       {
         id: 'products',
@@ -49,6 +51,7 @@ export const NavigationItems: NavigationItem[] = [
         classes: 'nav-item',
         url: '/products',
         icon: 'shopping',
+        permissions: ['view_products']
       },
       {
         id: 'categories',
@@ -57,7 +60,8 @@ export const NavigationItems: NavigationItem[] = [
         classes: 'nav-item',
         url: '/categories',
         icon: 'gold',
-        breadcrumbs: true
+        breadcrumbs: true,
+        permissions: ['view_products']
       },
       {
         id: 'stock',
@@ -66,7 +70,47 @@ export const NavigationItems: NavigationItem[] = [
         classes: 'nav-item',
         url: '/inventory',
         icon: 'box',
-        breadcrumbs: true
+        breadcrumbs: true,
+        permissions: ['view_inventory']
+      }
+    ]
+  },
+  {
+    id: 'purchasing',
+    title: 'Compras',
+    type: 'group',
+    icon: 'icon-navigation',
+    permissions: ['manage_inventory'], // Using inventory permission for now
+    children: [
+      {
+        id: 'suppliers',
+        title: 'Proveedores',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/purchasing/suppliers',
+        icon: 'users',
+        breadcrumbs: false,
+        permissions: ['manage_inventory']
+      },
+      {
+        id: 'orders',
+        title: 'Órdenes de Compra',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/purchasing/orders',
+        icon: 'file-text',
+        breadcrumbs: false,
+        permissions: ['manage_inventory']
+      },
+      {
+        id: 'pricelists',
+        title: 'Listas de Precios',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/purchasing/pricelists',
+        icon: 'tag',
+        breadcrumbs: false,
+        permissions: ['manage_inventory']
       }
     ]
   },
@@ -75,6 +119,7 @@ export const NavigationItems: NavigationItem[] = [
     title: 'Ventas',
     type: 'group',
     icon: 'icon-navigation',
+    permissions: ['pos_access'],
     children: [
       {
         id: 'pos',
@@ -83,7 +128,8 @@ export const NavigationItems: NavigationItem[] = [
         classes: 'nav-item',
         url: '/pos',
         icon: 'calculator',
-        breadcrumbs: false
+        breadcrumbs: false,
+        permissions: ['pos_access']
       }
     ]
   },
@@ -92,6 +138,7 @@ export const NavigationItems: NavigationItem[] = [
     title: 'Reportes',
     type: 'group',
     icon: 'icon-navigation',
+    permissions: ['view_reports'],
     children: [
       {
         id: 'sales-report',
@@ -100,7 +147,8 @@ export const NavigationItems: NavigationItem[] = [
         classes: 'nav-item',
         url: '/reports',
         icon: 'bar-chart',
-        breadcrumbs: false
+        breadcrumbs: false,
+        permissions: ['view_reports']
       }
     ]
   },
@@ -117,7 +165,8 @@ export const NavigationItems: NavigationItem[] = [
         classes: 'nav-item',
         url: '/clients',
         icon: 'users',
-        breadcrumbs: false
+        breadcrumbs: false,
+        permissions: ['view_clients']
       },
       {
         id: 'users',
@@ -126,7 +175,18 @@ export const NavigationItems: NavigationItem[] = [
         classes: 'nav-item',
         url: '/users',
         icon: 'user',
-        breadcrumbs: false
+        breadcrumbs: false,
+        permissions: ['manage_users']
+      },
+      {
+        id: 'audit',
+        title: 'Audit Logs',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/audit',
+        icon: 'file-text',
+        breadcrumbs: false,
+        permissions: ['view_reports']
       }
     ]
   },

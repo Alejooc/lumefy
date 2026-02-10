@@ -20,9 +20,12 @@ import {
   FontSizeOutline,
   ProfileOutline,
   BgColorsOutline,
-  AntDesignOutline
+  AntDesignOutline,
+  FileTextOutline
 } from '@ant-design/icons-angular/icons';
 import { NgScrollbarModule } from 'ngx-scrollbar';
+import { PermissionService } from '../../../../../core/services/permission.service';
+import { AuthService } from '../../../../../core/services/auth.service';
 
 @Component({
   selector: 'app-nav-content',
@@ -34,6 +37,8 @@ export class NavContentComponent implements OnInit {
   private location = inject(Location);
   private locationStrategy = inject(LocationStrategy);
   private iconService = inject(IconService);
+  private permissionService = inject(PermissionService);
+  private authService = inject(AuthService);
 
   // public props
   NavCollapsedMob = output();
@@ -59,10 +64,11 @@ export class NavContentComponent implements OnInit {
         BgColorsOutline,
         AntDesignOutline,
         ChromeOutline,
-        QuestionOutline
+        QuestionOutline,
+        FileTextOutline
       ]
     );
-    this.navigations = NavigationItems;
+    this.navigations = [];
   }
 
   // Life cycle events
@@ -70,6 +76,11 @@ export class NavContentComponent implements OnInit {
     if (this.windowWidth < 1025) {
       (document.querySelector('.coded-navbar') as HTMLDivElement)?.classList.add('menupos-static');
     }
+
+    // Subscribe to user changes to update navigation
+    this.authService.currentUser.subscribe(() => {
+      this.navigations = this.filterNavigation(NavigationItems);
+    });
   }
 
   fireOutClick() {
@@ -101,5 +112,27 @@ export class NavContentComponent implements OnInit {
     if (this.windowWidth < 1025 && document.querySelector('app-navigation.coded-navbar').classList.contains('mob-open')) {
       this.NavCollapsedMob.emit();
     }
+  }
+
+  private filterNavigation(items: NavigationItem[]): NavigationItem[] {
+    return items.reduce((acc, item) => {
+      // 1. Check item permission
+      if (item.permissions && !this.permissionService.hasAnyPermission(item.permissions)) {
+        return acc;
+      }
+
+      // 2. Process children
+      let newItem = { ...item };
+      if (newItem.children) {
+        newItem.children = this.filterNavigation(newItem.children);
+        // If it's a group or collapse and has no visible children, filter it out
+        if (newItem.children.length === 0 && (newItem.type === 'group' || newItem.type === 'collapse')) {
+          return acc;
+        }
+      }
+
+      acc.push(newItem);
+      return acc;
+    }, [] as NavigationItem[]);
   }
 }

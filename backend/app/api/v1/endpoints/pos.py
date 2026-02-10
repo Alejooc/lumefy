@@ -11,6 +11,7 @@ from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.product import Product
 from app.models.user import User
 from app.core import auth
+from app.core.permissions import PermissionChecker
 from app.schemas import sale as schemas
 
 import uuid
@@ -22,7 +23,7 @@ async def create_sale(
     *,
     db: AsyncSession = Depends(get_db),
     sale_in: schemas.SaleCreate,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("pos_access")),
 ) -> Any:
     """
     Create a new POS sale.

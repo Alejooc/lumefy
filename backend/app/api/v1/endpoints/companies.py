@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core import auth
+from app.core.permissions import PermissionChecker
 from app.models.user import User
 from app.models.company import Company
 from app.schemas import company as schemas
@@ -15,7 +16,7 @@ router = APIRouter()
 @router.get("/me", response_model=schemas.Company)
 async def read_current_company(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_company")),
 ) -> Any:
     """
     Get current user's company details.
@@ -35,7 +36,7 @@ async def read_current_company(
 async def update_current_company(
     company_in: schemas.CompanyUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_company")),
 ) -> Any:
     """
     Update current user's company details.

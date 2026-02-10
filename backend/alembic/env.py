@@ -24,7 +24,12 @@ from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement
 from app.models.sale import Sale, SaleItem, Payment
 from app.models.client import Client
-# Add other models as they are created
+from app.models.audit import AuditLog
+from app.models.supplier import Supplier
+from app.models.purchase import PurchaseOrder
+from app.models.purchase_item import PurchaseOrderItem
+from app.models.pricelist import PriceList
+from app.models.pricelist_item import PriceListItem
 
 from app.core.config import settings
 

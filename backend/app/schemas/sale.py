@@ -47,10 +47,14 @@ class SaleBase(BaseModel):
     branch_id: UUID
     client_id: Optional[UUID] = None
     payment_method: Optional[str] = None
+    notes: Optional[str] = None
+    shipping_address: Optional[str] = None
+    valid_until: Optional[datetime] = None
 
 class SaleCreate(SaleBase):
     items: List[SaleItemCreate]
-    payments: List[PaymentCreate]
+    payments: Optional[List[PaymentCreate]] = [] # Optional for Quotes/Orders
+    status: Optional[str] = "DRAFT"
     # user_id comes from token
 
 class Sale(SaleBase):
@@ -60,6 +64,7 @@ class Sale(SaleBase):
     subtotal: float
     tax: float
     discount: float
+    shipping_cost: float
     total: float
     created_at: datetime
     updated_at: datetime

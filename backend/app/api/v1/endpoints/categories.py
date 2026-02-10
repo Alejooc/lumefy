@@ -8,6 +8,7 @@ from app.core import auth
 from app.core.database import get_db
 from app.models.category import Category
 from app.models.user import User
+from app.core.permissions import PermissionChecker
 
 router = APIRouter()
 
@@ -16,7 +17,7 @@ async def read_categories(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("view_products")),
 ) -> Any:
     """
     Retrieve categories.
@@ -34,7 +35,7 @@ async def create_category(
     *,
     db: AsyncSession = Depends(get_db),
     category_in: schemas.CategoryCreate,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """
     Create new category.
@@ -56,7 +57,7 @@ async def update_category(
     db: AsyncSession = Depends(get_db),
     category_id: uuid.UUID,
     category_in: schemas.CategoryUpdate,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """
     Update a category.
@@ -83,7 +84,7 @@ async def read_category(
     *,
     db: AsyncSession = Depends(get_db),
     category_id: uuid.UUID,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("view_products")),
 ) -> Any:
     """
     Get category by ID.
@@ -102,7 +103,7 @@ async def delete_category(
     *,
     db: AsyncSession = Depends(get_db),
     category_id: uuid.UUID,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """
     Delete a category (soft delete).

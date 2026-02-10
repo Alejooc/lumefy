@@ -1,0 +1,84 @@
+<div class="row">
+    <!-- Inventory Overview Cards -->
+    <div class="col-md-4">
+        <app-card [cardTitle]="'Valor en Inventario'" [showHeader]="true">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h3 class="fw-bolder mb-1">{{ currencySymbol }} {{ inventoryValue.total_value | number:'1.2-2' }}
+                    </h3>
+                    <div class="text-success fw-bold small">Total</div>
+                </div>
+                <div class="feature-icon bg-light-primary text-primary">
+                    <i class="feather icon-package fa-2x"></i>
+                </div>
+            </div>
+            <hr>
+            <div class="row text-center">
+                <div class="col-6 border-end">
+                    <h5 class="mb-0">{{ inventoryValue.total_items }}</h5>
+                    <small class="text-muted">Items Totales</small>
+                </div>
+                <div class="col-6">
+                    <h5 class="mb-0 text-danger">{{ inventoryValue.low_stock_items }}</h5>
+                    <small class="text-danger">Stock Bajo</small>
+                </div>
+            </div>
+        </app-card>
+    </div>
+
+    <!-- Sales Chart -->
+    <div class="col-md-8">
+        <app-card [cardTitle]="'Ventas Diarias (Últimos 7 días)'" [showHeader]="true">
+            <!-- Loading -->
+            <div *ngIf="isLoading" class="text-center p-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p>Cargando datos...</p>
+            </div>
+
+            <div *ngIf="!isLoading">
+                <apx-chart [series]="salesChartOptions.series" [chart]="salesChartOptions.chart"
+                    [xaxis]="salesChartOptions.xaxis" [plotOptions]="salesChartOptions.plotOptions"></apx-chart>
+            </div>
+        </app-card>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <!-- Top Products -->
+    <div class="col-md-6">
+        <app-card [cardTitle]="'Top Productos Vendidos'" [showHeader]="true">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th class="text-end">Cantidad</th>
+                            <th class="text-end">Ingresos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let product of topProducts">
+                            <td>{{ product.name }}</td>
+                            <td class="text-end fw-bold">{{ product.quantity }}</td>
+                            <td class="text-end">{{ currencySymbol }} {{ product.revenue | number:'1.2-2' }}</td>
+                        </tr>
+                        <tr *ngIf="topProducts.length === 0">
+                            <td colspan="3" class="text-center text-muted">No hay datos de ventas recientes.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </app-card>
+    </div>
+
+    <!-- Donut Chart -->
+    <div class="col-md-6">
+        <app-card [cardTitle]="'Distribución de Ventas'" [showHeader]="true">
+            <div class="d-flex justify-content-center">
+                <apx-chart [series]="topProductsChartOptions.series" [chart]="topProductsChartOptions.chart"
+                    [labels]="topProductsChartOptions.labels"
+                    [responsive]="topProductsChartOptions.responsive"></apx-chart>
+            </div>
+        </app-card>
+    </div>
+</div>

@@ -1,0 +1,74 @@
+<div class="print-container" *ngIf="sale">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>LISTA DE PREPARACIÓN DE PEDIDOS (PICKING)</h2>
+        <button class="btn btn-primary no-print" (click)="print()">
+            <i class="feather icon-printer"></i> Imprimir
+        </button>
+    </div>
+
+    <div class="meta-info">
+        <div class="meta-box">
+            <strong>Empresa / Cliente:</strong><br>
+            {{ sale.client?.name || 'Cliente Ocasional' }}<br>
+            <span *ngIf="sale.client?.address">{{ sale.client?.address }}<br></span>
+            <span *ngIf="sale.client?.phone">Tel: {{ sale.client?.phone }}</span>
+        </div>
+        <div class="meta-box text-end">
+            <strong>Orden #:</strong> {{ sale.id | slice:0:8 | uppercase }}<br>
+            <strong>Fecha Orden:</strong> {{ sale.created_at | date:'medium' }}<br>
+            <strong>Fecha Impresión:</strong> {{ currentDate | date:'medium' }}<br>
+            <strong>Sucursal:</strong> {{ sale.branch?.name }}
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th width="10%">[ ]</th>
+                <th>SKU</th>
+                <th>Producto</th>
+                <th>Ubicación</th>
+                <th class="text-center">Cant. Solicitada</th>
+                <th class="text-center">Stock Disp.</th>
+                <th>Notas / Lote</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let item of itemsWithLocation">
+                <td><input type="checkbox" style="transform: scale(1.5);"></td>
+                <td>{{ item.product?.sku }}</td>
+                <td>{{ item.product?.name }}</td>
+                <td><strong>{{ item.location }}</strong></td>
+                <td class="text-center"><strong>{{ item.quantity }}</strong></td>
+                <td class="text-center text-muted">{{ item.stock }}</td>
+                <td style="border-bottom: 1px dashed #ccc;"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="footer">
+        <div class="d-flex justify-content-between">
+            <div>
+                <p><strong>Notas de Entrega:</strong></p>
+                <div style="border: 1px solid #eee; height: 80px; width: 400px; padding: 10px;">
+                    {{ sale.notes || '' }}
+                </div>
+            </div>
+            <div>
+                <p><strong>Preparado Por:</strong></p>
+                <div class="sign-box"></div>
+            </div>
+            <div>
+                <p><strong>Verificado Por:</strong></p>
+                <div class="sign-box"></div>
+            </div>
+        </div>
+        <div class="text-center mt-5 text-muted small">
+            Generado por Lumefy ERP
+        </div>
+    </div>
+</div>
+
+<div *ngIf="loading" class="text-center mt-5">
+    Cargando datos de picking...
+</div>

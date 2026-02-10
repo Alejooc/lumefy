@@ -8,10 +8,10 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core import auth
 from app.models.user import User
+from app.core.permissions import PermissionChecker
 from app.models.sale import Sale, SaleItem
 from app.models.inventory import Inventory
 from app.models.product import Product
-
 router = APIRouter()
 
 class SalesSummary(BaseModel):
@@ -32,7 +32,7 @@ class InventoryValue(BaseModel):
 @router.get("/sales-summary", response_model=List[SalesSummary])
 async def get_sales_summary(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("view_reports")),
     days: int = 7
 ) -> Any:
     """
@@ -71,7 +71,7 @@ async def get_sales_summary(
 @router.get("/top-products", response_model=List[TopProduct])
 async def get_top_products(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("view_reports")),
     limit: int = 5
 ) -> Any:
     """
@@ -106,7 +106,7 @@ async def get_top_products(
 @router.get("/inventory-value", response_model=InventoryValue)
 async def get_inventory_value(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(auth.get_current_user)
+    current_user: User = Depends(PermissionChecker("view_reports"))
 ) -> Any:
     """
     Get total inventory value and status.

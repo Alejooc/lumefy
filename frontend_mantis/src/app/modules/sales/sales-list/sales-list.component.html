@@ -1,0 +1,76 @@
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Ventas y Cotizaciones</h5>
+                <div>
+                    <a [routerLink]="['/sales/quote']" class="btn btn-secondary btn-sm me-2">
+                        <i class="feather icon-file-text"></i> Nueva Cotización
+                    </a>
+                    <a [routerLink]="['/sales/order']" class="btn btn-primary btn-sm">
+                        <i class="feather icon-plus"></i> Nueva Venta
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <select class="form-select" [(ngModel)]="filterStatus" (change)="loadSales()">
+                            <option value="">Todos los Estados</option>
+                            <option value="QUOTE">Cotización</option>
+                            <option value="CONFIRMED">Confirmada</option>
+                            <option value="DISPATCHED">Despachada</option>
+                            <option value="DELIVERED">Entregada</option>
+                            <option value="CANCELLED">Cancelada</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th># ID</th>
+                                <th>Cliente</th>
+                                <th>Sucursal</th>
+                                <th>Fecha</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let sale of sales">
+                                <td>{{ sale.id | slice:0:8 }}</td>
+                                <td>{{ sale.client?.name || 'Cliente Casual' }}</td>
+                                <td>{{ sale.branch?.name }}</td>
+                                <td>{{ sale.created_at | date:'short' }}</td>
+                                <td>{{ sale.total | currency }}</td>
+                                <td>
+                                    <span [ngClass]="getStatusClass(sale.status)">
+                                        {{ getStatusLabel(sale.status) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a [routerLink]="['/sales/view', sale.id]"
+                                        class="btn btn-icon btn-outline-primary btn-sm">
+                                        <i class="feather icon-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr *ngIf="sales.length === 0 && !loading">
+                                <td colspan="7" class="text-center">No se encontraron ventas.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div *ngIf="loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

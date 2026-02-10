@@ -1,0 +1,95 @@
+<div class="row" *ngIf="purchase">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Orden de Compra: {{ purchase.id | slice:0:8 }}</h5>
+                <div>
+                    <span class="badge bg-secondary" *ngIf="purchase.status === 'DRAFT'">Borrador</span>
+                    <span class="badge bg-warning text-dark" *ngIf="purchase.status === 'VALIDATION'">Pendiente
+                        Validación</span>
+                    <span class="badge bg-primary" *ngIf="purchase.status === 'CONFIRMED'">Confirmada</span>
+                    <span class="badge bg-success" *ngIf="purchase.status === 'RECEIVED'">Recibida</span>
+                    <span class="badge bg-danger" *ngIf="purchase.status === 'CANCELLED'">Cancelada</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6>Proveedor</h6>
+                        <p>
+                            <strong>{{ purchase.supplier?.name }}</strong><br>
+                        </p>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <h6>Detalles</h6>
+                        <p>
+                            Fecha: {{ purchase.created_at | date }}<br>
+                            Esperada: {{ purchase.expected_date | date }}
+                        </p>
+                        <div *ngIf="purchase.notes">
+                            <strong>Notas:</strong> {{ purchase.notes }}
+                        </div>
+                        <div *ngIf="!purchase.branch_id" class="text-danger">
+                            <i class="feather icon-alert-triangle"></i> <strong>Sin Sucursal de Destino</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-end">Cantidad</th>
+                                <th class="text-end">Costo Unitario</th>
+                                <th class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let item of purchase.items">
+                                <td>{{ item.product?.name || item.product_id }}</td>
+                                <td class="text-end">{{ item.quantity }}</td>
+                                <td class="text-end">{{ item.unit_cost | currency }}</td>
+                                <td class="text-end">{{ (item.quantity * item.unit_cost) | currency }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" class="text-end"><strong>Total</strong></td>
+                                <td class="text-end"><strong>{{ purchase.total_amount | currency }}</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button class="btn btn-secondary" [routerLink]="['/purchasing/orders']">Volver</button>
+
+                    <ng-container *ngIf="purchase.status === 'DRAFT'">
+                        <button class="btn btn-warning" (click)="updateStatus('VALIDATION')" [disabled]="loading">Enviar
+                            a Validación</button>
+                        <button class="btn btn-danger" (click)="updateStatus('CANCELLED')"
+                            [disabled]="loading">Cancelar</button>
+                    </ng-container>
+
+                    <ng-container *ngIf="purchase.status === 'VALIDATION'">
+                        <button class="btn btn-primary" (click)="updateStatus('CONFIRMED')" [disabled]="loading">Aprobar
+                            y Confirmar</button>
+                        <button class="btn btn-outline-danger" (click)="updateStatus('CANCELLED')"
+                            [disabled]="loading">Rechazar / Cancelar</button>
+                    </ng-container>
+
+                    <ng-container *ngIf="purchase.status === 'CONFIRMED'">
+                        <button class="btn btn-success" (click)="updateStatus('RECEIVED')" [disabled]="loading">Recibir
+                            Productos</button>
+                        <button class="btn btn-outline-danger" (click)="updateStatus('CANCELLED')"
+                            [disabled]="loading">Cancelar</button>
+                    </ng-container>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div *ngIf="!purchase && !loading" class="alert alert-warning">
+    Orden de Compra no encontrada.
+</div>

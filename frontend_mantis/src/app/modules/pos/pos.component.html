@@ -1,0 +1,134 @@
+<div class="row">
+    <!-- Left Column: Product Selection -->
+    <div class="col-md-7">
+        <app-card [showHeader]="false">
+            <div class="mb-4">
+                <label class="form-label fw-bold">Buscar Producto</label>
+                <ng-select [items]="products" bindLabel="name" bindValue="id" [typeahead]="productSearchInput$"
+                    [loading]="isLoading" placeholder="Escribe nombre o SKU (Ej: 'Coca Cola')"
+                    notFoundText="No encontrado" (change)="addToCart($event)">
+                    <ng-template ng-option-tmp let-item="item">
+                        <div class="d-flex justify-content-between">
+                            <span>{{item.name}}</span>
+                            <span class="badge bg-light-primary text-primary">$ {{item.price}}</span>
+                        </div>
+                        <small class="text-muted">SKU: {{item.sku}} | Stock: Disp.</small> <!-- Todo: Add stock -->
+                    </ng-template>
+                </ng-select>
+            </div>
+
+            <!-- Quick Categories / Favorites Grid could go here -->
+            <div class="alert alert-secondary" *ngIf="products.length === 0 && !isLoading">
+                <i class="fas fa-info-circle me-2"></i> Usa el buscador para encontrar productos.
+            </div>
+
+            <!-- Product Grid (Optional implementation for later) -->
+            <div class="row" *ngIf="products.length > 0">
+                <div class="col-md-4 mb-3" *ngFor="let p of products | slice:0:6">
+                    <div class="card h-100 border cursor-pointer product-card" (click)="addToCart(p)">
+                        <div class="card-body text-center p-3">
+                            <h6 class="mb-1 text-truncate">{{p.name}}</h6>
+                            <span class="badge bg-success">{{currencySymbol}} {{p.price}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </app-card>
+    </div>
+
+    <!-- Right Column: Cart & Checkout -->
+    <div class="col-md-5">
+        <app-card [showHeader]="false">
+            <!-- Client Selection -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Cliente</label>
+                <ng-select [items]="clients" bindLabel="name" bindValue="id" [typeahead]="clientSearch$"
+                    [(ngModel)]="selectedClientId" placeholder="Seleccionar Cliente (Opcional)"
+                    notFoundText="No encontrado">
+                </ng-select>
+            </div>
+
+            <!-- Cart Header -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Ticket de Venta</h5>
+                <button class="btn btn-sm btn-outline-danger" (click)="resetCart()" *ngIf="cart.length > 0">
+                    <i class="fas fa-trash"></i> Limpiar
+                </button>
+            </div>
+
+            <!-- Cart Items -->
+            <div class="cart-items mb-3" style="max-height: 400px; overflow-y: auto;">
+                <div class="alert alert-warning text-center" *ngIf="cart.length === 0">
+                    Carrito vacío
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center p-2 border-bottom"
+                    *ngFor="let item of cart; let i = index">
+                    <div style="flex: 1;">
+                        <h6 class="mb-0">{{item.product.name}}</h6>
+                        <small class="text-muted">{{currencySymbol}} {{item.price}} x {{item.quantity}}</small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-icon btn-link-secondary btn-sm" (click)="updateQuantity(item, -1)">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <span class="mx-2 fw-bold">{{item.quantity}}</span>
+                        <button class="btn btn-icon btn-link-secondary btn-sm" (click)="updateQuantity(item, 1)">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="text-end ms-3" style="width: 80px;">
+                        <span class="fw-bold d-block">{{currencySymbol}} {{item.total | number:'1.2-2'}}</span>
+                        <button class="btn btn-link-danger btn-sm p-0" (click)="removeItem(i)">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Totals -->
+            <div class="border-top pt-3 mt-auto">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Subtotal</span>
+                    <span class="fw-bold">{{currencySymbol}} {{subtotal | number:'1.2-2'}}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-3">
+                    <span class="h4 mb-0">Total</span>
+                    <span class="h4 text-primary mb-0">{{currencySymbol}} {{total | number:'1.2-2'}}</span>
+                </div>
+
+                <!-- Payment Controls -->
+                <div class="card bg-light p-3 mb-3">
+                    <div class="mb-2">
+                        <label class="form-label">Método de Pago</label>
+                        <select class="form-select" [(ngModel)]="paymentMethod">
+                            <option value="CASH">Efectivo</option>
+                            <option value="CARD">Tarjeta</option>
+                            <option value="TRANSFER">Transferencia</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-2" *ngIf="paymentMethod === 'CASH'">
+                        <label class="form-label">Paga con</label>
+                        <input type="number" class="form-control form-control-lg" [(ngModel)]="amountPaid"
+                            (ngModelChange)="updateChange()">
+                    </div>
+
+                    <div class="d-flex justify-content-between text-success fw-bold" *ngIf="paymentMethod === 'CASH'">
+                        <span>Cambio:</span>
+                        <span>{{currencySymbol}} {{change | number:'1.2-2'}}</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary w-100 btn-lg"
+                    [disabled]="cart.length === 0 || isProcessing || (paymentMethod === 'CASH' && amountPaid < total)"
+                    (click)="processSale()">
+                    <i class="fas fa-check-circle me-2" *ngIf="!isProcessing"></i>
+                    <span *ngIf="isProcessing" class="spinner-border spinner-border-sm me-2"></span>
+                    {{ isProcessing ? 'Procesando...' : 'Cobrar ' + currencySymbol + ' ' + (total | number:'1.2-2') }}
+                </button>
+            </div>
+        </app-card>
+    </div>
+</div>

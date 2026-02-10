@@ -1,0 +1,58 @@
+<div class="row">
+    <div class="col-sm-12">
+        <app-card [cardTitle]="'Historial de Movimientos (Kardex)'">
+            <ng-template #headerOptionsTemplate>
+                <button class="btn btn-secondary" (click)="goBack()">
+                    <i class="feather icon-arrow-left"></i> Volver
+                </button>
+            </ng-template>
+
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Cantidad</th>
+                            <th>Stock Anterior</th>
+                            <th>Stock Nuevo</th>
+                            <th>Referencia</th>
+                            <th>Motivo</th>
+                            <th>Usuario</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let m of movements">
+                            <td>{{ m.created_at | date:'medium' }}</td>
+                            <td>
+                                <span class="badge" [ngClass]="{
+                                    'bg-success': m.type === 'IN',
+                                    'bg-danger': m.type === 'OUT',
+                                    'bg-warning text-dark': m.type === 'ADJ',
+                                    'bg-info': m.type === 'TRF'
+                                }">{{ m.type }}</span>
+                            </td>
+                            <td [ngClass]="{'text-success': m.quantity > 0, 'text-danger': m.quantity < 0}">
+                                {{ m.quantity > 0 ? '+' : '' }}{{ m.quantity }}
+                            </td>
+                            <td>{{ m.previous_stock }}</td>
+                            <td><strong>{{ m.new_stock }}</strong></td>
+                            <td>{{ m.reference_id || '-' }}</td>
+                            <td>{{ m.reason || '-' }}</td>
+                            <td>{{ m.user?.full_name || 'Desconocido' }}</td>
+                        </tr>
+                        <tr *ngIf="movements.length === 0 && !isLoading">
+                            <td colspan="8" class="text-center">No hay movimientos registrados para este producto.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div *ngIf="isLoading" class="text-center p-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+        </app-card>
+    </div>
+</div>

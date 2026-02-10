@@ -1,0 +1,46 @@
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Audit Logs</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Entity Type</th>
+                                <th>Entity ID</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (log of logs; track log.id) {
+                            <tr>
+                                <td>{{ log.created_at | date:'medium' }}</td>
+                                <td>{{ log.user_id }}</td>
+                                <!-- Ideally join with user name, but ID is fine for MVP -->
+                                <td><span class="badge" [ngClass]="getBadgeClass(log.action)">{{ log.action }}</span>
+                                </td>
+                                <td>{{ log.entity_type }}</td>
+                                <td>{{ log.entity_id }}</td>
+                                <td>
+                                    <pre
+                                        style="max-height: 100px; overflow: auto; font-size: 0.8rem;">{{ log.details | json }}</pre>
+                                </td>
+                            </tr>
+                            } @empty {
+                            <tr>
+                                <td colspan="6" class="text-center">No logs found</td>
+                            </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,50 @@
+<div class="row">
+    <div class="col-sm-12">
+        <app-card cardTitle="Importar Productos Masivamente">
+            <div class="alert alert-info">
+                <h5><i class="feather icon-info"></i> Instrucciones</h5>
+                <p>Sube un archivo Excel (.xlsx) o CSV con las siguientes columnas:</p>
+                <ul>
+                    <li><strong>name</strong> (Requerido): Nombre del producto</li>
+                    <li><strong>sku</strong>: Código del producto</li>
+                    <li><strong>price</strong>: Precio de venta</li>
+                    <li><strong>cost</strong>: Costo</li>
+                    <li><strong>stock</strong>: Stock inicial</li>
+                    <li><strong>category_name</strong>: Nombre de la categoría (se creará si no existe)</li>
+                </ul>
+            </div>
+
+            <div class="form-group mb-4">
+                <label for="fileInput" class="form-label">Seleccionar Archivo</label>
+                <input type="file" class="form-control" id="fileInput" (change)="onFileSelected($event)"
+                    accept=".csv, .xlsx, .xls">
+            </div>
+
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" (click)="uploadFile()" [disabled]="!file || isLoading">
+                    <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-1" role="status"
+                        aria-hidden="true"></span>
+                    <i *ngIf="!isLoading" class="feather icon-upload me-1"></i> Importar
+                </button>
+                <button class="btn btn-secondary" (click)="cancel()">Cancelar</button>
+            </div>
+
+            <!-- Results Report -->
+            <div *ngIf="importResult" class="mt-4">
+                <div class="alert alert-success" *ngIf="importResult.count > 0">
+                    <i class="feather icon-check-circle"></i> {{ importResult.count }} productos importados
+                    correctamente.
+                </div>
+
+                <div class="card border-danger" *ngIf="importResult.errors && importResult.errors.length > 0">
+                    <div class="card-header bg-danger text-white">Errores de Importación</div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item text-danger" *ngFor="let error of importResult.errors">
+                            {{ error }}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </app-card>
+    </div>
+</div>

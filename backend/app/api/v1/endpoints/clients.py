@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import auth
+from app.core.permissions import PermissionChecker
 from app.core.database import get_db
 from app.models.client import Client
 from app.models.user import User
@@ -17,7 +18,7 @@ async def read_clients(
     skip: int = 0,
     limit: int = 100,
     q: str = Query(None, min_length=1),
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_clients")),
 ) -> Any:
     """
     Retrieve clients.
@@ -42,7 +43,7 @@ async def create_client(
     *,
     db: AsyncSession = Depends(get_db),
     client_in: schemas.ClientCreate,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_clients")),
 ) -> Any:
     """
     Create new client.
@@ -63,7 +64,7 @@ async def read_client(
     *,
     db: AsyncSession = Depends(get_db),
     client_id: UUID,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_clients")),
 ) -> Any:
     """
     Get client by ID.
@@ -86,7 +87,7 @@ async def update_client(
     db: AsyncSession = Depends(get_db),
     client_id: UUID,
     client_in: schemas.ClientUpdate,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_clients")),
 ) -> Any:
     """
     Update a client.
@@ -117,7 +118,7 @@ async def delete_client(
     *,
     db: AsyncSession = Depends(get_db),
     client_id: UUID,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_clients")),
 ) -> Any:
     """
     Delete a client.

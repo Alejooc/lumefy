@@ -11,8 +11,12 @@ from app.models.product import Product
 from app.models.client import Client
 
 class SaleStatus(str, enum.Enum):
+    QUOTE = "QUOTE"
     DRAFT = "DRAFT"
-    COMPLETED = "COMPLETED"
+    CONFIRMED = "CONFIRMED" # Order confirmed, stock reserved
+    DISPATCHED = "DISPATCHED" # Shipped
+    DELIVERED = "DELIVERED"
+    COMPLETED = "COMPLETED" # Paid and done
     CANCELLED = "CANCELLED"
 
 class Sale(BaseModel):
@@ -27,9 +31,15 @@ class Sale(BaseModel):
     subtotal: Mapped[float] = mapped_column(Float, default=0.0)
     tax: Mapped[float] = mapped_column(Float, default=0.0)
     discount: Mapped[float] = mapped_column(Float, default=0.0)
+    shipping_cost: Mapped[float] = mapped_column(Float, default=0.0)
     total: Mapped[float] = mapped_column(Float, default=0.0)
     
     payment_method: Mapped[str] = mapped_column(String, nullable=True) # CASH, CARD, MIXED
+    
+    # B2B Fields
+    valid_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True) # For Quotes
+    shipping_address: Mapped[str] = mapped_column(String, nullable=True)
+    notes: Mapped[str] = mapped_column(String, nullable=True)
     
     # Relationships
     branch = relationship(Branch)

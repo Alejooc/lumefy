@@ -1,0 +1,63 @@
+<div class="row">
+    <div class="col-sm-12">
+        <app-card [cardTitle]="isEditMode ? 'Edit Product' : 'New Product'">
+            <form [formGroup]="form" (ngSubmit)="onSubmit()">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Name *</label>
+                        <input type="text" class="form-control" formControlName="name" placeholder="Product Name">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">SKU</label>
+                        <input type="text" class="form-control" formControlName="sku" placeholder="SKU">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Barcode</label>
+                        <input type="text" class="form-control" formControlName="barcode" placeholder="EAN / UPC">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Category</label>
+                        <select class="form-control" formControlName="category_id">
+                            <option [ngValue]="null">-- Select Category --</option>
+                            <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
+                        </select>
+                    </div>
+                </div>
+
+
+
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Sales Price *</label>
+                        <input type="number" class="form-control" formControlName="price">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Cost</label>
+                        <input type="number" class="form-control" formControlName="cost">
+                    </div>
+                    <div class="col-md-3 mb-3 text-center pt-4">
+                        <div class="form-check form-switch d-inline-block">
+                            <input class="form-check-input" type="checkbox" id="checkInventory"
+                                formControlName="check_inventory">
+                            <label class="form-check-label" for="checkInventory">Track Inventory</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Min Stock</label>
+                        <input type="number" class="form-control" formControlName="min_stock">
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                    <button type="button" class="btn btn-secondary" routerLink="/products">Cancel</button>
+                    <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isLoading">
+                        {{ isEditMode ? 'Update' : 'Create' }}
+                    </button>
+                </div>
+            </form>
+        </app-card>
+    </div>
+</div>

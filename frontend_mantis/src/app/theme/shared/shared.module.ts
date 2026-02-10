@@ -21,9 +21,12 @@ import {
   NgbDatepickerModule
 } from '@ng-bootstrap/ng-bootstrap';
 
+import { HasPermissionDirective } from './directives/has-permission.directive';
+
 @NgModule({
   declarations: [],
   imports: [
+    HasPermissionDirective,
     CommonModule,
     NgbDropdownModule,
     NgbNavModule,
@@ -53,7 +56,8 @@ import {
     FormsModule,
     ReactiveFormsModule,
     CardComponent,
-    IconDirective
+    IconDirective,
+    HasPermissionDirective
   ]
 })
 export class SharedModule { }

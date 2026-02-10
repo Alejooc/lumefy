@@ -10,17 +10,28 @@ from app.core.database import get_db
 from app.core.security import get_password_hash
 from app.core.security import get_password_hash
 from app.models.user import User
-from app.core.permissions import PermissionChecker # Added Import
+from app.core.permissions import PermissionChecker 
+from app.core.audit import log_activity
 from app.schemas import user as schemas
 
 router = APIRouter()
+
+@router.get("/me", response_model=schemas.User)
+async def read_user_me(
+    current_user: User = Depends(auth.get_current_user),
+) -> Any:
+    """
+    Get current user.
+    """
+    print(f"DEBUG: /me called. User: {current_user.email}, Role: {current_user.role}")
+    return current_user
 
 @router.get("/", response_model=List[schemas.User])
 async def read_users(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_users")),
 ) -> Any:
     """
     Retrieve users.
@@ -35,7 +46,7 @@ async def read_user(
     *,
     db: AsyncSession = Depends(get_db),
     user_id: UUID,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_users")),
 ) -> Any:
     """
     Get user by ID.
@@ -58,7 +69,7 @@ async def create_user(
     *,
     db: AsyncSession = Depends(get_db),
     user_in: schemas.UserCreate,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_users")),
 ) -> Any:
     """
     Create new user.
@@ -87,6 +98,17 @@ async def create_user(
         result = await db.execute(query)
         user = result.scalars().first()
         
+        # Log Activity
+        await log_activity(
+            db,
+            action="CREATE",
+            entity_type="User",
+            entity_id=user.id,
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            details={"email": user.email, "role": user.role_id}
+        )
+
         return user
     except Exception as e:
         await db.rollback()
@@ -100,7 +122,7 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
     user_id: UUID,
     user_in: schemas.UserUpdate,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_users")),
 ) -> Any:
     """
     Update a user.
@@ -135,6 +157,17 @@ async def update_user(
         result = await db.execute(query)
         user = result.scalars().first()
         
+        # Log Activity
+        await log_activity(
+            db,
+            action="UPDATE",
+            entity_type="User",
+            entity_id=user.id,
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            details=update_data
+        )
+
         return user
     except Exception as e:
         await db.rollback()
@@ -147,7 +180,7 @@ async def delete_user(
     *,
     db: AsyncSession = Depends(get_db),
     user_id: UUID,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_users")),
 ) -> Any:
     """
     Delete a user.
@@ -168,4 +201,15 @@ async def delete_user(
         
     await db.delete(user)
     await db.commit()
+    
+    # Log Activity
+    await log_activity(
+        db,
+        action="DELETE",
+        entity_type="User",
+        entity_id=user_id,
+        user_id=current_user.id,
+        company_id=current_user.company_id
+    )
+    
     return user

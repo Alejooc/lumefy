@@ -7,6 +7,7 @@ from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.user import User
 from app.core import auth
+from app.core.permissions import PermissionChecker
 from app.schemas import inventory as schemas
 import datetime
 
@@ -19,7 +20,7 @@ async def read_inventory(
     db: AsyncSession = Depends(get_db),
     branch_id: str = None,
     product_id: str = None,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("view_inventory")),
 ) -> Any:
     """
     Retrieve current stock. Use filters needed.
@@ -46,7 +47,7 @@ async def create_movement(
     *,
     db: AsyncSession = Depends(get_db),
     movement_in: schemas.MovementCreate,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """
     Register a stock movement (IN/OUT/ADJ/TRF).
@@ -141,7 +142,7 @@ async def read_movements(
     product_id: str = None,
     branch_id: str = None,
     limit: int = 50,
-    current_user: User = Depends(auth.get_current_user),
+    current_user: User = Depends(PermissionChecker("view_inventory")),
 ) -> Any:
     """
     Get movement history.
