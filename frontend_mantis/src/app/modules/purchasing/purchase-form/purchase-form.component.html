@@ -5,21 +5,48 @@
                 <h5>New Purchase Order</h5>
             </div>
             <div class="card-body">
-                <form [formGroup]="purchaseForm" (ngSubmit)="onSubmit()">
+                <div *ngIf="loading" class="d-flex justify-content-center align-items-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">Loading...</span>
+                    </div>
+                </div>
+                <form [formGroup]="purchaseForm" (ngSubmit)="onSubmit()" *ngIf="!loading">
 
                     <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Supplier</label>
+                            <label class="form-label">Proveedor</label>
                             <select class="form-select" formControlName="supplier_id"
                                 [class.is-invalid]="purchaseForm.get('supplier_id')?.invalid && purchaseForm.get('supplier_id')?.touched">
-                                <option value="">Select Supplier</option>
+                                <option value="">Seleccionar Proveedor</option>
                                 <option *ngFor="let s of suppliers" [value]="s.id">{{ s.name }}</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Expected Date</label>
+                            <label class="form-label">Sucursal (Destino)</label>
+                            <select class="form-select" formControlName="branch_id"
+                                [class.is-invalid]="purchaseForm.get('branch_id')?.invalid && purchaseForm.get('branch_id')?.touched">
+                                <option value="">Seleccionar Sucursal</option>
+                                <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+                            </select>
+                            <div *ngIf="purchaseForm.get('branch_id')?.invalid && purchaseForm.get('branch_id')?.touched"
+                                class="invalid-feedback">
+                                La sucursal es requerida
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Lista de Precios</label>
+                            <select class="form-select" formControlName="price_list_id">
+                                <option value="">Ninguna (Costo Manual)</option>
+                                <option *ngFor="let pl of priceLists" [value]="pl.id">{{ pl.name }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha Esperada</label>
                             <input type="date" class="form-control" formControlName="expected_date">
                         </div>
                     </div>

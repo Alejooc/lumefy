@@ -38,6 +38,23 @@ export const NavigationItems: NavigationItem[] = [
     ]
   },
   {
+    id: 'admin',
+    title: 'Super Admin',
+    type: 'group',
+    icon: 'icon-navigation',
+    permissions: ['manage_saas'],
+    children: [
+      {
+        id: 'companies',
+        title: 'Empresas',
+        type: 'item',
+        url: '/admin/companies',
+        classes: 'nav-item',
+        icon: 'deployment-unit'
+      }
+    ]
+  },
+  {
     id: 'inventory',
     title: 'Catálogo',
     type: 'group',
@@ -130,6 +147,15 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'calculator',
         breadcrumbs: false,
         permissions: ['pos_access']
+      },
+      {
+        id: 'sales-list',
+        title: 'Pedidos / Cotizaciones',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/sales',
+        icon: 'file-text',
+        permissions: ['view_sales']
       }
     ]
   },
@@ -146,7 +172,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/reports',
-        icon: 'bar-chart',
+        icon: 'area-chart',
         breadcrumbs: false,
         permissions: ['view_reports']
       }
@@ -164,7 +190,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/clients',
-        icon: 'users',
+        icon: 'user',
         breadcrumbs: false,
         permissions: ['view_clients']
       },
@@ -187,95 +213,16 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'file-text',
         breadcrumbs: false,
         permissions: ['view_reports']
-      }
-    ]
-  },
-  {
-    id: 'authentication',
-    title: 'Authentication',
-    type: 'group',
-    icon: 'icon-navigation',
-    children: [
-      {
-        id: 'login',
-        title: 'Login',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/login',
-        icon: 'login',
-        target: true,
-        breadcrumbs: false
       },
       {
-        id: 'register',
-        title: 'Register',
+        id: 'branches',
+        title: 'Sucursales',
         type: 'item',
         classes: 'nav-item',
-        url: '/register',
-        icon: 'profile',
-        target: true,
-        breadcrumbs: false
-      }
-    ]
-  },
-  {
-    id: 'utilities',
-    title: 'UI Components',
-    type: 'group',
-    icon: 'icon-navigation',
-    children: [
-      {
-        id: 'typography',
-        title: 'Typography',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/typography',
-        icon: 'font-size'
-      },
-      {
-        id: 'color',
-        title: 'Colors',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/color',
-        icon: 'bg-colors'
-      },
-      {
-        id: 'ant-icons',
-        title: 'Ant Icons',
-        type: 'item',
-        classes: 'nav-item',
-        url: 'https://ant.design/components/icon',
-        icon: 'ant-design',
-        target: true,
-        external: true
-      }
-    ]
-  },
-
-  {
-    id: 'other',
-    title: 'Other',
-    type: 'group',
-    icon: 'icon-navigation',
-    children: [
-      {
-        id: 'sample-page',
-        title: 'Sample Page',
-        type: 'item',
-        url: '/sample-page',
-        classes: 'nav-item',
-        icon: 'chrome'
-      },
-      {
-        id: 'document',
-        title: 'Document',
-        type: 'item',
-        classes: 'nav-item',
-        url: 'https://jacode.varyago.com/',
-        icon: 'question',
-        target: true,
-        external: true
+        url: '/branches',
+        icon: 'layout',
+        breadcrumbs: false,
+        permissions: ['manage_settings']
       }
     ]
   }

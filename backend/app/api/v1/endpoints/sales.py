@@ -17,7 +17,7 @@ from datetime import datetime
 
 router = APIRouter()
 
-@router.get("/", response_model=List[schemas.Sale])
+@router.get("/", response_model=List[schemas.SaleSummary])
 async def read_sales(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
@@ -85,54 +85,69 @@ async def create_sale(
     Create a new Sale (Quote or Order).
     Does NOT affect inventory immediately unless status is CONFIRMED (which shouldn't be initial status usually).
     """
-    # 1. Create Sale Header
-    sale = Sale(
-        branch_id=sale_in.branch_id,
-        user_id=current_user.id,
-        client_id=sale_in.client_id,
-        status=sale_in.status if sale_in.status else SaleStatus.DRAFT,
-        payment_method=sale_in.payment_method,
-        notes=sale_in.notes,
-        shipping_address=sale_in.shipping_address,
-        valid_until=sale_in.valid_until,
-        subtotal=0.0,
-        tax=0.0,
-        discount=0.0,
-        total=0.0
-    )
-    db.add(sale)
-    await db.flush()
-    
-    total_amount = 0.0
-    
-    # 2. Process Items
-    for item_in in sale_in.items:
-        # Get Product
-        result = await db.execute(select(Product).where(Product.id == item_in.product_id))
-        product = result.scalars().first()
-        if not product:
-            continue 
-        
-        item_total = (item_in.price * item_in.quantity) - item_in.discount
-        total_amount += item_total
-        
-        sale_item = SaleItem(
-            sale_id=sale.id,
-            product_id=item_in.product_id,
-            quantity=item_in.quantity,
-            price=item_in.price,
-            discount=item_in.discount,
-            total=item_total
+    try:
+        # 1. Create Sale Header
+        sale = Sale(
+            branch_id=sale_in.branch_id,
+            user_id=current_user.id,
+            client_id=sale_in.client_id,
+            status=sale_in.status if sale_in.status else SaleStatus.DRAFT,
+            payment_method=sale_in.payment_method,
+            notes=sale_in.notes,
+            shipping_address=sale_in.shipping_address,
+            valid_until=sale_in.valid_until,
+            subtotal=0.0,
+            tax=0.0,
+            discount=0.0,
+            total=0.0
         )
-        db.add(sale_item)
+        db.add(sale)
+        await db.flush()
         
-    # 3. Finalize
-    sale.subtotal = total_amount
-    sale.total = total_amount # + tax + shipping
-    
-    await db.commit()
-    await db.refresh(sale)
-    return sale
+        total_amount = 0.0
+        
+        # 2. Process Items
+        for item_in in sale_in.items:
+            # Get Product
+            result = await db.execute(select(Product).where(Product.id == item_in.product_id))
+            product = result.scalars().first()
+            if not product:
+                continue 
+            
+            item_total = (item_in.price * item_in.quantity) - item_in.discount
+            total_amount += item_total
+            
+            sale_item = SaleItem(
+                sale_id=sale.id,
+                product_id=item_in.product_id,
+                quantity=item_in.quantity,
+                price=item_in.price,
+                discount=item_in.discount,
+                total=item_total
+            )
+            db.add(sale_item)
+            
+        # 3. Finalize
+        sale.subtotal = total_amount
+        sale.total = total_amount # + tax + shipping
+        
+        await db.commit()
+        
+        # Eager load for response
+        query = select(Sale).options(
+            selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(Sale.payments),
+            selectinload(Sale.client),
+            selectinload(Sale.user),
+            selectinload(Sale.branch)
+        ).where(Sale.id == sale.id)
+        
+        result = await db.execute(query)
+        return result.scalars().first()
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/{id}/status", response_model=schemas.Sale)
 async def update_status(
@@ -146,7 +161,11 @@ async def update_status(
     Update Sale status. Handles inventory logic.
     """
     query = select(Sale).options(
-        selectinload(Sale.items).selectinload(SaleItem.product)
+        selectinload(Sale.items).selectinload(SaleItem.product),
+        selectinload(Sale.payments),
+        selectinload(Sale.client),
+        selectinload(Sale.user),
+        selectinload(Sale.branch)
     ).where(Sale.id == id)
     result = await db.execute(query)
     sale = result.scalars().first()
@@ -229,5 +248,17 @@ async def update_status(
     
     sale.status = new_status
     await db.commit()
-    await db.refresh(sale)
+    
+    # Reload with eager relationships for response
+    query = select(Sale).options(
+        selectinload(Sale.items).selectinload(SaleItem.product),
+        selectinload(Sale.payments),
+        selectinload(Sale.client),
+        selectinload(Sale.user),
+        selectinload(Sale.branch)
+    ).where(Sale.id == id)
+    
+    result = await db.execute(query)
+    sale = result.scalars().first()
+    
     return sale

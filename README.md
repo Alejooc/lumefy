@@ -1,8 +1,8 @@
-# <p align="center">🚀 Lumefy: Light up your Business 💡</p>
+# <p align="center">🚀 Lumefy: Ilumina tu Negocio 💡</p>
 
 <p align="center">
-  <b>The all-in-one SaaS powerhouse for the modern entrepreneur.</b><br>
-  <i>Scalable. Modular. Built for Growth.</i>
+  <b>La plataforma SaaS todo-en-uno para el emprendedor moderno.</b><br>
+  <i>Escalable. Modular. Diseñado para Crecer.</i>
 </p>
 
 <p align="center">
@@ -13,70 +13,73 @@
 
 ---
 
-## 👋 What is Lumefy?
+## 👋 ¿Qué es Lumefy?
 
-Forget clunky legacy systems. **Lumefy** is the modern soul of your business. Whether you're running a boutique coffee shop or a multi-branch retail empire, Lumefy gives you the tools to manage **Inventory, POS, CRM, and ERP** through a single, stunning interface.
+Olvídate de los sistemas antiguos y complicados. **Lumefy** es el alma moderna de tu negocio. Ya sea que dirijas una cafetería boutique o un imperio minorista con múltiples sucursales, Lumefy te da las herramientas para gestionar **Inventario, POS (Punto de Venta), CRM y ERP** a través de una interfaz única e impresionante.
 
-### ✨ Why you'll love it:
+### ✨ Por qué te encantará:
 
-*   **🏢 Multi-Everything**: Manage multiple companies and branches from one account. Scale without limits.
-*   **⚡ Blazing Fast POS**: Designed for speed. Keep your customers happy and your sales flowing.
-*   **📦 Stock Magic**: Live inventory tracking. Never run out of your bestsellers again.
-*   **👥 Team Power**: Precision roles and permissions. Give everyone the tools they need, and nothing more.
-*   **📊 Smart Insights**: Beautiful charts that actually tell a story. Know your numbers, grow your business.
-
----
-
-## 🛠️ The Tech Sauce
-
-We didn't compromise on quality. Lumefy is built with the world's most loved technologies:
-
--   **Backend**: [FastAPI](https://fastapi.tiangolo.com/) – For lightning-fast performance and clean Python code.
--   **Frontend**: [Angular](https://angular.io/) – Using the premium **Mantis** template for a world-class UI/UX.
--   **Database**: [PostgreSQL](https://www.postgresql.org/) – Reliable, scalable, and powerful.
--   **Deployment**: [Docker](https://www.docker.com/) – Because "it works on my machine" is a thing of the past.
+*   **🏢 Multi-Todo**: Gestiona múltiples compañías y sucursales desde una sola cuenta. Escala sin límites (Arquitectura SaaS).
+*   **⚡ POS Ultra Rápido**: Diseñado para la velocidad. Mantén a tus clientes felices y tus ventas fluyendo.
+*   **📦 Magia de Stock**: Seguimiento de inventario en vivo entre sucursales. Nunca te quedes sin tus productos más vendidos.
+*   **🛍️ Compras y Ventas**: Ciclo completo de abastecimiento (Proveedores, Órdenes de Compra) y Ventas (Cotizaciones, Pedidos, Facturación).
+*   **👥 Poder de Equipo**: Roles y permisos precisos (RBAC). Dale a cada quien las herramientas que necesita, y nada más.
+*   **📊 Insights Inteligentes**: Gráficos hermosos que realmente cuentan una historia. Conoce tus números, haz crecer tu negocio.
 
 ---
 
-## 🏗️ Architecture at a Glance
+## 🛠️ La Tecnología
+
+No comprometemos la calidad. Lumefy está construido con las tecnologías más amadas del mundo:
+
+-   **Backend**: [FastAPI](https://fastapi.tiangolo.com/) – Para un rendimiento ultrarrápido y código Python limpio.
+-   **Frontend**: [Angular](https://angular.io/) – Usando la plantilla premium **Mantis** para una UI/UX de clase mundial.
+-   **Base de Datos**: [PostgreSQL](https://www.postgresql.org/) – Confiable, escalable y potente.
+-   **Despliegue**: [Docker](https://www.docker.com/) – Porque "funciona en mi máquina" es cosa del pasado.
+
+---
+
+## 🏗️ Arquitectura de un Vistazo
 
 ```mermaid
 graph TD
-    A[Global Cloud] --> B{Lumefy Gateway}
-    B -->|User Interface| C[Angular 17+ App]
-    B -->|API Traffic| D[FastAPI Backend]
-    D --> E[(PostgreSQL DB)]
-    D --> F[Tenant Logic]
+    A[Nube Global] --> B{Lumefy Gateway}
+    B -->|Interfaz de Usuario| C[App Angular 17+]
+    B -->|Tráfico API| D[Backend FastAPI]
+    D --> E[(Base de Datos PostgreSQL)]
+    D --> F[Lógica Multi-Tenant]
 ```
 
 ---
 
-## 🏁 Get Started in 5 Minutes
+## 🏁 Comienza en 5 Minutos
 
-Ready to see the magic? Here's how to get running.
+¿Listo para ver la magia? Así es como lo pones en marcha.
 
-### 🐳 The Docker Way (Recommended)
+### 🐳 La Vía Docker (Recomendado)
 ```bash
-# 1. Grab the code
+# 1. Clona el código
 git clone https://github.com/Alejooc/lumefy.git && cd lumefy
 
-# 2. Fire it up
+# 2. Enciende los motores
 docker-compose up -d --build
 
-# 3. Final touch (Migrations)
+# 3. Toque final (Migraciones y Semillas)
 docker-compose exec backend alembic upgrade head
-docker-compose exec backend python seed_roles.py
+# Crea roles y usuario inicial
+docker-compose exec backend python seed_roles.py 
 ```
 
-### 🛠️ Manual setup
+### 🛠️ Configuración Manual
 <details>
-<summary><b>Click to show manual steps</b></summary>
+<summary><b>Click para ver pasos manuales</b></summary>
 
 #### Backend
 ```bash
 cd backend
-python -m venv venv && source venv/bin/activate
+python -m venv venv && source venv/bin/activate # o venv\Scripts\activate en Windows
 pip install -r requirements.txt
+# Configura tu .env basado en .env.example
 uvicorn app.main:app --reload
 ```
 
@@ -90,13 +93,13 @@ npm start
 
 ---
 
-## 🤝 Join the Journey
+## 🤝 Únete al Viaje
 
-Lumefy is built by dreamers, for doers. If you want to contribute, find a bug, or just say hi, feel free to open an issue or pull request!
+Lumefy está construido por soñadores, para hacedores. Si quieres contribuir, encontrar un bug, o solo decir hola, ¡siéntete libre de abrir un issue o pull request!
 
 ---
 
 <p align="center">
-  <b>Built with ✨ by Alejooc</b><br>
-  <i>"Empowering businesses, one line of code at a time."</i>
+  <b>Construido con ✨ por Alejooc</b><br>
+  <i>"Empoderando negocios, una línea de código a la vez."</i>
 </p>

@@ -29,7 +29,7 @@
                         <div class="col-md-6">
                             <label class="form-label">Lista de Precios Predeterminada</label>
                             <select class="form-select" formControlName="price_list_id">
-                                <option [ngValue]="null">Ninguna</option>
+                                <option [value]="null">Ninguna</option>
                                 <option *ngFor="let pl of priceLists" [value]="pl.id">{{ pl.name }} ({{ pl.currency }})
                                 </option>
                             </select>

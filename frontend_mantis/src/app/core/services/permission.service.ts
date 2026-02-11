@@ -10,7 +10,11 @@ export class PermissionService {
 
     hasPermission(permission: string): boolean {
         const user = this.authService.currentUserValue;
-        if (!user || !user.role || !user.role.permissions) {
+        if (!user) return false;
+
+        if (user.is_superuser) return true;
+
+        if (!user.role || !user.role.permissions) {
             return false;
         }
 

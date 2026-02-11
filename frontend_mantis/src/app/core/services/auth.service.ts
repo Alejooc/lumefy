@@ -15,6 +15,7 @@ export interface User {
     email: string;
     full_name: string;
     company_id: string;
+    is_superuser?: boolean;
     role?: Role;
 }
 

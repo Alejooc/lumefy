@@ -46,7 +46,7 @@ export class NavContentComponent implements OnInit {
   navigations: NavigationItem[];
 
   // version
-  title = 'Demo application for version numbering';
+  title = 'Lumefy';
   currentApplicationVersion = environment.appVersion;
 
   navigation = NavigationItems;

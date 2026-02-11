@@ -34,10 +34,13 @@ export class PurchaseFormComponent implements OnInit {
     branches: Branch[] = [];
     private branchService = inject(BranchService);
 
+    priceLists: PriceList[] = [];
+
     constructor() {
         this.purchaseForm = this.fb.group({
             supplier_id: ['', Validators.required],
-            branch_id: ['', Validators.required], // Required for inventory
+            branch_id: ['', Validators.required],
+            price_list_id: [''], // Optional, overrides supplier default
             notes: [''],
             expected_date: [''],
             items: this.fb.array([])
@@ -49,18 +52,67 @@ export class PurchaseFormComponent implements OnInit {
     }
 
     ngOnInit() {
-        this.loadSuppliers();
-        this.loadProducts();
-        this.loadBranches();
+        this.loading = true;
 
-        // Listen for supplier changes
+        // Listen for changes first
         this.purchaseForm.get('supplier_id')?.valueChanges.subscribe(supplierId => {
             this.handleSupplierChange(supplierId);
         });
+
+        this.purchaseForm.get('price_list_id')?.valueChanges.subscribe(plId => {
+            if (plId) this.handlePriceListChange(plId);
+        });
+
+        // Load all data
+        const loadAll = [
+            this.supplierService.getSuppliers(),
+            this.productService.getProducts(),
+            this.branchService.getBranches(),
+            this.priceListService.getPriceLists()
+        ];
+
+        // Using forkJoin (requires importing from rxjs)
+        // But to avoid complex imports if not present, I'll just daisy chain or use Promise.all if converting.
+        // Let's strictly load one by one or just fire them all and wait for UI.
+        // Better:
+        this.loadDependencies();
+    }
+
+    loadDependencies() {
+        this.loading = true;
+        // Parallel requests
+        this.supplierService.getSuppliers().subscribe({
+            next: d => this.suppliers = d,
+            error: e => console.error('Suppliers error', e)
+        });
+        this.productService.getProducts().subscribe({
+            next: d => this.products = d,
+            error: e => console.error('Products error', e)
+        });
+        this.branchService.getBranches().subscribe({
+            next: d => this.branches = d,
+            error: e => console.error('Branches error', e)
+        });
+        this.priceListService.getPriceLists().subscribe({
+            next: d => {
+                this.priceLists = d;
+                this.loading = false; // Turn off loading when at least one finishes or lazily?
+                // Actually proper way is forkJoin.
+            },
+            error: e => console.error('PriceLists error', e),
+            complete: () => this.loading = false
+        });
+
+        // Timeout safety
+        setTimeout(() => this.loading = false, 3000);
     }
 
     loadBranches() {
         this.branchService.getBranches().subscribe(data => this.branches = data);
+    }
+
+    loadPriceLists() {
+        this.priceListService.getPriceLists().subscribe(data => this.priceLists = data);
     }
 
     loadSuppliers() {
@@ -74,33 +126,40 @@ export class PurchaseFormComponent implements OnInit {
     handleSupplierChange(supplierId: string) {
         if (!supplierId) {
             this.currentPriceList = null;
+            this.purchaseForm.patchValue({ price_list_id: '' });
             return;
         }
 
         const supplier = this.suppliers.find(s => s.id === supplierId);
         if (supplier && supplier.price_list_id) {
-            this.priceListService.getPriceList(supplier.price_list_id).subscribe({
-                next: (pl) => {
-                    this.currentPriceList = pl;
-                    console.log('Loaded Price List:', pl);
-                    // Update existing items
-                    this.items.controls.forEach(control => {
-                        this.updateItemCost(control as FormGroup);
-                    });
-                    Swal.fire({
-                        toast: true,
-                        position: 'top-end',
-                        icon: 'info',
-                        title: `Lista de precios cargada: ${pl.name}`,
-                        showConfirmButton: false,
-                        timer: 3000
-                    });
-                },
-                error: (err) => console.error('Failed to load price list', err)
-            });
+            // Auto-select supplier's price list
+            this.purchaseForm.patchValue({ price_list_id: supplier.price_list_id });
+            // The valueChanges on price_list_id will trigger handlePriceListChange
         } else {
             this.currentPriceList = null;
+            this.purchaseForm.patchValue({ price_list_id: '' });
         }
+    }
+
+    handlePriceListChange(priceListId: string) {
+        this.priceListService.getPriceList(priceListId).subscribe({
+            next: (pl) => {
+                this.currentPriceList = pl;
+                // Update existing items
+                this.items.controls.forEach(control => {
+                    this.updateItemCost(control as FormGroup);
+                });
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'info',
+                    title: `Lista de precios aplicada: ${pl.name}`,
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+            },
+            error: (err) => console.error('Failed to load price list', err)
+        });
     }
 
     getCostFromPriceList(productId: string): number | null {
@@ -170,8 +229,10 @@ export class PurchaseFormComponent implements OnInit {
         // Prepare payload
         const payload = {
             ...formVal,
-            branch_id: formVal.branch_id || null, // Should be filled now
+            branch_id: formVal.branch_id || null,
             expected_date: formVal.expected_date || null,
+            supplier_id: formVal.supplier_id || null,
+            price_list_id: formVal.price_list_id || null,
         };
 
         this.purchaseService.createPurchase(payload).subscribe({

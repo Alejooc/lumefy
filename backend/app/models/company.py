@@ -16,6 +16,11 @@ class Company(BaseModel):
     currency: Mapped[str] = mapped_column(String, default="USD")
     currency_symbol: Mapped[str] = mapped_column(String, default="$")
     logo_url: Mapped[str] = mapped_column(String, nullable=True)
+
+    # SaaS Fields
+    plan: Mapped[str] = mapped_column(String, default="FREE") # FREE, PRO, ENTERPRISE
+    valid_until: Mapped[str] = mapped_column(String, nullable=True) # ISO Date
+    is_active: Mapped[bool] = mapped_column(default=True)
     
     # Relationships
     # Relationships

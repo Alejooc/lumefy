@@ -3,6 +3,9 @@ from uuid import UUID
 from typing import Optional, List
 from datetime import datetime
 from app.models.purchase import PurchaseStatus
+from app.schemas.supplier import Supplier
+from app.schemas.branch import Branch
+from app.schemas.product import Product
 
 class PurchaseOrderItemBase(BaseModel):
     product_id: UUID
@@ -16,6 +19,7 @@ class PurchaseOrderItem(PurchaseOrderItemBase):
     id: UUID
     purchase_id: UUID
     subtotal: float
+    product: Optional[Product] = None
 
     class Config:
         from_attributes = True
@@ -41,6 +45,21 @@ class PurchaseOrder(PurchaseOrderBase):
     company_id: Optional[UUID] = None
     user_id: Optional[UUID] = None
     items: List[PurchaseOrderItem] = []
+    supplier: Optional[Supplier] = None
+    branch: Optional[Branch] = None
+
+    class Config:
+        from_attributes = True
+
+class PurchaseOrderSummary(PurchaseOrderBase):
+    id: UUID
+    status: PurchaseStatus
+    total_amount: float
+    created_at: datetime
+    company_id: Optional[UUID] = None
+    user_id: Optional[UUID] = None
+    supplier: Optional[Supplier] = None
+    branch: Optional[Branch] = None
 
     class Config:
         from_attributes = True

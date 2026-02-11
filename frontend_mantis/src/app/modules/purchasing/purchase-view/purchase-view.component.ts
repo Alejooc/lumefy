@@ -31,9 +31,17 @@ export class PurchaseViewComponent implements OnInit {
         // Optimization: create getPurchase(id) in service. 
         // Fallback: get all and find. 
         this.loading = true;
-        this.purchaseService.getPurchases().subscribe(purchases => {
-            this.purchase = purchases.find(p => p.id === id) || null; // Not efficient but works for now
-            this.loading = false;
+        this.loading = true;
+        this.purchaseService.getPurchase(id).subscribe({
+            next: (purchase) => {
+                this.purchase = purchase;
+                this.loading = false;
+            },
+            error: (err) => {
+                console.error(err);
+                this.loading = false;
+                Swal.fire('Error', 'No se pudo cargar la orden', 'error');
+            }
         });
     }
 

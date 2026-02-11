@@ -7,6 +7,8 @@ class BranchBase(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    is_warehouse: bool = True
+    allow_pos: bool = True
 
 class BranchCreate(BranchBase):
     pass
@@ -16,7 +18,7 @@ class BranchUpdate(BranchBase):
 
 class Branch(BranchBase):
     id: UUID
-    company_id: UUID
+    company_id: Optional[UUID] = None
     is_active: bool
 
     class Config:

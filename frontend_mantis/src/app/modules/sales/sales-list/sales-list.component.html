@@ -53,9 +53,14 @@
                                 </td>
                                 <td>
                                     <a [routerLink]="['/sales/view', sale.id]"
-                                        class="btn btn-icon btn-outline-primary btn-sm">
+                                        class="btn btn-icon btn-outline-primary btn-sm me-1">
                                         <i class="feather icon-eye"></i>
                                     </a>
+                                    <button
+                                        *ngIf="sale.status === 'DRAFT' || sale.status === 'QUOTE' || sale.status === 'CANCELLED'"
+                                        (click)="deleteSale(sale.id)" class="btn btn-icon btn-outline-danger btn-sm">
+                                        <i class="feather icon-trash-2"></i>
+                                    </button>
                                 </td>
                             </tr>
                             <tr *ngIf="sales.length === 0 && !loading">

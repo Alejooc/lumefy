@@ -23,9 +23,12 @@ import {
 
 import { HasPermissionDirective } from './directives/has-permission.directive';
 
+import { RouterModule } from '@angular/router';
+
 @NgModule({
   declarations: [],
   imports: [
+    RouterModule,
     HasPermissionDirective,
     CommonModule,
     NgbDropdownModule,
@@ -43,6 +46,7 @@ import { HasPermissionDirective } from './directives/has-permission.directive';
     IconDirective
   ],
   exports: [
+    RouterModule,
     CommonModule,
     NgbDropdownModule,
     NgbNavModule,

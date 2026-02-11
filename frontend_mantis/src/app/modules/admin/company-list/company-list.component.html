@@ -1,0 +1,61 @@
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Gestión de Empresas (SaaS)</h5>
+                <button class="btn btn-primary" [routerLink]="['/admin/companies/new']">
+                    <i class="feather icon-plus"></i> Nueva Empresa
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Plan</th>
+                                <th>Estado</th>
+                                <th>Vence</th>
+                                <th>Admin Email</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let company of companies">
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <img [src]="company.logo_url || 'assets/images/user/avatar-2.jpg'" width="30"
+                                            class="rounded me-2">
+                                        <div>
+                                            <div class="fw-bold">{{ company.name }}</div>
+                                            <small class="text-muted">{{ company.tax_id }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge"
+                                        [ngClass]="{'bg-primary': company.plan === 'PRO', 'bg-warning text-dark': company.plan === 'ENTERPRISE', 'bg-secondary': company.plan === 'FREE'}">
+                                        {{ company.plan }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge" [ngClass]="company.is_active ? 'bg-success' : 'bg-danger'">
+                                        {{ company.is_active ? 'Activo' : 'Suspendido' }}
+                                    </span>
+                                </td>
+                                <td>{{ company.valid_until || 'Indefinido' }}</td>
+                                <td>{{ company.email }}</td>
+                                <td>
+                                    <button class="btn btn-icon btn-outline-primary me-2"
+                                        [routerLink]="['/admin/companies/edit', company.id]">
+                                        <i class="feather icon-edit"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

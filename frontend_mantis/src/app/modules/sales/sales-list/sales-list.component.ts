@@ -1,9 +1,10 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import Swal from 'sweetalert2';
 import { SaleService, Sale } from '../../../core/services/sale.service';
 import { ClientService } from '../../clients/client.service';
-import { FormsModule } from '@angular/forms';
 
 @Component({
     selector: 'app-sales-list',
@@ -69,5 +70,31 @@ export class SalesListComponent implements OnInit {
             case 'CANCELLED': return 'Cancelada';
             default: return status;
         }
+    }
+
+    deleteSale(id: string) {
+        Swal.fire({
+            title: '¿Estás seguro?',
+            text: 'Esta acción no se puede deshacer. Solo se pueden eliminar borradores o canceladas.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                this.loading = true;
+                this.saleService.deleteSale(id).subscribe({
+                    next: () => {
+                        this.sales = this.sales.filter(s => s.id !== id);
+                        this.loading = false;
+                        Swal.fire('Eliminado', 'La venta ha sido eliminada.', 'success');
+                    },
+                    error: (err) => {
+                        this.loading = false;
+                        Swal.fire('Error', 'No se pudo eliminar: ' + (err.error?.detail || err.message), 'error');
+                    }
+                });
+            }
+        });
     }
 }

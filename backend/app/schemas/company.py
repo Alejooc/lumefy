@@ -13,6 +13,10 @@ class CompanyBase(BaseModel):
     currency: Optional[str] = "USD"
     currency_symbol: Optional[str] = "$"
     logo_url: Optional[str] = None
+    
+    plan: Optional[str] = "FREE"
+    valid_until: Optional[str] = None
+    is_active: Optional[bool] = True
 
 # Properties to receive on creation
 class CompanyCreate(CompanyBase):

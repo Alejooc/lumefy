@@ -10,6 +10,7 @@ from app.models.purchase import PurchaseOrder, PurchaseStatus
 from app.models.purchase_item import PurchaseOrderItem
 from app.models.product import Product
 from app.models.inventory_movement import InventoryMovement, MovementType
+from app.models.inventory import Inventory
 from app.models.user import User
 from app.core.permissions import PermissionChecker
 from app.core.audit import log_activity
@@ -17,7 +18,7 @@ from app.schemas import purchase as schemas
 
 router = APIRouter()
 
-@router.get("/", response_model=List[schemas.PurchaseOrder])
+@router.get("/", response_model=List[schemas.PurchaseOrderSummary])
 async def read_purchases(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
@@ -29,10 +30,38 @@ async def read_purchases(
     """
     query = select(PurchaseOrder).where(
         PurchaseOrder.company_id == current_user.company_id
-    ).options(selectinload(PurchaseOrder.items)).offset(skip).limit(limit)
+    ).options(
+        selectinload(PurchaseOrder.supplier),
+        selectinload(PurchaseOrder.branch)
+    ).order_by(PurchaseOrder.created_at.desc()).offset(skip).limit(limit)
     
     result = await db.execute(query)
     return result.scalars().all()
+
+@router.get("/{purchase_id}", response_model=schemas.PurchaseOrder)
+async def read_purchase(
+    *,
+    db: AsyncSession = Depends(get_db),
+    purchase_id: UUID,
+    current_user: User = Depends(PermissionChecker("view_inventory")),
+) -> Any:
+    """
+    Get purchase by ID.
+    """
+    query = select(PurchaseOrder).where(
+        PurchaseOrder.id == purchase_id,
+        PurchaseOrder.company_id == current_user.company_id
+    ).options(
+        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+        selectinload(PurchaseOrder.supplier),
+        selectinload(PurchaseOrder.branch)
+    )
+    
+    result = await db.execute(query)
+    purchase = result.scalars().first()
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+    return purchase
 
 @router.post("/", response_model=schemas.PurchaseOrder)
 async def create_purchase(
@@ -44,45 +73,53 @@ async def create_purchase(
     """
     Create Purchase Order.
     """
-    # Create Header
-    purchase = PurchaseOrder(
-        supplier_id=purchase_in.supplier_id,
-        branch_id=purchase_in.branch_id,
-        notes=purchase_in.notes,
-        expected_date=purchase_in.expected_date,
-        user_id=current_user.id,
-        company_id=current_user.company_id,
-        status=PurchaseStatus.DRAFT,
-        total_amount=0.0
-    )
-    db.add(purchase)
-    await db.flush() # Get ID
-
-    total = 0.0
-    # Create Items
-    for item_in in purchase_in.items:
-        subtotal = item_in.quantity * item_in.unit_cost
-        total += subtotal
-        
-        item = PurchaseOrderItem(
-            purchase_id=purchase.id,
-            product_id=item_in.product_id,
-            quantity=item_in.quantity,
-            unit_cost=item_in.unit_cost,
-            subtotal=subtotal
+    try:
+        # Create Header
+        purchase = PurchaseOrder(
+            supplier_id=purchase_in.supplier_id,
+            branch_id=purchase_in.branch_id,
+            notes=purchase_in.notes,
+            expected_date=purchase_in.expected_date,
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            status=PurchaseStatus.DRAFT,
+            total_amount=0.0
         )
-        db.add(item)
-    
-    purchase.total_amount = total
-    await db.commit()
-    
-    # Reload with items
-    query = select(PurchaseOrder).where(PurchaseOrder.id == purchase.id).options(selectinload(PurchaseOrder.items))
-    result = await db.execute(query)
-    purchase = result.scalars().first()
-    
-    await log_activity(db, "CREATE", "PurchaseOrder", purchase.id, current_user.id, current_user.company_id)
-    return purchase
+        db.add(purchase)
+        await db.flush() # Get ID
+
+        total = 0.0
+        # Create Items
+        for item_in in purchase_in.items:
+            subtotal = item_in.quantity * item_in.unit_cost
+            total += subtotal
+            
+            item = PurchaseOrderItem(
+                purchase_id=purchase.id,
+                product_id=item_in.product_id,
+                quantity=item_in.quantity,
+                unit_cost=item_in.unit_cost,
+                subtotal=subtotal
+            )
+            db.add(item)
+        
+        purchase.total_amount = total
+        await db.commit()
+        
+        # Reload with items
+        query = select(PurchaseOrder).where(PurchaseOrder.id == purchase.id).options(
+            selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+            selectinload(PurchaseOrder.supplier),
+            selectinload(PurchaseOrder.branch)
+        )
+        result = await db.execute(query)
+        purchase = result.scalars().first()
+        
+        await log_activity(db, "CREATE", "PurchaseOrder", purchase.id, current_user.id, current_user.company_id)
+        return purchase
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/{purchase_id}/status", response_model=schemas.PurchaseOrder)
 async def update_purchase_status(
@@ -98,7 +135,11 @@ async def update_purchase_status(
     query = select(PurchaseOrder).where(
         PurchaseOrder.id == purchase_id, 
         PurchaseOrder.company_id == current_user.company_id
-    ).options(selectinload(PurchaseOrder.items))
+    ).options(
+        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+        selectinload(PurchaseOrder.supplier),
+        selectinload(PurchaseOrder.branch)
+    )
     
     result = await db.execute(query)
     purchase = result.scalars().first()
@@ -115,32 +156,44 @@ async def update_purchase_status(
              raise HTTPException(status_code=400, detail="Cannot receive without a destination Branch")
              
         for item in purchase.items:
-            # 1. Update Product Stock (Global or ideally per branch, but we only have product.stock for now?)
-            # Wait, InventoryMovement should handle stock calculation aggregation, BUT usually we verify against current stock.
-            # Ideally Product model has a `stock` field which is a cached sum.
+            # 1. Update Inventory (Per Branch)
+            # Check if inventory exists for this product and branch
+            inv_query = select(Inventory).where(
+                Inventory.product_id == item.product_id,
+                Inventory.branch_id == purchase.branch_id
+            )
+            inv_result = await db.execute(inv_query)
+            inventory = inv_result.scalars().first()
             
-            # Fetch current product to update stock
-            p_result = await db.execute(select(Product).where(Product.id == item.product_id))
-            product = p_result.scalars().first()
+            original_stock = 0.0
             
-            if product:
-                original_stock = product.stock
-                product.stock += item.quantity # Simple addition
-                db.add(product)
-                
-                # 2. Create Movement
-                movement = InventoryMovement(
+            if inventory:
+                original_stock = inventory.quantity
+                inventory.quantity += item.quantity
+                db.add(inventory)
+            else:
+                # Create new inventory record
+                inventory = Inventory(
                     product_id=item.product_id,
                     branch_id=purchase.branch_id,
-                    user_id=current_user.id,
-                    type=MovementType.IN,
                     quantity=item.quantity,
-                    previous_stock=original_stock,
-                    new_stock=product.stock,
-                    reference_id=str(purchase.id),
-                    reason="Purchase Received"
+                    location="Main" # Default
                 )
-                db.add(movement)
+                db.add(inventory)
+                
+            # 2. Create Movement
+            movement = InventoryMovement(
+                product_id=item.product_id,
+                branch_id=purchase.branch_id,
+                user_id=current_user.id,
+                type=MovementType.IN,
+                quantity=item.quantity,
+                previous_stock=original_stock,
+                new_stock=original_stock + item.quantity,
+                reference_id=str(purchase.id),
+                reason="Purchase Received"
+            )
+            db.add(movement)
     
     await db.commit()
     await log_activity(db, "UPDATE_STATUS", "PurchaseOrder", purchase.id, current_user.id, current_user.company_id, {"status": status})

@@ -77,3 +77,23 @@ class Sale(SaleBase):
     
     class Config:
         from_attributes = True
+
+class SaleSummary(SaleBase):
+    id: UUID
+    user_id: UUID
+    status: str
+    subtotal: float
+    tax: float
+    discount: float
+    shipping_cost: float
+    total: float
+    created_at: datetime
+    updated_at: datetime
+    
+    # Exclude items and payments for summary
+    user: Optional[User] = None
+    branch: Optional[Branch] = None
+    client: Optional[Client] = None
+    
+    class Config:
+        from_attributes = True

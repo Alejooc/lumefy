@@ -31,6 +31,14 @@ const routes: Routes = [
         loadComponent: () => import('./demo/component/basic-component/color/color.component').then((c) => c.ColorComponent)
       },
       {
+        path: 'management/branches', // Or just 'branches'? User said "can't create branches".
+        loadChildren: () => import('./modules/branches/branches.module').then(m => m.BranchesModule)
+      },
+      {
+        path: 'branches',
+        loadChildren: () => import('./modules/branches/branches.module').then(m => m.BranchesModule)
+      },
+      {
         path: 'sample-page',
         loadComponent: () => import('./demo/others/sample-page/sample-page.component').then((c) => c.SamplePageComponent)
       },
@@ -73,6 +81,10 @@ const routes: Routes = [
       {
         path: 'audit',
         loadComponent: () => import('./modules/audit/audit-list/audit-list.component').then((m) => m.AuditListComponent)
+      },
+      {
+        path: 'admin',
+        loadChildren: () => import('./modules/admin/admin.module').then(m => m.AdminModule)
       }
     ]
   },
