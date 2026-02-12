@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
@@ -13,6 +13,7 @@ export class CompanyListComponent implements OnInit {
     loading = false;
 
     private api = inject(ApiService);
+    private cdr = inject(ChangeDetectorRef);
 
     ngOnInit() {
         this.loadCompanies();
@@ -24,10 +25,12 @@ export class CompanyListComponent implements OnInit {
             next: (data) => {
                 this.companies = data;
                 this.loading = false;
+                this.cdr.detectChanges();
             },
             error: (err) => {
                 console.error(err);
                 this.loading = false;
+                this.cdr.detectChanges();
             }
         });
     }

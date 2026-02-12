@@ -1,8 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { SaleService, Sale } from '../../../core/services/sale.service';
 import Swal from 'sweetalert2';
+import { LogisticsService } from '../../logistics/logistics.service';
 
 @Component({
     selector: 'app-sales-view',
@@ -13,10 +14,13 @@ import Swal from 'sweetalert2';
 export class SalesViewComponent implements OnInit {
     sale: Sale | null = null;
     loading = false;
+    packedQuantities: { [key: string]: number } = {};
 
     private route = inject(ActivatedRoute);
     private router = inject(Router);
     private saleService = inject(SaleService);
+    private logisticsService = inject(LogisticsService);
+    private cdr = inject(ChangeDetectorRef);
 
     ngOnInit() {
         this.route.paramMap.subscribe(params => {
@@ -31,16 +35,38 @@ export class SalesViewComponent implements OnInit {
             next: (data) => {
                 this.sale = data;
                 this.loading = false;
+                this.cdr.detectChanges(); // Force UI update
+
+                // Fetch packages if status warrants it (or always)
+                if (['PICKING', 'PACKING', 'DISPATCHED', 'DELIVERED'].includes(this.sale.status)) {
+                    this.loadPackages(id);
+                }
             },
             error: (err) => {
                 this.loading = false;
+                this.cdr.detectChanges();
                 Swal.fire('Error', 'No se pudo cargar la venta', 'error');
                 this.router.navigate(['/sales']);
             }
         });
     }
 
-    updateStatus(status: 'CONFIRMED' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED') {
+    loadPackages(saleId: string) {
+        this.logisticsService.getPackages(saleId).subscribe(packages => {
+            this.packedQuantities = {};
+            packages.forEach(pkg => {
+                pkg.items.forEach(item => {
+                    if (!this.packedQuantities[item.sale_item_id]) {
+                        this.packedQuantities[item.sale_item_id] = 0;
+                    }
+                    this.packedQuantities[item.sale_item_id] += item.quantity;
+                });
+            });
+            this.cdr.detectChanges(); // Force UI update
+        });
+    }
+
+    updateStatus(status: 'CONFIRMED' | 'PICKING' | 'PACKING' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED') {
         if (!this.sale) return;
 
         let confirmText = '';
@@ -51,12 +77,54 @@ export class SalesViewComponent implements OnInit {
                 confirmText = '¿Confirmar esta orden? Esto reservará el inventario.';
                 buttonText = 'Sí, confirmar';
                 break;
+            case 'PICKING':
+                confirmText = '¿Iniciar preparación (Picking)?';
+                buttonText = 'Sí, ir a Picking';
+                // Override action to navigate
+                Swal.fire({
+                    title: 'Iniciar Picking',
+                    text: confirmText,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: buttonText
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Update status then navigate? Or just navigate and let picking start? 
+                        // Better to update status to PICKING then navigate.
+                        this.saleService.updateStatus(this.sale!.id, 'PICKING').subscribe(() => {
+                            this.router.navigate(['/logistics/picking', this.sale!.id]);
+                        });
+                    }
+                });
+                return; // Stop default execution
+            case 'PACKING':
+                confirmText = '¿Ir a Empaque?';
+                buttonText = 'Sí, ir a Empaque';
+                Swal.fire({
+                    title: 'Empaque',
+                    text: confirmText,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: buttonText
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Status update might happen inside packing or before, let's just go there
+                        if (this.sale!.status !== 'PACKING') {
+                            this.saleService.updateStatus(this.sale!.id, 'PACKING').subscribe(() => {
+                                this.router.navigate(['/logistics/packing', this.sale!.id]);
+                            });
+                        } else {
+                            this.router.navigate(['/logistics/packing', this.sale!.id]);
+                        }
+                    }
+                });
+                return;
             case 'DISPATCHED':
-                confirmText = '¿Marcar como despachada?';
+                confirmText = '¿Marcar como despachada (Enviada)?';
                 buttonText = 'Sí, despachar';
                 break;
             case 'DELIVERED':
-                confirmText = '¿Marcar como entregada?';
+                confirmText = '¿Marcar como entregada al cliente?';
                 buttonText = 'Sí, entregada';
                 break;
             case 'CANCELLED':
@@ -79,10 +147,12 @@ export class SalesViewComponent implements OnInit {
                     next: (updated) => {
                         this.sale = updated;
                         this.loading = false;
+                        this.cdr.detectChanges(); // Force UI update
                         Swal.fire('Actualizado', 'El estado ha sido actualizado.', 'success');
                     },
                     error: (err) => {
                         this.loading = false;
+                        this.cdr.detectChanges();
                         Swal.fire('Error', 'No se pudo actualizar el estado: ' + (err.error?.detail || err.message), 'error');
                     }
                 });
@@ -95,9 +165,11 @@ export class SalesViewComponent implements OnInit {
             case 'QUOTE': return 'badge bg-secondary';
             case 'DRAFT': return 'badge bg-light text-dark';
             case 'CONFIRMED': return 'badge bg-warning text-dark';
-            case 'DISPATCHED': return 'badge bg-info text-white';
+            case 'PICKING': return 'badge bg-info text-dark';
+            case 'PACKING': return 'badge bg-info text-white';
+            case 'DISPATCHED': return 'badge bg-primary text-white';
             case 'DELIVERED': return 'badge bg-success';
-            case 'COMPLETED': return 'badge bg-primary';
+            case 'COMPLETED': return 'badge bg-success';
             case 'CANCELLED': return 'badge bg-danger';
             default: return 'badge bg-secondary';
         }

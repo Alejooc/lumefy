@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PurchaseService, PurchaseOrder } from '../../../core/services/purchase.service';
@@ -12,6 +12,7 @@ import { PurchaseService, PurchaseOrder } from '../../../core/services/purchase.
 })
 export class PurchaseListComponent implements OnInit {
     private purchaseService = inject(PurchaseService);
+    private cdr = inject(ChangeDetectorRef);
     purchases: PurchaseOrder[] = [];
 
     ngOnInit() {
@@ -21,6 +22,7 @@ export class PurchaseListComponent implements OnInit {
     loadPurchases() {
         this.purchaseService.getPurchases().subscribe(data => {
             this.purchases = data;
+            this.cdr.detectChanges();
         });
     }
 

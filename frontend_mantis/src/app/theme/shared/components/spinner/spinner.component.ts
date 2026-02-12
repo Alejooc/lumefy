@@ -1,5 +1,5 @@
 // Angular import
-import { Component, OnDestroy, ViewEncapsulation, inject, input } from '@angular/core';
+import { Component, OnDestroy, ViewEncapsulation, inject, input, ChangeDetectorRef } from '@angular/core';
 import { Router, NavigationStart, NavigationEnd, NavigationCancel, NavigationError } from '@angular/router';
 import { DOCUMENT } from '@angular/common';
 
@@ -23,17 +23,20 @@ export class SpinnerComponent implements OnDestroy {
   spinner = input(Spinkit.skLine);
 
   // Constructor
-  constructor() {
+  constructor(private cdRef: ChangeDetectorRef) {
     this.router.events.subscribe(
       (event) => {
         if (event instanceof NavigationStart) {
           this.isSpinnerVisible = true;
+          this.cdRef.detectChanges();
         } else if (event instanceof NavigationEnd || event instanceof NavigationCancel || event instanceof NavigationError) {
           this.isSpinnerVisible = false;
+          this.cdRef.detectChanges();
         }
       },
       () => {
         this.isSpinnerVisible = false;
+        this.cdRef.detectChanges();
       }
     );
   }

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { SupplierService, Supplier } from '../../../core/services/supplier.service';
@@ -12,6 +12,7 @@ import { SupplierService, Supplier } from '../../../core/services/supplier.servi
 })
 export class SupplierListComponent implements OnInit {
     private supplierService = inject(SupplierService);
+    private cdr = inject(ChangeDetectorRef);
     suppliers: Supplier[] = [];
     isLoading = false;
 
@@ -25,10 +26,12 @@ export class SupplierListComponent implements OnInit {
             next: (data) => {
                 this.suppliers = data;
                 this.isLoading = false;
+                this.cdr.detectChanges();
             },
             error: (err) => {
                 console.error('Error loading suppliers', err);
                 this.isLoading = false;
+                this.cdr.detectChanges();
             }
         });
     }

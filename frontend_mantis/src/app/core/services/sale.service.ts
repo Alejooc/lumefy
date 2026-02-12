@@ -7,6 +7,7 @@ export interface SaleItem {
     id?: string;
     product_id: string;
     quantity: number;
+    quantity_picked?: number; // Added for logistics
     price: number;
     discount: number;
     total?: number;
@@ -24,7 +25,7 @@ export interface Sale {
     branch_id: string;
     client_id?: string;
     user_id: string;
-    status: 'QUOTE' | 'DRAFT' | 'CONFIRMED' | 'DISPATCHED' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
+    status: 'QUOTE' | 'DRAFT' | 'CONFIRMED' | 'PICKING' | 'PACKING' | 'DISPATCHED' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
     subtotal: number;
     tax: number;
     discount: number;

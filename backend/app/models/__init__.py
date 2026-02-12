@@ -14,3 +14,4 @@ from .pricelist_item import PriceListItem
 from .sale import Sale, SaleItem, Payment, SaleStatus
 from .role import Role
 from .audit import AuditLog
+from .logistics import PackageType, SalePackage, SalePackageItem

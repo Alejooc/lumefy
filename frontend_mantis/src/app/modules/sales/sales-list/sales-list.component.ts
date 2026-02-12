@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -27,6 +27,7 @@ export class SalesListComponent implements OnInit {
 
     // Inject services
     private saleService = inject(SaleService);
+    private cdr = inject(ChangeDetectorRef);
 
     ngOnInit() {
         this.loadSales();
@@ -38,10 +39,12 @@ export class SalesListComponent implements OnInit {
             next: (data) => {
                 this.sales = data;
                 this.loading = false;
+                this.cdr.detectChanges(); // Force UI update
             },
             error: (e) => {
                 console.error(e);
                 this.loading = false;
+                this.cdr.detectChanges();
             }
         });
     }
@@ -51,9 +54,11 @@ export class SalesListComponent implements OnInit {
             case 'QUOTE': return 'badge bg-secondary';
             case 'DRAFT': return 'badge bg-light text-dark';
             case 'CONFIRMED': return 'badge bg-warning text-dark';
-            case 'DISPATCHED': return 'badge bg-info text-white';
+            case 'PICKING': return 'badge bg-info text-dark';
+            case 'PACKING': return 'badge bg-info text-white';
+            case 'DISPATCHED': return 'badge bg-primary text-white';
             case 'DELIVERED': return 'badge bg-success';
-            case 'COMPLETED': return 'badge bg-primary';
+            case 'COMPLETED': return 'badge bg-success';
             case 'CANCELLED': return 'badge bg-danger';
             default: return 'badge bg-secondary';
         }
@@ -64,6 +69,8 @@ export class SalesListComponent implements OnInit {
             case 'QUOTE': return 'Cotización';
             case 'DRAFT': return 'Borrador';
             case 'CONFIRMED': return 'Confirmada';
+            case 'PICKING': return 'En Picking';
+            case 'PACKING': return 'Empacando';
             case 'DISPATCHED': return 'Despachada';
             case 'DELIVERED': return 'Entregada';
             case 'COMPLETED': return 'Completada';

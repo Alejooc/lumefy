@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ApiService } from '../../../core/services/api.service';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -18,13 +18,15 @@ export class ProductListComponent implements OnInit {
     constructor(
         private apiService: ApiService,
         private swal: SweetAlertService,
-        private auth: AuthService
+        private auth: AuthService,
+        private cdr: ChangeDetectorRef
     ) { }
 
     ngOnInit(): void {
         this.auth.currentCompany.subscribe(company => {
             if (company && company.currency_symbol) {
                 this.currencySymbol = company.currency_symbol;
+                this.cdr.detectChanges();
             }
         });
 
@@ -37,10 +39,12 @@ export class ProductListComponent implements OnInit {
             next: (data) => {
                 this.products = data;
                 this.isLoading = false;
+                this.cdr.detectChanges();
             },
             error: (err) => {
                 console.error('Error loading products', err);
                 this.isLoading = false;
+                this.cdr.detectChanges();
             }
         });
     }
@@ -58,6 +62,7 @@ export class ProductListComponent implements OnInit {
                         console.error('Error deleting product', err);
                         this.swal.error('Error', 'Could not delete product.');
                         this.isLoading = false;
+                        this.cdr.detectChanges();
                     }
                 });
             }

@@ -1,0 +1,52 @@
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Picking (Preparación de Pedido) #{{ sale?.id | slice:0:8 }}</h5>
+                <button class="btn btn-primary" (click)="finishPicking()">
+                    <i class="feather icon-check-circle"></i> Finalizar Picking
+                </button>
+            </div>
+            <div class="card-body">
+                <div *ngIf="loading" class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+
+                <div class="table-responsive" *ngIf="!loading && sale">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Solicitado</th>
+                                <th>Pickeado</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let item of sale.items">
+                                <td>
+                                    <strong>{{ item.product?.name }}</strong><br>
+                                    <small class="text-muted">{{ item.product?.sku }}</small>
+                                </td>
+                                <td>{{ item.quantity }}</td>
+                                <td style="width: 200px;">
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" [ngModel]="item.quantity_picked"
+                                            (ngModelChange)="updatePickedQuantity(item, $event)" min="0"
+                                            [max]="item.quantity">
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge"
+                                        [ngClass]="{'bg-success': item.quantity_picked >= item.quantity, 'bg-warning': item.quantity_picked < item.quantity}">
+                                        {{ item.quantity_picked >= item.quantity ? 'Completo' : 'Pendiente' }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

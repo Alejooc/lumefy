@@ -1,0 +1,129 @@
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Packing (Empaque) #{{ sale?.id | slice:0:8 }}</h5>
+                <div>
+                    <button class="btn btn-outline-primary me-2" (click)="createPackage(packageModal)">
+                        <i class="feather icon-cube"></i> Nuevo Paquete
+                    </button>
+                    <button class="btn btn-primary" (click)="finishPacking()">
+                        <i class="feather icon-truck"></i> Finalizar y Despachar
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div *ngIf="loading" class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+
+                <div class="row" *ngIf="!loading && sale">
+                    <!-- Unpacked Items List -->
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-header">Pendientes de Empacar</div>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center"
+                                    *ngFor="let item of getUnpackedItems()">
+                                    <div>
+                                        <strong>{{ item.product?.name }}</strong><br>
+                                        <small>{{ item.product?.sku }}</small>
+                                    </div>
+                                    <span class="badge bg-warning rounded-pill">
+                                        {{ (item.quantity_picked || 0) - item.packed }} / {{ item.quantity_picked }}
+                                    </span>
+                                </li>
+                                <li class="list-group-item text-center" *ngIf="getUnpackedItems().length === 0">
+                                    <small class="text-success">Todo empacado</small>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Packages List -->
+                    <div class="col-md-8">
+                        <h6>Paquetes Creados ({{ packages.length }})</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3" *ngFor="let pkg of packages; let i = index">
+                                <div class="card border-primary h-100">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Caja #{{ i + 1 }} - {{ pkg.package_type?.name || 'Caja
+                                            Genérica' }}</h6>
+                                        <p class="card-text mb-1"><small>Tracking: {{ pkg.tracking_number || 'N/A'
+                                                }}</small></p>
+                                        <ul class="list-unstyled">
+                                            <li *ngFor="let pItem of pkg.items">
+                                                • {{ pItem.quantity }}x {{ pItem.sale_item?.product?.name || 'Item' }}
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Create Package -->
+<ng-template #packageModal let-modal>
+    <div class="modal-header">
+        <h4 class="modal-title">Crear Nuevo Paquete</h4>
+        <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss()"></button>
+    </div>
+    <div class="modal-body">
+        <form [formGroup]="packageForm">
+            <div class="mb-3">
+                <label class="form-label">Tipo de Empaque</label>
+                <select class="form-select" formControlName="package_type_id">
+                    <option [ngValue]="null">Seleccionar...</option>
+                    <option *ngFor="let type of packageTypes" [value]="type.id">
+                        {{ type.name }} ({{ type.width }}x{{ type.height }}x{{ type.length }}cm)
+                    </option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Número de Rastreo (Opcional)</label>
+                <input type="text" class="form-control" formControlName="tracking_number">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Peso Real (kg)</label>
+                <input type="number" class="form-control" formControlName="weight">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Contenido del Paquete</label>
+                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-sm table-bordered" formArrayName="items">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Pendiente</th>
+                                <th style="width: 120px;">A Empacar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let itemCtrl of itemsFormArray.controls; let i = index" [formGroupName]="i">
+                                <td>
+                                    <div>{{ itemCtrl.value.product_name }}</div>
+                                    <small class="text-muted">{{ itemCtrl.value.product_sku }}</small>
+                                </td>
+                                <td class="text-center">{{ itemCtrl.value.max_quantity }}</td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm" formControlName="quantity"
+                                        min="0" [max]="itemCtrl.value.max_quantity">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="modal.dismiss()">Cancelar</button>
+        <button type="button" class="btn btn-primary" (click)="onSubmitPackage()" [disabled]="packageForm.invalid">Crear
+            Caja</button>
+    </div>
+</ng-template>

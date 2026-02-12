@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, ViewChild } from '@angular/core';
+import { Component, Inject, OnInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ChartComponent } from 'ng-apexcharts';
@@ -57,7 +57,8 @@ export class ReportsComponent implements OnInit {
 
     constructor(
         @Inject(ApiService) private api: ApiService,
-        @Inject(AuthService) private auth: AuthService
+        @Inject(AuthService) private auth: AuthService,
+        private cdr: ChangeDetectorRef
     ) {
         // Initialize empty charts
         this.salesChartOptions = {
@@ -84,6 +85,7 @@ export class ReportsComponent implements OnInit {
         this.auth.currentCompany.subscribe(company => {
             if (company && company.currency_symbol) {
                 this.currencySymbol = company.currency_symbol;
+                this.cdr.detectChanges();
             }
         });
 
@@ -103,6 +105,7 @@ export class ReportsComponent implements OnInit {
                 series: [{ name: "Ventas", data: data.map(x => x.total) }],
                 xaxis: { categories: data.map(x => x.date) }
             };
+            this.cdr.detectChanges();
         });
 
         // Load Top Products
@@ -115,12 +118,14 @@ export class ReportsComponent implements OnInit {
                 series: data.map(x => x.quantity),
                 labels: data.map(x => x.name)
             };
+            this.cdr.detectChanges();
         });
 
         // Load Inventory Value
         this.api.get<any>('/reports/inventory-value').subscribe(data => {
             this.inventoryValue = data;
             this.isLoading = false;
+            this.cdr.detectChanges();
         });
     }
 }

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ClientService } from '../client.service';
 import { Client } from '../client.model';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
@@ -16,7 +16,8 @@ export class ClientListComponent implements OnInit {
 
   constructor(
     private clientService: ClientService,
-    private swal: SweetAlertService
+    private swal: SweetAlertService,
+    private cdr: ChangeDetectorRef
   ) { }
 
   ngOnInit(): void {
@@ -34,11 +35,13 @@ export class ClientListComponent implements OnInit {
       next: (data) => {
         this.clients = data;
         this.isLoading = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error(err);
         this.isLoading = false;
         this.swal.error('Error al cargar clientes');
+        this.cdr.detectChanges();
       }
     });
   }

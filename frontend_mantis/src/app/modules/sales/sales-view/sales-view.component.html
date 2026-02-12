@@ -14,6 +14,24 @@
                         Confirmar Orden
                     </button>
                     <button *ngIf="sale.status === 'CONFIRMED'" class="btn btn-info btn-sm me-2"
+                        (click)="updateStatus('PICKING')">
+                        Iniciar Picking
+                    </button>
+                    <!-- Resume Picking -->
+                    <button *ngIf="sale.status === 'PICKING'" class="btn btn-outline-info btn-sm me-2"
+                        [routerLink]="['/logistics/picking', sale.id]">
+                        Continuar Picking
+                    </button>
+                    <button *ngIf="sale.status === 'PICKING'" class="btn btn-info btn-sm me-2"
+                        (click)="updateStatus('PACKING')">
+                        Finalizar y Empacar
+                    </button>
+                    <!-- Resume Packing -->
+                    <button *ngIf="sale.status === 'PACKING'" class="btn btn-outline-primary btn-sm me-2"
+                        [routerLink]="['/logistics/packing', sale.id]">
+                        Ver Empaque
+                    </button>
+                    <button *ngIf="sale.status === 'PACKING'" class="btn btn-primary btn-sm me-2"
                         (click)="updateStatus('DISPATCHED')">
                         Despachar
                     </button>
@@ -60,7 +78,11 @@
                         <thead>
                             <tr>
                                 <th>Producto</th>
-                                <th class="text-center">Cantidad</th>
+                                <th class="text-center">Cant.</th>
+                                <th class="text-center" *ngIf="sale.status !== 'QUOTE' && sale.status !== 'DRAFT'">
+                                    Picked</th>
+                                <th class="text-center" *ngIf="sale.status !== 'QUOTE' && sale.status !== 'DRAFT'">
+                                    Packed</th>
                                 <th class="text-end">Precio Unit.</th>
                                 <th class="text-end">Desc.</th>
                                 <th class="text-end">Subtotal</th>
@@ -73,6 +95,23 @@
                                     <small class="text-muted">{{ item.product?.sku }}</small>
                                 </td>
                                 <td class="text-center">{{ item.quantity }}</td>
+
+                                <!-- Picked Column -->
+                                <td class="text-center" *ngIf="sale.status !== 'QUOTE' && sale.status !== 'DRAFT'">
+                                    <span
+                                        [ngClass]="{'text-danger fw-bold': (item.quantity_picked || 0) !== item.quantity, 'text-success': (item.quantity_picked || 0) === item.quantity}">
+                                        {{ item.quantity_picked || 0 }}
+                                    </span>
+                                </td>
+
+                                <!-- Packed Column -->
+                                <td class="text-center" *ngIf="sale.status !== 'QUOTE' && sale.status !== 'DRAFT'">
+                                    <span
+                                        [ngClass]="{'text-danger fw-bold': (packedQuantities[item.id!] || 0) !== item.quantity, 'text-success': (packedQuantities[item.id!] || 0) === item.quantity}">
+                                        {{ packedQuantities[item.id!] || 0 }}
+                                    </span>
+                                </td>
+
                                 <td class="text-end">{{ item.price | currency }}</td>
                                 <td class="text-end">{{ item.discount | currency }}</td>
                                 <td class="text-end">{{ item.total | currency }}</td>
@@ -80,7 +119,8 @@
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="4" class="text-end fw-bold">Total:</td>
+                                <td [attr.colspan]="(sale.status !== 'QUOTE' && sale.status !== 'DRAFT') ? 6 : 4"
+                                    class="text-end fw-bold">Total:</td>
                                 <td class="text-end fw-bold">{{ sale.total | currency }}</td>
                             </tr>
                         </tfoot>

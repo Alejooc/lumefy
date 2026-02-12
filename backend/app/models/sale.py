@@ -14,6 +14,8 @@ class SaleStatus(str, enum.Enum):
     QUOTE = "QUOTE"
     DRAFT = "DRAFT"
     CONFIRMED = "CONFIRMED" # Order confirmed, stock reserved
+    PICKING = "PICKING" # Warehouse preparing
+    PACKING = "PACKING" # Packed for shipment
     DISPATCHED = "DISPATCHED" # Shipped
     DELIVERED = "DELIVERED"
     COMPLETED = "COMPLETED" # Paid and done
@@ -55,6 +57,7 @@ class SaleItem(BaseModel):
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"))
     
     quantity: Mapped[float] = mapped_column(Float)
+    quantity_picked: Mapped[float] = mapped_column(Float, default=0.0) # Track picked amount
     price: Mapped[float] = mapped_column(Float) # Unit price at moment of sale
     discount: Mapped[float] = mapped_column(Float, default=0.0)
     total: Mapped[float] = mapped_column(Float)

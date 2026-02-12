@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, Inject } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, Inject, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { SweetAlertService } from '../../theme/shared/services/sweet-alert.service';
@@ -39,7 +39,8 @@ export class PosComponent implements OnInit {
         @Inject(ApiService) private api: ApiService,
         @Inject(SweetAlertService) private swal: SweetAlertService,
         @Inject(AuthService) private auth: AuthService,
-        private clientService: ClientService // Standard DI
+        private clientService: ClientService,
+        private cdr: ChangeDetectorRef
     ) { }
 
     currencySymbol = '$'; // Default
@@ -51,6 +52,7 @@ export class PosComponent implements OnInit {
         this.auth.currentCompany.subscribe(company => {
             if (company && company.currency_symbol) {
                 this.currencySymbol = company.currency_symbol;
+                this.cdr.detectChanges();
             }
         });
 
@@ -76,7 +78,10 @@ export class PosComponent implements OnInit {
     loadClients(term: string = '') {
         const params: any = {};
         if (term) params.q = term;
-        this.clientService.getClients(params).subscribe(data => this.clients = data);
+        this.clientService.getClients(params).subscribe(data => {
+            this.clients = data;
+            this.cdr.detectChanges();
+        });
     }
 
     loadProducts(search: string = '') {
@@ -89,8 +94,12 @@ export class PosComponent implements OnInit {
             next: (data) => {
                 this.products = data;
                 this.isLoading = false;
+                this.cdr.detectChanges();
             },
-            error: () => this.isLoading = false
+            error: () => {
+                this.isLoading = false;
+                this.cdr.detectChanges();
+            }
         });
     }
 
@@ -121,6 +130,7 @@ export class PosComponent implements OnInit {
 
         this.calculateTotals();
         this.swal.toast('Agregado al carrito', 'success');
+        this.cdr.detectChanges();
     }
 
     updateQuantity(item: any, change: number) {
@@ -129,12 +139,14 @@ export class PosComponent implements OnInit {
             item.quantity = newQty;
             this.updateItemTotal(item);
             this.calculateTotals();
+            this.cdr.detectChanges();
         }
     }
 
     removeItem(index: number) {
         this.cart.splice(index, 1);
         this.calculateTotals();
+        this.cdr.detectChanges();
     }
 
     updateItemTotal(item: any) {
@@ -189,11 +201,13 @@ export class PosComponent implements OnInit {
                 this.isProcessing = false;
                 this.swal.success('Venta Exitosa', `Ticket #${res.id.substring(0, 8)}`);
                 this.resetCart();
+                this.cdr.detectChanges();
             },
             error: (err) => {
                 this.isProcessing = false;
                 console.error(err);
                 this.swal.error('Error', 'No se pudo procesar la venta.');
+                this.cdr.detectChanges();
             }
         });
     }

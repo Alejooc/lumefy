@@ -37,6 +37,7 @@ class SaleItem(SaleItemBase):
     id: UUID
     sale_id: UUID
     total: float
+    quantity_picked: float = 0.0
     product: Optional[Product] = None
     
     class Config:

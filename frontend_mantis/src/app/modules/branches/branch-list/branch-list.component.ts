@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { BranchService, Branch } from '../../../core/services/branch.service';
@@ -12,6 +12,7 @@ import Swal from 'sweetalert2';
 })
 export class BranchListComponent implements OnInit {
     private branchService = inject(BranchService);
+    private cdr = inject(ChangeDetectorRef);
     branches: Branch[] = [];
     isLoading = false;
 
@@ -25,10 +26,12 @@ export class BranchListComponent implements OnInit {
             next: (data) => {
                 this.branches = data;
                 this.isLoading = false;
+                this.cdr.detectChanges();
             },
             error: (err) => {
                 console.error('Error loading branches', err);
                 this.isLoading = false;
+                this.cdr.detectChanges();
             }
         });
     }

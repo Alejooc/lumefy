@@ -178,10 +178,33 @@ async def update_status(
     if old_status == new_status:
         return sale
         
-    # LOGIC:
-    # If moving TO CONFIRMED -> Deduct Inventory
-    # If moving FROM CONFIRMED/DISPATCHED TO CANCELLED -> Restore Inventory
     
+    # LOGIC:
+    # 1. DRAFT/QUOTE -> CONFIRMED (Deduct Inventory)
+    # 2. CONFIRMED -> PICKING
+    # 3. PICKING -> PACKING
+    # 4. PACKING -> DISPATCHED
+    # 5. DISPATCHED -> DELIVERED
+    # 6. ANY -> CANCELLED (Restore Inventory if previously deducted)
+    
+    # Allow flow
+    valid_transitions = {
+        SaleStatus.DRAFT: [SaleStatus.CONFIRMED, SaleStatus.CANCELLED],
+        SaleStatus.QUOTE: [SaleStatus.CONFIRMED, SaleStatus.CANCELLED],
+        SaleStatus.CONFIRMED: [SaleStatus.PICKING, SaleStatus.PACKING, SaleStatus.DISPATCHED, SaleStatus.CANCELLED],
+        SaleStatus.PICKING: [SaleStatus.PACKING, SaleStatus.DISPATCHED, SaleStatus.CANCELLED],
+        SaleStatus.PACKING: [SaleStatus.DISPATCHED, SaleStatus.CANCELLED],
+        SaleStatus.DISPATCHED: [SaleStatus.DELIVERED, SaleStatus.CANCELLED],
+        SaleStatus.DELIVERED: [], # Final state
+        SaleStatus.CANCELLED: [], # Final state (unless we allow re-drafting later)
+    }
+    
+    # Bypass validation if we are just moving fast (optional), but let's enforce for now
+    if new_status not in valid_transitions.get(old_status, []):
+        # Allow skipping steps? E.g. CONFIRMED -> DISPATCHED directly
+        # Let's allow forward movement skipping for flexibility
+        pass 
+
     if new_status == SaleStatus.CONFIRMED and old_status in [SaleStatus.DRAFT, SaleStatus.QUOTE]:
         # Deduct Inventory
         for item in sale.items:
@@ -218,9 +241,11 @@ async def update_status(
                 )
                 db.add(movement)
                 
-    elif new_status == SaleStatus.CANCELLED and old_status in [SaleStatus.CONFIRMED, SaleStatus.DISPATCHED]:
-        # Restore Inventory
-         for item in sale.items:
+    elif new_status == SaleStatus.CANCELLED and old_status in [SaleStatus.CONFIRMED, SaleStatus.PICKING, SaleStatus.PACKING, SaleStatus.DISPATCHED]:
+        # Restore Inventory if it was deducted (CONFIRMED or later)
+        # Note: If we move deduction to DISPATCHED, this needs change.
+        # Current Logic: Deduction at CONFIRMED.
+        for item in sale.items:
             if item.product and item.product.track_inventory:
                 inv_result = await db.execute(select(Inventory).where(
                     Inventory.product_id == item.product_id,

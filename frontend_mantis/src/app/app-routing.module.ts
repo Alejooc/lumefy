@@ -79,6 +79,10 @@ const routes: Routes = [
         loadChildren: () => import('./modules/sales/sales.module').then(m => m.SalesModule)
       },
       {
+        path: 'logistics',
+        loadChildren: () => import('./modules/logistics/logistics.module').then((m) => m.LogisticsModule)
+      },
+      {
         path: 'audit',
         loadComponent: () => import('./modules/audit/audit-list/audit-list.component').then((m) => m.AuditListComponent)
       },
