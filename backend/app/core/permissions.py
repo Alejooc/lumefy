@@ -8,7 +8,11 @@ class PermissionChecker:
         self.required_permission = required_permission
 
     def __call__(self, user: User = Depends(auth.get_current_user)) -> User:
-        # Admin has all permissions
+        # Superuser has all permissions
+        if user.is_superuser:
+            return user
+
+        # Admin role has all permissions
         if user.role and user.role.permissions and user.role.permissions.get("all"):
             return user
             

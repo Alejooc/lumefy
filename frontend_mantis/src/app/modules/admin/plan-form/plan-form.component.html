@@ -1,0 +1,99 @@
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>{{ isEditing ? 'Editar Plan' : 'Nuevo Plan' }}</h5>
+            </div>
+            <div class="card-body">
+                <form [formGroup]="planForm" (ngSubmit)="onSubmit()">
+                    <div class="row">
+                        <!-- Basics -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre del Plan</label>
+                            <input type="text" class="form-control" formControlName="name"
+                                placeholder="Ej. Pro Mensual">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Código (Único)</label>
+                            <input type="text" class="form-control" formControlName="code"
+                                placeholder="Ej. PRO_MONTHLY">
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">Descripción</label>
+                            <textarea class="form-control" formControlName="description" rows="2"></textarea>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Precio</label>
+                            <input type="number" class="form-control" formControlName="price">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Moneda</label>
+                            <select class="form-control" formControlName="currency">
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                                <option value="COP">COP</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Duración (Días)</label>
+                            <input type="number" class="form-control" formControlName="duration_days">
+                        </div>
+                    </div>
+
+                    <h5 class="mt-4">Límites</h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Usuarios Máximos</label>
+                            <input type="number" class="form-control" formControlName="limit_users">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Almacenamiento (MB)</label>
+                            <input type="number" class="form-control" formControlName="limit_storage">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Sucursales Permitidas</label>
+                            <input type="number" class="form-control" formControlName="limit_branches">
+                        </div>
+                    </div>
+
+                    <h5 class="mt-4">Características (Features)</h5>
+                    <div class="row" formGroupName="features">
+                        <div class="col-md-4 mb-2" *ngFor="let feat of availableFeatures">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" [formControlName]="feat.key"
+                                    [id]="feat.key">
+                                <label class="form-check-label" [for]="feat.key">{{ feat.label }}</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" formControlName="is_active"
+                                    id="isActive">
+                                <label class="form-check-label" for="isActive">Activo (Disponible para asignar)</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" formControlName="is_public"
+                                    id="isPublic">
+                                <label class="form-check-label" for="isPublic">Público (Visible en web)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 text-end">
+                        <button type="button" [routerLink]="['/admin/plans']"
+                            class="btn btn-secondary me-2">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" [disabled]="loading || planForm.invalid">
+                            <span *ngIf="loading" class="spinner-border spinner-border-sm me-1"></span>
+                            Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

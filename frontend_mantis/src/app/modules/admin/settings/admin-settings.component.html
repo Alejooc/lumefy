@@ -1,0 +1,79 @@
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Configuración Global SaaS</h5>
+            </div>
+            <div class="card-body">
+                <form [formGroup]="settingsForm" (ngSubmit)="onSubmit()">
+                    <h5 class="mb-3">Marca y Apariencia (Branding)</h5>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre del Sistema</label>
+                            <input type="text" class="form-control" formControlName="system_name">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Color Primario</label>
+                            <input type="color" class="form-control form-control-color" formControlName="primary_color"
+                                title="Elige tu color">
+                        </div>
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">URL del Logo</label>
+                            <input type="text" class="form-control" formControlName="logo_url"
+                                placeholder="https://...">
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h5 class="mb-3">Valores por Defecto (Nuevos Tenants)</h5>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Moneda Base</label>
+                            <select class="form-control" formControlName="default_currency">
+                                <option value="USD">USD - Dólar Americano</option>
+                                <option value="EUR">EUR - Euro</option>
+                                <option value="COP">COP - Peso Colombiano</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Idioma</label>
+                            <select class="form-control" formControlName="default_language">
+                                <option value="es">Español</option>
+                                <option value="en">Inglés</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h5 class="mb-3">Sistema y Seguridad</h5>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" formControlName="allow_registrations"
+                                    id="allowReg">
+                                <label class="form-check-label" for="allowReg">Permitir Nuevos Registros</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" formControlName="maintenance_mode"
+                                    id="maintMode">
+                                <label class="form-check-label text-danger" for="maintMode">Modo Mantenimiento (Bloquea
+                                    acceso)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 text-end">
+                        <button type="submit" class="btn btn-primary" [disabled]="loading">
+                            <span *ngIf="loading" class="spinner-border spinner-border-sm me-1"></span>
+                            Guardar Configuración
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

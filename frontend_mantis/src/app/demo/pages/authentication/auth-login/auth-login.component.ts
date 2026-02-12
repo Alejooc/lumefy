@@ -35,9 +35,13 @@ export class AuthLoginComponent {
     const { email, password } = this.loginForm.value;
 
     this.authService.login(email!, password!).subscribe({
-      next: () => {
+      next: (user) => {
         this.isLoading = false;
-        this.router.navigate(['/dashboard/default']);
+        if (user && user.is_superuser) {
+          this.router.navigate(['/admin/dashboard']);
+        } else {
+          this.router.navigate(['/dashboard/default']);
+        }
       },
       error: (err) => {
         this.isLoading = false;

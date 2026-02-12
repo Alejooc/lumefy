@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { PurchaseService, PurchaseOrder } from '../../../core/services/purchase.service';
@@ -19,6 +19,10 @@ export class PurchaseViewComponent implements OnInit {
     private route = inject(ActivatedRoute);
     private purchaseService = inject(PurchaseService);
 
+    constructor(
+        private cdr: ChangeDetectorRef
+    ) { }
+
     ngOnInit() {
         this.route.paramMap.subscribe(params => {
             const id = params.get('id');
@@ -27,19 +31,17 @@ export class PurchaseViewComponent implements OnInit {
     }
 
     loadPurchase(id: string) {
-        // Ideally get by ID. List gets all. 
-        // Optimization: create getPurchase(id) in service. 
-        // Fallback: get all and find. 
-        this.loading = true;
         this.loading = true;
         this.purchaseService.getPurchase(id).subscribe({
             next: (purchase) => {
                 this.purchase = purchase;
                 this.loading = false;
+                this.cdr.detectChanges();
             },
             error: (err) => {
                 console.error(err);
                 this.loading = false;
+                this.cdr.detectChanges();
                 Swal.fire('Error', 'No se pudo cargar la orden', 'error');
             }
         });
@@ -78,10 +80,12 @@ export class PurchaseViewComponent implements OnInit {
                     next: (updated) => {
                         this.purchase = updated;
                         this.loading = false;
+                        this.cdr.detectChanges();
                         Swal.fire('Actualizado', 'El estado de la orden ha sido actualizado.', 'success');
                     },
                     error: (err) => {
                         this.loading = false;
+                        this.cdr.detectChanges();
                         Swal.fire('Error', 'No se pudo actualizar el estado: ' + (err.error?.detail || err.message), 'error');
                     }
                 });

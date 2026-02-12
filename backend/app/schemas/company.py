@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
@@ -22,6 +22,12 @@ class CompanyBase(BaseModel):
 class CompanyCreate(CompanyBase):
     name: str
 
+# Schema for onboarding a new company with its first admin user
+class CompanyOnboard(CompanyCreate):
+    admin_email: str
+    admin_password: str
+    admin_name: str = "Administrador"
+
 # Properties to receive on update
 class CompanyUpdate(CompanyBase):
     pass
@@ -39,3 +45,12 @@ class Company(CompanyInDBBase):
 # Properties stored in DB
 class CompanyInDB(CompanyInDBBase):
     pass
+
+# Response for onboarding
+class CompanyOnboardResponse(BaseModel):
+    company: Company
+    admin_email: str
+    branch_name: str
+    message: str
+
+    model_config = ConfigDict(from_attributes=True)

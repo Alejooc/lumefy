@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, of } from 'rxjs';
-import { map, catchError, tap } from 'rxjs/operators';
+import { map, catchError, tap, switchMap } from 'rxjs/operators';
 import { ApiService } from './api.service';
 
 export interface Role {
@@ -70,11 +70,12 @@ export class AuthService {
         formData.append('password', password);
 
         return this.api.post<any>('/login/access-token', formData).pipe(
-            tap(response => {
+            switchMap(response => {
                 if (response && response.access_token) {
                     localStorage.setItem('access_token', response.access_token);
-                    this.fetchMe().subscribe();
+                    return this.fetchMe();
                 }
+                return of(null);
             })
         );
     }

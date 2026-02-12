@@ -115,13 +115,21 @@ export class NavContentComponent implements OnInit {
   }
 
   private filterNavigation(items: NavigationItem[]): NavigationItem[] {
+    const user = this.authService.currentUserValue;
+    const isSuperUser = user?.is_superuser;
+
     return items.reduce((acc, item) => {
       // 1. Check item permission
       if (item.permissions && !this.permissionService.hasAnyPermission(item.permissions)) {
         return acc;
       }
 
-      // 2. Process children
+      // 2. Hide Default Dashboard for Super Admin
+      if (isSuperUser && item.id === 'dashboard') {
+        return acc;
+      }
+
+      // 3. Process children
       let newItem = { ...item };
       if (newItem.children) {
         newItem.children = this.filterNavigation(newItem.children);

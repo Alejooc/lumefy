@@ -45,12 +45,36 @@ export const NavigationItems: NavigationItem[] = [
     permissions: ['manage_saas'],
     children: [
       {
+        id: 'admin-dashboard',
+        title: 'Dashboard',
+        type: 'item',
+        url: '/admin/dashboard',
+        classes: 'nav-item',
+        icon: 'feather icon-home'
+      },
+      {
         id: 'companies',
         title: 'Empresas',
         type: 'item',
         url: '/admin/companies',
         classes: 'nav-item',
-        icon: 'deployment-unit'
+        icon: 'feather icon-briefcase'
+      },
+      {
+        id: 'plans',
+        title: 'Planes',
+        type: 'item',
+        url: '/admin/plans',
+        classes: 'nav-item',
+        icon: 'feather icon-layers'
+      },
+      {
+        id: 'settings',
+        title: 'Configuración',
+        type: 'item',
+        url: '/admin/settings',
+        classes: 'nav-item',
+        icon: 'feather icon-settings'
       }
     ]
   },

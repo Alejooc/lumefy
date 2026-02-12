@@ -1,7 +1,7 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { PurchaseService } from '../../../core/services/purchase.service';
 import { SupplierService, Supplier } from '../../../core/services/supplier.service';
 import { ProductService, Product } from '../../../core/services/product.service';
@@ -30,6 +30,7 @@ export class PurchaseFormComponent implements OnInit {
     private supplierService = inject(SupplierService);
     private productService = inject(ProductService);
     private priceListService = inject(PriceListService);
+    private cdr = inject(ChangeDetectorRef);
 
     branches: Branch[] = [];
     private branchService = inject(BranchService);
@@ -51,6 +52,8 @@ export class PurchaseFormComponent implements OnInit {
         return this.purchaseForm.get('items') as FormArray;
     }
 
+    private route = inject(ActivatedRoute); // Inject route
+
     ngOnInit() {
         this.loading = true;
 
@@ -63,18 +66,6 @@ export class PurchaseFormComponent implements OnInit {
             if (plId) this.handlePriceListChange(plId);
         });
 
-        // Load all data
-        const loadAll = [
-            this.supplierService.getSuppliers(),
-            this.productService.getProducts(),
-            this.branchService.getBranches(),
-            this.priceListService.getPriceLists()
-        ];
-
-        // Using forkJoin (requires importing from rxjs)
-        // But to avoid complex imports if not present, I'll just daisy chain or use Promise.all if converting.
-        // Let's strictly load one by one or just fire them all and wait for UI.
-        // Better:
         this.loadDependencies();
     }
 
@@ -98,9 +89,16 @@ export class PurchaseFormComponent implements OnInit {
                 this.priceLists = d;
                 this.loading = false; // Turn off loading when at least one finishes or lazily?
                 // Actually proper way is forkJoin.
+                this.cdr.detectChanges();
             },
-            error: e => console.error('PriceLists error', e),
-            complete: () => this.loading = false
+            error: e => {
+                console.error('PriceLists error', e);
+                this.cdr.detectChanges();
+            },
+            complete: () => {
+                this.loading = false;
+                this.cdr.detectChanges();
+            }
         });
 
         // Timeout safety
@@ -238,12 +236,14 @@ export class PurchaseFormComponent implements OnInit {
         this.purchaseService.createPurchase(payload).subscribe({
             next: () => {
                 this.loading = false;
-                Swal.fire('Creada', 'Orden de compra creada exitosamente.', 'success').then(() => {
+                this.cdr.detectChanges();
+                Swal.fire('Creada', 'Orden de compra criada exitosamente.', 'success').then(() => {
                     this.router.navigate(['/purchasing/orders']);
                 });
             },
             error: (err) => {
                 this.loading = false;
+                this.cdr.detectChanges();
                 Swal.fire('Error', 'No se pudo crear la orden: ' + (err.error?.detail || err.message), 'error');
             }
         });
