@@ -34,8 +34,11 @@ class PurchaseOrderCreate(PurchaseOrderBase):
     items: List[PurchaseOrderItemCreate] = []
 
 class PurchaseOrderUpdate(BaseModel):
-    status: Optional[PurchaseStatus] = None
+    supplier_id: Optional[UUID] = None
+    branch_id: Optional[UUID] = None
     notes: Optional[str] = None
+    expected_date: Optional[datetime] = None
+    status: Optional[PurchaseStatus] = None
 
 class PurchaseOrder(PurchaseOrderBase):
     id: UUID

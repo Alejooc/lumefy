@@ -12,14 +12,17 @@ export class PermissionService {
         const user = this.authService.currentUserValue;
         if (!user) return false;
 
+        // Superuser has ALL permissions (including manage_saas)
         if (user.is_superuser) return true;
+
+        // manage_saas is EXCLUSIVELY for superusers — company admins never get it
+        if (permission === 'manage_saas') return false;
 
         if (!user.role || !user.role.permissions) {
             return false;
         }
 
-        // Admin has all permissions? Usually backend handles "all", but frontend might check specific keys.
-        // If backend sends "all": true in permissions for admin, check that.
+        // Company admin with "all" gets all COMPANY-level permissions (not SaaS admin)
         if (user.role.permissions['all']) {
             return true;
         }

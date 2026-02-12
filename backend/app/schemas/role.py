@@ -11,8 +11,10 @@ class RoleBase(BaseModel):
 class RoleCreate(RoleBase):
     pass
 
-class RoleUpdate(RoleBase):
-    pass
+class RoleUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    permissions: Optional[Dict[str, Any]] = None
 
 class Role(RoleBase):
     id: UUID

@@ -50,7 +50,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         url: '/admin/dashboard',
         classes: 'nav-item',
-        icon: 'feather icon-home'
+        icon: 'dashboard'
       },
       {
         id: 'companies',
@@ -58,7 +58,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         url: '/admin/companies',
         classes: 'nav-item',
-        icon: 'feather icon-briefcase'
+        icon: 'shop'
       },
       {
         id: 'plans',
@@ -66,7 +66,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         url: '/admin/plans',
         classes: 'nav-item',
-        icon: 'feather icon-layers'
+        icon: 'appstore'
       },
       {
         id: 'settings',
@@ -74,7 +74,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         url: '/admin/settings',
         classes: 'nav-item',
-        icon: 'feather icon-settings'
+        icon: 'setting'
       }
     ]
   },
@@ -91,7 +91,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/products',
-        icon: 'shopping',
+        icon: 'shopping-cart',
         permissions: ['view_products']
       },
       {
@@ -110,9 +110,29 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/inventory',
-        icon: 'box',
+        icon: 'database',
         breadcrumbs: true,
         permissions: ['view_inventory']
+      },
+      {
+        id: 'brands',
+        title: 'Marcas',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/brands',
+        icon: 'tags',
+        breadcrumbs: true,
+        permissions: ['view_products']
+      },
+      {
+        id: 'units-of-measure',
+        title: 'Unidades de Medida',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/units-of-measure',
+        icon: 'column-width',
+        breadcrumbs: true,
+        permissions: ['view_products']
       }
     ]
   },
@@ -121,7 +141,7 @@ export const NavigationItems: NavigationItem[] = [
     title: 'Compras',
     type: 'group',
     icon: 'icon-navigation',
-    permissions: ['manage_inventory'], // Using inventory permission for now
+    permissions: ['manage_inventory'],
     children: [
       {
         id: 'suppliers',
@@ -129,7 +149,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/purchasing/suppliers',
-        icon: 'users',
+        icon: 'team',
         breadcrumbs: false,
         permissions: ['manage_inventory']
       },
@@ -149,7 +169,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/purchasing/pricelists',
-        icon: 'tag',
+        icon: 'tags',
         breadcrumbs: false,
         permissions: ['manage_inventory']
       }
@@ -178,7 +198,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/sales',
-        icon: 'file-text',
+        icon: 'solution',
         permissions: ['view_sales']
       }
     ]
@@ -196,7 +216,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/reports',
-        icon: 'area-chart',
+        icon: 'bar-chart',
         breadcrumbs: false,
         permissions: ['view_reports']
       }
@@ -224,7 +244,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/users',
-        icon: 'user',
+        icon: 'team',
         breadcrumbs: false,
         permissions: ['manage_users']
       },
@@ -234,7 +254,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/audit',
-        icon: 'file-text',
+        icon: 'audit',
         breadcrumbs: false,
         permissions: ['view_reports']
       },
@@ -244,7 +264,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/branches',
-        icon: 'layout',
+        icon: 'bank',
         breadcrumbs: false,
         permissions: ['manage_settings']
       }

@@ -1,0 +1,5 @@
+=== ALL USERS ===
+Columns: ['id', 'email', 'full_name', 'is_superuser', 'is_active', 'role_id', 'company_id']
+
+  ('bf8813f6-52e5-4dd0-9390-04da98820d42', 'admin@lumefy.com', 'Super Admin', True, True, 'a7139c72-b349-476f-b399-07cbb2511219', '6eeaf13c-fdf6-4f13-ad24-39eb54ca751b')
+  ('4ece38c5-4093-4e43-bec2-377df6e62c7b', 'demo@varyago.com', 'Demo', False, True, '000fe8fb-9767-44a0-99dd-e33fa81f3c9f', '6eeaf13c-fdf6-4f13-ad24-39eb54ca751b')

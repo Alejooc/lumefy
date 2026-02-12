@@ -1,45 +1,99 @@
 <div class="row">
     <div class="col-sm-12">
-        <app-card [cardTitle]="'Product List'">
+        <app-card [cardTitle]="'Productos'">
             <ng-template #headerOptionsTemplate>
-                <button class="btn btn-primary me-2" routerLink="/products/import">
+                <button class="btn btn-outline-primary me-2" routerLink="/products/import">
                     <i class="feather icon-upload"></i> Importar
                 </button>
                 <button class="btn btn-primary" routerLink="/products/create">
-                    <i class="feather icon-plus"></i> Crear
+                    <i class="feather icon-plus"></i> Nuevo Producto
                 </button>
             </ng-template>
-            <div *ngIf="isLoading" class="text-center p-4">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="sr-only">Loading...</span>
+
+            <!-- Search Bar -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <input type="text" class="form-control" [(ngModel)]="searchQuery"
+                            placeholder="Buscar por nombre, SKU o código..." (keyup.enter)="onSearch()">
+                        <button class="btn btn-outline-secondary" (click)="onSearch()">🔍</button>
+                    </div>
                 </div>
-                <p class="mt-2">Loading products...</p>
             </div>
 
+            <!-- Loading -->
+            <div *ngIf="isLoading" class="text-center p-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="sr-only">Cargando...</span>
+                </div>
+                <p class="mt-2">Cargando productos...</p>
+            </div>
+
+            <!-- Table -->
             <div class="table-responsive" *ngIf="!isLoading">
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>Producto</th>
                             <th>SKU</th>
-                            <th>Price</th>
-                            <th>Stock</th>
-                            <th>Actions</th>
+                            <th>Tipo</th>
+                            <th>Categoría</th>
+                            <th>Marca</th>
+                            <th>Precio</th>
+                            <th>Costo</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr *ngFor="let product of products; trackBy: trackByFn">
-                            <td>{{ product.name }}</td>
-                            <td>{{ product.sku }}</td>
-                            <td>{{ currencySymbol }} {{ product.price }}</td>
-                            <td>{{ product.stock }}</td>
-                            <button (click)="deleteProduct(product.id)" class="btn btn-icon btn-outline-danger btn-sm"
-                                [disabled]="isLoading">
-                                <i class="feather icon-trash-2"></i>
-                            </button>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <img *ngIf="product.image_url" [src]="product.image_url" class="rounded me-2"
+                                        style="width: 36px; height: 36px; object-fit: cover;" alt=""
+                                        (error)="product.image_url = ''">
+                                    <div>
+                                        <div class="fw-bold">{{ product.name }}</div>
+                                        <small class="text-muted" *ngIf="product.internal_reference">
+                                            Ref: {{ product.internal_reference }}
+                                        </small>
+                                        <small class="text-muted" *ngIf="product.variants?.length > 0">
+                                            | {{ product.variants.length }} variante(s)
+                                        </small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <code *ngIf="product.sku">{{ product.sku }}</code>
+                                <span *ngIf="!product.sku" class="text-muted">—</span>
+                            </td>
+                            <td>
+                                <span [ngClass]="getTypeBadgeClass(product.product_type)">
+                                    {{ getTypeLabel(product.product_type) }}
+                                </span>
+                            </td>
+                            <td>{{ product.category?.name || '—' }}</td>
+                            <td>{{ product.brand?.name || '—' }}</td>
+                            <td class="fw-bold">{{ currencySymbol }} {{ product.price | number:'1.2-2' }}</td>
+                            <td>{{ currencySymbol }} {{ product.cost | number:'1.2-2' }}</td>
+                            <td class="text-center">
+                                <a [routerLink]="['/products/edit', product.id]"
+                                    class="btn btn-icon btn-outline-primary btn-sm me-1" title="Editar">
+                                    <i class="feather icon-edit"></i>
+                                </a>
+                                <button (click)="deleteProduct(product.id)"
+                                    class="btn btn-icon btn-outline-danger btn-sm" [disabled]="isLoading"
+                                    title="Eliminar">
+                                    <i class="feather icon-trash-2"></i>
+                                </button>
+                            </td>
                         </tr>
                         <tr *ngIf="products.length === 0">
-                            <td colspan="5" class="text-center">No products found</td>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                No se encontraron productos.
+                                <br>
+                                <a routerLink="/products/create" class="btn btn-sm btn-primary mt-2">Crear primer
+                                    producto</a>
+                            </td>
                         </tr>
                     </tbody>
                 </table>

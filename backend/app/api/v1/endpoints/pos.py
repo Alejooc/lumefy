@@ -40,7 +40,8 @@ async def create_sale(
             subtotal=0.0,
             tax=0.0,
             discount=0.0,
-            total=0.0
+            total=0.0,
+            company_id=current_user.company_id
         )
         db.add(sale)
         await db.flush() # Get ID

@@ -198,3 +198,74 @@ async def update_purchase_status(
     await db.commit()
     await log_activity(db, "UPDATE_STATUS", "PurchaseOrder", purchase.id, current_user.id, current_user.company_id, {"status": status})
     return purchase
+
+@router.put("/{purchase_id}", response_model=schemas.PurchaseOrder)
+async def update_purchase(
+    *,
+    db: AsyncSession = Depends(get_db),
+    purchase_id: UUID,
+    purchase_in: schemas.PurchaseOrderUpdate,
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> Any:
+    """
+    Update a purchase order (only DRAFT status).
+    """
+    query = select(PurchaseOrder).where(
+        PurchaseOrder.id == purchase_id,
+        PurchaseOrder.company_id == current_user.company_id
+    ).options(
+        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+        selectinload(PurchaseOrder.supplier),
+        selectinload(PurchaseOrder.branch)
+    )
+    result = await db.execute(query)
+    purchase = result.scalars().first()
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+    
+    if purchase.status != PurchaseStatus.DRAFT:
+        raise HTTPException(status_code=400, detail="Solo se pueden editar órdenes en estado Borrador")
+    
+    update_data = purchase_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(purchase, field, value)
+    
+    await db.commit()
+    await db.refresh(purchase)
+    await log_activity(db, "UPDATE", "PurchaseOrder", purchase.id, current_user.id, current_user.company_id)
+    return purchase
+
+@router.delete("/{purchase_id}")
+async def delete_purchase(
+    *,
+    db: AsyncSession = Depends(get_db),
+    purchase_id: UUID,
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> Any:
+    """
+    Delete a purchase order. Only DRAFT can be deleted.
+    """
+    query = select(PurchaseOrder).where(
+        PurchaseOrder.id == purchase_id,
+        PurchaseOrder.company_id == current_user.company_id
+    ).options(selectinload(PurchaseOrder.items))
+    result = await db.execute(query)
+    purchase = result.scalars().first()
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+    
+    if purchase.status != PurchaseStatus.DRAFT:
+        raise HTTPException(
+            status_code=400,
+            detail="Solo se pueden eliminar órdenes en estado Borrador"
+        )
+    
+    # Delete items first
+    for item in purchase.items:
+        await db.delete(item)
+    
+    await db.delete(purchase)
+    await db.commit()
+    await log_activity(db, "DELETE", "PurchaseOrder", purchase_id, current_user.id, current_user.company_id)
+    return {"ok": True, "detail": "Orden de compra eliminada"}
+

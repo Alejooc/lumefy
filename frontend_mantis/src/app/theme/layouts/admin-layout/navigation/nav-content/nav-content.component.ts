@@ -21,7 +21,22 @@ import {
   ProfileOutline,
   BgColorsOutline,
   AntDesignOutline,
-  FileTextOutline
+  FileTextOutline,
+  ShopOutline,
+  AppstoreOutline,
+  SettingOutline,
+  ShoppingCartOutline,
+  GoldOutline,
+  DatabaseOutline,
+  TeamOutline,
+  TagsOutline,
+  CalculatorOutline,
+  SolutionOutline,
+  BarChartOutline,
+  UserOutline,
+  AuditOutline,
+  BankOutline,
+  ColumnWidthOutline
 } from '@ant-design/icons-angular/icons';
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { PermissionService } from '../../../../../core/services/permission.service';
@@ -65,7 +80,22 @@ export class NavContentComponent implements OnInit {
         AntDesignOutline,
         ChromeOutline,
         QuestionOutline,
-        FileTextOutline
+        FileTextOutline,
+        ShopOutline,
+        AppstoreOutline,
+        SettingOutline,
+        ShoppingCartOutline,
+        GoldOutline,
+        DatabaseOutline,
+        TeamOutline,
+        TagsOutline,
+        CalculatorOutline,
+        SolutionOutline,
+        BarChartOutline,
+        UserOutline,
+        AuditOutline,
+        BankOutline,
+        ColumnWidthOutline
       ]
     );
     this.navigations = [];
@@ -119,21 +149,27 @@ export class NavContentComponent implements OnInit {
     const isSuperUser = user?.is_superuser;
 
     return items.reduce((acc, item) => {
-      // 1. Check item permission
+      // Top-level group filtering (only for groups, NOT their children)
+      if (item.type === 'group') {
+        // Superuser: only show Admin group
+        if (isSuperUser && item.id !== 'admin') {
+          return acc;
+        }
+        // Non-superuser: hide admin group
+        if (!isSuperUser && item.id === 'admin') {
+          return acc;
+        }
+      }
+
+      // Check item permission
       if (item.permissions && !this.permissionService.hasAnyPermission(item.permissions)) {
         return acc;
       }
 
-      // 2. Hide Default Dashboard for Super Admin
-      if (isSuperUser && item.id === 'dashboard') {
-        return acc;
-      }
-
-      // 3. Process children
+      // Process children
       let newItem = { ...item };
       if (newItem.children) {
         newItem.children = this.filterNavigation(newItem.children);
-        // If it's a group or collapse and has no visible children, filter it out
         if (newItem.children.length === 0 && (newItem.type === 'group' || newItem.type === 'collapse')) {
           return acc;
         }

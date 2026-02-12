@@ -23,7 +23,9 @@ async def read_package_types(
     limit: int = 100,
     current_user: User = Depends(PermissionChecker("view_sales")),
 ) -> Any:
-    query = select(PackageType).offset(skip).limit(limit)
+    query = select(PackageType).where(
+        PackageType.company_id == current_user.company_id
+    ).offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -34,7 +36,7 @@ async def create_package_type(
     type_in: schemas.PackageTypeCreate,
     current_user: User = Depends(PermissionChecker("manage_sales")),
 ) -> Any:
-    pkg_type = PackageType(**type_in.dict())
+    pkg_type = PackageType(**type_in.dict(), company_id=current_user.company_id)
     db.add(pkg_type)
     await db.commit()
     await db.refresh(pkg_type)
@@ -89,7 +91,11 @@ async def create_package(
     current_user: User = Depends(PermissionChecker("manage_sales")),
 ) -> Any:
     # Validate Sale exists
-    sale = await db.get(Sale, package_in.sale_id)
+    result = await db.execute(select(Sale).where(
+        Sale.id == package_in.sale_id,
+        Sale.company_id == current_user.company_id
+    ))
+    sale = result.scalars().first()
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
         

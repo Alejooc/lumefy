@@ -6,6 +6,7 @@ import { RouterModule, Routes } from '@angular/router';
 import { AdminLayout } from './theme/layouts/admin-layout/admin-layout.component';
 import { GuestLayoutComponent } from './theme/layouts/guest-layout/guest-layout.component';
 import { AuthGuard } from './core/auth.guard';
+import { SuperuserGuard } from './core/superuser.guard';
 
 const routes: Routes = [
   {
@@ -88,7 +89,16 @@ const routes: Routes = [
       },
       {
         path: 'admin',
+        canActivate: [SuperuserGuard],
         loadChildren: () => import('./modules/admin/admin.module').then(m => m.AdminModule)
+      },
+      {
+        path: 'brands',
+        loadComponent: () => import('./modules/brands/brand-list.component').then(c => c.BrandListComponent)
+      },
+      {
+        path: 'units-of-measure',
+        loadComponent: () => import('./modules/units-of-measure/uom-list.component').then(c => c.UomListComponent)
       }
     ]
   },

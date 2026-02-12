@@ -64,6 +64,44 @@
                         </div>
                     </div>
 
+                    <!-- Admin User Section - Only for creation -->
+                    <div *ngIf="!isEditMode">
+                        <hr>
+                        <h5>👤 Administrador Inicial</h5>
+                        <p class="text-muted small">Se creará un usuario administrador con acceso total a esta empresa.
+                        </p>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Nombre</label>
+                                <input type="text" class="form-control" formControlName="admin_name"
+                                    placeholder="Nombre del administrador">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Email de Acceso</label>
+                                <input type="email" class="form-control" formControlName="admin_email"
+                                    placeholder="admin@empresa.com">
+                                <div *ngIf="companyForm.get('admin_email')?.touched && companyForm.get('admin_email')?.errors?.['required']"
+                                    class="text-danger small">
+                                    Email es requerido
+                                </div>
+                                <div *ngIf="companyForm.get('admin_email')?.touched && companyForm.get('admin_email')?.errors?.['email']"
+                                    class="text-danger small">
+                                    Email inválido
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Contraseña</label>
+                                <input type="password" class="form-control" formControlName="admin_password"
+                                    placeholder="Mínimo 6 caracteres">
+                                <div *ngIf="companyForm.get('admin_password')?.touched && companyForm.get('admin_password')?.errors?.['minlength']"
+                                    class="text-danger small">
+                                    Mínimo 6 caracteres
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="mt-4">
                         <button type="submit" class="btn btn-primary me-2" [disabled]="loading || companyForm.invalid">
                             {{ isEditMode ? 'Actualizar' : 'Crear' }}

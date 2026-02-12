@@ -25,7 +25,9 @@ async def read_pricelists(
     """
     Retrieve price lists.
     """
-    query = select(PriceList).options(selectinload(PriceList.items))
+    query = select(PriceList).options(selectinload(PriceList.items)).where(
+        PriceList.company_id == current_user.company_id
+    )
     if type:
         query = query.where(PriceList.type == type)
     
@@ -47,7 +49,8 @@ async def create_pricelist(
         name=pricelist_in.name,
         type=pricelist_in.type,
         currency=pricelist_in.currency,
-        active=pricelist_in.active
+        active=pricelist_in.active,
+        company_id=current_user.company_id
     )
     db.add(pricelist)
     await db.flush()
@@ -81,7 +84,10 @@ async def read_pricelist(
     """
     Get price list by ID.
     """
-    query = select(PriceList).where(PriceList.id == id).options(selectinload(PriceList.items))
+    query = select(PriceList).where(
+        PriceList.id == id,
+        PriceList.company_id == current_user.company_id
+    ).options(selectinload(PriceList.items))
     result = await db.execute(query)
     pricelist = result.scalars().first()
     if not pricelist:
@@ -99,7 +105,10 @@ async def update_pricelist(
     """
     Update a price list.
     """
-    query = select(PriceList).where(PriceList.id == id)
+    query = select(PriceList).where(
+        PriceList.id == id,
+        PriceList.company_id == current_user.company_id
+    )
     result = await db.execute(query)
     pricelist = result.scalars().first()
     if not pricelist:
@@ -126,7 +135,10 @@ async def add_pricelist_item(
     Add item to price list.
     """
     # Check if price list exists
-    query = select(PriceList).where(PriceList.id == id)
+    query = select(PriceList).where(
+        PriceList.id == id,
+        PriceList.company_id == current_user.company_id
+    )
     result = await db.execute(query)
     if not result.scalars().first():
         raise HTTPException(status_code=404, detail="Price list not found")
@@ -139,3 +151,32 @@ async def add_pricelist_item(
     await db.commit()
     await db.refresh(item)
     return item
+
+@router.delete("/{id}", response_model=schemas.PriceList)
+async def delete_pricelist(
+    *,
+    db: AsyncSession = Depends(get_db),
+    id: str,
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> Any:
+    """
+    Delete a price list and its items.
+    """
+    query = select(PriceList).where(
+        PriceList.id == id,
+        PriceList.company_id == current_user.company_id
+    ).options(selectinload(PriceList.items))
+    result = await db.execute(query)
+    pricelist = result.scalars().first()
+    if not pricelist:
+        raise HTTPException(status_code=404, detail="Price list not found")
+    
+    # Delete items first
+    for item in pricelist.items:
+        await db.delete(item)
+    
+    await db.delete(pricelist)
+    await db.commit()
+    await log_activity(db, "DELETE", "PriceList", id, current_user.id, current_user.company_id)
+    return pricelist
+

@@ -2,9 +2,16 @@
     <div class="col-sm-12">
         <app-card [cardTitle]="'Inventario'">
             <ng-template #headerOptionsTemplate>
-                <button class="btn btn-primary" routerLink="/inventory/movement">
-                    <i class="feather icon-plus"></i> Nuevo Movimiento
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <select class="form-select form-select-sm" style="width: 200px;" [(ngModel)]="selectedBranchId"
+                        (ngModelChange)="onBranchChange()">
+                        <option value="">Todas las sucursales</option>
+                        <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" routerLink="/inventory/movement">
+                        <i class="feather icon-plus"></i> Nuevo Movimiento
+                    </button>
+                </div>
             </ng-template>
 
             <div class="table-responsive">
@@ -26,7 +33,7 @@
                             <td>{{ item.branch?.name || 'Sucursal #' + item.branch_id }}</td>
                             <td>
                                 <span class="badge"
-                                    [ngClass]="{'bg-success': item.quantity > 0, 'bg-danger': item.quantity <= 0}">
+                                    [ngClass]="{'bg-success': item.quantity > 10, 'bg-warning text-dark': item.quantity > 0 && item.quantity <= 10, 'bg-danger': item.quantity <= 0}">
                                     {{ item.quantity }}
                                 </span>
                             </td>
@@ -34,7 +41,7 @@
                             <td>{{ item.batch_number || '-' }}</td>
                             <td>{{ item.expiry_date || '-' }}</td>
                             <td>
-                                <button class="btn btn-icon btn-outline-info btn-sm" title="Ver Movimientos"
+                                <button class="btn btn-icon btn-outline-info btn-sm" title="Ver Movimientos (Kardex)"
                                     [routerLink]="['/inventory/history', item.product_id]"
                                     [queryParams]="{branchId: item.branch_id}">
                                     <i class="feather icon-list"></i>
@@ -42,7 +49,11 @@
                             </td>
                         </tr>
                         <tr *ngIf="inventoryItems.length === 0 && !isLoading">
-                            <td colspan="7" class="text-center">No hay registros de inventario.</td>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                No hay registros de inventario.
+                                <br>
+                                <small>Crea un movimiento de entrada para comenzar.</small>
+                            </td>
                         </tr>
                     </tbody>
                 </table>

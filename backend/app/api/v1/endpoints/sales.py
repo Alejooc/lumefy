@@ -33,14 +33,9 @@ async def read_sales(
         selectinload(Sale.client),
         selectinload(Sale.user),
         selectinload(Sale.branch)
+    ).where(
+        Sale.company_id == current_user.company_id
     ).offset(skip).limit(limit).order_by(Sale.created_at.desc())
-    
-    if current_user.company_id:
-         # Need to join user to filter by company because Sale doesn't have company_id directly (it has user_id/branch_id)
-         # However, correct way is to trust branch_id belongs to company or add company_id to Sale.
-         # For now, let's assume filtering by branch logic or user.company linkage.
-         # Actually Sale has branch_id, branch has company_id.
-         pass # Pending strict multi-tenant filter implementation on Sale model directly
          
     if status:
         query = query.where(Sale.status == status)
@@ -66,7 +61,10 @@ async def read_sale(
         selectinload(Sale.client),
         selectinload(Sale.user),
         selectinload(Sale.branch)
-    ).where(Sale.id == id)
+    ).where(
+        Sale.id == id,
+        Sale.company_id == current_user.company_id
+    )
     
     result = await db.execute(query)
     sale = result.scalars().first()
@@ -99,7 +97,8 @@ async def create_sale(
             subtotal=0.0,
             tax=0.0,
             discount=0.0,
-            total=0.0
+            total=0.0,
+            company_id=current_user.company_id
         )
         db.add(sale)
         await db.flush()
@@ -166,7 +165,10 @@ async def update_status(
         selectinload(Sale.client),
         selectinload(Sale.user),
         selectinload(Sale.branch)
-    ).where(Sale.id == id)
+    ).where(
+        Sale.id == id,
+        Sale.company_id == current_user.company_id
+    )
     result = await db.execute(query)
     sale = result.scalars().first()
     if not sale:
@@ -287,3 +289,43 @@ async def update_status(
     sale = result.scalars().first()
     
     return sale
+
+@router.delete("/{id}")
+async def delete_sale(
+    *,
+    db: AsyncSession = Depends(get_db),
+    id: uuid.UUID,
+    current_user: User = Depends(PermissionChecker("manage_sales")),
+) -> Any:
+    """
+    Delete a sale. Only DRAFT or QUOTE can be deleted.
+    """
+    query = select(Sale).options(
+        selectinload(Sale.items),
+        selectinload(Sale.payments),
+    ).where(
+        Sale.id == id,
+        Sale.company_id == current_user.company_id
+    )
+    result = await db.execute(query)
+    sale = result.scalars().first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    # Only allow deletion of drafts and quotes (Odoo-style)
+    if sale.status not in [SaleStatus.DRAFT, SaleStatus.QUOTE]:
+        raise HTTPException(
+            status_code=400,
+            detail="Solo se pueden eliminar ventas en estado Borrador o Cotización"
+        )
+    
+    # Delete items and payments
+    for item in sale.items:
+        await db.delete(item)
+    for payment in sale.payments:
+        await db.delete(payment)
+    
+    await db.delete(sale)
+    await db.commit()
+    return {"ok": True, "detail": "Venta eliminada"}
+

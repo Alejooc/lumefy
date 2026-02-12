@@ -5,6 +5,7 @@ from sqlalchemy import select
 from app.core.database import get_db
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
+from app.models.branch import Branch
 from app.models.user import User
 from app.core import auth
 from app.core.permissions import PermissionChecker
@@ -28,16 +29,14 @@ async def read_inventory(
     query = select(Inventory).options(
         selectinload(Inventory.product),
         selectinload(Inventory.branch)
+    ).join(Branch, Inventory.branch_id == Branch.id).where(
+        Branch.company_id == current_user.company_id
     )
     
     if branch_id:
         query = query.where(Inventory.branch_id == branch_id)
     if product_id:
         query = query.where(Inventory.product_id == product_id)
-        
-    # TODO: Add company filter if Inventory had company_id, 
-    # but currently it's linked via Branch->Company. 
-    # For now assuming user sees all branches they have access to.
     
     result = await db.execute(query)
     return result.scalars().all()
@@ -151,6 +150,8 @@ async def read_movements(
         selectinload(InventoryMovement.product),
         selectinload(InventoryMovement.branch),
         selectinload(InventoryMovement.user)
+    ).join(Branch, InventoryMovement.branch_id == Branch.id).where(
+        Branch.company_id == current_user.company_id
     ).order_by(InventoryMovement.created_at.desc()).limit(limit)
     
     if product_id:

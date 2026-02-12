@@ -12,6 +12,7 @@ import { AuthService } from '../../../core/services/auth.service';
 export class ProductListComponent implements OnInit {
     products: any[] = [];
     isLoading = false;
+    searchQuery = '';
 
     currencySymbol = '$';
 
@@ -35,7 +36,8 @@ export class ProductListComponent implements OnInit {
 
     loadProducts() {
         this.isLoading = true;
-        this.apiService.get<any[]>('/products').subscribe({
+        const params = this.searchQuery ? `?search=${encodeURIComponent(this.searchQuery)}` : '';
+        this.apiService.get<any[]>(`/products${params}`).subscribe({
             next: (data) => {
                 this.products = data;
                 this.isLoading = false;
@@ -49,18 +51,40 @@ export class ProductListComponent implements OnInit {
         });
     }
 
+    onSearch() {
+        this.loadProducts();
+    }
+
+    getTypeLabel(type: string): string {
+        switch (type) {
+            case 'STORABLE': return 'Almacenable';
+            case 'CONSUMABLE': return 'Consumible';
+            case 'SERVICE': return 'Servicio';
+            default: return type || 'Almacenable';
+        }
+    }
+
+    getTypeBadgeClass(type: string): string {
+        switch (type) {
+            case 'STORABLE': return 'badge bg-primary';
+            case 'CONSUMABLE': return 'badge bg-warning text-dark';
+            case 'SERVICE': return 'badge bg-info';
+            default: return 'badge bg-secondary';
+        }
+    }
+
     deleteProduct(id: string) {
         this.swal.confirmDelete().then((confirmed) => {
             if (confirmed) {
                 this.isLoading = true;
                 this.apiService.delete(`/products/${id}`).subscribe({
                     next: () => {
-                        this.swal.success('Deleted!', 'Product has been deleted.');
+                        this.swal.success('Eliminado', 'Producto eliminado correctamente.');
                         this.loadProducts();
                     },
                     error: (err) => {
                         console.error('Error deleting product', err);
-                        this.swal.error('Error', 'Could not delete product.');
+                        this.swal.error('Error', 'No se pudo eliminar el producto.');
                         this.isLoading = false;
                         this.cdr.detectChanges();
                     }

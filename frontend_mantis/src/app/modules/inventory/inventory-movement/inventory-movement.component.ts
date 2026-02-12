@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -8,7 +8,7 @@ import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.se
 import { SharedModule } from '../../../theme/shared/shared.module';
 
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { HttpParams } from '@angular/common/http';
 
 @Component({
@@ -31,11 +31,12 @@ export class InventoryMovementComponent implements OnInit {
         private api: ApiService,
         private inventoryService: InventoryService,
         private swal: SweetAlertService,
-        private router: Router
+        private router: Router,
+        private cdr: ChangeDetectorRef
     ) {
         this.movementForm = this.fb.group({
             product_id: ['', Validators.required],
-            branch_id: ['7a287434-466e-4919-b25b-c9b09f87be81', Validators.required], // Default Branch
+            branch_id: ['', Validators.required],
             type: ['IN', Validators.required],
             quantity: [1, [Validators.required, Validators.min(0.001)]],
             reason: [''],
@@ -45,6 +46,7 @@ export class InventoryMovementComponent implements OnInit {
 
     ngOnInit(): void {
         this.loadProducts();
+        this.loadBranches();
 
         // Setup search debounce
         this.productSearchInput$.pipe(
@@ -72,8 +74,23 @@ export class InventoryMovementComponent implements OnInit {
             next: (data) => {
                 this.products = data;
                 this.isLoading = false;
+                this.cdr.detectChanges();
             },
             error: () => this.isLoading = false
+        });
+    }
+
+    loadBranches() {
+        this.api.get<any[]>('/branches').subscribe({
+            next: (data) => {
+                this.branches = data;
+                // Auto-select if only one branch
+                if (data.length === 1) {
+                    this.movementForm.patchValue({ branch_id: data[0].id });
+                }
+                this.cdr.detectChanges();
+            },
+            error: (err) => console.error('Error loading branches', err)
         });
     }
 
@@ -81,15 +98,23 @@ export class InventoryMovementComponent implements OnInit {
         if (this.movementForm.valid) {
             this.isSubmitting = true;
             this.inventoryService.createMovement(this.movementForm.value).subscribe({
-                next: () => {
+                next: (result) => {
                     this.isSubmitting = false;
-                    this.swal.success('Éxito', 'Movimiento registrado correctamente.');
+                    const typeLabels: any = { IN: 'Entrada', OUT: 'Salida', ADJ: 'Ajuste', TRF: 'Transferencia' };
+                    const typeName = typeLabels[this.movementForm.value.type] || this.movementForm.value.type;
+                    this.swal.success(
+                        'Movimiento Registrado',
+                        `${typeName} de ${this.movementForm.value.quantity} unidades registrada.\n` +
+                        `Stock anterior: ${result.previous_stock} → Nuevo stock: ${result.new_stock}`
+                    );
                     this.router.navigate(['/inventory']);
                 },
                 error: (err) => {
                     this.isSubmitting = false;
                     console.error(err);
-                    this.swal.error('Error', 'No se pudo registrar el movimiento.');
+                    const detail = err?.error?.detail || 'No se pudo registrar el movimiento.';
+                    this.swal.error('Error', detail);
+                    this.cdr.detectChanges();
                 }
             });
         }

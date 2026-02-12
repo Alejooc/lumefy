@@ -5,10 +5,13 @@ from sqlalchemy import select, func
 from app.core.database import get_db
 from app.models.company import Company
 from app.models.user import User
+from app.models.branch import Branch
+from app.models.role import Role
 from app.models.system_setting import SystemSetting
 from app.schemas import system_setting as setting_schemas
 from app.schemas import company as schemas
 from app.core.permissions import PermissionChecker
+from app.core.security import get_password_hash
 import uuid
 
 # This router should be protected. 
@@ -145,19 +148,23 @@ async def read_companies(
     result = await db.execute(query)
     return result.scalars().all()
 
-@router.post("/companies", response_model=schemas.Company)
+@router.post("/companies", response_model=schemas.CompanyOnboardResponse)
 async def create_company(
     *,
     db: AsyncSession = Depends(get_db),
-    company_in: schemas.CompanyCreate,
+    company_in: schemas.CompanyOnboard,
     current_user: User = Depends(PermissionChecker("manage_saas")),
 ) -> Any:
     """
-    Register a new company (Tenant).
+    Register a new company (Tenant) with full onboarding:
+    Creates Company + Default Branch + Admin Role + First Admin User.
     """
-    # Check if company with same name exists? 
-    # For now strict check might annoying, but let's assume unique names for simplicity if we enforced it (we didn't in model but index=True)
-    
+    # 1. Check if admin email already exists
+    existing_user = await db.execute(select(User).where(User.email == company_in.admin_email))
+    if existing_user.scalars().first():
+        raise HTTPException(status_code=400, detail=f"El email {company_in.admin_email} ya está registrado")
+
+    # 2. Create Company
     company = Company(
         name=company_in.name,
         tax_id=company_in.tax_id,
@@ -169,9 +176,52 @@ async def create_company(
         is_active=True
     )
     db.add(company)
+    await db.flush()  # Get company.id without committing
+
+    # 3. Create Default Branch
+    branch = Branch(
+        name="Sede Principal",
+        code="MAIN",
+        address=company_in.address,
+        phone=company_in.phone,
+        email=company_in.email,
+        is_warehouse=True,
+        allow_pos=True,
+        company_id=company.id
+    )
+    db.add(branch)
+
+    # 4. Create Admin Role for this company
+    admin_role = Role(
+        name="Administrador",
+        description="Administrador con acceso total a la empresa",
+        permissions={"all": True},
+        company_id=company.id
+    )
+    db.add(admin_role)
+    await db.flush()  # Get admin_role.id
+
+    # 5. Create First Admin User
+    admin_user = User(
+        email=company_in.admin_email,
+        hashed_password=get_password_hash(company_in.admin_password),
+        full_name=company_in.admin_name,
+        is_superuser=False,
+        role_id=admin_role.id,
+        company_id=company.id
+    )
+    db.add(admin_user)
+
+    # 6. Commit everything in one transaction
     await db.commit()
     await db.refresh(company)
-    return company
+
+    return schemas.CompanyOnboardResponse(
+        company=schemas.Company.model_validate(company),
+        admin_email=company_in.admin_email,
+        branch_name="Sede Principal",
+        message=f"Empresa '{company.name}' creada exitosamente con sucursal, rol y usuario administrador."
+    )
 
 @router.put("/companies/{id}", response_model=schemas.Company)
 async def update_company(

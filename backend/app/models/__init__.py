@@ -3,7 +3,10 @@ from .user import User
 from .company import Company
 from .branch import Branch
 from .category import Category
-from .product import Product
+from .unit_of_measure import UnitOfMeasure
+from .brand import Brand
+from .product import Product, ProductType
+from .product_variant import ProductVariant
 from .inventory_movement import InventoryMovement
 from .inventory import Inventory
 from .client import Client
@@ -17,3 +20,4 @@ from .audit import AuditLog
 from .logistics import PackageType, SalePackage, SalePackageItem
 from .plan import Plan
 from .system_setting import SystemSetting
+
