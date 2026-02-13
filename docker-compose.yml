@@ -6,7 +6,7 @@ services:
     restart: always
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
+      - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=lumefy_db
     ports:
       - "5432:5432"
@@ -19,21 +19,18 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
+    env_file:
+      - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/lumefy_db
-      - SECRET_KEY=CHANGE_THIS_SECRET_KEY_IN_PRODUCTION
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/lumefy_db
       - POSTGRES_SERVER=db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=lumefy_db
-      - POSTGRES_PORT=5432
     depends_on:
       - db
     volumes:
       - ./backend:/app
 
   frontend:
-    build: ./frontend
+    build: ./frontend_mantis
     restart: always
     ports:
       - "4200:80"

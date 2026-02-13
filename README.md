@@ -13,93 +13,132 @@
 
 ---
 
-## 👋 ¿Qué es Lumefy?
+## 📋 Requisitos Previos
 
-Olvídate de los sistemas antiguos y complicados. **Lumefy** es el alma moderna de tu negocio. Ya sea que dirijas una cafetería boutique o un imperio minorista con múltiples sucursales, Lumefy te da las herramientas para gestionar **Inventario, POS (Punto de Venta), CRM y ERP** a través de una interfaz única e impresionante.
+Antes de comenzar, asegúrate de tener instalado:
 
-### ✨ Por qué te encantará:
-
-*   **🏢 Multi-Todo**: Gestiona múltiples compañías y sucursales desde una sola cuenta. Escala sin límites (Arquitectura SaaS).
-*   **⚡ POS Ultra Rápido**: Diseñado para la velocidad. Mantén a tus clientes felices y tus ventas fluyendo.
-*   **📦 Magia de Stock**: Seguimiento de inventario en vivo entre sucursales. Nunca te quedes sin tus productos más vendidos.
-*   **🛍️ Compras y Ventas**: Ciclo completo de abastecimiento (Proveedores, Órdenes de Compra) y Ventas (Cotizaciones, Pedidos, Facturación).
-*   **👥 Poder de Equipo**: Roles y permisos precisos (RBAC). Dale a cada quien las herramientas que necesita, y nada más.
-*   **📊 Insights Inteligentes**: Gráficos hermosos que realmente cuentan una historia. Conoce tus números, haz crecer tu negocio.
+*   **Git**: [Descargar](https://git-scm.com/)
+*   **Docker Desktop** (para instalación recomendada): [Descargar](https://www.docker.com/products/docker-desktop/)
+*   **Node.js v18+** (solo para instalación manual): [Descargar](https://nodejs.org/)
+*   **Python 3.10+** (solo para instalación manual): [Descargar](https://www.python.org/)
 
 ---
 
-## 🛠️ La Tecnología
+## 🚀 Opción 1: Instalación Rápida con Docker (Recomendada)
 
-No comprometemos la calidad. Lumefy está construido con las tecnologías más amadas del mundo:
+La forma más fácil de probar Lumefy sin configurar entornos locales complejos.
 
--   **Backend**: [FastAPI](https://fastapi.tiangolo.com/) – Para un rendimiento ultrarrápido y código Python limpio.
--   **Frontend**: [Angular](https://angular.io/) – Usando la plantilla premium **Mantis** para una UI/UX de clase mundial.
--   **Base de Datos**: [PostgreSQL](https://www.postgresql.org/) – Confiable, escalable y potente.
--   **Despliegue**: [Docker](https://www.docker.com/) – Porque "funciona en mi máquina" es cosa del pasado.
-
----
-
-## 🏗️ Arquitectura de un Vistazo
-
-```mermaid
-graph TD
-    A[Nube Global] --> B{Lumefy Gateway}
-    B -->|Interfaz de Usuario| C[App Angular 17+]
-    B -->|Tráfico API| D[Backend FastAPI]
-    D --> E[(Base de Datos PostgreSQL)]
-    D --> F[Lógica Multi-Tenant]
-```
-
----
-
-## 🏁 Comienza en 5 Minutos
-
-¿Listo para ver la magia? Así es como lo pones en marcha.
-
-### 🐳 La Vía Docker (Recomendado)
+### 1. Clonar el repositorio
 ```bash
-# 1. Clona el código
-git clone https://github.com/Alejooc/lumefy.git && cd lumefy
-
-# 2. Enciende los motores
-docker-compose up -d --build
-
-# 3. Toque final (Migraciones y Semillas)
-docker-compose exec backend alembic upgrade head
-# Crea roles y usuario inicial
-docker-compose exec backend python seed_roles.py 
+git clone https://github.com/Alejooc/lumefy.git
+cd lumefy
 ```
 
-### 🛠️ Configuración Manual
-<details>
-<summary><b>Click para ver pasos manuales</b></summary>
+### 2. Configurar entorno
+Copia la configuración de ejemplo:
+```bash
+# Windows (PowerShell)
+copy backend\.env.example backend\.env
 
-#### Backend
+# Linux / Mac
+cp backend/.env.example backend/.env
+```
+
+### 3. Iniciar servicios
+```bash
+docker-compose up -d --build
+```
+*Espera unos minutos mientras se descargan las imágenes y se construye el frontend.*
+
+### 4. Inicializar base de datos
+Ejecuta estos comandos una sola vez para crear las tablas y datos iniciales:
+```bash
+# Aplicar migraciones
+docker-compose exec backend alembic upgrade head
+
+# Crear roles y usuario administrador
+docker-compose exec backend python seed_roles.py
+
+# (Opcional) Cargar datos SaaS y de prueba
+docker-compose exec backend python seed_saas.py
+```
+
+### 5. ¡Listo! 
+Accede a la plataforma en: http://localhost:4200
+*   **Usuario**: `admin@lumefy.com`
+*   **Contraseña**: `admin123`
+
+---
+
+## 🛠️ Opción 2: Instalación Manual (Desarrollo)
+
+Si prefieres ejecutar todo en tu máquina local para desarrollo.
+
+### 1. Backend (FastAPI)
+
+Navega a la carpeta del backend y crea un entorno virtual:
 ```bash
 cd backend
-python -m venv venv && source venv/bin/activate # o venv\Scripts\activate en Windows
+python -m venv venv
+
+# Activar entorno:
+# Windows:
+venv\Scripts\activate
+# Mac/Linux:
+source venv/bin/activate
+```
+
+Instala las dependencias:
+```bash
 pip install -r requirements.txt
-# Configura tu .env basado en .env.example
+```
+
+Configura las variables de entorno:
+1.  Copia `.env.example` a `.env`.
+2.  Edita `.env` y asegúrate de tener una base de datos PostgreSQL corriendo localmente.
+3.  Actualiza `POSTGRES_SERVER` a `localhost` (y credenciales según tu DB local).
+
+Inicia el servidor y migraciones:
+```bash
+# Migraciones
+alembic upgrade head
+
+# Semillas
+python seed_roles.py
+
+# Iniciar servidor
 uvicorn app.main:app --reload
 ```
+*El backend estará en: http://localhost:8000*
 
-#### Frontend
+### 2. Frontend (Angular)
+
+En una nueva terminal, navega a la carpeta del frontend:
 ```bash
 cd frontend_mantis
+```
+
+Instala dependencias (Angular 17+):
+```bash
 npm install
+```
+
+Inicia el servidor de desarrollo:
+```bash
 npm start
 ```
-</details>
+*El frontend estará en: http://localhost:4200*
 
 ---
 
-## 🤝 Únete al Viaje
+## 🏗️ Estructura del Proyecto
 
-Lumefy está construido por soñadores, para hacedores. Si quieres contribuir, encontrar un bug, o solo decir hola, ¡siéntete libre de abrir un issue o pull request!
+*   `/backend` - API REST con FastAPI, SQLAlchemy y Alembic.
+*   `/frontend_mantis` - Aplicación SPA con Angular y plantilla Mantis.
+*   `/docker-compose.yml` - Orquestación de contenedores.
+
+## 🤝 Contribuir
+¡Las contribuciones son bienvenidas! Por favor abre un Issue o Pull Request para mejoras.
 
 ---
-
-<p align="center">
-  <b>Construido con ✨ por Alejooc</b><br>
-  <i>"Empoderando negocios, una línea de código a la vez."</i>
-</p>
+<p align="center">Construido con ✨ por Alejooc</p>
