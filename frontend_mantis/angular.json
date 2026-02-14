@@ -19,7 +19,11 @@
           "options": {
             "allowedCommonJsDependencies": [
               "bezier-easing",
-              "apexcharts"
+              "apexcharts",
+              "moment",
+              "crypto-js",
+              "lodash",
+              "sweetalert2"
             ],
             "outputPath": "dist",
             "index": "src/index.html",
