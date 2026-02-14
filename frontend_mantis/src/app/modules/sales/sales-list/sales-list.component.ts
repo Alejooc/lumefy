@@ -2,6 +2,7 @@ import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 import Swal from 'sweetalert2';
 import { SaleService, Sale } from '../../../core/services/sale.service';
 import { ClientService } from '../../clients/client.service';
@@ -9,7 +10,7 @@ import { ClientService } from '../../clients/client.service';
 @Component({
     selector: 'app-sales-list',
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule],
+    imports: [CommonModule, RouterModule, FormsModule, NgbDropdownModule],
     templateUrl: './sales-list.component.html',
     styles: [`
         .status-badge { font-size: 0.8rem; padding: 5px 10px; border-radius: 4px; }
@@ -94,13 +95,39 @@ export class SalesListComponent implements OnInit {
                     next: () => {
                         this.sales = this.sales.filter(s => s.id !== id);
                         this.loading = false;
+                        this.cdr.detectChanges();
                         Swal.fire('Eliminado', 'La venta ha sido eliminada.', 'success');
                     },
                     error: (err) => {
                         this.loading = false;
+                        this.cdr.detectChanges();
                         Swal.fire('Error', 'No se pudo eliminar: ' + (err.error?.detail || err.message), 'error');
                     }
                 });
+            }
+        });
+    }
+
+    downloadPdf(id: string, type: string) {
+        this.loading = true;
+        this.saleService.downloadPdf(id, type).subscribe({
+            next: (blob) => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${type}_${id.substring(0, 8)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                this.loading = false;
+                this.cdr.detectChanges();
+            },
+            error: (err) => {
+                console.error('Download error:', err);
+                this.loading = false;
+                this.cdr.detectChanges();
+                Swal.fire('Error', 'Error al descargar el PDF. Verifique el estado de la venta.', 'error');
             }
         });
     }

@@ -32,6 +32,7 @@ async def read_products(
         selectinload(Product.unit_of_measure),
         selectinload(Product.purchase_uom),
         selectinload(Product.variants),
+        selectinload(Product.images),
         selectinload(Product.category)
     ).offset(skip).limit(limit)
     
@@ -72,6 +73,7 @@ async def read_product(
             selectinload(Product.unit_of_measure),
             selectinload(Product.purchase_uom),
             selectinload(Product.variants),
+            selectinload(Product.images),
             selectinload(Product.category)
         ).where(
             Product.id == product_id,
@@ -92,10 +94,22 @@ async def create_product(
 ) -> Any:
     """Create new product."""
     try:
-        product = Product(**product_in.model_dump(), company_id=current_user.company_id)
+        # Extract images data
+        images_data = product_in.images
+        product_data = product_in.model_dump(exclude={"images"})
+        
+        product = Product(**product_data, company_id=current_user.company_id)
         db.add(product)
         await db.commit()
         await db.refresh(product)
+        
+        # Create images
+        from app.models.product_image import ProductImage
+        if images_data:
+            for img in images_data:
+                new_img = ProductImage(**img.model_dump(), product_id=product.id)
+                db.add(new_img)
+            await db.commit()
         
         await log_activity(db, action="CREATE", entity_type="Product", entity_id=product.id,
                            user_id=current_user.id, company_id=current_user.company_id,
@@ -107,7 +121,8 @@ async def create_product(
                 selectinload(Product.brand),
                 selectinload(Product.unit_of_measure),
                 selectinload(Product.purchase_uom),
-                selectinload(Product.variants)
+                selectinload(Product.variants),
+                selectinload(Product.images)
             ).where(Product.id == product.id)
         )
         return result.scalars().first()
@@ -135,9 +150,39 @@ async def update_product(
         raise HTTPException(status_code=404, detail="Producto no encontrado")
         
     update_data = product_in.model_dump(exclude_unset=True)
+    images_data = update_data.pop("images", None)
+    
     for field, value in update_data.items():
         setattr(product, field, value)
         
+    # Update images if provided
+    if images_data is not None:
+        from app.models.product_image import ProductImage
+        # For simplicity, delete existing and re-create (or smart diff)
+        # Smart diff: keep existing if URL matches? No, IDs are safer.
+        # Simplest: Delete all and re-create. (Inefficient but robust for MVP)
+        # Better: Frontend sends all images. We compare.
+        
+        # Let's delete all and re-add for now to guaranteed sync
+        # But we need to be careful with CASCADE.
+        # Actually, let's keep it simple: 
+        # If images provided, remove old ones and add new ones.
+        
+        # Fetch existing images to delete
+        result_imgs = await db.execute(select(ProductImage).where(ProductImage.product_id == product.id))
+        existing_imgs = result_imgs.scalars().all()
+        for img in existing_imgs:
+            await db.delete(img)
+            
+        for img in images_data:
+            # images_data is list of dicts because model_dump was called on parent
+            # wait, model_dump(exclude_unset=True) returns dicts for nested models?
+            # Yes. 
+            # But product_in.images is List[ProductImageCreate]
+            # If we popped from update_data (dict), it is list of dicts.
+            new_img = ProductImage(**img, product_id=product.id)
+            db.add(new_img)
+
     await db.commit()
     await db.refresh(product)
     
@@ -151,7 +196,8 @@ async def update_product(
             selectinload(Product.brand),
             selectinload(Product.unit_of_measure),
             selectinload(Product.purchase_uom),
-            selectinload(Product.variants)
+            selectinload(Product.variants),
+            selectinload(Product.images)
         ).where(Product.id == product.id)
     )
     return result.scalars().first()

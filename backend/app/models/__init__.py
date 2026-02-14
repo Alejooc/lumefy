@@ -20,4 +20,5 @@ from .audit import AuditLog
 from .logistics import PackageType, SalePackage, SalePackageItem
 from .plan import Plan
 from .system_setting import SystemSetting
+from .product_image import ProductImage
 

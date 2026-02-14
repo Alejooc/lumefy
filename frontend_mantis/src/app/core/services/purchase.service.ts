@@ -48,4 +48,8 @@ export class PurchaseService {
     updateStatus(id: string, status: string): Observable<PurchaseOrder> {
         return this.http.put<PurchaseOrder>(`${this.apiUrl}/${id}/status`, null, { params: { status } });
     }
+
+    downloadPdf(id: string): Observable<Blob> {
+        return this.http.get(`${this.apiUrl}/${id}/pdf/order`, { responseType: 'blob' });
+    }
 }

@@ -1,7 +1,8 @@
 // angular import
-import { Component, OnInit, viewChild } from '@angular/core';
+import { Component, OnInit, viewChild, Input, OnChanges, SimpleChanges } from '@angular/core';
 
 // project import
+import { ChartData } from 'src/app/core/services/dashboard.service';
 
 // third party
 import { NgApexchartsModule, ChartComponent, ApexOptions } from 'ng-apexcharts';
@@ -9,17 +10,20 @@ import { CardComponent } from 'src/app/theme/shared/components/card/card.compone
 
 @Component({
   selector: 'app-income-overview-chart',
+  standalone: true,
   imports: [CardComponent, NgApexchartsModule],
   templateUrl: './income-overview-chart.component.html',
   styleUrl: './income-overview-chart.component.scss'
 })
-export class IncomeOverviewChartComponent implements OnInit {
+export class IncomeOverviewChartComponent implements OnInit, OnChanges {
   // public props
   chart = viewChild.required<ChartComponent>('chart');
   chartOptions!: Partial<ApexOptions>;
+  @Input() chartData: ChartData | null = null;
 
   // life cycle hook
-  ngOnInit() {
+  // life cycle hook
+  constructor() {
     this.chartOptions = {
       chart: {
         type: 'bar',
@@ -38,17 +42,13 @@ export class IncomeOverviewChartComponent implements OnInit {
       dataLabels: {
         enabled: false
       },
-      series: [
-        {
-          data: [80, 95, 70, 42, 65, 55, 78]
-        }
-      ],
+      series: [], // Initialize empty
       stroke: {
         curve: 'smooth',
         width: 2
       },
       xaxis: {
-        categories: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+        categories: [],
         axisBorder: {
           show: false
         },
@@ -57,7 +57,7 @@ export class IncomeOverviewChartComponent implements OnInit {
         },
         labels: {
           style: {
-            colors: ['#8c8c8c', '#8c8c8c', '#8c8c8c', '#8c8c8c', '#8c8c8c', '#8c8c8c', '#8c8c8c']
+            colors: '#8c8c8c' // simplified
           }
         }
       },
@@ -70,6 +70,28 @@ export class IncomeOverviewChartComponent implements OnInit {
       },
       tooltip: {
         theme: 'light'
+      }
+    };
+  }
+
+  ngOnInit() {
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['chartData'] && this.chartData) {
+      this.updateChart();
+    }
+  }
+
+  updateChart() {
+    if (!this.chartData) return;
+
+    this.chartOptions = {
+      ...this.chartOptions,
+      series: this.chartData.series,
+      xaxis: {
+        ...this.chartOptions.xaxis,
+        categories: this.chartData.categories
       }
     };
   }

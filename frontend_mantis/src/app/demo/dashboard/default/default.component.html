@@ -1,60 +1,72 @@
+@if (isLoading) {
+<div class="d-flex justify-content-center align-items-center" style="height: 400px;">
+  <div class="h4 text-muted">Cargando dashboard...</div>
+</div>
+} @else if (errorMessage) {
+<div class="alert alert-danger m-4" role="alert">
+  <h4 class="alert-heading">Error de Carga</h4>
+  <p>{{ errorMessage }}</p>
+  <hr>
+  <p class="mb-0">Si el problema persiste, contacte al soporte técnico.</p>
+</div>
+} @else {
 <div class="row">
   @for (analytic of AnalyticEcommerce; track analytic) {
-    <div class="col-md-6 col-xl-3">
-      <app-card [showHeader]="false" blockClass="dashboard-card">
-        <h6 class="mb-2 f-w-400 text-muted">{{ analytic.title }}</h6>
-        <h4 class="mb-3">
-          {{ analytic.amount }}
-          <span class="badge {{ analytic.background }} border {{ analytic.border }} ">
-            <i antIcon type="{{ analytic.icon }}" theme="outline"></i>
-            {{ analytic.percentage }}
-          </span>
-        </h4>
-        <p class="mb-0 text-muted text-sm">
-          You made an extra
-          <span class="{{ analytic.color }}">{{ analytic.number }}</span>
-          this year
-        </p>
-      </app-card>
-    </div>
+  <div class="col-md-6 col-xl-3">
+    <app-card [showHeader]="false" blockClass="dashboard-card">
+      <h6 class="mb-2 f-w-400 text-muted">{{ analytic.title }}</h6>
+      <h4 class="mb-3">
+        {{ analytic.amount }}
+        <span class="badge {{ analytic.background }} border {{ analytic.border }} ">
+          <i antIcon type="{{ analytic.icon }}" theme="outline"></i>
+          {{ analytic.percentage }}
+        </span>
+      </h4>
+      <p class="mb-0 text-muted text-sm">
+        Has hecho un extra
+        <span class="{{ analytic.color }}">{{ analytic.number }}</span>
+        este año
+      </p>
+    </app-card>
+  </div>
   }
   <div class="col-md-12 col-xl-8">
-    <app-monthly-bar-chart />
+    <app-monthly-bar-chart [chartData]="monthlySalesData" />
   </div>
   <div class="col-md-12 col-xl-4">
-    <app-income-overview-chart />
+    <app-income-overview-chart [chartData]="incomeOverviewData" />
   </div>
 
   <div class="col-md-12 col-xl-8">
-    <h5 class="mb-3">Recent Orders</h5>
+    <h5 class="mb-3">Pedidos Recientes</h5>
     <div class="card tbl-card">
       <div class="table-responsive">
         <table class="table table-hover mb-0">
           <thead>
             <tr>
-              <th>TRACKING NO.</th>
-              <th>PRODUCT NAME</th>
-              <th>STATUS</th>
-              <th class="text-end">TOTAL ORDER</th>
-              <th class="text-end">TOTAL AMOUNT</th>
+              <th>NRO. RASTREO</th>
+              <th>PRODUCTO</th>
+              <th>ESTADO</th>
+              <th class="text-end">CANTIDAD</th>
+              <th class="text-end">TOTAL</th>
             </tr>
           </thead>
           <tbody>
             @for (order of recentOrder; track order) {
-              <tr>
-                <td>
-                  <a href="javascript:" class="text-muted">{{ order.id }}</a>
-                </td>
-                <td>{{ order.name }}</td>
-                <td>
-                  <span class="d-block">
-                    <i class="badge-circle {{ order.status_type }} f-10 m-r-5"></i>
-                    {{ order.status }}
-                  </span>
-                </td>
-                <td class="text-end">{{ order.quantity }}</td>
-                <td class="text-end">{{ order.amount }}</td>
-              </tr>
+            <tr>
+              <td>
+                <a href="javascript:" class="text-muted">{{ order.id }}</a>
+              </td>
+              <td>{{ order.name }}</td>
+              <td>
+                <span class="d-block">
+                  <i class="badge-circle {{ order.status_type }} f-10 m-r-5"></i>
+                  {{ order.status }}
+                </span>
+              </td>
+              <td class="text-end">{{ order.quantity }}</td>
+              <td class="text-end">{{ order.amount }}</td>
+            </tr>
             }
           </tbody>
         </table>
@@ -66,30 +78,30 @@
   </div>
 
   <div class="col-md-12 col-xl-8">
-    <app-sales-report-chart />
+    <app-sales-report-chart [chartData]="salesReportData" />
   </div>
   <div class="col-md-12 col-xl-4">
-    <h5 class="mb-3">Transaction History</h5>
+    <h5 class="mb-3">Historial de Transacciones</h5>
     <div class="card">
       <div class="list-group list-group-flush">
         @for (history of transaction; track history) {
-          <a href="javascript:" class="list-group-item list-group-item-action px-3">
-            <div class="d-flex">
-              <div class="flex-shrink-0">
-                <div class="avatar avatar-s rounded-circle {{ history.background }}">
-                  <i class="f-16" antIcon type="{{ history.icon }}" theme="outline"></i>
-                </div>
-              </div>
-              <div class="flex-grow-1 ms-3">
-                <h6 class="mb-1">{{ history.title }}</h6>
-                <p class="mb-0 text-muted">{{ history.time }}</p>
-              </div>
-              <div class="flex-shrink-0 text-end">
-                <h6 class="mb-1">{{ history.amount }}</h6>
-                <p class="mb-0 text-muted">{{ history.percentage }}</p>
+        <a href="javascript:" class="list-group-item list-group-item-action px-3">
+          <div class="d-flex">
+            <div class="flex-shrink-0">
+              <div class="avatar avatar-s rounded-circle {{ history.background }}">
+                <i class="f-16" antIcon type="{{ history.icon }}" theme="outline"></i>
               </div>
             </div>
-          </a>
+            <div class="flex-grow-1 ms-3">
+              <h6 class="mb-1">{{ history.title }}</h6>
+              <p class="mb-0 text-muted">{{ history.time }}</p>
+            </div>
+            <div class="flex-shrink-0 text-end">
+              <h6 class="mb-1">{{ history.amount }}</h6>
+              <p class="mb-0 text-muted">{{ history.percentage }}</p>
+            </div>
+          </div>
+        </a>
         }
       </div>
     </div>
@@ -97,8 +109,8 @@
       <div class="card-body">
         <div class="row justify-content-between">
           <div class="col-auto">
-            <h5>Help & Support Chat</h5>
-            <p class="mb-3">Typical replay within 5 min</p>
+            <h5>Ayuda y Soporte</h5>
+            <p class="mb-3">Respuesta habitual en 5 min</p>
           </div>
           <div class="col-auto">
             <div class="user-group mb-3">
@@ -109,10 +121,11 @@
           </div>
         </div>
         <div class="d-grid">
-          <div class="btn btn-primary">Need Help?</div>
+          <div class="btn btn-primary">¿Necesitas Ayuda?</div>
         </div>
       </div>
     </div>
   </div>
   <!-- [ sample-page ] end -->
 </div>
+}

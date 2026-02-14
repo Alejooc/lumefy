@@ -50,3 +50,4 @@ class Product(BaseModel):
     unit_of_measure = relationship("UnitOfMeasure", foreign_keys=[unit_of_measure_id])
     purchase_uom = relationship("UnitOfMeasure", foreign_keys=[purchase_uom_id])
     variants = relationship("ProductVariant", back_populates="product", cascade="all, delete-orphan")
+    images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")

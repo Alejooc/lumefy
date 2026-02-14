@@ -23,6 +23,8 @@ export class ProductFormComponent implements OnInit {
     productId: string | null = null;
     isLoading = false;
     activeTab = 'general';
+    images: { image_url: string; order: number }[] = [];
+    isUploading = false;
 
     categories: Category[] = [];
     brands: Brand[] = [];
@@ -119,9 +121,17 @@ export class ProductFormComponent implements OnInit {
         this.isLoading = true;
         this.api.get<any>(`/products/${id}`).subscribe({
             next: (data) => {
-                // Patch main form (exclude variants)
-                const { variants, ...productData } = data;
+                // Patch main form (exclude variants and images)
+                const { variants, images, ...productData } = data;
                 this.form.patchValue(productData);
+
+                // Load images
+                if (images) {
+                    this.images = images.map((img: any) => ({
+                        image_url: img.image_url,
+                        order: img.order
+                    }));
+                }
 
                 // Load existing variants
                 if (variants && variants.length > 0) {
@@ -178,6 +188,8 @@ export class ProductFormComponent implements OnInit {
         }
     }
 
+
+
     setTab(tab: string) {
         this.activeTab = tab;
     }
@@ -199,6 +211,10 @@ export class ProductFormComponent implements OnInit {
         // Handle variants separately
         const variantsToSave = formData.variants || [];
         delete formData.variants;
+
+        // Add images to payload
+        // We need to send 'images' property which backend expects
+        (formData as any).images = this.images;
 
         const request = this.isEditMode
             ? this.api.put(`/products/${this.productId}`, formData)
@@ -303,5 +319,64 @@ export class ProductFormComponent implements OnInit {
         const cost = this.form.get('cost')?.value || 0;
         if (price === 0) return 0;
         return ((price - cost) / price) * 100;
+    }
+
+    uploadImages(event: any) {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            this.isUploading = true;
+            let completed = 0;
+            const total = files.length;
+
+            Array.from(files).forEach((file: any) => {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                this.api.post<{ url: string }>('/upload', formData).subscribe({
+                    next: (res) => {
+                        this.images.push({ image_url: res.url, order: this.images.length });
+                        this.updateMainImage();
+                        completed++;
+                        if (completed === total) {
+                            this.isUploading = false;
+                            this.cdr.detectChanges();
+                        }
+                    },
+                    error: (err) => {
+                        console.error('Upload error', err);
+                        completed++;
+                        if (completed === total) {
+                            this.isUploading = false;
+                            this.cdr.detectChanges();
+                        }
+                        Swal.fire('Error', 'Error al subir imagen', 'error');
+                    }
+                });
+            });
+        }
+    }
+
+    removeImage(index: number) {
+        this.images.splice(index, 1);
+        // Re-order
+        this.images.forEach((img, idx) => img.order = idx);
+        this.updateMainImage();
+    }
+
+    setAsMain(index: number) {
+        if (index === 0) return;
+        const [img] = this.images.splice(index, 1);
+        this.images.unshift(img);
+        // Re-order
+        this.images.forEach((img, idx) => img.order = idx);
+        this.updateMainImage();
+    }
+
+    private updateMainImage() {
+        if (this.images.length > 0) {
+            this.form.patchValue({ image_url: this.images[0].image_url });
+        } else {
+            this.form.patchValue({ image_url: '' });
+        }
     }
 }

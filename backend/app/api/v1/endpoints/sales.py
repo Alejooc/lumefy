@@ -56,7 +56,14 @@ async def read_sale(
     Get sale by ID.
     """
     query = select(Sale).options(
-        selectinload(Sale.items).selectinload(SaleItem.product),
+        selectinload(Sale.items).selectinload(SaleItem.product).options(
+            selectinload(Product.images),
+            selectinload(Product.variants),
+            selectinload(Product.brand),
+            selectinload(Product.unit_of_measure),
+            selectinload(Product.purchase_uom),
+            selectinload(Product.category)
+        ),
         selectinload(Sale.payments),
         selectinload(Sale.client),
         selectinload(Sale.user),
@@ -134,7 +141,14 @@ async def create_sale(
         
         # Eager load for response
         query = select(Sale).options(
-            selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(Sale.items).selectinload(SaleItem.product).options(
+                selectinload(Product.images),
+                selectinload(Product.variants),
+                selectinload(Product.brand),
+                selectinload(Product.unit_of_measure),
+                selectinload(Product.purchase_uom),
+                selectinload(Product.category)
+            ),
             selectinload(Sale.payments),
             selectinload(Sale.client),
             selectinload(Sale.user),
@@ -160,7 +174,14 @@ async def update_status(
     Update Sale status. Handles inventory logic.
     """
     query = select(Sale).options(
-        selectinload(Sale.items).selectinload(SaleItem.product),
+        selectinload(Sale.items).selectinload(SaleItem.product).options(
+            selectinload(Product.images),
+            selectinload(Product.variants),
+            selectinload(Product.brand),
+            selectinload(Product.unit_of_measure),
+            selectinload(Product.purchase_uom),
+            selectinload(Product.category)
+        ),
         selectinload(Sale.payments),
         selectinload(Sale.client),
         selectinload(Sale.user),
@@ -329,3 +350,64 @@ async def delete_sale(
     await db.commit()
     return {"ok": True, "detail": "Venta eliminada"}
 
+
+from fastapi.responses import StreamingResponse
+from app.services.pdf_service import PDFService
+
+@router.get("/{id}/pdf/{doc_type}")
+async def download_pdf(
+    *,
+    db: AsyncSession = Depends(get_db),
+    id: uuid.UUID,
+    doc_type: str,
+    current_user: User = Depends(PermissionChecker("view_sales")),
+) -> Any:
+    """
+    Download PDF document (invoice, picking, packing).
+    """
+    if doc_type not in ["invoice", "picking", "packing"]:
+        raise HTTPException(status_code=400, detail="Invalid document type")
+
+    query = select(Sale).options(
+        selectinload(Sale.items).selectinload(SaleItem.product),
+        selectinload(Sale.client),
+        selectinload(Sale.user),
+        selectinload(Sale.branch)
+    ).where(
+        Sale.id == id,
+        Sale.company_id == current_user.company_id
+    )
+    result = await db.execute(query)
+    sale = result.scalars().first()
+    
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+        
+    # Validation logic
+    if doc_type == "picking" and sale.status not in [SaleStatus.CONFIRMED, SaleStatus.PICKING, SaleStatus.PACKING, SaleStatus.DISPATCHED]:
+         raise HTTPException(status_code=400, detail="Picking list only available for Confirmed orders")
+         
+    if doc_type == "packing" and sale.status not in [SaleStatus.PACKING, SaleStatus.DISPATCHED, SaleStatus.DELIVERED]:
+         raise HTTPException(status_code=400, detail="Packing list only available for Packed orders")
+
+    from app.models.company import Company
+    result = await db.execute(select(Company).where(Company.id == sale.company_id))
+    company = result.scalars().first()
+
+    service = PDFService()
+    
+    if doc_type == "invoice":
+        buffer = service.generate_invoice(sale, company)
+        filename = f"Factura_{str(sale.id)[:8]}.pdf"
+    elif doc_type == "picking":
+        buffer = service.generate_picking(sale, company)
+        filename = f"Picking_{str(sale.id)[:8]}.pdf"
+    elif doc_type == "packing":
+        buffer = service.generate_packing(sale, company)
+        filename = f"Packing_{str(sale.id)[:8]}.pdf"
+        
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

@@ -4,6 +4,7 @@ from uuid import UUID
 from app.schemas.unit_of_measure import UnitOfMeasure as UnitOfMeasureSchema
 from app.schemas.brand import Brand as BrandSchema
 from app.schemas.product_variant import ProductVariant as ProductVariantSchema
+from app.schemas.product_image import ProductImage as ProductImageSchema
 
 class ProductBase(BaseModel):
     name: str
@@ -35,8 +36,10 @@ class ProductBase(BaseModel):
     unit_of_measure_id: Optional[UUID] = None
     purchase_uom_id: Optional[UUID] = None
 
+from app.schemas.product_image import ProductImageCreate
+
 class ProductCreate(ProductBase):
-    pass
+    images: Optional[List[ProductImageCreate]] = []
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -45,6 +48,7 @@ class ProductUpdate(BaseModel):
     barcode: Optional[str] = None
     description: Optional[str] = None
     image_url: Optional[str] = None
+    images: Optional[List[ProductImageCreate]] = None
     product_type: Optional[str] = None
     price: Optional[float] = None
     cost: Optional[float] = None
@@ -70,6 +74,7 @@ class Product(ProductBase):
     unit_of_measure: Optional[UnitOfMeasureSchema] = None
     purchase_uom: Optional[UnitOfMeasureSchema] = None
     variants: List[ProductVariantSchema] = []
+    images: List[ProductImageSchema] = []
 
     class Config:
         from_attributes = True

@@ -1,9 +1,9 @@
 // angular import
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 // project import
-import tableData from 'src/fake-data/default-data.json';
+import { DashboardService, DashboardCard, RecentOrder, TransactionHistory, ChartData } from 'src/app/core/services/dashboard.service';
 
 import { MonthlyBarChartComponent } from 'src/app/theme/shared/apexchart/monthly-bar-chart/monthly-bar-chart.component';
 import { IncomeOverviewChartComponent } from 'src/app/theme/shared/apexchart/income-overview-chart/income-overview-chart.component';
@@ -29,83 +29,49 @@ import { CardComponent } from 'src/app/theme/shared/components/card/card.compone
   templateUrl: './default.component.html',
   styleUrls: ['./default.component.scss']
 })
-export class DefaultComponent {
+export class DefaultComponent implements OnInit {
   private iconService = inject(IconService);
+  private dashboardService = inject(DashboardService);
+  private cdr = inject(ChangeDetectorRef);
+
+  // Data properties
+  AnalyticEcommerce: DashboardCard[] = [];
+  recentOrder: RecentOrder[] = [];
+  transaction: TransactionHistory[] = [];
+
+  // Chart Data
+  monthlySalesData: ChartData | null = null;
+  incomeOverviewData: ChartData | null = null;
+  salesReportData: ChartData | null = null;
+
+  isLoading = true;
+  errorMessage = '';
 
   // constructor
   constructor() {
     this.iconService.addIcon(...[RiseOutline, FallOutline, SettingOutline, GiftOutline, MessageOutline]);
   }
 
-  recentOrder = tableData;
+  ngOnInit() {
+    this.isLoading = true;
+    this.dashboardService.getStats().subscribe({
+      next: (stats) => {
+        this.AnalyticEcommerce = stats.cards;
+        this.recentOrder = stats.recent_orders;
+        this.transaction = stats.transactions;
 
-  AnalyticEcommerce = [
-    {
-      title: 'Total Page Views',
-      amount: '4,42,236',
-      background: 'bg-light-primary ',
-      border: 'border-primary',
-      icon: 'rise',
-      percentage: '59.3%',
-      color: 'text-primary',
-      number: '35,000'
-    },
-    {
-      title: 'Total Users',
-      amount: '78,250',
-      background: 'bg-light-primary ',
-      border: 'border-primary',
-      icon: 'rise',
-      percentage: '70.5%',
-      color: 'text-primary',
-      number: '8,900'
-    },
-    {
-      title: 'Total Order',
-      amount: '18,800',
-      background: 'bg-light-warning ',
-      border: 'border-warning',
-      icon: 'fall',
-      percentage: '27.4%',
-      color: 'text-warning',
-      number: '1,943'
-    },
-    {
-      title: 'Total Sales',
-      amount: '$35,078',
-      background: 'bg-light-warning ',
-      border: 'border-warning',
-      icon: 'fall',
-      percentage: '27.4%',
-      color: 'text-warning',
-      number: '$20,395'
-    }
-  ];
-
-  transaction = [
-    {
-      background: 'text-success bg-light-success',
-      icon: 'gift',
-      title: 'Order #002434',
-      time: 'Today, 2:00 AM',
-      amount: '+ $1,430',
-      percentage: '78%'
-    },
-    {
-      background: 'text-primary bg-light-primary',
-      icon: 'message',
-      title: 'Order #984947',
-      time: '5 August, 1:45 PM',
-      amount: '- $302',
-      percentage: '8%'
-    },
-    {
-      background: 'text-danger bg-light-danger',
-      icon: 'setting',
-      title: 'Order #988784',
-      time: '7 hours ago',
-      amount: '- $682',
-      percentage: '16%'
-    }
-  ];
+        this.monthlySalesData = stats.monthly_sales;
+        this.incomeOverviewData = stats.income_overview;
+        this.salesReportData = stats.sales_report;
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error fetching dashboard stats', error);
+        this.errorMessage = 'Error cargando datos. Verifique que el servidor backend esté funcionando.';
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
 }

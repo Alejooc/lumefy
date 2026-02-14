@@ -1,20 +1,23 @@
 // angular import
-import { Component, viewChild } from '@angular/core';
+import { Component, viewChild, Input, OnChanges, SimpleChanges, OnInit } from '@angular/core';
 
 // project import
+import { ChartData } from 'src/app/core/services/dashboard.service';
 
 // third party
 import { NgApexchartsModule, ChartComponent, ApexOptions } from 'ng-apexcharts';
 
 @Component({
   selector: 'app-sales-report-chart',
+  standalone: true,
   imports: [NgApexchartsModule],
   templateUrl: './sales-report-chart.component.html',
   styleUrl: './sales-report-chart.component.scss'
 })
-export class SalesReportChartComponent {
+export class SalesReportChartComponent implements OnInit, OnChanges {
   chart = viewChild.required<ChartComponent>('chart');
   chartOptions!: Partial<ApexOptions>;
+  @Input() chartData: ChartData | null = null;
 
   constructor() {
     this.chartOptions = {
@@ -55,30 +58,43 @@ export class SalesReportChartComponent {
           vertical: 5
         }
       },
-      series: [
-        {
-          name: 'Net Profit',
-          data: [180, 90, 135, 114, 120, 145]
-        },
-        {
-          name: 'Revenue',
-          data: [120, 45, 78, 150, 168, 99]
-        }
-      ],
+      series: [], // Initialize empty
       xaxis: {
-        categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        categories: [],
         labels: {
           style: {
-            colors: ['#222', '#222', '#222', '#222', '#222', '#222']
+            colors: ['#222', '#222', '#222', '#222', '#222', '#222'] // Simplified or keep
           }
         }
       },
       tooltip: {
         theme: 'light'
       },
-      colors: ['#faad14', '#1677ff'],
+      colors: ['#faad14', '#1677ff'], // Profit, Revenue
       grid: {
         borderColor: '#f5f5f5'
+      }
+    };
+  }
+
+  ngOnInit() {
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['chartData'] && this.chartData) {
+      this.updateChart();
+    }
+  }
+
+  updateChart() {
+    if (!this.chartData) return;
+
+    this.chartOptions = {
+      ...this.chartOptions,
+      series: this.chartData.series,
+      xaxis: {
+        ...this.chartOptions.xaxis,
+        categories: this.chartData.categories
       }
     };
   }

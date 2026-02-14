@@ -16,6 +16,8 @@ router = APIRouter()
 
 from sqlalchemy.orm import selectinload
 
+from app.models.product import Product
+
 @router.get("/", response_model=List[schemas.Inventory])
 async def read_inventory(
     db: AsyncSession = Depends(get_db),
@@ -27,7 +29,14 @@ async def read_inventory(
     Retrieve current stock. Use filters needed.
     """
     query = select(Inventory).options(
-        selectinload(Inventory.product),
+        selectinload(Inventory.product).options(
+            selectinload(Product.images),
+            selectinload(Product.variants),
+            selectinload(Product.brand),
+            selectinload(Product.unit_of_measure),
+            selectinload(Product.purchase_uom),
+            selectinload(Product.category)
+        ),
         selectinload(Inventory.branch)
     ).join(Branch, Inventory.branch_id == Branch.id).where(
         Branch.company_id == current_user.company_id
@@ -122,7 +131,14 @@ async def create_movement(
         await db.refresh(movement)
         # Eager load relationships for the response
         query = select(InventoryMovement).options(
-            selectinload(InventoryMovement.product),
+            selectinload(InventoryMovement.product).options(
+                selectinload(Product.images),
+                selectinload(Product.variants),
+                selectinload(Product.brand),
+                selectinload(Product.unit_of_measure),
+                selectinload(Product.purchase_uom),
+                selectinload(Product.category)
+            ),
             selectinload(InventoryMovement.branch),
             selectinload(InventoryMovement.user)
         ).where(InventoryMovement.id == movement.id)
@@ -147,9 +163,17 @@ async def read_movements(
     Get movement history.
     """
     query = select(InventoryMovement).options(
-        selectinload(InventoryMovement.product),
+        selectinload(InventoryMovement.product).options(
+            selectinload(Product.images),
+            selectinload(Product.variants),
+            selectinload(Product.brand),
+            selectinload(Product.unit_of_measure),
+            selectinload(Product.purchase_uom),
+            selectinload(Product.category)
+        ),
         selectinload(InventoryMovement.branch),
         selectinload(InventoryMovement.user)
+
     ).join(Branch, InventoryMovement.branch_id == Branch.id).where(
         Branch.company_id == current_user.company_id
     ).order_by(InventoryMovement.created_at.desc()).limit(limit)

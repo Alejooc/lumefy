@@ -52,7 +52,14 @@ async def read_purchase(
         PurchaseOrder.id == purchase_id,
         PurchaseOrder.company_id == current_user.company_id
     ).options(
-        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product).options(
+            selectinload(Product.images),
+            selectinload(Product.variants),
+            selectinload(Product.brand),
+            selectinload(Product.unit_of_measure),
+            selectinload(Product.purchase_uom),
+            selectinload(Product.category)
+        ),
         selectinload(PurchaseOrder.supplier),
         selectinload(PurchaseOrder.branch)
     )
@@ -108,7 +115,14 @@ async def create_purchase(
         
         # Reload with items
         query = select(PurchaseOrder).where(PurchaseOrder.id == purchase.id).options(
-            selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+            selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product).options(
+                selectinload(Product.images),
+                selectinload(Product.variants),
+                selectinload(Product.brand),
+                selectinload(Product.unit_of_measure),
+                selectinload(Product.purchase_uom),
+                selectinload(Product.category)
+            ),
             selectinload(PurchaseOrder.supplier),
             selectinload(PurchaseOrder.branch)
         )
@@ -136,7 +150,14 @@ async def update_purchase_status(
         PurchaseOrder.id == purchase_id, 
         PurchaseOrder.company_id == current_user.company_id
     ).options(
-        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product).options(
+            selectinload(Product.images),
+            selectinload(Product.variants),
+            selectinload(Product.brand),
+            selectinload(Product.unit_of_measure),
+            selectinload(Product.purchase_uom),
+            selectinload(Product.category)
+        ),
         selectinload(PurchaseOrder.supplier),
         selectinload(PurchaseOrder.branch)
     )
@@ -214,7 +235,14 @@ async def update_purchase(
         PurchaseOrder.id == purchase_id,
         PurchaseOrder.company_id == current_user.company_id
     ).options(
-        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product).options(
+            selectinload(Product.images),
+            selectinload(Product.variants),
+            selectinload(Product.brand),
+            selectinload(Product.unit_of_measure),
+            selectinload(Product.purchase_uom),
+            selectinload(Product.category)
+        ),
         selectinload(PurchaseOrder.supplier),
         selectinload(PurchaseOrder.branch)
     )
@@ -269,3 +297,45 @@ async def delete_purchase(
     await log_activity(db, "DELETE", "PurchaseOrder", purchase_id, current_user.id, current_user.company_id)
     return {"ok": True, "detail": "Orden de compra eliminada"}
 
+
+from fastapi.responses import StreamingResponse
+from app.services.pdf_service import PDFService
+
+@router.get("/{purchase_id}/pdf/order")
+async def download_pdf(
+    *,
+    db: AsyncSession = Depends(get_db),
+    purchase_id: UUID,
+    current_user: User = Depends(PermissionChecker("view_inventory")),
+) -> Any:
+    """
+    Download Purchase Order PDF.
+    """
+    query = select(PurchaseOrder).where(
+        PurchaseOrder.id == purchase_id,
+        PurchaseOrder.company_id == current_user.company_id
+    ).options(
+        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+        selectinload(PurchaseOrder.supplier),
+        selectinload(PurchaseOrder.branch)
+    )
+    result = await db.execute(query)
+    purchase = result.scalars().first()
+    
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+        
+    from app.models.company import Company
+    result = await db.execute(select(Company).where(Company.id == purchase.company_id))
+    company = result.scalars().first()
+
+    service = PDFService()
+    
+    buffer = service.generate_purchase_order(purchase, company)
+    filename = f"OrdenCompra_{str(purchase.id)[:8]}.pdf"
+        
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

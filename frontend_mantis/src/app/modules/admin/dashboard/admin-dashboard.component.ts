@@ -5,7 +5,6 @@ import { SharedModule } from '../../../theme/shared/shared.module';
 import { CardComponent } from '../../../theme/shared/components/card/card.component';
 import { MonthlyBarChartComponent } from '../../../theme/shared/apexchart/monthly-bar-chart/monthly-bar-chart.component';
 import { IncomeOverviewChartComponent } from '../../../theme/shared/apexchart/income-overview-chart/income-overview-chart.component';
-import { AnalyticsChartComponent } from '../../../theme/shared/apexchart/analytics-chart/analytics-chart.component';
 import { SalesReportChartComponent } from '../../../theme/shared/apexchart/sales-report-chart/sales-report-chart.component';
 import { IconService, IconDirective } from '@ant-design/icons-angular';
 import { FallOutline, GiftOutline, MessageOutline, RiseOutline, SettingOutline, DeploymentUnitOutline, UserOutline, DollarOutline, CrownOutline } from '@ant-design/icons-angular/icons';
@@ -19,7 +18,6 @@ import { FallOutline, GiftOutline, MessageOutline, RiseOutline, SettingOutline, 
         CardComponent,
         MonthlyBarChartComponent,
         IncomeOverviewChartComponent,
-        AnalyticsChartComponent,
         SalesReportChartComponent,
         IconDirective
     ],

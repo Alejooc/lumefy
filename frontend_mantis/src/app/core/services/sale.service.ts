@@ -77,4 +77,8 @@ export class SaleService {
     deleteSale(id: string): Observable<Sale> {
         return this.http.delete<Sale>(`${this.apiUrl}/${id}`);
     }
+
+    downloadPdf(id: string, type: string): Observable<Blob> {
+        return this.http.get(`${this.apiUrl}/${id}/pdf/${type}`, { responseType: 'blob' });
+    }
 }

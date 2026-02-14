@@ -1,1 +1,30 @@
-// Empty style file
+.gallery-item {
+    overflow: hidden;
+    transition: all 0.2s ease-in-out;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+
+        .gallery-actions {
+            opacity: 1;
+        }
+    }
+
+    .gallery-actions {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 4px;
+        padding: 2px;
+        display: flex;
+    }
+}
+
+.img-fluid {
+    display: block;
+    width: 100%;
+}

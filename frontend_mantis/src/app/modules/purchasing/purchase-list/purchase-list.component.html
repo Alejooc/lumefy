@@ -32,10 +32,27 @@
                                 <td><span [ngClass]="getStatusClass(po.status)">{{ getStatusLabel(po.status) }}</span>
                                 </td>
                                 <td>
-                                    <a [routerLink]="['/purchasing/orders/view', po.id]"
-                                        class="btn btn-icon btn-outline-info btn-sm">
-                                        <i class="feather icon-eye"></i>
-                                    </a>
+                                    <div ngbDropdown container="body" class="d-inline-block">
+                                        <button class="btn btn-sm btn-light no-arrow" ngbDropdownToggle>
+                                            <i class="feather icon-more-vertical"></i>
+                                        </button>
+                                        <div ngbDropdownMenu>
+                                            <button ngbDropdownItem [routerLink]="['/purchasing/orders/view', po.id]">
+                                                <i class="feather icon-eye text-info"></i> Ver Detalle
+                                            </button>
+
+                                            <!-- PDF Options -->
+                                            <button ngbDropdownItem (click)="downloadPdf(po.id)">
+                                                <i class="feather icon-file-text text-primary"></i> Ver Factura
+                                            </button>
+
+                                            <!-- Delete (Only Draft) -->
+                                            <div class="dropdown-divider" *ngIf="po.status === 'DRAFT'"></div>
+                                            <button *ngIf="po.status === 'DRAFT'" ngbDropdownItem class="text-danger">
+                                                <i class="feather icon-trash-2"></i> Eliminar
+                                            </button>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                             } @empty {

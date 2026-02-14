@@ -2,11 +2,13 @@ import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PurchaseService, PurchaseOrder } from '../../../core/services/purchase.service';
+import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
+import Swal from 'sweetalert2';
 
 @Component({
     selector: 'app-purchase-list',
     standalone: true,
-    imports: [CommonModule, RouterModule],
+    imports: [CommonModule, RouterModule, NgbDropdownModule],
     templateUrl: './purchase-list.component.html',
     styleUrls: ['./purchase-list.component.scss']
 })
@@ -14,15 +16,25 @@ export class PurchaseListComponent implements OnInit {
     private purchaseService = inject(PurchaseService);
     private cdr = inject(ChangeDetectorRef);
     purchases: PurchaseOrder[] = [];
+    loading = false;
 
     ngOnInit() {
         this.loadPurchases();
     }
 
     loadPurchases() {
-        this.purchaseService.getPurchases().subscribe(data => {
-            this.purchases = data;
-            this.cdr.detectChanges();
+        this.loading = true;
+        this.cdr.detectChanges();
+        this.purchaseService.getPurchases().subscribe({
+            next: (data) => {
+                this.purchases = data;
+                this.loading = false;
+                this.cdr.detectChanges();
+            },
+            error: () => {
+                this.loading = false;
+                this.cdr.detectChanges();
+            }
         });
     }
 
@@ -46,5 +58,29 @@ export class PurchaseListComponent implements OnInit {
             case 'CANCELLED': return 'Cancelada';
             default: return status;
         }
+    }
+
+    downloadPdf(id: string) {
+        this.loading = true;
+        this.purchaseService.downloadPdf(id).subscribe({
+            next: (blob) => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `OrdenCompra_${id.substring(0, 8)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                this.loading = false;
+                this.cdr.detectChanges();
+            },
+            error: (err) => {
+                console.error('Download error:', err);
+                this.loading = false;
+                this.cdr.detectChanges();
+                Swal.fire('Error', 'Error al descargar el PDF.', 'error');
+            }
+        });
     }
 }
