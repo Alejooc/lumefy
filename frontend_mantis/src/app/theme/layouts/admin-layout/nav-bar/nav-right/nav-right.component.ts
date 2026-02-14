@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 
 // project import
 import { SharedModule } from 'src/app/theme/shared/shared.module';
+import { AuthService } from 'src/app/core/services/auth.service';
 
 // third party
 
@@ -37,6 +38,9 @@ import {
 })
 export class NavRightComponent {
   private iconService = inject(IconService);
+  private authService = inject(AuthService);
+
+  currentUser$ = this.authService.currentUser;
 
   // public props
   styleSelectorToggle = input<boolean>();
@@ -117,4 +121,8 @@ export class NavRightComponent {
       title: 'History'
     }
   ];
+
+  onLogout() {
+    this.authService.logout();
+  }
 }

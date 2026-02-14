@@ -6,19 +6,36 @@ import { RouterModule, Routes } from '@angular/router';
 import { AdminLayout } from './theme/layouts/admin-layout/admin-layout.component';
 import { GuestLayoutComponent } from './theme/layouts/guest-layout/guest-layout.component';
 import { AuthGuard } from './core/auth.guard';
+import { GuestGuard } from './core/guest.guard';
 import { SuperuserGuard } from './core/superuser.guard';
 
 const routes: Routes = [
   {
     path: '',
-    component: AdminLayout,
-    canActivate: [AuthGuard],
+    component: GuestLayoutComponent,
+    canActivate: [GuestGuard],
     children: [
       {
         path: '',
-        redirectTo: '/dashboard/default',
-        pathMatch: 'full'
+        pathMatch: 'full',
+        redirectTo: 'login'
       },
+      {
+        path: 'login',
+        loadComponent: () => import('./demo/pages/authentication/auth-login/auth-login.component').then((c) => c.AuthLoginComponent)
+      },
+      {
+        path: 'register',
+        loadComponent: () =>
+          import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
+      }
+    ]
+  },
+  {
+    path: '',
+    component: AdminLayout,
+    canActivate: [AuthGuard],
+    children: [
       {
         path: 'dashboard/default',
         loadComponent: () => import('./demo/dashboard/default/default.component').then((c) => c.DefaultComponent)
@@ -32,7 +49,7 @@ const routes: Routes = [
         loadComponent: () => import('./demo/component/basic-component/color/color.component').then((c) => c.ColorComponent)
       },
       {
-        path: 'management/branches', // Or just 'branches'? User said "can't create branches".
+        path: 'management/branches',
         loadChildren: () => import('./modules/branches/branches.module').then(m => m.BranchesModule)
       },
       {
@@ -103,19 +120,8 @@ const routes: Routes = [
     ]
   },
   {
-    path: '',
-    component: GuestLayoutComponent,
-    children: [
-      {
-        path: 'login',
-        loadComponent: () => import('./demo/pages/authentication/auth-login/auth-login.component').then((c) => c.AuthLoginComponent)
-      },
-      {
-        path: 'register',
-        loadComponent: () =>
-          import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
-      }
-    ]
+    path: '**',
+    redirectTo: 'login'
   }
 ];
 
