@@ -29,13 +29,5 @@ services:
     volumes:
       - ./backend:/app
 
-  frontend:
-    build: ./frontend_mantis
-    restart: always
-    ports:
-      - "4200:80"
-    depends_on:
-      - backend
-
 volumes:
   postgres_data:

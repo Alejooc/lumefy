@@ -1,144 +1,159 @@
-# <p align="center">🚀 Lumefy: Ilumina tu Negocio 💡</p>
+# Lumefy
 
-<p align="center">
-  <b>La plataforma SaaS todo-en-uno para el emprendedor moderno.</b><br>
-  <i>Escalable. Modular. Diseñado para Crecer.</i>
-</p>
+Plataforma SaaS con:
+- Backend: FastAPI + SQLAlchemy + Alembic
+- Frontend: Angular
+- Base de datos: PostgreSQL
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Made%20with-Love%20%26%20Code-ff69b4?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Framework-FastAPI%20%2B%20Angular-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/github/v/release/Alejooc/lumefy?style=for-the-badge&color=orange" />
-</p>
+## Requisitos
+- Git
+- Docker Desktop (con engine corriendo)
 
----
+## Instalacion con Docker (recomendada)
 
-## 📋 Requisitos Previos
-
-Antes de comenzar, asegúrate de tener instalado:
-
-*   **Git**: [Descargar](https://git-scm.com/)
-*   **Docker Desktop** (para instalación recomendada): [Descargar](https://www.docker.com/products/docker-desktop/)
-*   **Node.js v18+** (solo para instalación manual): [Descargar](https://nodejs.org/)
-*   **Python 3.10+** (solo para instalación manual): [Descargar](https://www.python.org/)
-
----
-
-## 🚀 Opción 1: Instalación Rápida con Docker (Recomendada)
-
-La forma más fácil de probar Lumefy sin configurar entornos locales complejos.
-
-### 1. Clonar el repositorio
+### 1. Clonar repositorio
 ```bash
 git clone https://github.com/Alejooc/lumefy.git
 cd lumefy
 ```
 
-### 2. Configurar entorno
-Copia la configuración de ejemplo:
+### 2. Configurar variables de entorno del backend
 ```bash
-# Windows (PowerShell)
-copy backend\.env.example backend\.env
+# Windows PowerShell
+Copy-Item backend\.env.example backend\.env
 
-# Linux / Mac
+# Linux/macOS
 cp backend/.env.example backend/.env
 ```
 
-### 3. Iniciar servicios
-```bash
-docker-compose up -d --build
-```
-*Espera unos minutos mientras se descargan las imágenes y se construye el frontend.*
-
-### 4. Inicializar base de datos
-Ejecuta estos comandos una sola vez para crear las tablas y datos iniciales:
-```bash
-# Aplicar migraciones
-docker-compose exec backend alembic upgrade head
-
-# Crear roles y usuario administrador
-docker-compose exec backend python seed_roles.py
-
-# (Opcional) Cargar datos SaaS y de prueba
-docker-compose exec backend python seed_saas.py
+Para Docker, deja estos valores en `backend/.env`:
+```env
+POSTGRES_SERVER=db
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=lumefy_db
+POSTGRES_PORT=5432
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/lumefy_db
 ```
 
-### 5. ¡Listo! 
-Accede a la plataforma en: http://localhost:4200
-*   **Usuario**: `admin@lumefy.com`
-*   **Contraseña**: `admin123`
-
----
-
-## 🛠️ Opción 2: Instalación Manual (Desarrollo)
-
-Si prefieres ejecutar todo en tu máquina local para desarrollo.
-
-### 1. Backend (FastAPI)
-
-Navega a la carpeta del backend y crea un entorno virtual:
+### 3. Levantar servicios
 ```bash
-cd backend
-python -m venv venv
-
-# Activar entorno:
-# Windows:
-venv\Scripts\activate
-# Mac/Linux:
-source venv/bin/activate
+docker compose up -d --build
 ```
 
-Instala las dependencias:
+### 4. Verificar contenedores
 ```bash
-pip install -r requirements.txt
+docker compose ps
+docker compose logs db --tail=100
+docker compose logs backend --tail=100
 ```
 
-Configura las variables de entorno:
-1.  Copia `.env.example` a `.env`.
-2.  Edita `.env` y asegúrate de tener una base de datos PostgreSQL corriendo localmente.
-3.  Actualiza `POSTGRES_SERVER` a `localhost` (y credenciales según tu DB local).
-
-Inicia el servidor y migraciones:
+### 5. Ejecutar migraciones de base de datos
 ```bash
-# Migraciones
-alembic upgrade head
-
-# Semillas
-python seed_roles.py
-
-# Iniciar servidor
-uvicorn app.main:app --reload
-```
-*El backend estará en: http://localhost:8000*
-
-### 2. Frontend (Angular)
-
-En una nueva terminal, navega a la carpeta del frontend:
-```bash
-cd frontend_mantis
+docker compose exec backend python -m alembic current
+docker compose exec backend python -m alembic upgrade head
 ```
 
-Instala dependencias (Angular 17+):
+### 6. Cargar datos iniciales
 ```bash
-npm install
+docker compose exec backend python seed_roles.py
+docker compose exec backend python seed_saas.py
+docker compose exec backend python ensure_admin_role.py
 ```
 
-Inicia el servidor de desarrollo:
+### 7. Acceso
+- Frontend: `http://localhost:4200`
+- Backend: `http://localhost:8000`
+- Docs API: `http://localhost:8000/docs`
+- Usuario inicial:
+  - Email: `admin@lumefy.com`
+  - Password: `admin123`
+
+## Comandos utiles de DB y Alembic
+
+### Estado de migraciones
 ```bash
-npm start
+docker compose exec backend python -m alembic current
+docker compose exec backend python -m alembic heads
+docker compose exec backend python -m alembic history -i
 ```
-*El frontend estará en: http://localhost:4200*
 
----
+### Subir/Bajar version
+```bash
+docker compose exec backend python -m alembic upgrade head
+docker compose exec backend python -m alembic downgrade -1
+```
 
-## 🏗️ Estructura del Proyecto
+### Entrar a PostgreSQL dentro del contenedor
+```bash
+docker compose exec db psql -U postgres -d lumefy_db
+```
 
-*   `/backend` - API REST con FastAPI, SQLAlchemy y Alembic.
-*   `/frontend_mantis` - Aplicación SPA con Angular y plantilla Mantis.
-*   `/docker-compose.yml` - Orquestación de contenedores.
+### Ver tablas
+```sql
+\dt
+```
 
-## 🤝 Contribuir
-¡Las contribuciones son bienvenidas! Por favor abre un Issue o Pull Request para mejoras.
+### Ver version aplicada por Alembic
+```sql
+SELECT * FROM alembic_version;
+```
 
----
-<p align="center">Construido con ✨ por Alejooc</p>
+## Flujo cuando agregues un nuevo modulo (estructura DB)
+
+Siempre que cambies modelos:
+
+1. Crear o editar modelos SQLAlchemy en `backend/app/models/`.
+2. Generar migracion:
+```bash
+docker compose exec backend python -m alembic revision --autogenerate -m "add modulo_x"
+```
+3. Revisar el archivo generado en `backend/alembic/versions/`.
+4. Aplicar migracion:
+```bash
+docker compose exec backend python -m alembic upgrade head
+```
+5. Probar API y frontend.
+6. Subir al repositorio:
+- Cambios en modelos
+- Nueva migracion Alembic
+- Seeds si agregaste datos iniciales requeridos
+
+## Instalacion en otro equipo
+
+En un equipo nuevo solo necesitas:
+
+1. Clonar repo.
+2. Configurar `backend/.env` para Docker (host `db`).
+3. Levantar:
+```bash
+docker compose up -d --build
+```
+4. Migrar DB:
+```bash
+docker compose exec backend python -m alembic upgrade head
+```
+5. Cargar seeds:
+```bash
+docker compose exec backend python seed_roles.py
+docker compose exec backend python seed_saas.py
+```
+
+## Troubleshooting rapido
+
+### Error Docker pipe `dockerDesktopLinuxEngine`
+Docker Desktop no esta iniciado. Abre Docker Desktop y espera `Engine running`.
+
+### `alembic` no encontrado
+Ejecuta con modulo Python:
+```bash
+python -m alembic ...
+```
+o dentro del contenedor backend:
+```bash
+docker compose exec backend python -m alembic ...
+```
+
+### Error de conexion DB en local
+Si ejecutas fuera de Docker, en `backend/.env` usa `127.0.0.1` en lugar de `db`.
+

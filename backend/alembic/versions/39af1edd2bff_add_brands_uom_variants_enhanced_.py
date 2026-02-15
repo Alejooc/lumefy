@@ -71,6 +71,52 @@ def upgrade() -> None:
     op.create_index(op.f('ix_product_variants_name'), 'product_variants', ['name'], unique=False)
     op.create_index(op.f('ix_product_variants_product_id'), 'product_variants', ['product_id'], unique=False)
     op.create_index(op.f('ix_product_variants_sku'), 'product_variants', ['sku'], unique=False)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_tables = set(inspector.get_table_names())
+
+    if 'plans' not in existing_tables:
+        op.create_table(
+            'plans',
+            sa.Column('name', sa.String(), nullable=False),
+            sa.Column('code', sa.String(), nullable=False),
+            sa.Column('description', sa.String(), nullable=True),
+            sa.Column('price', sa.Float(), nullable=False, server_default=sa.text('0.0')),
+            sa.Column('currency', sa.String(length=10), nullable=False, server_default=sa.text("'USD'")),
+            sa.Column('duration_days', sa.Integer(), nullable=False, server_default=sa.text('30')),
+            sa.Column('features', postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
+            sa.Column('limits', postgresql.JSONB(astext_type=sa.Text()), nullable=False, server_default=sa.text("'{}'::jsonb")),
+            sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')),
+            sa.Column('is_public', sa.Boolean(), nullable=False, server_default=sa.text('true')),
+            sa.Column('id', sa.UUID(), nullable=False),
+            sa.Column('created_at', postgresql.TIMESTAMP(), nullable=False, server_default=sa.text('now()')),
+            sa.Column('updated_at', postgresql.TIMESTAMP(), nullable=False, server_default=sa.text('now()')),
+            sa.Column('created_by_id', sa.UUID(), nullable=True),
+            sa.Column('updated_by_id', sa.UUID(), nullable=True),
+            sa.Column('company_id', sa.UUID(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('code', name='plans_code_key'),
+        )
+
+    if 'system_settings' not in existing_tables:
+        op.create_table(
+            'system_settings',
+            sa.Column('key', sa.String(length=255), nullable=False),
+            sa.Column('value', sa.Text(), nullable=True),
+            sa.Column('group', sa.String(length=255), nullable=False, server_default=sa.text("'general'")),
+            sa.Column('is_public', sa.Boolean(), nullable=False, server_default=sa.text('false')),
+            sa.Column('description', sa.String(), nullable=True),
+            sa.Column('id', sa.UUID(), nullable=False),
+            sa.Column('created_at', postgresql.TIMESTAMP(), nullable=False, server_default=sa.text('now()')),
+            sa.Column('updated_at', postgresql.TIMESTAMP(), nullable=False, server_default=sa.text('now()')),
+            sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')),
+            sa.Column('created_by_id', sa.UUID(), nullable=True),
+            sa.Column('updated_by_id', sa.UUID(), nullable=True),
+            sa.Column('company_id', sa.UUID(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('key', name='system_settings_key_key'),
+        )
+
     op.alter_column('plans', 'price',
                existing_type=sa.DOUBLE_PRECISION(precision=53),
                nullable=False,

@@ -24,6 +24,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Remove columns
-    op.drop_column('companies', 'is_active')
     op.drop_column('companies', 'valid_until')
     op.drop_column('companies', 'plan')
