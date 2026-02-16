@@ -15,8 +15,11 @@ export interface User {
     email: string;
     full_name: string;
     company_id: string;
+    branch_id?: string;
     is_superuser?: boolean;
+    is_active?: boolean;
     role?: Role;
+    company?: Company;
 }
 
 export interface Company {
@@ -24,6 +27,7 @@ export interface Company {
     name: string;
     currency: string;
     currency_symbol: string;
+    plan?: string;
 }
 
 export interface Branch {

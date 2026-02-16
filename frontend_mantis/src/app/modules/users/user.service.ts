@@ -45,4 +45,8 @@ export class UserService {
     deleteRole(id: string): Observable<Role> {
         return this.api.delete<Role>(`/roles/${id}`);
     }
+
+    sendRecoveryEmail(id: string): Observable<any> {
+        return this.api.post<any>(`/users/${id}/recovery-email`, {});
+    }
 }

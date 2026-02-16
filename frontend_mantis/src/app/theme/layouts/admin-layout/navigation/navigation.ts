@@ -77,12 +77,28 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'setting'
       },
       {
+        id: 'global-users',
+        title: 'Usuarios Globales',
+        type: 'item',
+        url: '/admin/users',
+        classes: 'nav-item',
+        icon: 'team'
+      },
+      {
         id: 'system-health-admin',
         title: 'Health Check',
         type: 'item',
         url: '/settings/health',
         classes: 'nav-item',
         icon: 'safety-certificate'
+      },
+      {
+        id: 'database-stats',
+        title: 'Inspector DB',
+        type: 'item',
+        url: '/settings/database',
+        classes: 'nav-item',
+        icon: 'database'
       }
     ]
   },
@@ -305,16 +321,7 @@ export const NavigationItems: NavigationItem[] = [
         breadcrumbs: false,
         permissions: ['manage_settings']
       },
-      {
-        id: 'system-health',
-        title: 'Health Check',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/settings/health',
-        icon: 'safety-certificate',
-        breadcrumbs: false,
-        permissions: ['manage_company']
-      }
+
     ]
   }
 ];

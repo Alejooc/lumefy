@@ -2,6 +2,7 @@ from typing import Any, List, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, desc
+from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import auth
 from app.core.database import get_db
@@ -25,7 +26,13 @@ async def read_audit_logs(
     """
     Retrieve audit logs.
     """
-    query = select(AuditLog).where(AuditLog.company_id == current_user.company_id)
+    if current_user.is_superuser:
+        query = select(AuditLog)
+    else:
+        query = select(AuditLog).where(AuditLog.company_id == current_user.company_id)
+    
+    # Eager load user
+    query = query.options(joinedload(AuditLog.user))
     
     if user_id:
         query = query.where(AuditLog.user_id == user_id)

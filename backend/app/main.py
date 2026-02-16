@@ -20,6 +20,10 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
+# Add Maintenance Middleware
+from app.core.middleware import MaintenanceMiddleware
+app.add_middleware(MaintenanceMiddleware)
+
 from fastapi.staticfiles import StaticFiles
 import os
 

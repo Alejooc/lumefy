@@ -1,0 +1,46 @@
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Facturación y Suscripción</h5>
+            </div>
+            <div class="card-body">
+
+                <div class="alert alert-info" *ngIf="user$ | async as user">
+                    <h5 class="alert-heading">Plan Actual: {{ user.company?.currency || 'Free' }}</h5>
+                    <!-- Temporary fix, accessing currency strictly typed -->
+                    <!-- Ideally plan name should be on company object -->
+                    <p>Tu suscripción está activa y se renovará automáticamente el próximo mes.</p>
+                </div>
+
+                <h5 class="mt-4">Historial de Pagos</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Factura #</th>
+                                <th>Monto</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let pay of payments">
+                                <td>{{ pay.date }}</td>
+                                <td>{{ pay.invoice }}</td>
+                                <td>${{ pay.amount | number:'1.2-2' }}</td>
+                                <td><span class="badge bg-success">Pagado</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-secondary">
+                                        <i class="feather icon-download"></i> PDF
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

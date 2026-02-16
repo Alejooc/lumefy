@@ -46,4 +46,44 @@ export class AdminService {
     getPublicSettings(): Observable<SystemSetting[]> {
         return this.http.get<SystemSetting[]>(`${this.apiUrl}/settings/public`);
     }
+
+    impersonateCompany(companyId: string): Observable<any> {
+        return this.http.post<any>(`${this.apiUrl}/users/impersonate-company/${companyId}`, {});
+    }
+
+    impersonateUser(userId: string): Observable<any> {
+        return this.http.post<any>(`${this.apiUrl}/users/${userId}/impersonate`, {});
+    }
+
+    getUsers(): Observable<any[]> {
+        return this.http.get<any[]>(`${this.apiUrl}/users`);
+    }
+
+    extendSubscription(companyId: string, data: { valid_until: string, plan?: string }): Observable<any> {
+        return this.http.put<any>(`${this.apiUrl}/companies/${companyId}`, data);
+    }
+
+    getSystemHealth(): Observable<any> {
+        return this.http.get<any>(`${this.apiUrl}/system/health`);
+    }
+
+    getMaintenanceStatus(): Observable<{ enabled: boolean }> {
+        return this.http.get<{ enabled: boolean }>(`${this.apiUrl}/system/maintenance`);
+    }
+
+    setMaintenanceStatus(enabled: boolean): Observable<{ enabled: boolean }> {
+        return this.http.post<{ enabled: boolean }>(`${this.apiUrl}/system/maintenance`, { enabled });
+    }
+
+    getDatabaseStats(): Observable<any[]> {
+        return this.http.get<any[]>(`${this.apiUrl}/system/database-stats`);
+    }
+
+    getBroadcast(): Observable<any> {
+        return this.http.get<any>(`${this.apiUrl}/system/broadcast`);
+    }
+
+    setBroadcast(msg: any): Observable<any> {
+        return this.http.post<any>(`${this.apiUrl}/system/broadcast`, msg);
+    }
 }

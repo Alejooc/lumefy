@@ -1,39 +1,127 @@
 <div class="system-health-page">
-  <div class="page-header">
-    <h4 class="mb-1">Health Check del Sistema</h4>
-    <p class="text-muted mb-0">Estado tecnico de backend, base de datos y migraciones.</p>
+  <div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+      <h4 class="mb-1">Control de Misión</h4>
+      <p class="text-muted mb-0">Monitoreo de recursos en tiempo real.</p>
+    </div>
+    <button type="button" class="btn btn-sm btn-primary" (click)="loadHealth()" [disabled]="loading">
+      <i class="feather icon-refresh-cw" [class.fa-spin]="loading"></i>
+      {{ loading ? 'Actualizando...' : 'Refrescar' }}
+    </button>
   </div>
 
-  <div class="card">
-    <div class="card-body">
-      <div class="d-flex justify-content-end mb-3">
-        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="loadHealth()" [disabled]="loading">
-          {{ loading ? 'Validando...' : 'Reintentar' }}
-        </button>
+  <div class="row mt-4">
+    <div class="col-sm-12">
+      <div class="card">
+        <div class="card-body">
+          <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
+          <div *ngIf="!errorMessage && healthData" class="row text-center">
+            <!-- CPU -->
+            <div class="col-md-4">
+              <h6 class="text-muted text-uppercase">CPU Usage</h6>
+              <apx-chart [series]="cpuChartOptions.series!" [chart]="cpuChartOptions.chart!"
+                [plotOptions]="cpuChartOptions.plotOptions!" [labels]="cpuChartOptions.labels!"
+                [fill]="{ colors: ['#775DD0'] }" [stroke]="cpuChartOptions.stroke!"></apx-chart>
+              <div class="mt-2 text-muted small">Cores: {{ healthData.cpu.count }}</div>
+            </div>
+
+            <!-- RAM -->
+            <div class="col-md-4">
+              <h6 class="text-muted text-uppercase">Memory RAM</h6>
+              <apx-chart [series]="memoryChartOptions.series!" [chart]="memoryChartOptions.chart!"
+                [plotOptions]="memoryChartOptions.plotOptions!" [labels]="memoryChartOptions.labels!"
+                [fill]="{ colors: ['#00E396'] }" [stroke]="memoryChartOptions.stroke!"></apx-chart>
+              <div class="mt-2 text-muted small">
+                {{ (healthData.memory.used / 1024 / 1024 / 1024) | number:'1.1-1' }} GB /
+                {{ (healthData.memory.total / 1024 / 1024 / 1024) | number:'1.1-1' }} GB
+              </div>
+            </div>
+
+            <!-- DISK -->
+            <div class="col-md-4">
+              <h6 class="text-muted text-uppercase">Disk Storage</h6>
+              <apx-chart [series]="diskChartOptions.series!" [chart]="diskChartOptions.chart!"
+                [plotOptions]="diskChartOptions.plotOptions!" [labels]="diskChartOptions.labels!"
+                [fill]="{ colors: ['#FEB019'] }" [stroke]="diskChartOptions.stroke!"></apx-chart>
+              <div class="mt-2 text-muted small">
+                Free: {{ (healthData.disk.free / 1024 / 1024 / 1024) | number:'1.1-1' }} GB
+              </div>
+            </div>
+
+            <div class="col-12 mt-4 pt-3 border-top">
+              <div class="d-flex justify-content-center align-items-center gap-4">
+                <div class="text-center">
+                  <h3 class="mb-0 fw-bold">{{ getUptimeString(healthData.uptime_seconds) }}</h3>
+                  <small class="text-muted">System Uptime</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="loading && !healthData" class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+          </div>
+        </div>
       </div>
+    </div>
 
-      <div *ngIf="errorMessage" class="alert alert-warning mb-0">{{ errorMessage }}</div>
+    <!-- Maintenance Mode Card -->
+    <div class="col-sm-12 mt-4">
+      <div class="card border-warning">
+        <div class="card-header bg-warning text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 text-white"><i class="feather icon-alert-triangle me-2"></i> Zona de Peligro</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h5 class="fw-bold">Modo Mantenimiento</h5>
+              <p class="text-muted mb-0">
+                Si se activa, solo los Super Admins podrán acceder al sistema.
+                Los usuarios verán una pantalla de "En Mantenimiento".
+              </p>
+            </div>
+            <div class="form-check form-switch custom-switch-v1">
+              <input type="checkbox" class="form-check-input input-danger" id="maintenanceSwitch"
+                [checked]="maintenanceEnabled" (change)="toggleMaintenance($event)" style="transform: scale(1.5);">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-      <div *ngIf="!errorMessage && healthStatus" class="row g-2">
-        <div class="col-md-4">
-          <div class="health-pill" [class.ok]="healthStatus.backend_ok">
-            Backend: {{ healthStatus.backend_ok ? 'OK' : 'ERROR' }}
-          </div>
+  <!-- Broadcast System Card -->
+  <div class="col-sm-12 mt-4">
+    <div class="card bg-c-blue order-card">
+      <div class="card-header border-0 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-white"><i class="feather icon-volume-2 me-2"></i> Anuncio Global</h5>
+        <div class="form-check form-switch custom-switch-v1">
+          <input type="checkbox" class="form-check-input input-light" id="broadcastSwitch"
+            [(ngModel)]="broadcastMessage.is_active" style="transform: scale(1.5);">
         </div>
-        <div class="col-md-4">
-          <div class="health-pill" [class.ok]="healthStatus.db_ok">
-            DB: {{ healthStatus.db_ok ? 'OK' : 'ERROR' }}
+      </div>
+      <div class="card-body bg-white rounded-bottom">
+        <div class="row g-3 align-items-center">
+          <div class="col-md-2">
+            <label class="form-label fw-bold">Tipo de Alerta</label>
+            <select class="form-select" [(ngModel)]="broadcastMessage.type">
+              <option value="info">Info (Azul)</option>
+              <option value="warning">Warning (Amarillo)</option>
+              <option value="danger">Danger (Rojo)</option>
+              <option value="success">Success (Verde)</option>
+            </select>
           </div>
-        </div>
-        <div class="col-md-4">
-          <div class="health-pill" [class.ok]="healthStatus.migration_up_to_date === true">
-            Migraciones: {{ healthStatus.migration_up_to_date === true ? 'AL DIA' : 'PENDIENTE/ND' }}
+          <div class="col-md-8">
+            <label class="form-label fw-bold">Mensaje</label>
+            <input type="text" class="form-control" [(ngModel)]="broadcastMessage.message"
+              placeholder="Ej: Mantenimiento programado a las 22:00">
           </div>
-        </div>
-        <div class="col-12 text-muted small">
-          Actual: {{ healthStatus.current_revision || 'N/D' }} |
-          Head: {{ healthStatus.expected_head || 'N/D' }} |
-          {{ healthStatus.checked_at | date:'short' }}
+          <div class="col-md-2 pt-4">
+            <button class="btn btn-primary w-100" (click)="saveBroadcast()" [disabled]="loading">
+              <i class="feather icon-save me-1"></i> Guardar
+            </button>
+          </div>
         </div>
       </div>
     </div>

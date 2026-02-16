@@ -61,10 +61,10 @@ export interface UnitOfMeasure {
                                     <td><span class="badge bg-light text-dark">{{ uom.abbreviation || '—' }}</span></td>
                                     <td>
                                         <button class="btn btn-outline-primary btn-sm me-1" (click)="editUom(uom)" title="Editar">
-                                            ✏️
+                                            <i class="feather icon-edit"></i>
                                         </button>
                                         <button class="btn btn-outline-danger btn-sm" (click)="deleteUom(uom)" title="Eliminar">
-                                            🗑️
+                                            <i class="feather icon-trash-2"></i>
                                         </button>
                                     </td>
                                 </tr>

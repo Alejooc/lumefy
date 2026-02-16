@@ -122,11 +122,16 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
     user_id: UUID,
     user_in: schemas.UserUpdate,
-    current_user: User = Depends(PermissionChecker("manage_users")),
+    current_user: User = Depends(auth.get_current_user),
 ) -> Any:
     """
     Update a user.
     """
+    # Allow user to update themselves, otherwise check for permission
+    if current_user.id != user_id:
+        permission_checker = PermissionChecker("manage_users")
+        permission_checker(current_user)
+
     query = select(User).where(
         User.id == user_id, 
         User.company_id == current_user.company_id
@@ -213,3 +218,62 @@ async def delete_user(
     )
     
     return user
+
+@router.post("/{user_id}/recovery-email", response_model=Any)
+async def send_recovery_email(
+    *,
+    db: AsyncSession = Depends(get_db),
+    user_id: UUID,
+    current_user: User = Depends(auth.get_current_user),
+) -> Any:
+    """
+    Send password recovery email to a specific user (Admin only).
+    """
+    # Check permissions (Super Admin or Company Admin)
+    permission_checker = PermissionChecker("manage_users")
+    permission_checker(current_user)
+    
+    query = select(User).where(User.id == user_id)
+    if not current_user.is_superuser:
+        query = query.where(User.company_id == current_user.company_id)
+        
+    result = await db.execute(query)
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Generate Reset Token
+    from app.services.email import EmailService
+    from datetime import timedelta
+    from app.core import auth
+    from app.core.config import settings
+
+    access_token_expires = timedelta(hours=1)
+    reset_token = auth.create_access_token(
+        data={"sub": user.email, "type": "reset"},
+        expires_delta=access_token_expires
+    )
+    
+    try:
+        await EmailService.send_reset_password_email(user.email, reset_token)
+    except Exception as e:
+        # Log error but don't crash if SMTP is not configured
+        print(f"ERROR: Failed to send email: {e}")
+        # In DEV without SMTP, print the link
+        print(f"DEBUG LINK: http://localhost:4200/reset-password?token={reset_token}")
+        if settings.ENVIRONMENT == "production":
+             raise HTTPException(status_code=500, detail="Failed to send email")
+    
+    # Log Activity
+    await log_activity(
+        db,
+        action="UPDATE",
+        entity_type="User",
+        entity_id=user.id,
+        user_id=current_user.id,
+        company_id=current_user.company_id,
+        details={"action": "password_recovery_email"}
+    )
+    
+    return {"message": "Recovery email sent successfully"}

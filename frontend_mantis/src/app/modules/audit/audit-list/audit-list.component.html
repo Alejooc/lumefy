@@ -20,9 +20,15 @@
                         <tbody>
                             @for (log of logs; track log.id) {
                             <tr>
-                                <td>{{ log.created_at | date:'medium' }}</td>
-                                <td>{{ log.user_id }}</td>
-                                <!-- Ideally join with user name, but ID is fine for MVP -->
+                                <td>{{ log.created_at | date:'short' }}</td>
+                                <td>
+                                    <div *ngIf="log.user">
+                                        <div class="fw-bold">{{ log.user.full_name }}</div>
+                                        <small class="text-muted">{{ log.user.email }}</small>
+                                    </div>
+                                    <span *ngIf="!log.user">{{ log.user_id }}</span>
+                                </td>
+                                <!-- Joined with user name -->
                                 <td><span class="badge" [ngClass]="getBadgeClass(log.action)">{{ log.action }}</span>
                                 </td>
                                 <td>{{ log.entity_type }}</td>

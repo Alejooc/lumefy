@@ -25,4 +25,4 @@ class Company(BaseModel):
     # Relationships
     # Relationships
     # branches = relationship(Branch, back_populates="company")
-    # users = relationship("User", back_populates="company")
+    users = relationship("app.models.user.User", back_populates="company")

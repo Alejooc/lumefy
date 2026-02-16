@@ -1,5 +1,5 @@
 <ul class="list-unstyled">
-  
+
   <li class="dropdown pc-h-item" ngbDropdown>
     <a href="javascript:" class="pc-head-link dropdown-toggle arrow-none me-0 bg-gray-200" data-bs-toggle="dropdown"
       ngbDropdownToggle>
@@ -119,7 +119,8 @@
           <ng-template ngbNavContent>
             @for (task of profile; track task) {
             <div>
-              <a href="javascript:" class="dropdown-item" (click)="task.title === 'Logout' ? onLogout() : null">
+              <a href="javascript:" class="dropdown-item" (click)="task.title === 'Salir' ? onLogout() : null"
+                [routerLink]="task.route ? [task.route] : null">
                 <i class="text-muted" antIcon theme="outline" type="{{ task.icon }}"></i>
                 <span>{{ task.title }}</span>
               </a>

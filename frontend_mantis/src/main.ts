@@ -6,6 +6,7 @@ import { AppRoutingModule } from './app/app-routing.module';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { AppComponent } from './app/app.component';
 import { JwtInterceptor } from './app/core/services/jwt.interceptor';
+import { GlobalErrorInterceptor } from './app/core/interceptors/global-error.interceptor';
 
 if (environment.production) {
   enableProdMode();
@@ -16,6 +17,7 @@ bootstrapApplication(AppComponent, {
     importProvidersFrom(BrowserModule, AppRoutingModule),
     provideHttpClient(withInterceptorsFromDi()), // Enable interceptors
     provideAnimations(),
-    { provide: HTTP_INTERCEPTORS, useClass: JwtInterceptor, multi: true }
+    { provide: HTTP_INTERCEPTORS, useClass: JwtInterceptor, multi: true },
+    { provide: HTTP_INTERCEPTORS, useClass: GlobalErrorInterceptor, multi: true }
   ]
 }).catch((err) => console.error(err));

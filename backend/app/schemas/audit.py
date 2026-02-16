@@ -9,9 +9,18 @@ class AuditLogBase(BaseModel):
     entity_id: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
 
+class AuditUser(BaseModel):
+    id: UUID
+    email: str
+    full_name: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
 class AuditLog(AuditLogBase):
     id: UUID
     user_id: Optional[UUID] = None
+    user: Optional[AuditUser] = None
     company_id: Optional[UUID] = None
     created_at: datetime
     

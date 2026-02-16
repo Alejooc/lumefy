@@ -28,6 +28,16 @@ const routes: Routes = [
         path: 'register',
         loadComponent: () =>
           import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
+      },
+      {
+        path: 'forgot-password',
+        loadComponent: () =>
+          import('./demo/pages/authentication/auth-forgot-password/auth-forgot-password.component').then((c) => c.AuthForgotPasswordComponent)
+      },
+      {
+        path: 'reset-password',
+        loadComponent: () =>
+          import('./demo/pages/authentication/auth-reset-password/auth-reset-password.component').then((c) => c.AuthResetPasswordComponent)
       }
     ]
   },
@@ -124,6 +134,18 @@ const routes: Routes = [
       {
         path: 'settings/health',
         loadComponent: () => import('./modules/settings/system-health.component').then((c) => c.SystemHealthComponent)
+      },
+      {
+        path: 'settings/database',
+        loadComponent: () => import('./modules/settings/database-stats/database-stats.component').then((c) => c.DatabaseStatsComponent)
+      },
+      {
+        path: 'profile',
+        loadChildren: () => import('./modules/profile/profile.module').then(m => m.ProfileModule)
+      },
+      {
+        path: 'billing',
+        loadChildren: () => import('./modules/billing/billing.module').then(m => m.BillingModule)
       }
     ]
   },

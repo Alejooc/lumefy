@@ -20,4 +20,4 @@ class User(BaseModel):
     # Relationships
     # Relationships
     role = relationship(Role, lazy="joined")
-    # company = relationship("Company", back_populates="users")
+    company = relationship("app.models.company.Company", back_populates="users", lazy="joined")

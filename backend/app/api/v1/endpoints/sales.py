@@ -369,7 +369,14 @@ async def download_pdf(
         raise HTTPException(status_code=400, detail="Invalid document type")
 
     query = select(Sale).options(
-        selectinload(Sale.items).selectinload(SaleItem.product),
+        selectinload(Sale.items).selectinload(SaleItem.product).options(
+            selectinload(Product.images),
+            selectinload(Product.variants),
+            selectinload(Product.brand),
+            selectinload(Product.unit_of_measure),
+            selectinload(Product.purchase_uom),
+            selectinload(Product.category)
+        ),
         selectinload(Sale.client),
         selectinload(Sale.user),
         selectinload(Sale.branch)

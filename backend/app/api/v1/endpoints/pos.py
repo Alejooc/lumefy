@@ -132,7 +132,13 @@ async def create_sale(
         
         # Eager load for response
         query = select(Sale).options(
-            selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(Sale.items).selectinload(SaleItem.product).options(
+                selectinload(Product.brand),
+                selectinload(Product.unit_of_measure),
+                selectinload(Product.purchase_uom),
+                selectinload(Product.variants),
+                selectinload(Product.images)
+            ),
             selectinload(Sale.payments),
             selectinload(Sale.user),
             selectinload(Sale.branch),

@@ -79,19 +79,23 @@ export class NavRightComponent {
   profile = [
     {
       icon: 'edit',
-      title: 'Editar Perfil'
+      title: 'Editar Perfil',
+      route: '/profile/edit'
     },
     {
       icon: 'user',
-      title: 'Ver Perfil'
+      title: 'Ver Perfil',
+      route: '/profile/view'
     },
     {
       icon: 'wallet',
-      title: 'Facturación'
+      title: 'Facturación',
+      route: '/billing'
     },
     {
       icon: 'logout',
-      title: 'Salir'
+      title: 'Salir',
+      route: null
     }
   ];
 

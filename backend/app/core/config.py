@@ -21,6 +21,18 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: str
     FIRST_SUPERUSER_PASSWORD: str
 
+    # Email Settings
+    MAIL_USERNAME: str = "admin@lumefy.com"
+    MAIL_PASSWORD: str = "change-me"
+    MAIL_FROM: str = "admin@lumefy.com"
+    MAIL_PORT: int = 587
+    MAIL_SERVER: str = "smtp.gmail.com"
+    MAIL_FROM_NAME: str = "Lumefy Support"
+    MAIL_STARTTLS: bool = True
+    MAIL_SSL_TLS: bool = False
+    USE_CREDENTIALS: bool = True
+    VALIDATE_CERTS: bool = True
+
     class Config:
         case_sensitive = True
         env_file = ".env"

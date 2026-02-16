@@ -54,3 +54,7 @@ class CompanyOnboardResponse(BaseModel):
     message: str
 
     model_config = ConfigDict(from_attributes=True)
+
+class CompanySubscriptionExtend(BaseModel):
+    valid_until: str # ISO Date YYYY-MM-DD
+    plan: Optional[str] = None # Optional upgrade

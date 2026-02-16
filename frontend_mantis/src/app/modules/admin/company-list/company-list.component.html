@@ -47,8 +47,16 @@
                                 <td>{{ company.email }}</td>
                                 <td>
                                     <button class="btn btn-icon btn-outline-primary me-2"
-                                        [routerLink]="['/admin/companies/edit', company.id]">
+                                        [routerLink]="['/admin/companies/edit', company.id]" title="Editar Empresa">
                                         <i class="feather icon-edit"></i>
+                                    </button>
+                                    <button class="btn btn-icon btn-outline-warning me-2" (click)="impersonate(company)"
+                                        title="Iniciar Sesión como Admin">
+                                        <i class="feather icon-log-in"></i>
+                                    </button>
+                                    <button class="btn btn-icon btn-outline-success"
+                                        (click)="extendSubscription(company)" title="Extender Suscripción">
+                                        <i class="feather icon-calendar"></i>
                                     </button>
                                 </td>
                             </tr>

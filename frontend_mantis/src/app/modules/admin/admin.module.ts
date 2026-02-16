@@ -10,6 +10,7 @@ import { AdminDashboardComponent } from './dashboard/admin-dashboard.component';
 import { PlanListComponent } from './plan-list/plan-list.component';
 import { PlanFormComponent } from './plan-form/plan-form.component';
 import { AdminSettingsComponent } from './settings/admin-settings.component';
+import { AdminUserListComponent } from './user-list/admin-user-list.component';
 import { SharedModule } from '../../theme/shared/shared.module';
 
 const routes: Routes = [
@@ -23,6 +24,7 @@ const routes: Routes = [
             { path: 'plans', component: PlanListComponent },
             { path: 'plans/new', component: PlanFormComponent },
             { path: 'plans/edit/:id', component: PlanFormComponent },
+            { path: 'users', component: AdminUserListComponent },
             { path: 'settings', component: AdminSettingsComponent },
             { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
         ]
