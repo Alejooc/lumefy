@@ -72,6 +72,7 @@ export class CompanyListComponent implements OnInit {
                     error: (err) => {
                         this.loading = false;
                         Swal.fire('Error', err.error?.detail || 'No se pudo iniciar sesión', 'error');
+                        this.cdr.detectChanges();
                     }
                 });
             }
@@ -104,10 +105,12 @@ export class CompanyListComponent implements OnInit {
                     next: () => {
                         Swal.fire('Actualizado', 'La suscripción ha sido extendida', 'success');
                         this.loadCompanies(); // Reload list
+                        this.cdr.detectChanges();
                     },
                     error: (err) => {
                         this.loading = false;
                         Swal.fire('Error', 'No se pudo actualizar', 'error');
+                        this.cdr.detectChanges();
                     }
                 });
             }

@@ -139,6 +139,42 @@ async def create_sale(
         
         await db.commit()
         
+        # --- Notification Trigger ---
+        from app.models.notification import Notification
+        from app.models.notification_template import NotificationTemplate
+        from app.schemas.notification import NotificationType
+        
+        # 1. Get Template
+        template_result = await db.execute(select(NotificationTemplate).where(NotificationTemplate.code == 'NEW_SALE'))
+        template = template_result.scalars().first()
+        
+        if template and template.is_active:
+            # 2. Notify all users in the company
+            company_users_result = await db.execute(
+                select(User).where(User.company_id == current_user.company_id)
+            )
+            company_users = company_users_result.scalars().all()
+            
+            # 3. Format Message
+            title = template.title_template.format(order_id=str(sale.id)[:8])
+            message = template.body_template.format(
+                order_id=str(sale.id)[:8],
+                amount=f"{sale.total:,.2f}",
+                user_name=current_user.full_name or current_user.email
+            )
+            
+            for user in company_users:
+                notification = Notification(
+                    user_id=user.id,
+                    type=template.type, # Use template type
+                    title=title,
+                    message=message,
+                    link=f"/admin/sales/view/{sale.id}"
+                )
+                db.add(notification)
+            await db.commit()
+        # ----------------------------
+        
         # Eager load for response
         query = select(Sale).options(
             selectinload(Sale.items).selectinload(SaleItem.product).options(
@@ -263,6 +299,30 @@ async def update_status(
                     reason="Sale Order Confirmed"
                 )
                 db.add(movement)
+
+                # --- Low Stock Warning ---
+                if inventory.quantity <= item.product.min_stock:
+                    # Notify All Users
+                    # We need to query users if not already queried
+                    # For efficiency, we might want to move this outside the loop or cache it, 
+                    # but for now, query here is safer to ensure we get them.
+                    # Or simpler: Query once before loop? No, loop might be empty.
+                    # Let's query inside but it's N*M queries.  
+                    # Optimization: Query all company users ONCE at start of this block.
+                    
+                    users_result = await db.execute(select(User).where(User.company_id == current_user.company_id))
+                    users_list = users_result.scalars().all()
+
+                    for user in users_list:
+                        notif = Notification(
+                            user_id=user.id,
+                            type=NotificationType.WARNING,
+                            title="⚠️ Stock Bajo",
+                            message=f"El producto '{item.product.name}' ha llegado a su stock mínimo ({inventory.quantity} restantes).",
+                            link=f"/admin/inventory"
+                        )
+                        db.add(notif)
+                # -------------------------
                 
     elif new_status == SaleStatus.CANCELLED and old_status in [SaleStatus.CONFIRMED, SaleStatus.PICKING, SaleStatus.PACKING, SaleStatus.DISPATCHED]:
         # Restore Inventory if it was deducted (CONFIRMED or later)

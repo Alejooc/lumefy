@@ -109,6 +109,33 @@ async def create_user(
             details={"email": user.email, "role": user.role_id}
         )
 
+        # --- Welcome Notification ---
+        from app.models.notification import Notification
+        from app.models.notification_template import NotificationTemplate
+        from app.schemas.notification import NotificationType
+        
+        # 1. Get Template
+        template_result = await db.execute(select(NotificationTemplate).where(NotificationTemplate.code == 'WELCOME'))
+        template = template_result.scalars().first()
+        
+        if template and template.is_active:
+             # 3. Format Message
+            title = template.title_template
+            message = template.body_template.format(
+                user_name=user.full_name or 'Usuario'
+            )
+            
+            notification = Notification(
+                user_id=user.id,
+                type=template.type,
+                title=title,
+                message=message,
+                link="/dashboard"
+            )
+            db.add(notification)
+            await db.commit()
+        # ----------------------------
+
         return user
     except Exception as e:
         await db.rollback()

@@ -99,6 +99,26 @@ export const NavigationItems: NavigationItem[] = [
         url: '/settings/database',
         classes: 'nav-item',
         icon: 'database'
+      },
+      {
+        id: 'notifications-admin',
+        title: 'Notificaciones',
+        type: 'collapse',
+        icon: 'bell',
+        children: [
+          {
+            id: 'templates',
+            title: 'Plantillas',
+            type: 'item',
+            url: '/admin/notifications/templates'
+          },
+          {
+            id: 'send-manual',
+            title: 'Envío Manual',
+            type: 'item',
+            url: '/admin/notifications/send'
+          }
+        ]
       }
     ]
   },

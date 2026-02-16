@@ -25,6 +25,7 @@ const routes: Routes = [
             { path: 'plans/new', component: PlanFormComponent },
             { path: 'plans/edit/:id', component: PlanFormComponent },
             { path: 'users', component: AdminUserListComponent },
+            { path: 'notifications', loadChildren: () => import('./notifications/notifications-routing.module').then(m => m.NotificationsRoutingModule) },
             { path: 'settings', component: AdminSettingsComponent },
             { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
         ]

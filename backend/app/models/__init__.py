@@ -21,4 +21,6 @@ from .logistics import PackageType, SalePackage, SalePackageItem
 from .plan import Plan
 from .system_setting import SystemSetting
 from .product_image import ProductImage
+from .notification import Notification
+from .notification_template import NotificationTemplate
 

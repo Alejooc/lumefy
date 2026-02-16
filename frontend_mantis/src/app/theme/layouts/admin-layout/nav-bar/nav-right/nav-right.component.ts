@@ -1,5 +1,7 @@
 // angular import
-import { Component, output, inject, input } from '@angular/core';
+import { Component, output, inject, input, ChangeDetectorRef } from '@angular/core';
+import { NgbDropdownModule, NgbNavModule } from '@ng-bootstrap/ng-bootstrap';
+import { NotificationService } from 'src/app/core/services/notification.service';
 import { RouterModule } from '@angular/router';
 
 // project import
@@ -32,15 +34,20 @@ import {
 
 @Component({
   selector: 'app-nav-right',
-  imports: [SharedModule, RouterModule],
+  imports: [SharedModule, RouterModule, NgbDropdownModule, NgbNavModule], // Ensure Ngb modules are imported
   templateUrl: './nav-right.component.html',
   styleUrls: ['./nav-right.component.scss']
 })
 export class NavRightComponent {
   private iconService = inject(IconService);
   private authService = inject(AuthService);
+  private notificationService = inject(NotificationService);
+  private cdr = inject(ChangeDetectorRef);
 
   currentUser$ = this.authService.currentUser;
+
+  notifications: any[] = [];
+  unreadCount = 0;
 
   // public props
   styleSelectorToggle = input<boolean>();
@@ -74,6 +81,45 @@ export class NavRightComponent {
         WalletOutline
       ]
     );
+  }
+
+  ngOnInit() {
+    this.loadNotifications();
+  }
+
+  loadNotifications() {
+    this.notificationService.getUnread().subscribe({
+      next: (data) => {
+        this.notifications = data;
+        this.unreadCount = data.length;
+        this.cdr.detectChanges();
+      }
+    });
+
+    // Subscribe to count updates
+    this.notificationService.unreadCount$.subscribe(count => {
+      this.unreadCount = count;
+      this.cdr.detectChanges();
+    });
+  }
+
+  markAsRead(id: string) {
+    this.notificationService.markAsRead(id).subscribe(() => {
+      // Update status instead of removing
+      const notification = this.notifications.find(n => n.id === id);
+      if (notification) {
+        notification.is_read = true;
+      }
+      this.cdr.detectChanges();
+    });
+  }
+
+  markAllRead() {
+    this.notificationService.markAllAsRead().subscribe(() => {
+      this.notifications = [];
+      this.unreadCount = 0;
+      this.cdr.detectChanges();
+    });
   }
 
   profile = [

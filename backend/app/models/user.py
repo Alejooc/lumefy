@@ -16,8 +16,9 @@ class User(BaseModel):
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
     
     role_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=True)
+    company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=True)
     
     # Relationships
-    # Relationships
     role = relationship(Role, lazy="joined")
-    company = relationship("app.models.company.Company", back_populates="users", lazy="joined")
+    company = relationship("app.models.company.Company", back_populates="users", lazy="joined", foreign_keys=[company_id])
+    notifications = relationship("app.models.notification.Notification", back_populates="user", cascade="all, delete-orphan")

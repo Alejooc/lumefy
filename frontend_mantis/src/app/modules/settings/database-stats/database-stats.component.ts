@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AdminService } from 'src/app/modules/admin/admin.service';
 
@@ -13,6 +13,7 @@ import { AdminService } from 'src/app/modules/admin/admin.service';
 })
 export class DatabaseStatsComponent implements OnInit {
     private adminService = inject(AdminService);
+    private cdr = inject(ChangeDetectorRef); // Injected
 
     stats: any[] = [];
     loading = false;
@@ -31,10 +32,12 @@ export class DatabaseStatsComponent implements OnInit {
                 // Calculate total size for percentage context if needed, 
                 // usually top table is the reference for bars
                 this.totalDatabaseSize = data.reduce((acc, curr) => acc + curr.total_size_bytes, 0);
+                this.cdr.detectChanges(); // Detect changes
             },
             error: (err) => {
                 console.error(err);
                 this.loading = false;
+                this.cdr.detectChanges(); // Detect changes
             }
         });
     }

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import Swal from 'sweetalert2';
-import { Component, OnInit, inject, ViewChild } from '@angular/core';
+import { Component, OnInit, inject, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AdminService } from 'src/app/modules/admin/admin.service'; // Use AdminService
@@ -37,6 +37,7 @@ export class SystemHealthComponent implements OnInit {
   private permissionService = inject(PermissionService);
   private authService = inject(AuthService);
   private router = inject(Router);
+  private cdr = inject(ChangeDetectorRef); // Injected
 
   loading = false;
   errorMessage = '';
@@ -58,7 +59,7 @@ export class SystemHealthComponent implements OnInit {
   ngOnInit(): void {
     const canAccess =
       !!this.authService.currentUserValue?.is_superuser ||
-      this.permissionService.hasPermission('manage_company'); // Keeping manage_company for now, but strict is superuser
+      this.permissionService.hasPermission('manage_company');
 
     if (!canAccess) {
       this.router.navigate(['/dashboard/default']);
@@ -78,6 +79,7 @@ export class SystemHealthComponent implements OnInit {
   loadBroadcast() {
     this.adminService.getBroadcast().subscribe(res => {
       this.broadcastMessage = res;
+      this.cdr.detectChanges(); // Detect changes
     });
   }
 
@@ -87,10 +89,12 @@ export class SystemHealthComponent implements OnInit {
       next: () => {
         this.loading = false;
         Swal.fire('Guardado', 'Anuncio global actualizado.', 'success');
+        this.cdr.detectChanges(); // Detect changes
       },
       error: () => {
         this.loading = false;
         Swal.fire('Error', 'No se pudo guardar.', 'error');
+        this.cdr.detectChanges(); // Detect changes
       }
     });
   }
@@ -98,6 +102,7 @@ export class SystemHealthComponent implements OnInit {
   loadMaintenanceStatus() {
     this.adminService.getMaintenanceStatus().subscribe(status => {
       this.maintenanceEnabled = status.enabled;
+      this.cdr.detectChanges(); // Detect changes
     });
   }
 
@@ -130,6 +135,7 @@ export class SystemHealthComponent implements OnInit {
             this.loading = false;
             // Update Checkbox visually
             event.target.checked = res.enabled;
+            this.cdr.detectChanges(); // Detect changes
 
             Swal.fire(
               'Actualizado',
@@ -140,6 +146,7 @@ export class SystemHealthComponent implements OnInit {
           error: () => {
             this.loading = false;
             Swal.fire('Error', 'No se pudo cambiar el estado.', 'error');
+            this.cdr.detectChanges(); // Detect changes
           }
         });
       }
@@ -153,10 +160,12 @@ export class SystemHealthComponent implements OnInit {
         this.healthData = data;
         this.updateCharts(data);
         this.loading = false;
+        this.cdr.detectChanges(); // Detect changes
       },
       error: () => {
         this.loading = false;
         this.errorMessage = 'No se pudo obtener el estado del sistema.';
+        this.cdr.detectChanges(); // Detect changes
       }
     });
   }

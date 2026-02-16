@@ -4,81 +4,44 @@
     <a href="javascript:" class="pc-head-link dropdown-toggle arrow-none me-0 bg-gray-200" data-bs-toggle="dropdown"
       ngbDropdownToggle>
       <i antIcon type="bell" theme="outline"></i>
-      <span class="badge bg-primary pc-h-badge">3</span>
+      <span class="badge bg-danger pc-h-badge" *ngIf="unreadCount > 0">{{ unreadCount }}</span>
     </a>
     <div class="dropdown-menu dropdown-notification dropdown-menu-end pc-h-dropdown" ngbDropdownMenu>
       <div class="dropdown-header d-flex align-items-center justify-content-between">
-        <h5 class="m-0">Notification</h5>
-        <a class="bg-transparent"><i class="text-success d-flex f-20" antIcon theme="outline"
-            type="check-circle"></i></a>
+        <h5 class="m-0">Notificaciones</h5>
+        <a href="javascript:" class="text-secondary" (click)="markAllRead()" title="Marcar todo como leído">
+          <i class="text-success d-flex f-20" antIcon theme="outline" type="check-circle"></i>
+        </a>
       </div>
       <div class="dropdown-divider mb-0"></div>
-      <ng-scrollbar style="min-height: 280px" visibility="hover">
+      <ng-scrollbar style="min-height: 280px; max-height: 400px;">
         <div class="dropdown-header p-0 text-wrap header-notification-scroll">
           <div class="list-group list-group-flush w-100">
-            <a class="list-group-item list-group-item-action">
+
+            <div *ngIf="notifications.length === 0" class="text-center py-4 text-muted">
+              <i antIcon type="smile" theme="outline" class="f-24 mb-2"></i>
+              <p class="m-0">No tienes notificaciones nuevas</p>
+            </div>
+
+            <a class="list-group-item list-group-item-action" *ngFor="let notification of notifications"
+              (click)="markAsRead(notification.id)" [routerLink]="notification.link">
               <div class="d-flex">
                 <div class="flex-shrink-0">
-                  <div class="user-avatar bg-light-success"><i class="d-flex" antIcon theme="outline" type="gift"></i>
+                  <div class="user-avatar" [ngClass]="{
+                      'bg-light-primary': notification.type === 'info',
+                      'bg-light-success': notification.type === 'success',
+                      'bg-light-warning': notification.type === 'warning',
+                      'bg-light-danger': notification.type === 'danger'
+                  }">
+                    <i class="d-flex" antIcon theme="outline"
+                      [type]="notification.type === 'danger' ? 'warning' : 'info-circle'"></i>
                   </div>
                 </div>
                 <div class="flex-grow-1 ms-3">
-                  <span class="float-end text-muted">3:00 AM</span>
-                  <p class="text-body mb-0">
-                    It's
-                    <b>Cristina danny's</b>
-                    birthday today.
-                  </p>
-                  <span class="text-muted">2 min ago</span>
-                </div>
-              </div>
-            </a>
-            <a class="list-group-item list-group-item-action">
-              <div class="d-flex">
-                <div class="flex-shrink-0">
-                  <div class="user-avatar bg-light-primary"><i class="d-flex" antIcon theme="outline"
-                      type="message"></i></div>
-                </div>
-                <div class="flex-grow-1 ms-3">
-                  <span class="float-end text-muted">6:00 PM</span>
-                  <p class="text-body mb-1">
-                    <b>Aida Burg</b>
-                    commented your post.
-                  </p>
-                  <span class="text-muted">5 August</span>
-                </div>
-              </div>
-            </a>
-            <a class="list-group-item list-group-item-action">
-              <div class="d-flex">
-                <div class="flex-shrink-0">
-                  <div class="user-avatar bg-light-danger"><i class="d-flex" antIcon theme="outline" type="setting"></i>
-                  </div>
-                </div>
-                <div class="flex-grow-1 ms-3">
-                  <span class="float-end text-muted">2:45 PM</span>
-                  <p class="text-body mb-1">
-                    Your Profile is Complete &nbsp;
-                    <b>60%</b>
-                  </p>
-                  <span class="text-muted">7 hours ago</span>
-                </div>
-              </div>
-            </a>
-            <a class="list-group-item list-group-item-action">
-              <div class="d-flex">
-                <div class="flex-shrink-0">
-                  <div class="user-avatar bg-light-primary"><i class="d-flex" antIcon theme="outline" type="phone"></i>
-                  </div>
-                </div>
-                <div class="flex-grow-1 ms-3">
-                  <span class="float-end text-muted">9:10 PM</span>
-                  <p class="text-body mb-1">
-                    <b>Cristina Danny</b>
-                    invited to join
-                    <b>Meeting.</b>
-                  </p>
-                  <span class="text-muted">Daily scrum meeting time</span>
+                  <span class="float-end text-muted f-12">{{ notification.created_at | date:'shortTime' }}</span>
+                  <p class="text-body mb-0"><b>{{ notification.title }}</b></p>
+                  <p class="text-muted mb-0 text-truncate" style="max-width: 200px;">{{ notification.message }}</p>
+                  <span class="text-muted f-12">{{ notification.created_at | date:'dd MMM' }}</span>
                 </div>
               </div>
             </a>
@@ -87,7 +50,7 @@
       </ng-scrollbar>
       <div class="dropdown-divider mt-0"></div>
       <div class="text-center py-2">
-        <a href="javascript:" class="link-primary">View all</a>
+        <a href="javascript:" class="link-primary" (click)="loadNotifications()">Actualizar</a>
       </div>
     </div>
   </li>

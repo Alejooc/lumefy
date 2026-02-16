@@ -86,4 +86,21 @@ export class AdminService {
     setBroadcast(msg: any): Observable<any> {
         return this.http.post<any>(`${this.apiUrl}/system/broadcast`, msg);
     }
+
+    // --- Notification Admin ---
+    getNotificationTemplates(): Observable<any[]> {
+        return this.http.get<any[]>(`${this.apiUrl}/notifications/templates`);
+    }
+
+    createNotificationTemplate(data: any): Observable<any> {
+        return this.http.post<any>(`${this.apiUrl}/notifications/templates`, data);
+    }
+
+    updateNotificationTemplate(id: string, data: any): Observable<any> {
+        return this.http.put<any>(`${this.apiUrl}/notifications/templates/${id}`, data);
+    }
+
+    sendManualNotification(data: any): Observable<any> {
+        return this.http.post<any>(`${this.apiUrl}/notifications/send`, data);
+    }
 }

@@ -1,0 +1,66 @@
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Enviar Notificación Manual</h5>
+            </div>
+            <div class="card-body">
+                <form (ngSubmit)="send()">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="targetAll"
+                                    [(ngModel)]="notification.target_all" name="target_all">
+                                <label class="form-check-label" for="targetAll">Enviar a <b>TODOS</b> los usuarios
+                                    (Global Broadcast)</label>
+                            </div>
+
+                            <div class="mb-3" *ngIf="!notification.target_all">
+                                <label class="form-label">Seleccionar Usuario</label>
+                                <select class="form-select" [(ngModel)]="notification.user_id" name="user_id">
+                                    <option [ngValue]="null">-- Seleccionar --</option>
+                                    <option *ngFor="let u of users" [ngValue]="u.id">{{ u.full_name || u.email }} ({{
+                                        u.email }})</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tipo</label>
+                            <select class="form-select" [(ngModel)]="notification.type" name="type">
+                                <option value="info">Info (Azul)</option>
+                                <option value="success">Éxito (Verde)</option>
+                                <option value="warning">Advertencia (Naranja)</option>
+                                <option value="danger">Peligro (Rojo)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Título</label>
+                            <input type="text" class="form-control" [(ngModel)]="notification.title" name="title"
+                                required>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Mensaje</label>
+                            <textarea class="form-control" rows="4" [(ngModel)]="notification.message" name="message"
+                                required></textarea>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Enlace (Opcional)</label>
+                            <input type="text" class="form-control" [(ngModel)]="notification.link" name="link"
+                                placeholder="/dashboard/...">
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" [disabled]="loading">
+                            <i class="feather icon-send me-2"></i> {{ loading ? 'Enviando...' : 'Enviar Notificación' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
