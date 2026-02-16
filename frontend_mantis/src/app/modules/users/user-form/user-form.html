@@ -24,8 +24,13 @@
                         <label class="form-label required">Rol</label>
                         <select class="form-select" formControlName="role_id">
                             <option [ngValue]="null" disabled>Seleccionar Rol</option>
-                            <option *ngFor="let role of roles" [value]="role.id">{{ role.name }}</option>
+                            <option *ngFor="let role of roles" [value]="role.id">
+                                {{ role.name }}{{ role.description ? ' - ' + role.description : '' }}
+                            </option>
                         </select>
+                        <small class="text-muted d-block mt-1" *ngIf="selectedRoleDescription">
+                            {{ selectedRoleDescription }}
+                        </small>
                     </div>
 
                     <div class="col-md-6 mb-3">

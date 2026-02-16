@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ClientService } from '../client.service';
 import { Client } from '../client.model';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
+import { PermissionService } from '../../../core/services/permission.service';
 
 @Component({
   selector: 'app-client-list',
@@ -13,14 +14,17 @@ export class ClientListComponent implements OnInit {
   clients: Client[] = [];
   isLoading = false;
   searchQuery = '';
+  canAccessWizard = false;
 
   constructor(
     private clientService: ClientService,
     private swal: SweetAlertService,
+    private permissionService: PermissionService,
     private cdr: ChangeDetectorRef
   ) { }
 
   ngOnInit(): void {
+    this.canAccessWizard = this.permissionService.hasAnyPermission(['manage_company', 'manage_users']);
     this.loadClients();
   }
 

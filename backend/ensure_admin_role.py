@@ -34,13 +34,21 @@ async def ensure_admin_role():
                 await db.flush()
 
             # 2. Check for Admin Role
-            result = await db.execute(select(Role).where(Role.name == "Admin"))
-            role = result.scalars().first()
+            result = await db.execute(select(Role).where(Role.company_id == company.id))
+            company_roles = result.scalars().all()
+            role = next(
+                (
+                    r for r in company_roles
+                    if (r.name or "").strip().upper() in {"ADMIN", "ADMINISTRADOR", "ADMINISTRATOR"}
+                    or (r.permissions and r.permissions.get("all"))
+                ),
+                None
+            )
             
             if not role:
                 print("Creating Admin Role...")
                 role = Role(
-                    name="Admin", 
+                    name="ADMINISTRADOR", 
                     description="Super Admin", 
                     permissions={"all": True},
                     company_id=company.id

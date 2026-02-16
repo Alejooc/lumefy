@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 import Swal from 'sweetalert2';
 import { SaleService, Sale } from '../../../core/services/sale.service';
-import { ClientService } from '../../clients/client.service';
+import { PermissionService } from '../../../core/services/permission.service';
 
 @Component({
     selector: 'app-sales-list',
@@ -25,12 +25,17 @@ export class SalesListComponent implements OnInit {
     sales: Sale[] = [];
     loading = false;
     filterStatus = '';
+    canCreateSales = false;
+    canAccessWizard = false;
 
     // Inject services
     private saleService = inject(SaleService);
+    private permissionService = inject(PermissionService);
     private cdr = inject(ChangeDetectorRef);
 
     ngOnInit() {
+        this.canCreateSales = this.permissionService.hasPermission('create_sales');
+        this.canAccessWizard = this.permissionService.hasAnyPermission(['manage_company', 'manage_users']);
         this.loadSales();
     }
 

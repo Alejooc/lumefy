@@ -1,0 +1,47 @@
+.wizard-page {
+  .wizard-header {
+    margin-bottom: 1rem;
+  }
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.step {
+  border: 1px solid #d9e3f3;
+  border-radius: 8px;
+  color: #4a5b78;
+  font-size: 0.9rem;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.step.active {
+  background: #ebf4ff;
+  border-color: #8cb6ff;
+  color: #1f4fa8;
+  font-weight: 600;
+}
+
+.disabled-card {
+  opacity: 0.75;
+}
+
+.estimate {
+  background: #f6f8fc;
+  border: 1px solid #e2e8f4;
+  border-radius: 8px;
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  padding: 10px 12px;
+}
+
+.success-card {
+  border: 1px solid #b7e2c2;
+}
+

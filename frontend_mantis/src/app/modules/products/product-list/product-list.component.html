@@ -30,7 +30,7 @@
             </div>
 
             <!-- Table -->
-            <div class="table-responsive" *ngIf="!isLoading">
+            <div class="table-responsive" *ngIf="!isLoading && products.length > 0">
                 <table class="table table-hover">
                     <thead>
                         <tr>
@@ -87,16 +87,19 @@
                                 </button>
                             </td>
                         </tr>
-                        <tr *ngIf="products.length === 0">
-                            <td colspan="8" class="text-center text-muted py-4">
-                                No se encontraron productos.
-                                <br>
-                                <a routerLink="/products/create" class="btn btn-sm btn-primary mt-2">Crear primer
-                                    producto</a>
-                            </td>
-                        </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="text-center py-5 border rounded bg-light-subtle" *ngIf="!isLoading && products.length === 0">
+                <h6 class="mb-2">Aun no tienes productos cargados</h6>
+                <p class="text-muted mb-3" *ngIf="!searchQuery">Empieza creando tu primer producto para activar inventario y ventas.</p>
+                <p class="text-muted mb-3" *ngIf="searchQuery">No hubo coincidencias para <strong>"{{ searchQuery }}"</strong>. Prueba con otro termino.</p>
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                    <a routerLink="/products/create" class="btn btn-primary btn-sm">Crear primer producto</a>
+                    <a routerLink="/products/import" class="btn btn-outline-primary btn-sm">Importar catalogo</a>
+                    <a routerLink="/sales/first-sale-wizard" class="btn btn-outline-secondary btn-sm" *ngIf="canAccessWizard">Ir al Wizard MVP</a>
+                </div>
             </div>
         </app-card>
     </div>

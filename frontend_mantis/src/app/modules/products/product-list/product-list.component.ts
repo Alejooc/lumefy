@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ApiService } from '../../../core/services/api.service';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { PermissionService } from '../../../core/services/permission.service';
 
 @Component({
     selector: 'app-product-list',
@@ -15,15 +16,19 @@ export class ProductListComponent implements OnInit {
     searchQuery = '';
 
     currencySymbol = '$';
+    canAccessWizard = false;
 
     constructor(
         private apiService: ApiService,
         private swal: SweetAlertService,
         private auth: AuthService,
+        private permissionService: PermissionService,
         private cdr: ChangeDetectorRef
     ) { }
 
     ngOnInit(): void {
+        this.canAccessWizard = this.permissionService.hasAnyPermission(['manage_company', 'manage_users']);
+
         this.auth.currentCompany.subscribe(company => {
             if (company && company.currency_symbol) {
                 this.currencySymbol = company.currency_symbol;

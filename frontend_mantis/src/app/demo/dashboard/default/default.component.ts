@@ -75,6 +75,7 @@ export class DefaultComponent implements OnInit, OnDestroy {
   errorMessage = '';
   onboardingSteps: OnboardingStep[] = [];
   onboardingCollapsed = false;
+  showOnboardingAssistant = false;
   private onboardingAutoChecks: Record<string, () => Observable<boolean>> = {};
 
   constructor() {
@@ -82,6 +83,10 @@ export class DefaultComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.showOnboardingAssistant =
+      !!this.authService.currentUserValue?.is_superuser ||
+      this.permissionService.hasAnyPermission(['manage_company', 'manage_users', 'manage_settings']);
+
     this.initializeOnboardingSteps();
     this.loadOnboardingProgress();
     this.loadOnboardingUiState();
@@ -237,6 +242,7 @@ export class DefaultComponent implements OnInit, OnDestroy {
         description: 'Realiza una venta de prueba para validar el flujo completo.',
         audience: 'tenant',
         routes: [
+          { route: '/sales/first-sale-wizard', permission: 'create_sales' },
           { route: '/pos', permission: 'pos_access' },
           { route: '/sales', permission: 'view_sales' }
         ],

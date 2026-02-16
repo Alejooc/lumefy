@@ -1,0 +1,165 @@
+<div class="wizard-page">
+  <div class="wizard-header">
+    <h4 class="mb-1">Wizard de Primera Venta</h4>
+    <p class="text-muted mb-0">Completa 3 pasos para activar tu operacion comercial.</p>
+  </div>
+
+  @if (loading) {
+  <div class="card">
+    <div class="card-body">Cargando datos iniciales...</div>
+  </div>
+  } @else {
+  <div class="stepper">
+    <div class="step" [class.active]="currentStep >= 1">1. Producto</div>
+    <div class="step" [class.active]="currentStep >= 2">2. Cliente</div>
+    <div class="step" [class.active]="currentStep >= 3">3. Venta</div>
+  </div>
+
+  <div class="card" [class.disabled-card]="!canCreateProduct">
+    <div class="card-body">
+      <h6>Paso 1: Crear primer producto</h6>
+      @if (!canCreateProduct) {
+      <p class="text-muted mb-0">No tienes permiso para crear productos. Solicita permiso <code>manage_inventory</code>.</p>
+      } @else {
+      <form [formGroup]="productForm" (ngSubmit)="createQuickProduct()">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nombre *</label>
+            <input class="form-control" formControlName="name" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Precio *</label>
+            <input type="number" class="form-control" formControlName="price" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Costo</label>
+            <input type="number" class="form-control" formControlName="cost" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">SKU</label>
+            <input class="form-control" formControlName="sku" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label d-block">Inventariable</label>
+            <input type="checkbox" formControlName="track_inventory" />
+          </div>
+        </div>
+        <div class="mt-3">
+          <button type="submit" class="btn btn-primary" [disabled]="creatingProduct">
+            {{ creatingProduct ? 'Creando...' : 'Crear producto' }}
+          </button>
+        </div>
+      </form>
+      }
+    </div>
+  </div>
+
+  <div class="card" [class.disabled-card]="!canCreateClient">
+    <div class="card-body">
+      <h6>Paso 2: Crear primer cliente (opcional)</h6>
+      @if (!canCreateClient) {
+      <p class="text-muted mb-2">No tienes permiso para crear clientes (<code>manage_clients</code>).</p>
+      <button class="btn btn-outline-secondary btn-sm" (click)="skipClientStep()">Continuar sin cliente</button>
+      } @else {
+      <form [formGroup]="clientForm" (ngSubmit)="createQuickClient()">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nombre *</label>
+            <input class="form-control" formControlName="name" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input class="form-control" formControlName="email" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Telefono</label>
+            <input class="form-control" formControlName="phone" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Direccion</label>
+            <input class="form-control" formControlName="address" />
+          </div>
+        </div>
+        <div class="mt-3 d-flex gap-2">
+          <button type="submit" class="btn btn-primary" [disabled]="creatingClient">
+            {{ creatingClient ? 'Creando...' : 'Crear cliente' }}
+          </button>
+          <button type="button" class="btn btn-outline-secondary" (click)="skipClientStep()">Saltar</button>
+        </div>
+      </form>
+      }
+    </div>
+  </div>
+
+  <div class="card" [class.disabled-card]="!canCreateSale">
+    <div class="card-body">
+      <h6>Paso 3: Registrar primera venta</h6>
+      @if (!canCreateSale) {
+      <p class="text-muted mb-0">No tienes permiso para crear ventas. Solicita permiso <code>create_sales</code>.</p>
+      } @else {
+      <form [formGroup]="saleForm" (ngSubmit)="createFirstSale()">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Sucursal *</label>
+            <select class="form-select" formControlName="branch_id">
+              <option value="">Selecciona una sucursal</option>
+              @for (branch of branches; track branch.id) {
+              <option [value]="branch.id">{{ branch.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Producto *</label>
+            <select class="form-select" formControlName="product_id">
+              <option value="">Selecciona un producto</option>
+              @for (product of products; track product.id) {
+              <option [value]="product.id">{{ product.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Cantidad *</label>
+            <input type="number" min="0.01" class="form-control" formControlName="quantity" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Cliente</label>
+            <select class="form-select" formControlName="client_id">
+              <option value="">Consumidor final / Sin cliente</option>
+              @for (client of clients; track client.id) {
+              <option [value]="client.id">{{ client.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Notas</label>
+            <input class="form-control" formControlName="notes" />
+          </div>
+        </div>
+
+        <div class="estimate">
+          <div>Precio unitario: <strong>{{ selectedProductPrice | number : '1.0-2' }}</strong></div>
+          <div>Total estimado: <strong>{{ estimatedTotal | number : '1.0-2' }}</strong></div>
+        </div>
+
+        <div class="mt-3">
+          <button type="submit" class="btn btn-success" [disabled]="creatingSale">
+            {{ creatingSale ? 'Registrando...' : 'Crear primera venta' }}
+          </button>
+        </div>
+      </form>
+      }
+    </div>
+  </div>
+
+  @if (createdSale) {
+  <div class="card success-card">
+    <div class="card-body">
+      <h6 class="mb-2">MVP completado: primera venta registrada</h6>
+      <p class="mb-2">Venta <code>{{ createdSale.id }}</code> creada en estado <strong>{{ createdSale.status }}</strong>.</p>
+      <a class="btn btn-primary btn-sm" [routerLink]="['/sales/view', createdSale.id]">Ver venta</a>
+    </div>
+  </div>
+  }
+  }
+</div>
+

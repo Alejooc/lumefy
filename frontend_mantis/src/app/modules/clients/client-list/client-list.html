@@ -13,7 +13,7 @@
                 </div>
             </div>
 
-            <div class="table-responsive">
+            <div class="table-responsive" *ngIf="clients.length > 0 || isLoading">
                 <table class="table table-hover">
                     <thead>
                         <tr>
@@ -48,9 +48,6 @@
                                 </button>
                             </td>
                         </tr>
-                        <tr *ngIf="clients.length === 0 && !isLoading">
-                            <td colspan="5" class="text-center text-muted">No se encontraron clientes.</td>
-                        </tr>
                         <tr *ngIf="isLoading">
                             <td colspan="5" class="text-center">
                                 <div class="spinner-border text-primary" role="status"></div>
@@ -58,6 +55,16 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="text-center py-5 border rounded bg-light-subtle" *ngIf="clients.length === 0 && !isLoading">
+                <h6 class="mb-2">No hay clientes registrados</h6>
+                <p class="text-muted mb-3" *ngIf="!searchQuery">Crea tu primer cliente para asociarlo a ventas y reportes.</p>
+                <p class="text-muted mb-3" *ngIf="searchQuery">No hubo coincidencias para <strong>"{{ searchQuery }}"</strong>.</p>
+                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                    <a class="btn btn-primary btn-sm" [routerLink]="['/clients/new']">Crear primer cliente</a>
+                    <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/sales/first-sale-wizard']" *ngIf="canAccessWizard">Ir al Wizard MVP</a>
+                </div>
             </div>
         </app-card>
     </div>

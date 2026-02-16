@@ -13,6 +13,101 @@ from app.core.audit import log_activity
 
 router = APIRouter()
 
+DEFAULT_ROLE_TEMPLATES = [
+    {
+        "name": "ADMINISTRADOR",
+        "description": "Administrador de empresa con control total del panel cliente.",
+        "permissions": {"all": True}
+    },
+    {
+        "name": "GERENTE",
+        "description": "Gestion integral del negocio (sin funciones SaaS).",
+        "permissions": {
+            "view_dashboard": True,
+            "manage_company": True,
+            "manage_settings": True,
+            "manage_users": True,
+            "view_products": True,
+            "manage_inventory": True,
+            "view_inventory": True,
+            "manage_clients": True,
+            "create_sales": True,
+            "view_sales": True,
+            "manage_sales": True,
+            "view_reports": True,
+            "pos_access": True
+        }
+    },
+    {
+        "name": "VENTAS_POS",
+        "description": "Operacion comercial diaria: clientes, POS y ventas.",
+        "permissions": {
+            "view_dashboard": True,
+            "view_products": True,
+            "manage_clients": True,
+            "create_sales": True,
+            "view_sales": True,
+            "pos_access": True
+        }
+    },
+    {
+        "name": "LOGISTICA",
+        "description": "Picking, packing, despacho y seguimiento de pedidos.",
+        "permissions": {
+            "view_dashboard": True,
+            "view_sales": True,
+            "manage_sales": True,
+            "view_inventory": True
+        }
+    },
+    {
+        "name": "INVENTARIO_COMPRAS",
+        "description": "Control de catalogo, compras e inventario.",
+        "permissions": {
+            "view_dashboard": True,
+            "view_products": True,
+            "manage_inventory": True,
+            "view_inventory": True
+        }
+    },
+    {
+        "name": "REPORTES",
+        "description": "Visualizacion de KPIs y reportes sin permisos de edicion.",
+        "permissions": {
+            "view_dashboard": True,
+            "view_reports": True,
+            "view_sales": True,
+            "view_inventory": True
+        }
+    }
+]
+
+
+async def ensure_company_roles(db: AsyncSession, company_id: UUID) -> None:
+    result = await db.execute(select(Role).where(Role.company_id == company_id))
+    existing_roles = result.scalars().all()
+    existing_names = {role.name.strip().upper() for role in existing_roles}
+    created_any = False
+
+    for template in DEFAULT_ROLE_TEMPLATES:
+        role_name = template["name"].strip().upper()
+        if role_name in existing_names:
+            continue
+
+        db.add(
+            Role(
+                name=template["name"],
+                description=template["description"],
+                permissions=template["permissions"],
+                company_id=company_id
+            )
+        )
+        created_any = True
+
+    if created_any:
+        await db.commit()
+
+
 @router.get("/", response_model=List[schemas.Role])
 async def read_roles(
     db: AsyncSession = Depends(get_db),
@@ -23,9 +118,11 @@ async def read_roles(
     """
     Retrieve all roles for current company.
     """
+    await ensure_company_roles(db, current_user.company_id)
+
     query = select(Role).where(
         Role.company_id == current_user.company_id
-    ).offset(skip).limit(limit)
+    ).order_by(Role.name.asc()).offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
 

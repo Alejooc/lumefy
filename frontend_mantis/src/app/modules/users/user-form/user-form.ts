@@ -46,7 +46,31 @@ export class UserFormComponent implements OnInit {
   }
 
   loadRoles() {
-    this.userService.getRoles().subscribe(roles => this.roles = roles);
+    this.userService.getRoles().subscribe(roles => {
+      const priority: Record<string, number> = {
+        ADMINISTRADOR: 1,
+        GERENTE: 2,
+        VENTAS_POS: 3,
+        LOGISTICA: 4,
+        INVENTARIO_COMPRAS: 5,
+        REPORTES: 6
+      };
+
+      this.roles = [...roles].sort((a, b) => {
+        const aKey = (a.name || '').toUpperCase();
+        const bKey = (b.name || '').toUpperCase();
+        const aPriority = priority[aKey] ?? 99;
+        const bPriority = priority[bKey] ?? 99;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+        return a.name.localeCompare(b.name);
+      });
+    });
+  }
+
+  get selectedRoleDescription(): string {
+    const selectedRoleId = this.userForm.get('role_id')?.value;
+    const selectedRole = this.roles.find(r => r.id === selectedRoleId);
+    return selectedRole?.description || '';
   }
 
   loadUser(id: string) {

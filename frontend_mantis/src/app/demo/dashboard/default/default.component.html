@@ -11,7 +11,7 @@
 </div>
 } @else {
 <div class="row">
-  <div class="col-12">
+  <div class="col-12" *ngIf="showOnboardingAssistant">
     <app-card [showHeader]="false" blockClass="onboarding-card">
       <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>

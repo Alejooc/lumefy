@@ -200,6 +200,15 @@ export const NavigationItems: NavigationItem[] = [
         url: '/sales',
         icon: 'solution',
         permissions: ['view_sales']
+      },
+      {
+        id: 'first-sale-wizard',
+        title: 'Wizard Primera Venta',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/sales/first-sale-wizard',
+        icon: 'rocket',
+        permissions: ['manage_company']
       }
     ]
   },
