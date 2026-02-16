@@ -37,7 +37,8 @@ import {
   AuditOutline,
   BankOutline,
   ColumnWidthOutline,
-  RocketOutline
+  RocketOutline,
+  SafetyCertificateOutline
 } from '@ant-design/icons-angular/icons';
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { PermissionService } from '../../../../../core/services/permission.service';
@@ -97,7 +98,8 @@ export class NavContentComponent implements OnInit {
         AuditOutline,
         BankOutline,
         ColumnWidthOutline,
-        RocketOutline
+        RocketOutline,
+        SafetyCertificateOutline
       ]
     );
     this.navigations = [];

@@ -120,6 +120,10 @@ const routes: Routes = [
       {
         path: 'company/profile',
         loadComponent: () => import('./modules/company/company-profile.component').then(c => c.CompanyProfileComponent)
+      },
+      {
+        path: 'settings/health',
+        loadComponent: () => import('./modules/settings/system-health.component').then((c) => c.SystemHealthComponent)
       }
     ]
   },

@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { RouterModule } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -24,6 +25,7 @@ export class FirstSaleWizardComponent implements OnInit {
   private fb = inject(FormBuilder);
   private api = inject(ApiService);
   private permissionService = inject(PermissionService);
+  private router = inject(Router);
 
   loading = false;
   creatingProduct = false;
@@ -43,6 +45,7 @@ export class FirstSaleWizardComponent implements OnInit {
   canCreateClient = this.permissionService.hasPermission('manage_clients');
   canCreateSale = this.permissionService.hasPermission('create_sales');
   canViewProducts = this.permissionService.hasPermission('view_products');
+  canAccessWizard = this.permissionService.hasPermission('manage_company');
 
   productForm = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(120)]],
@@ -68,6 +71,11 @@ export class FirstSaleWizardComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    if (!this.canAccessWizard) {
+      Swal.fire('Sin permiso', 'Este flujo esta reservado para perfiles administrativos.', 'warning');
+      this.router.navigate(['/dashboard/default']);
+      return;
+    }
     this.loadDependencies();
   }
 
@@ -229,4 +237,3 @@ export class FirstSaleWizardComponent implements OnInit {
     return qty * this.selectedProductPrice;
   }
 }
-

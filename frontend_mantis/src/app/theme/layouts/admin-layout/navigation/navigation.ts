@@ -75,6 +75,14 @@ export const NavigationItems: NavigationItem[] = [
         url: '/admin/settings',
         classes: 'nav-item',
         icon: 'setting'
+      },
+      {
+        id: 'system-health-admin',
+        title: 'Health Check',
+        type: 'item',
+        url: '/settings/health',
+        classes: 'nav-item',
+        icon: 'safety-certificate'
       }
     ]
   },
@@ -258,6 +266,16 @@ export const NavigationItems: NavigationItem[] = [
         permissions: ['manage_users']
       },
       {
+        id: 'roles',
+        title: 'Roles y Permisos',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/users/roles',
+        icon: 'safety-certificate',
+        breadcrumbs: false,
+        permissions: ['manage_company']
+      },
+      {
         id: 'company-profile',
         title: 'Mi Empresa',
         type: 'item',
@@ -286,6 +304,16 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'bank',
         breadcrumbs: false,
         permissions: ['manage_settings']
+      },
+      {
+        id: 'system-health',
+        title: 'Health Check',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/settings/health',
+        icon: 'safety-certificate',
+        breadcrumbs: false,
+        permissions: ['manage_company']
       }
     ]
   }

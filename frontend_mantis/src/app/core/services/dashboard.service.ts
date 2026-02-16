@@ -46,6 +46,16 @@ export interface DashboardStats {
     sales_report: ChartData;
 }
 
+export interface DashboardHealth {
+    backend_ok: boolean;
+    db_ok: boolean;
+    db_message: string | null;
+    current_revision: string | null;
+    expected_head: string | null;
+    migration_up_to_date: boolean | null;
+    checked_at: string;
+}
+
 @Injectable({
     providedIn: 'root'
 })
@@ -56,5 +66,9 @@ export class DashboardService {
 
     getStats(): Observable<DashboardStats> {
         return this.http.get<DashboardStats>(this.apiUrl);
+    }
+
+    getHealth(): Observable<DashboardHealth> {
+        return this.http.get<DashboardHealth>(`${this.apiUrl}/health`);
     }
 }

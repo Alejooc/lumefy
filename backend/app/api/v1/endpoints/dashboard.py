@@ -1,9 +1,12 @@
-from typing import Any, List, Dict
-from fastapi import APIRouter, Depends, HTTPException
+from pathlib import Path
+from typing import Any
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, and_
+from sqlalchemy import select, func, text
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 from app.core.database import get_db
 from app.models.user import User
@@ -238,4 +241,56 @@ async def get_dashboard_stats(
         "monthly_sales": monthly_sales_chart,
         "income_overview": income_overview_data,
         "sales_report": sales_report_data
+    }
+
+
+@router.get("/health", response_model=schemas.DashboardHealth)
+async def get_dashboard_health(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    _ = current_user
+    checked_at = datetime.utcnow()
+
+    db_ok = False
+    db_message = None
+    current_revision = None
+
+    try:
+        await db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception as exc:  # pragma: no cover
+        db_message = str(exc)
+
+    if db_ok:
+        try:
+            revision_row = await db.execute(text("SELECT version_num FROM alembic_version LIMIT 1"))
+            current_revision = revision_row.scalar_one_or_none()
+        except Exception as exc:  # pragma: no cover
+            db_message = str(exc)
+
+    expected_head = None
+    try:
+        backend_root = Path(__file__).resolve().parents[4]
+        alembic_ini = backend_root / "alembic.ini"
+        if alembic_ini.exists():
+            config = Config(str(alembic_ini))
+            config.set_main_option("script_location", str(backend_root / "alembic"))
+            script = ScriptDirectory.from_config(config)
+            expected_head = script.get_current_head()
+    except Exception:
+        expected_head = None
+
+    migration_up_to_date = None
+    if current_revision and expected_head:
+        migration_up_to_date = current_revision == expected_head
+
+    return {
+        "backend_ok": True,
+        "db_ok": db_ok,
+        "db_message": db_message,
+        "current_revision": current_revision,
+        "expected_head": expected_head,
+        "migration_up_to_date": migration_up_to_date,
+        "checked_at": checked_at,
     }

@@ -1,0 +1,26 @@
+.permissions-box {
+  border: 1px solid #e3e9f3;
+  border-radius: 8px;
+  max-height: 420px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.permission-group {
+  border-bottom: 1px dashed #d7dfed;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+
+.permission-group:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.permission-group h6 {
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+

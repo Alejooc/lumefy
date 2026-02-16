@@ -33,4 +33,16 @@ export class UserService {
     getRoles(): Observable<Role[]> {
         return this.api.get<Role[]>('/roles');
     }
+
+    createRole(role: Partial<Role>): Observable<Role> {
+        return this.api.post<Role>('/roles', role);
+    }
+
+    updateRole(id: string, role: Partial<Role>): Observable<Role> {
+        return this.api.put<Role>(`/roles/${id}`, role);
+    }
+
+    deleteRole(id: string): Observable<Role> {
+        return this.api.delete<Role>(`/roles/${id}`);
+    }
 }

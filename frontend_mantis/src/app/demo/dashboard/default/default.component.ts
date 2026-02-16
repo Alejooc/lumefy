@@ -8,7 +8,13 @@ import { catchError, filter, map, takeUntil } from 'rxjs/operators';
 // project import
 import { ApiService } from 'src/app/core/services/api.service';
 import { AuthService } from 'src/app/core/services/auth.service';
-import { DashboardCard, DashboardService, RecentOrder, TransactionHistory, ChartData } from 'src/app/core/services/dashboard.service';
+import {
+  DashboardCard,
+  DashboardService,
+  RecentOrder,
+  TransactionHistory,
+  ChartData
+} from 'src/app/core/services/dashboard.service';
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { MonthlyBarChartComponent } from 'src/app/theme/shared/apexchart/monthly-bar-chart/monthly-bar-chart.component';
 import { IncomeOverviewChartComponent } from 'src/app/theme/shared/apexchart/income-overview-chart/income-overview-chart.component';

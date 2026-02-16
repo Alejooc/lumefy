@@ -1,6 +1,6 @@
 from typing import List, Optional
 from pydantic import BaseModel
-from datetime import date
+from datetime import datetime
 
 class DashboardCard(BaseModel):
     title: str
@@ -39,3 +39,13 @@ class DashboardStats(BaseModel):
     monthly_sales: ChartData
     income_overview: ChartData
     sales_report: ChartData
+
+
+class DashboardHealth(BaseModel):
+    backend_ok: bool
+    db_ok: bool
+    db_message: Optional[str] = None
+    current_revision: Optional[str] = None
+    expected_head: Optional[str] = None
+    migration_up_to_date: Optional[bool] = None
+    checked_at: datetime

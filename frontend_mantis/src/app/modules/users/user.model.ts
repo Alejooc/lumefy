@@ -2,6 +2,7 @@ export interface Role {
     id: string;
     name: string;
     description?: string;
+    permissions?: { [key: string]: boolean };
 }
 
 export interface User {
