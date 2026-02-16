@@ -15,8 +15,8 @@ from app.models.plan import Plan
 from app.models.system_setting import SystemSetting
 
 async def init_db():
-    print(f"Connecting to {settings.SQLALCHEMY_DATABASE_URI}")
-    engine = create_async_engine(str(settings.SQLALCHEMY_DATABASE_URI))
+    print(f"Connecting to {settings.DATABASE_URL}")
+    engine = create_async_engine(str(settings.DATABASE_URL))
     
     async with engine.begin() as conn:
         print("Creating tables...")

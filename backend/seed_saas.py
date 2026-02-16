@@ -13,7 +13,7 @@ from app.models.system_setting import SystemSetting
 
 async def seed_data():
     print(f"Connecting to DB...")
-    engine = create_async_engine(str(settings.SQLALCHEMY_DATABASE_URI))
+    engine = create_async_engine(str(settings.DATABASE_URL))
     
     async with AsyncSession(engine) as session:
         # 1. Seed Plans

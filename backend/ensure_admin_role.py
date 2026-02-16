@@ -10,13 +10,30 @@ from app.models.user import User
 from app.models.role import Role
 from app.models.company import Company # Added Import
 from app.core import security
+from app.core.config import settings
 from sqlalchemy import select
 
 async def ensure_admin_role():
     print("Connecting to DB...")
     async with SessionLocal() as db:
         try:
-            # 1. Check for Admin Role
+            admin_email = settings.FIRST_SUPERUSER
+            admin_password = settings.FIRST_SUPERUSER_PASSWORD
+
+            # 1. Ensure company exists
+            result_company = await db.execute(select(Company).limit(1))
+            company = result_company.scalars().first()
+            if not company:
+                print("Creating default company...")
+                company = Company(
+                    name="Lumefy Default Company",
+                    currency="USD",
+                    is_active=True
+                )
+                db.add(company)
+                await db.flush()
+
+            # 2. Check for Admin Role
             result = await db.execute(select(Role).where(Role.name == "Admin"))
             role = result.scalars().first()
             
@@ -25,7 +42,8 @@ async def ensure_admin_role():
                 role = Role(
                     name="Admin", 
                     description="Super Admin", 
-                    permissions={"all": True}
+                    permissions={"all": True},
+                    company_id=company.id
                 )
                 db.add(role)
                 await db.flush() # Get ID
@@ -37,25 +55,38 @@ async def ensure_admin_role():
                     role.permissions = {"all": True}
                     db.add(role)
 
-            # 2. Check for Admin User
-            result = await db.execute(select(User).where(User.email == "admin@lumefy.com"))
+            # 3. Check for Admin User
+            result = await db.execute(select(User).where(User.email == admin_email))
             user = result.scalars().first()
             
             if user:
                 print(f"Admin User found: {user.email}")
+                user.hashed_password = security.get_password_hash(admin_password)
+                user.is_active = True
+                user.is_superuser = True
+                if not user.company_id:
+                    user.company_id = company.id
                 if user.role_id != role.id:
                     print(f"Assigning Admin Role to user... Old: {user.role_id} New: {role.id}")
                     user.role_id = role.id
-                    db.add(user)
-                    await db.commit()
-                    print("Admin Role assigned successfully!")
-                else:
-                    print("User already has Admin Role.")
+                db.add(user)
+                print("Admin user updated successfully.")
             else:
-                print("Admin User NOT found. Ideally create it, but auth.py handles this in DEV mode.")
-                # We can create it here too if needed
+                print("Admin User NOT found. Creating admin user...")
+                user = User(
+                    email=admin_email,
+                    full_name="Super Admin",
+                    hashed_password=security.get_password_hash(admin_password),
+                    is_active=True,
+                    is_superuser=True,
+                    company_id=company.id,
+                    role_id=role.id
+                )
+                db.add(user)
+                print("Admin user created successfully.")
                 
             await db.commit()
+            print(f"Admin credentials ready: {admin_email} / {admin_password}")
             
         except Exception as e:
             await db.rollback()

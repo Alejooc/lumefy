@@ -19,7 +19,7 @@ export class AuthLoginComponent {
 
   loginForm = this.fb.group({
     email: ['admin@lumefy.com', [Validators.required, Validators.email]],
-    password: ['admin', [Validators.required]]
+    password: ['admin123', [Validators.required]]
   });
 
   isLoading = false;
