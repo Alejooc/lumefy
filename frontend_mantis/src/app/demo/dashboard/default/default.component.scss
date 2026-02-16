@@ -29,3 +29,43 @@
   height: 8px;
   border-radius: 50%;
 }
+
+.onboarding-card {
+  border: 1px solid rgba(70, 128, 255, 0.2);
+  background: linear-gradient(135deg, rgba(70, 128, 255, 0.08), rgba(53, 189, 133, 0.06));
+}
+
+.onboarding-progress-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1b4dd8;
+  line-height: 1;
+}
+
+.onboarding-progress {
+  height: 10px;
+}
+
+.onboarding-steps {
+  display: grid;
+  gap: 10px;
+}
+
+.onboarding-collapsed-note {
+  background: #fff;
+  border: 1px dashed #ccd9f1;
+  border-radius: 10px;
+  color: #5a6b85;
+  padding: 10px 12px;
+}
+
+.onboarding-step {
+  background: #fff;
+  border: 1px solid #e6edf7;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.step-main {
+  flex: 1 1 320px;
+}

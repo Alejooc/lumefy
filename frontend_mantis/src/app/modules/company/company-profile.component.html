@@ -1,0 +1,78 @@
+<div class="company-profile-page">
+  <div class="page-header">
+    <h4 class="mb-1">Perfil de Empresa</h4>
+    <p class="text-muted mb-0">Configura datos legales, contacto y moneda de tu negocio.</p>
+  </div>
+
+  @if (loading) {
+  <div class="card">
+    <div class="card-body">
+      <p class="mb-0 text-muted">Cargando perfil de empresa...</p>
+    </div>
+  </div>
+  } @else {
+  <div class="card">
+    <div class="card-body">
+      <form [formGroup]="profileForm" (ngSubmit)="saveCompanyProfile()">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nombre de empresa *</label>
+            <input type="text" class="form-control" formControlName="name" />
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">NIT / RUC / Tax ID</label>
+            <input type="text" class="form-control" formControlName="tax_id" />
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" formControlName="email" />
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Telefono</label>
+            <input type="text" class="form-control" formControlName="phone" />
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Moneda *</label>
+            <select class="form-select" formControlName="currency">
+              @for (currency of currencies; track currency.code) {
+              <option [value]="currency.code">{{ currency.code }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Simbolo monetario *</label>
+            <input type="text" class="form-control" formControlName="currency_symbol" />
+          </div>
+
+          <div class="col-md-12">
+            <label class="form-label">Direccion</label>
+            <input type="text" class="form-control" formControlName="address" />
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Sitio web</label>
+            <input type="text" class="form-control" formControlName="website" />
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">URL logo</label>
+            <input type="text" class="form-control" formControlName="logo_url" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary" [disabled]="saving">
+            {{ saving ? 'Guardando...' : 'Guardar cambios' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  }
+</div>
+

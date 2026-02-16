@@ -249,6 +249,16 @@ export const NavigationItems: NavigationItem[] = [
         permissions: ['manage_users']
       },
       {
+        id: 'company-profile',
+        title: 'Mi Empresa',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/company/profile',
+        icon: 'shop',
+        breadcrumbs: false,
+        permissions: ['manage_company']
+      },
+      {
         id: 'audit',
         title: 'Audit Logs',
         type: 'item',

@@ -116,6 +116,10 @@ const routes: Routes = [
       {
         path: 'units-of-measure',
         loadComponent: () => import('./modules/units-of-measure/uom-list.component').then(c => c.UomListComponent)
+      },
+      {
+        path: 'company/profile',
+        loadComponent: () => import('./modules/company/company-profile.component').then(c => c.CompanyProfileComponent)
       }
     ]
   },
