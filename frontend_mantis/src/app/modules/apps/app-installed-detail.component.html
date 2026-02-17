@@ -1,0 +1,26 @@
+<div class="app-detail-page" *ngIf="appDetail">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+      <h4 class="mb-1">{{ appDetail.name }}</h4>
+      <p class="text-muted mb-0">{{ appDetail.slug }} | v{{ appDetail.version }} | {{ appDetail.category || 'General' }}</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary btn-sm" (click)="loadDetail()" [disabled]="loading">Refrescar</button>
+      <button class="btn btn-primary btn-sm" (click)="runDemo()">Debug / Probar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <h6>Campos esperados</h6>
+      <pre class="schema-box">{{ appDetail.config_schema | json }}</pre>
+
+      <label class="form-label mt-3">Configuracion JSON</label>
+      <textarea class="form-control config-editor" rows="12" [(ngModel)]="configEditor"></textarea>
+
+      <div class="d-flex justify-content-end mt-3">
+        <button class="btn btn-success" (click)="saveConfig()">Guardar configuracion</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -23,4 +23,6 @@ from .system_setting import SystemSetting
 from .product_image import ProductImage
 from .notification import Notification
 from .notification_template import NotificationTemplate
+from .app_definition import AppDefinition
+from .company_app_install import CompanyAppInstall
 

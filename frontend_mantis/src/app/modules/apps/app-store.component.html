@@ -1,0 +1,52 @@
+<div class="apps-page">
+  <div class="apps-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h4 class="mb-1">Tienda de Apps</h4>
+      <p class="text-muted mb-0">Instala apps para tu empresa y configuralas por separado.</p>
+    </div>
+    <button class="btn btn-outline-secondary btn-sm" (click)="reload()" [disabled]="loading">
+      {{ loading ? 'Actualizando...' : 'Actualizar' }}
+    </button>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-12 col-lg-6" *ngFor="let app of catalog">
+      <div class="card app-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+            <div>
+              <h5 class="mb-1">{{ app.name }}</h5>
+              <small class="text-muted">{{ app.slug }} | v{{ app.version }} | {{ app.category || 'General' }}</small>
+            </div>
+            <span class="badge" [class.bg-success]="isInstalled(app.slug)" [class.bg-secondary]="!isInstalled(app.slug)">
+              {{ isInstalled(app.slug) ? 'Instalada' : 'No instalada' }}
+            </span>
+          </div>
+
+          <p class="mb-3">{{ app.description }}</p>
+
+          <div *ngIf="installingSlug === app.slug" class="mb-3">
+            <div class="progress">
+              <div class="progress-bar progress-bar-striped progress-bar-animated" [style.width.%]="installProgress[app.slug] || 0">
+                {{ installProgress[app.slug] || 0 }}%
+              </div>
+            </div>
+            <small class="text-muted">Instalando app...</small>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button *ngIf="!isInstalled(app.slug)" class="btn btn-sm btn-primary" (click)="installWithSimulation(app.slug)">
+              Instalar y configurar
+            </button>
+            <button *ngIf="isInstalled(app.slug)" class="btn btn-sm btn-outline-primary" (click)="openInstalled(app.slug)">
+              Abrir configuracion
+            </button>
+            <button *ngIf="isInstalled(app.slug)" class="btn btn-sm btn-outline-danger" (click)="uninstall(app.slug)">
+              Desactivar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

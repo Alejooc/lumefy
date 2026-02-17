@@ -276,6 +276,41 @@ export const NavigationItems: NavigationItem[] = [
     ]
   },
   {
+    id: 'apps-platform',
+    title: 'Tienda de Apps',
+    type: 'group',
+    icon: 'icon-navigation',
+    children: [
+      {
+        id: 'apps-store',
+        title: 'Marketplace',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/apps/store',
+        icon: 'appstore',
+        breadcrumbs: false,
+        permissions: ['manage_company']
+      },
+      {
+        id: 'apps-installed',
+        title: 'Apps Instaladas',
+        type: 'collapse',
+        icon: 'appstore',
+        children: []
+      },
+      {
+        id: 'apps-admin-catalog',
+        title: 'Catalogo Global',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/apps/admin',
+        icon: 'setting',
+        breadcrumbs: false,
+        permissions: ['manage_saas']
+      }
+    ]
+  },
+  {
     id: 'management',
     title: 'Gestión',
     type: 'group',
@@ -341,7 +376,6 @@ export const NavigationItems: NavigationItem[] = [
         breadcrumbs: false,
         permissions: ['manage_settings']
       },
-
     ]
   }
 ];

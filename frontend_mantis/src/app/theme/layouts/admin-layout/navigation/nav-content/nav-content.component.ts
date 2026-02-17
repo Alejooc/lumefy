@@ -44,6 +44,7 @@ import {
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { PermissionService } from '../../../../../core/services/permission.service';
 import { AuthService } from '../../../../../core/services/auth.service';
+import { AppMarketplaceService } from 'src/app/core/services/app-marketplace.service';
 
 @Component({
   selector: 'app-nav-content',
@@ -57,6 +58,7 @@ export class NavContentComponent implements OnInit {
   private iconService = inject(IconService);
   private permissionService = inject(PermissionService);
   private authService = inject(AuthService);
+  private appsService = inject(AppMarketplaceService);
 
   // public props
   NavCollapsedMob = output();
@@ -115,7 +117,11 @@ export class NavContentComponent implements OnInit {
 
     // Subscribe to user changes to update navigation
     this.authService.currentUser.subscribe(() => {
-      this.navigations = this.filterNavigation(NavigationItems);
+      this.buildNavigation();
+    });
+
+    this.appsService.installedChanged$.subscribe(() => {
+      this.buildNavigation();
     });
   }
 
@@ -150,15 +156,79 @@ export class NavContentComponent implements OnInit {
     }
   }
 
+  private buildNavigation(): void {
+    const base = this.filterNavigation(NavigationItems);
+    const user = this.authService.currentUserValue;
+
+    if (!user || user.is_superuser || !this.permissionService.hasPermission('manage_company')) {
+      this.navigations = base;
+      return;
+    }
+
+    this.appsService.getInstalled().subscribe({
+      next: (installed) => {
+        this.navigations = this.attachInstalledApps(base, installed);
+      },
+      error: () => {
+        this.navigations = base;
+      }
+    });
+  }
+
+  private attachInstalledApps(items: NavigationItem[], installed: { slug: string; name: string; is_enabled: boolean }[]): NavigationItem[] {
+    return items.map((item) => {
+      if (item.id === 'apps-platform') {
+        const children = [...(item.children || [])];
+        const index = children.findIndex((child) => child.id === 'apps-installed');
+        const installedChildren = installed
+          .filter((app) => app.is_enabled)
+          .map((app) => ({
+            id: `app-installed-${app.slug}`,
+            title: app.name,
+            type: 'item' as const,
+            url: `/apps/installed/${app.slug}`,
+            classes: 'nav-item',
+            icon: 'appstore',
+            breadcrumbs: false,
+            permissions: ['manage_company']
+          }));
+
+        if (index >= 0) {
+          children[index] = {
+            ...children[index],
+            children: installedChildren
+          };
+        } else {
+          children.push({
+            id: 'apps-installed',
+            title: 'Apps Instaladas',
+            type: 'collapse',
+            icon: 'appstore',
+            children: installedChildren
+          });
+        }
+        return { ...item, children };
+      }
+      if (item.children) {
+        return { ...item, children: this.attachInstalledApps(item.children, installed) };
+      }
+      return item;
+    });
+  }
+
   private filterNavigation(items: NavigationItem[]): NavigationItem[] {
     const user = this.authService.currentUserValue;
     const isSuperUser = user?.is_superuser;
 
     return items.reduce((acc, item) => {
+      if (isSuperUser && item.id === 'apps-store') {
+        return acc;
+      }
+
       // Top-level group filtering (only for groups, NOT their children)
       if (item.type === 'group') {
-        // Superuser: only show Admin group
-        if (isSuperUser && item.id !== 'admin') {
+        // Superuser: only show Admin + Apps groups
+        if (isSuperUser && !['admin', 'apps-platform'].includes(item.id)) {
           return acc;
         }
         // Non-superuser: hide admin group
@@ -176,7 +246,11 @@ export class NavContentComponent implements OnInit {
       let newItem = { ...item };
       if (newItem.children) {
         newItem.children = this.filterNavigation(newItem.children);
-        if (newItem.children.length === 0 && (newItem.type === 'group' || newItem.type === 'collapse')) {
+        if (
+          newItem.children.length === 0 &&
+          (newItem.type === 'group' || newItem.type === 'collapse') &&
+          newItem.id !== 'apps-installed'
+        ) {
           return acc;
         }
       }

@@ -146,6 +146,18 @@ const routes: Routes = [
       {
         path: 'billing',
         loadChildren: () => import('./modules/billing/billing.module').then(m => m.BillingModule)
+      },
+      {
+        path: 'apps/store',
+        loadComponent: () => import('./modules/apps/app-store.component').then((c) => c.AppStoreComponent)
+      },
+      {
+        path: 'apps/installed/:slug',
+        loadComponent: () => import('./modules/apps/app-installed-detail.component').then((c) => c.AppInstalledDetailComponent)
+      },
+      {
+        path: 'apps/admin',
+        loadComponent: () => import('./modules/apps/app-admin-catalog.component').then((c) => c.AppAdminCatalogComponent)
       }
     ]
   },
