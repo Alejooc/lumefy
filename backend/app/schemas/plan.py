@@ -11,7 +11,7 @@ class PlanBase(BaseModel):
     price: Optional[float] = 0.0
     currency: Optional[str] = "USD"
     duration_days: Optional[int] = 30
-    features: Optional[Dict[str, Any]] = {}
+    features: Optional[Any] = [] # Can be Dict (legacy) or List[str] (new)
     limits: Optional[Dict[str, Any]] = {}
     is_active: Optional[bool] = True
     is_public: Optional[bool] = True

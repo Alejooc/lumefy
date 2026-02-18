@@ -8,6 +8,7 @@ from app.models.branch import Branch
 from app.models.user import User
 from app.schemas import branch as schemas
 from app.core.permissions import PermissionChecker
+from app.core.plan_limits import PlanLimitChecker
 
 router = APIRouter()
 
@@ -36,7 +37,8 @@ async def create_branch(
     *,
     db: AsyncSession = Depends(get_db),
     branch_in: schemas.BranchCreate,
-    current_user: User = Depends(PermissionChecker("manage_settings")), # Assuming 'manage_settings' or create new permission
+    current_user: User = Depends(PermissionChecker("manage_settings")), 
+    _plan: User = Depends(PlanLimitChecker(resource="branches", count_model=Branch)),
 ) -> Any:
     """
     Create new branch.

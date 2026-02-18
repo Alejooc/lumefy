@@ -77,6 +77,14 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'setting'
       },
       {
+        id: 'landing-cms',
+        title: 'Editor Landing',
+        type: 'item',
+        url: '/admin/landing-cms',
+        classes: 'nav-item',
+        icon: 'layout'
+      },
+      {
         id: 'global-users',
         title: 'Usuarios Globales',
         type: 'item',

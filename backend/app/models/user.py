@@ -5,7 +5,6 @@ from app.models.base import BaseModel
 import uuid
 # Import Role to ensure visibility for relationship mapping
 from app.models.role import Role
-print("DEBUG: User Model Loaded")
 
 class User(BaseModel):
     __tablename__ = "users"

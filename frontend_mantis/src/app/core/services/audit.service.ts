@@ -28,8 +28,8 @@ export class AuditService {
 
     getAuditLogs(
         page: number = 1,
-        limit: number = 20,
-        filters: { user_id?: string, action?: string, entity_type?: string } = {}
+        limit: number = 50,
+        filters: { user_id?: string, action?: string, entity_type?: string, date_from?: string, date_to?: string } = {}
     ): Observable<AuditLog[]> {
         let params = new HttpParams()
             .set('skip', ((page - 1) * limit).toString())
@@ -38,6 +38,8 @@ export class AuditService {
         if (filters.user_id) params = params.set('user_id', filters.user_id);
         if (filters.action) params = params.set('action', filters.action);
         if (filters.entity_type) params = params.set('entity_type', filters.entity_type);
+        if (filters.date_from) params = params.set('date_from', filters.date_from);
+        if (filters.date_to) params = params.set('date_to', filters.date_to);
 
         return this.http.get<AuditLog[]>(this.apiUrl, { params });
     }

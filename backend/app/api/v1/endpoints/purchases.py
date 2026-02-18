@@ -38,6 +38,49 @@ async def read_purchases(
     result = await db.execute(query)
     return result.scalars().all()
 
+@router.get("/export")
+async def export_purchases(
+    db: AsyncSession = Depends(get_db),
+    format: str = "excel",
+    current_user: User = Depends(PermissionChecker("view_inventory")),
+) -> Any:
+    """Export purchases to Excel or CSV."""
+    from app.services.export_service import ExportService
+
+    query = select(PurchaseOrder).options(
+        selectinload(PurchaseOrder.supplier),
+        selectinload(PurchaseOrder.branch),
+    ).where(
+        PurchaseOrder.company_id == current_user.company_id
+    ).order_by(PurchaseOrder.created_at.desc())
+
+    result = await db.execute(query)
+    purchases = result.scalars().all()
+
+    columns = {
+        "order_number": "# Orden",
+        "created_at": "Fecha",
+        "supplier_name": "Proveedor",
+        "branch_name": "Sucursal",
+        "status": "Estado",
+        "total": "Total",
+    }
+
+    rows = []
+    for p in purchases:
+        rows.append({
+            "order_number": getattr(p, "order_number", "") or str(p.id)[:8],
+            "created_at": p.created_at.strftime("%Y-%m-%d %H:%M") if p.created_at else "",
+            "supplier_name": p.supplier.name if p.supplier else "",
+            "branch_name": p.branch.name if p.branch else "",
+            "status": p.status or "",
+            "total": float(p.total) if p.total else 0,
+        })
+
+    if format == "csv":
+        return ExportService.to_csv_response(rows, columns, filename="compras")
+    return ExportService.to_excel_response(rows, columns, filename="compras")
+
 @router.get("/{purchase_id}", response_model=schemas.PurchaseOrder)
 async def read_purchase(
     *,

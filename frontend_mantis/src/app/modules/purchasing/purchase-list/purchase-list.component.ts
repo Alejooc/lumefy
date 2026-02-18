@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { PurchaseService, PurchaseOrder } from '../../../core/services/purchase.service';
 import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 import Swal from 'sweetalert2';
+import { ExportService } from '../../../core/services/export.service';
 
 @Component({
     selector: 'app-purchase-list',
@@ -15,6 +16,7 @@ import Swal from 'sweetalert2';
 export class PurchaseListComponent implements OnInit {
     private purchaseService = inject(PurchaseService);
     private cdr = inject(ChangeDetectorRef);
+    private exportService = inject(ExportService);
     purchases: PurchaseOrder[] = [];
     loading = false;
 
@@ -82,5 +84,9 @@ export class PurchaseListComponent implements OnInit {
                 Swal.fire('Error', 'Error al descargar el PDF.', 'error');
             }
         });
+    }
+
+    exportData(format: 'excel' | 'csv') {
+        this.exportService.download('/purchases/export', format);
     }
 }

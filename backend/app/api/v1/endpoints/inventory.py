@@ -50,6 +50,52 @@ async def read_inventory(
     result = await db.execute(query)
     return result.scalars().all()
 
+@router.get("/export")
+async def export_inventory(
+    db: AsyncSession = Depends(get_db),
+    format: str = "excel",
+    branch_id: str = None,
+    current_user: User = Depends(PermissionChecker("view_inventory")),
+) -> Any:
+    """Export inventory to Excel or CSV."""
+    from app.services.export_service import ExportService
+
+    query = select(Inventory).options(
+        selectinload(Inventory.product),
+        selectinload(Inventory.branch),
+    ).join(Branch, Inventory.branch_id == Branch.id).where(
+        Branch.company_id == current_user.company_id
+    )
+    if branch_id:
+        query = query.where(Inventory.branch_id == branch_id)
+
+    result = await db.execute(query)
+    items = result.scalars().all()
+
+    columns = {
+        "product_name": "Producto",
+        "product_sku": "SKU",
+        "branch_name": "Sucursal",
+        "quantity": "Cantidad",
+        "min_quantity": "Stock Mínimo",
+        "max_quantity": "Stock Máximo",
+    }
+
+    rows = []
+    for inv in items:
+        rows.append({
+            "product_name": inv.product.name if inv.product else "",
+            "product_sku": inv.product.sku if inv.product else "",
+            "branch_name": inv.branch.name if inv.branch else "",
+            "quantity": float(inv.quantity) if inv.quantity else 0,
+            "min_quantity": float(inv.min_quantity) if getattr(inv, "min_quantity", None) else 0,
+            "max_quantity": float(inv.max_quantity) if getattr(inv, "max_quantity", None) else 0,
+        })
+
+    if format == "csv":
+        return ExportService.to_csv_response(rows, columns, filename="inventario")
+    return ExportService.to_excel_response(rows, columns, filename="inventario")
+
 @router.post("/movement", response_model=schemas.Movement)
 async def create_movement(
     *,

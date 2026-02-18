@@ -1,0 +1,640 @@
+// Variables - Strict Professional Palette
+$primary: #6366f1; // Indigo 500
+$primary-hover: #4f46e5; // Indigo 600
+$dark-bg: #0f172a; // Slate 900
+$darker-bg: #020617; // Slate 950
+$card-bg: #1e293b; // Slate 800
+$border-color: #334155; // Slate 700
+$text-main: #ffffff; // White
+$text-secondary: #cbd5e1; // Slate 300
+$text-muted: #94a3b8; // Slate 400
+
+:host {
+    display: block;
+    background-color: $dark-bg;
+    color: $text-main;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden; // Critical: Prevent horizontal scroll
+    width: 100%;
+}
+
+// Global Resets & Utilities
+.text-primary {
+    color: $primary !important;
+}
+
+.text-muted {
+    color: $text-muted !important;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: $text-main;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+p {
+    line-height: 1.6;
+    color: $text-secondary;
+}
+
+// Buttons - Clean & Solid
+.btn {
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px; // Slightly squarer for professional look
+    transition: all 0.2s ease;
+
+    &.btn-primary {
+        background-color: $primary;
+        border: 1px solid $primary;
+        color: white;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+
+        &:hover {
+            background-color: $primary-hover;
+            border-color: $primary-hover;
+            transform: translateY(-1px);
+        }
+    }
+
+    &.btn-outline-light {
+        border-color: $border-color;
+        color: $text-main;
+        background: transparent;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: $text-secondary;
+        }
+    }
+
+    &.btn-link {
+        color: $text-secondary;
+
+        &:hover {
+            color: $text-main;
+        }
+    }
+}
+
+// Navbar - Premium & Mobile Optimized
+::ng-deep .navbar {
+    background: transparent !important; // Start Transparent
+    border-bottom: 1px solid transparent;
+    padding: 1.5rem 0;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &.scrolled,
+    &.menu-open {
+        background: rgba(15, 23, 42, 0.85) !important; // Glassy Slate
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 0.75rem 0; // Compact on scroll
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .navbar-brand {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: $text-main !important;
+        letter-spacing: -0.5px;
+    }
+
+    .navbar-toggler {
+        border: none;
+        padding: 0;
+        outline: none;
+        box-shadow: none !important;
+        transition: transform 0.2s;
+
+        &:active {
+            transform: scale(0.95);
+        }
+
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.9)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+    }
+
+    .nav-link {
+        color: $text-secondary !important;
+        font-size: 0.95rem;
+        font-weight: 500;
+        transition: color 0.2s;
+        padding: 0.5rem 1rem; // Larger touch target
+
+        &:hover {
+            color: $text-main !important;
+        }
+    }
+
+    // Desktop Menu
+    .navbar-collapse {
+        @media (max-width: 991px) {
+            display: none !important; // Hide default collapse on mobile
+        }
+    }
+}
+
+// Mobile Menu Drawer - Isolated Component
+.mobile-menu-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 85%;
+    max-width: 320px;
+    height: 100vh;
+    background: #0f172a; // Slate 950
+    z-index: 10005; // Highest priority
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+
+    &.open {
+        transform: translateX(0);
+    }
+
+    .drawer-body {
+        flex: 1; // Take available space
+        overflow-y: auto; // Scrollable
+        min-height: 0; // Fix flex scrolling bug
+    }
+
+    .drawer-footer {
+        flex-shrink: 0; // Don't shrink
+        width: 100%;
+        z-index: 2;
+    }
+
+    .nav-link-mobile {
+        color: $text-secondary;
+        font-size: 1.1rem;
+        padding: 1rem;
+        border-radius: 8px;
+        transition: all 0.2s;
+        cursor: pointer;
+
+        &:hover,
+        &:active {
+            background: rgba(255, 255, 255, 0.03);
+            color: white;
+            padding-left: 1.5rem; // Indent effect
+        }
+    }
+}
+
+// Backdrop
+.menu-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 10004; // Just below drawer
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+// Mobile Toggle Button (Fixed Position Z-Index)
+.navbar-toggler {
+    z-index: 1060; // Above menu
+    position: relative;
+}
+
+// Force body bg to avoid white gaps during scroll/rubberbanding
+::ng-deep body {
+    background-color: #0f172a !important;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+// Hero Section - Clean Grid
+.hero-section {
+    padding: 160px 0 100px;
+    background-color: $dark-bg;
+    // Subtle grid pattern
+    background-image: linear-gradient($border-color 1px, transparent 1px),
+        linear-gradient(90deg, $border-color 1px, transparent 1px);
+    background-size: 50px 50px;
+    background-position: center top;
+    position: relative;
+
+    // Fade out grid at bottom
+    &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 200px;
+        background: linear-gradient(to bottom, transparent, $dark-bg);
+    }
+}
+
+.hero-content {
+    position: relative;
+    z-index: 2;
+}
+
+.display-title {
+    font-size: 4rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+    color: $text-main;
+    // No gradients on text for max readability
+}
+
+.lead-text {
+    font-size: 1.25rem;
+    color: $text-secondary;
+    margin-bottom: 2.5rem;
+    max-width: 540px;
+}
+
+// Badge
+.badge.bg-primary {
+    background: rgba($primary, 0.1) !important;
+    color: lighten($primary, 10%) !important;
+    border: 1px solid rgba($primary, 0.2) !important;
+}
+
+// Dashboard Mockup - Clean
+.dashboard-mockup-container {
+    perspective: 1500px;
+}
+
+.dashboard-mockup {
+    background: $card-bg;
+    border: 1px solid $border-color;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); // Deep shadow, no color
+    overflow: hidden;
+    transform: rotateX(5deg) rotateY(-5deg);
+    transition: transform 0.5s ease;
+
+    &:hover {
+        transform: rotateX(0) rotateY(0);
+        border-color: lighten($border-color, 10%);
+    }
+
+    .mockup-header {
+        height: 48px;
+        background: #0f172a; // Darker header
+        border-bottom: 1px solid $border-color;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        gap: 8px;
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            opacity: 0.5;
+        }
+
+        .red {
+            background: #ef4444;
+        }
+
+        .yellow {
+            background: #eab308;
+        }
+
+        .green {
+            background: #22c55e;
+        }
+    }
+
+    .mockup-body {
+        padding: 24px;
+        background: $card-bg;
+    }
+}
+
+// Clients Section - Minimal
+.clients-section {
+    padding: 60px 0;
+    background: $dark-bg;
+    border-bottom: 1px solid $border-color;
+
+    .client-logo {
+        height: 28px;
+        opacity: 0.4;
+        filter: grayscale(100%) brightness(200%);
+        transition: all 0.3s;
+
+        &:hover {
+            opacity: 1;
+            filter: grayscale(0%) brightness(100%);
+        }
+    }
+}
+
+// Features Section - Solid Cards
+.features-section {
+    padding: 120px 0;
+    background: $dark-bg;
+}
+
+.feature-card {
+    background: $card-bg; // Solid Slate 800
+    border: 1px solid $border-color;
+    border-radius: 12px;
+    padding: 2rem;
+    height: 100%;
+    transition: all 0.3s ease;
+
+    &:hover {
+        border-color: $primary; // Only border changes color
+        transform: translateY(-4px);
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+
+        .icon-box {
+            background: $primary;
+            color: white;
+            border-color: $primary;
+        }
+    }
+
+    .icon-box {
+        width: 48px;
+        height: 48px;
+        background: rgba(30, 41, 59, 1);
+        border: 1px solid $border-color;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+        color: $text-secondary;
+        font-size: 1.5rem;
+        transition: all 0.3s ease;
+    }
+
+    h5 {
+        color: $text-main;
+        margin-bottom: 0.75rem;
+    }
+
+    p {
+        color: $text-muted;
+        font-size: 0.95rem;
+    }
+}
+
+// Pricing Section - High Contrast
+.pricing-section {
+    padding: 120px 0;
+    background: $dark-bg;
+}
+
+.pricing-card {
+    background: $card-bg; // Solid Slate 800
+    border: 1px solid $border-color;
+    border-radius: 16px;
+    padding: 2rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s;
+
+    &.popular {
+        background: $card-bg; // Still solid
+        border: 2px solid $primary; // Distinct border
+        position: relative;
+        transform: scale(1.05);
+        z-index: 10;
+        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+
+        @media (max-width: 991px) {
+            transform: scale(1);
+            margin: 20px 0;
+        }
+
+        .card-header {
+            color: $primary; // Colored header text instead of bg
+            background: transparent;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid $border-color;
+            margin-bottom: 2rem;
+        }
+    }
+
+    .card-body {
+        padding: 2rem;
+        flex-grow: 1;
+
+        .price-amount {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            color: $text-main;
+            flex-wrap: wrap;
+
+            .currency {
+                font-size: 1.5rem;
+                font-weight: 600;
+                color: $text-muted;
+                margin-right: 4px;
+                margin-bottom: 12px; // Align roughly with top of numbers
+            }
+
+            .value {
+                font-size: 3.5rem;
+                font-weight: 700;
+
+                @media (max-width: 1400px) {
+                    font-size: 2.8rem;
+                }
+            }
+
+            .period {
+                font-size: 1rem;
+                color: $text-muted;
+                font-weight: 400;
+                align-self: flex-end;
+                margin-bottom: 8px;
+                margin-left: 4px;
+            }
+        }
+    }
+
+    ul {
+        text-align: left;
+        margin-bottom: 2.5rem;
+
+        li {
+            color: $text-secondary;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+
+            i {
+                color: $primary; // Indigo checkmarks
+                margin-right: 12px;
+                font-size: 1.25rem;
+            }
+
+            &.opacity-50 {
+                opacity: 0.5;
+
+                i {
+                    color: $text-muted;
+                }
+            }
+        }
+    }
+}
+
+// CTA Section
+.cta-section {
+    padding: 100px 0;
+    background: $card-bg;
+    border-top: 1px solid $border-color;
+    text-align: center;
+
+    h2 {
+        color: $text-main;
+        margin-bottom: 1.5rem;
+    }
+
+    p {
+        color: $text-muted;
+        max-width: 600px;
+        margin: 0 auto 2.5rem;
+    }
+}
+
+// Footer - Professional Dark
+.footer {
+    background-color: $darker-bg;
+    padding: 80px 0 40px;
+    border-top: 1px solid $border-color;
+    font-size: 0.9rem;
+    color: $text-muted;
+
+    h5,
+    h6 {
+        color: $text-main;
+        letter-spacing: 0.5px;
+    }
+
+    a {
+        transition: color 0.2s;
+
+        &:hover {
+            color: $primary !important;
+            text-decoration: none;
+        }
+    }
+
+    .btn-icon {
+        border-color: $border-color;
+        color: $text-secondary;
+        width: 44px; // Larger touch target
+        height: 44px;
+        min-width: 44px; // Prevent squashing
+        aspect-ratio: 1 / 1; // Force square aspect ratio
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50% !important;
+        font-size: 1.2rem;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        background: rgba(255, 255, 255, 0.03); // Subtle bg
+
+        &:hover {
+            background: $primary;
+            border-color: $primary;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        &:active {
+            transform: scale(0.95); // Tactile click
+        }
+    }
+
+    hr {
+        border-color: $border-color;
+        opacity: 1;
+    }
+}
+
+// Animations - Keep simple fade up
+.animate-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.delay-100 {
+    animation-delay: 0.1s;
+}
+
+.delay-200 {
+    animation-delay: 0.2s;
+}
+
+.delay-300 {
+    animation-delay: 0.3s;
+}
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+// CRITICAL FIXES - GLOBAL OVERRIDES
+::ng-deep body,
+::ng-deep html {
+    background-color: #0f172a !important; // Force Dark Slate (No White)
+    overflow-x: hidden !important; // Kill horizontal scroll
+    width: 100%;
+    position: relative;
+    margin: 0;
+    padding: 0;
+}
+
+// Force cursor on toggler
+.navbar-toggler {
+    cursor: pointer !important;
+    z-index: 1060; // Ensure clickable above backdrop
+}

@@ -6,11 +6,13 @@ import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 import Swal from 'sweetalert2';
 import { SaleService, Sale } from '../../../core/services/sale.service';
 import { PermissionService } from '../../../core/services/permission.service';
+import { ExportService } from '../../../core/services/export.service';
+import { SkeletonComponent } from '../../../theme/shared/components/skeleton/skeleton.component';
 
 @Component({
     selector: 'app-sales-list',
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, NgbDropdownModule],
+    imports: [CommonModule, RouterModule, FormsModule, NgbDropdownModule, SkeletonComponent],
     templateUrl: './sales-list.component.html',
     styles: [`
         .status-badge { font-size: 0.8rem; padding: 5px 10px; border-radius: 4px; }
@@ -32,6 +34,7 @@ export class SalesListComponent implements OnInit {
     private saleService = inject(SaleService);
     private permissionService = inject(PermissionService);
     private cdr = inject(ChangeDetectorRef);
+    private exportService = inject(ExportService);
 
     ngOnInit() {
         this.canCreateSales = this.permissionService.hasPermission('create_sales');
@@ -135,5 +138,11 @@ export class SalesListComponent implements OnInit {
                 Swal.fire('Error', 'Error al descargar el PDF. Verifique el estado de la venta.', 'error');
             }
         });
+    }
+
+    exportData(format: 'excel' | 'csv') {
+        const params: Record<string, string> = {};
+        if (this.filterStatus) params['status'] = this.filterStatus;
+        this.exportService.download('/sales/export', format, params);
     }
 }

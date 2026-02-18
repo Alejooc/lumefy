@@ -12,11 +12,17 @@ if (environment.production) {
   enableProdMode();
 }
 
+import { provideServiceWorker } from '@angular/service-worker';
+
 bootstrapApplication(AppComponent, {
   providers: [
     importProvidersFrom(BrowserModule, AppRoutingModule),
     provideHttpClient(withInterceptorsFromDi()), // Enable interceptors
     provideAnimations(),
+    provideServiceWorker('ngsw-worker.js', {
+      enabled: environment.production,
+      registrationStrategy: 'registerWhenStable:30000'
+    }),
     { provide: HTTP_INTERCEPTORS, useClass: JwtInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: GlobalErrorInterceptor, multi: true }
   ]

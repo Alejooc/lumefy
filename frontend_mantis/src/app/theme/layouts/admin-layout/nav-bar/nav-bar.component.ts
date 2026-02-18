@@ -5,10 +5,11 @@ import { Component, HostListener, output } from '@angular/core';
 import { SharedModule } from 'src/app/theme/shared/shared.module';
 import { NavLeftComponent } from './nav-left/nav-left.component';
 import { NavRightComponent } from './nav-right/nav-right.component';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-nav-bar',
-  imports: [SharedModule, NavLeftComponent, NavRightComponent],
+  imports: [SharedModule, NavLeftComponent, NavRightComponent, FormsModule],
   templateUrl: './nav-bar.component.html',
   styleUrls: ['./nav-bar.component.scss']
 })
@@ -37,7 +38,7 @@ export class NavBarComponent {
 
   @HostListener('window:resize', ['$event'])
   // eslint-disable-next-line
-  onResize(event: any): void {
+  onWindowResize(event: any): void {
     this.windowWidth = event.target.innerWidth;
     this.navCollapseMob();
   }

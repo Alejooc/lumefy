@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { AdminService } from '../admin.service';
 import { SharedModule } from '../../../theme/shared/shared.module';
 import { UserService } from '../../users/user.service';
@@ -10,12 +11,13 @@ import Swal from 'sweetalert2';
 @Component({
     selector: 'app-admin-user-list',
     standalone: true,
-    imports: [CommonModule, RouterModule, SharedModule],
+    imports: [CommonModule, RouterModule, SharedModule, FormsModule],
     templateUrl: './admin-user-list.component.html'
 })
 export class AdminUserListComponent implements OnInit {
     users: any[] = [];
     loading = false;
+    searchTerm = '';
 
     private adminService = inject(AdminService);
     private userService = inject(UserService);
@@ -29,7 +31,7 @@ export class AdminUserListComponent implements OnInit {
 
     loadUsers() {
         this.loading = true;
-        this.adminService.getUsers().subscribe({
+        this.adminService.getUsers(this.searchTerm).subscribe({
             next: (data) => {
                 this.users = data;
                 this.loading = false;

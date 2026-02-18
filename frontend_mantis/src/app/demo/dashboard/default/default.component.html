@@ -11,6 +11,46 @@
 </div>
 } @else {
 <div class="row">
+  <!-- Dashboard Filters -->
+  <div class="col-12 mb-3" id="dashboard-filters">
+    <div class="card">
+      <div class="card-body py-2">
+        <div class="row align-items-center g-2">
+          <div class="col-auto">
+            <label class="form-label mb-0 fw-semibold text-muted small">Filtros:</label>
+          </div>
+          <div class="col-auto">
+            <input type="date" class="form-control form-control-sm" [(ngModel)]="dateFrom" placeholder="Desde"
+              style="width: 150px;">
+          </div>
+          <div class="col-auto">
+            <input type="date" class="form-control form-control-sm" [(ngModel)]="dateTo" placeholder="Hasta"
+              style="width: 150px;">
+          </div>
+          <div class="col-auto" *ngIf="branches.length > 0">
+            <select class="form-select form-select-sm" [(ngModel)]="selectedBranchId" style="width: 200px;">
+              <option value="">Todas las sucursales</option>
+              <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
+            </select>
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-primary btn-sm me-1" (click)="applyFilters()">
+              <i class="feather icon-filter"></i> Aplicar
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" (click)="clearFilters()"
+              *ngIf="dateFrom || dateTo || selectedBranchId">
+              <i class="feather icon-x"></i> Limpiar
+            </button>
+          </div>
+          <div class="col-auto ms-auto" *ngIf="!isSuperUser">
+            <button class="btn btn-outline-info btn-sm" (click)="startDashboardTour()" title="Iniciar guía interactiva">
+              <i class="feather icon-help-circle"></i> Guía
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="col-12" *ngIf="showOnboardingAssistant && onboardingProgressPercent < 100">
     <app-card [showHeader]="false" blockClass="onboarding-card">
       <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
@@ -63,33 +103,35 @@
       }
     </app-card>
   </div>
-  @for (analytic of AnalyticEcommerce; track analytic) {
-  <div class="col-md-6 col-xl-3">
-    <app-card [showHeader]="false" blockClass="dashboard-card">
-      <h6 class="mb-2 f-w-400 text-muted">{{ analytic.title }}</h6>
-      <h4 class="mb-3">
-        {{ analytic.amount }}
-        <span class="badge {{ analytic.background }} border {{ analytic.border }} ">
-          <i antIcon type="{{ analytic.icon }}" theme="outline"></i>
-          {{ analytic.percentage }}
-        </span>
-      </h4>
-      <p class="mb-0 text-muted text-sm">
-        Has hecho un extra
-        <span class="{{ analytic.color }}">{{ analytic.number }}</span>
-        este año
-      </p>
-    </app-card>
+  <div id="dashboard-kpis" class="row">
+    @for (analytic of AnalyticEcommerce; track analytic) {
+    <div class="col-md-6 col-xl-3">
+      <app-card [showHeader]="false" blockClass="dashboard-card">
+        <h6 class="mb-2 f-w-400 text-muted">{{ analytic.title }}</h6>
+        <h4 class="mb-3">
+          {{ analytic.amount }}
+          <span class="badge {{ analytic.background }} border {{ analytic.border }} ">
+            <i antIcon type="{{ analytic.icon }}" theme="outline"></i>
+            {{ analytic.percentage }}
+          </span>
+        </h4>
+        <p class="mb-0 text-muted text-sm">
+          Has hecho un extra
+          <span class="{{ analytic.color }}">{{ analytic.number }}</span>
+          este año
+        </p>
+      </app-card>
+    </div>
+    }
   </div>
-  }
-  <div class="col-md-12 col-xl-8">
+  <div class="col-md-12 col-xl-8" id="dashboard-charts">
     <app-monthly-bar-chart [chartData]="monthlySalesData" />
   </div>
   <div class="col-md-12 col-xl-4">
     <app-income-overview-chart [chartData]="incomeOverviewData" />
   </div>
 
-  <div class="col-md-12 col-xl-8">
+  <div class="col-md-12 col-xl-8" id="dashboard-recent-orders">
     <h5 class="mb-3">Pedidos Recientes</h5>
     <div class="card tbl-card">
       <div class="table-responsive">

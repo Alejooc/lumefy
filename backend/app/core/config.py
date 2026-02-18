@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from pydantic import field_validator
+from typing import Optional, Union
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Lumefy"
@@ -13,10 +14,20 @@ class Settings(BaseSettings):
     DATABASE_URL: Optional[str] = None
     
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:4200", "http://localhost:3000"]
+
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Union[str, list[str]]) -> list[str]:
+        if isinstance(v, str):
+            return [i.strip() for i in v.split(",") if i.strip()]
+        return v
     
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+
+    ENVIRONMENT: str = "development"  # development | production
+    FRONTEND_URL: str = "http://localhost:4200"
     
     FIRST_SUPERUSER: str
     FIRST_SUPERUSER_PASSWORD: str

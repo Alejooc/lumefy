@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
-    login, products, categories, inventory, pos, companies, reports, clients, users, roles, audit, suppliers, purchases, pricelists, sales, admin, branches, logistics, plans, brands, units_of_measure, upload, dashboard, admin_users, system, notifications, notification_admin, apps
+    login, products, categories, inventory, pos, companies, reports, clients, users, roles, audit, suppliers, purchases, pricelists, sales, admin, branches, logistics, plans, brands, units_of_measure, upload, dashboard, admin_users, system, notifications, notification_admin, apps, search
 )
 api_router = APIRouter()
 api_router.include_router(login.router, tags=["login"])
@@ -27,7 +27,8 @@ api_router.include_router(units_of_measure.router, prefix="/units-of-measure", t
 api_router.include_router(upload.router, prefix="/upload", tags=["upload"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admin_users"])
-api_router.include_router(system.router, prefix="/admin/system", tags=["system"])
+api_router.include_router(system.router, prefix="/system", tags=["system"])
+api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(notification_admin.router, prefix="/admin/notifications", tags=["notification_admin"])
 api_router.include_router(apps.router, prefix="/apps", tags=["apps"])

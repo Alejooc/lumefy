@@ -5,6 +5,7 @@ import { RouterModule, Routes } from '@angular/router';
 // Project import
 import { AdminLayout } from './theme/layouts/admin-layout/admin-layout.component';
 import { GuestLayoutComponent } from './theme/layouts/guest-layout/guest-layout.component';
+import { LandingLayout } from './theme/layouts/landing-layout/landing-layout';
 import { AuthGuard } from './core/auth.guard';
 import { GuestGuard } from './core/guest.guard';
 import { SuperuserGuard } from './core/superuser.guard';
@@ -12,22 +13,22 @@ import { SuperuserGuard } from './core/superuser.guard';
 const routes: Routes = [
   {
     path: '',
+    component: LandingLayout,
+    children: [
+      {
+        path: '',
+        loadChildren: () => import('./demo/pages/landing/landing-module').then(m => m.LandingModule)
+      }
+    ]
+  },
+  {
+    path: '',
     component: GuestLayoutComponent,
     canActivate: [GuestGuard],
     children: [
       {
-        path: '',
-        pathMatch: 'full',
-        redirectTo: 'login'
-      },
-      {
         path: 'login',
         loadComponent: () => import('./demo/pages/authentication/auth-login/auth-login.component').then((c) => c.AuthLoginComponent)
-      },
-      {
-        path: 'register',
-        loadComponent: () =>
-          import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
       },
       {
         path: 'forgot-password',
@@ -38,6 +39,11 @@ const routes: Routes = [
         path: 'reset-password',
         loadComponent: () =>
           import('./demo/pages/authentication/auth-reset-password/auth-reset-password.component').then((c) => c.AuthResetPasswordComponent)
+      },
+      {
+        path: 'register',
+        loadComponent: () =>
+          import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
       }
     ]
   },
@@ -158,6 +164,10 @@ const routes: Routes = [
       {
         path: 'apps/admin',
         loadComponent: () => import('./modules/apps/app-admin-catalog.component').then((c) => c.AppAdminCatalogComponent)
+      },
+      {
+        path: '**',
+        loadComponent: () => import('./demo/pages/not-found/not-found.component').then((c) => c.NotFoundComponent)
       }
     ]
   },

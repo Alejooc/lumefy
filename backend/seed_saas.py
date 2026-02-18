@@ -28,8 +28,8 @@ async def seed_data():
                     name="Free Tier",
                     code="FREE",
                     price=0.0,
-                    features={"users": 1, "branches": 1},
-                    limits={"storage": "1GB"},
+                    features={"pos": False},
+                    limits={"users": 1, "branches": 1, "storage": "1GB"},
                     is_active=True,
                     is_public=True
                 ),
@@ -37,8 +37,8 @@ async def seed_data():
                     name="Pro Plan",
                     code="PRO",
                     price=49.00,
-                    features={"users": 5, "branches": 3, "pos": True},
-                    limits={"storage": "10GB"},
+                    features={"pos": True},
+                    limits={"users": 5, "branches": 3, "storage": "10GB"},
                     is_active=True,
                     is_public=True
                 ),
@@ -46,8 +46,8 @@ async def seed_data():
                     name="Enterprise",
                     code="ENTERPRISE",
                     price=199.00,
-                    features={"users": 999, "branches": 999, "api": True},
-                    limits={"storage": "1TB"},
+                    features={"api": True},
+                    limits={"users": 999, "branches": 999, "storage": "1TB"},
                     is_active=True,
                     is_public=True
                 )

@@ -30,14 +30,19 @@ export class GlobalErrorInterceptor implements HttpInterceptor {
                     // Server-side error
                     switch (error.status) {
                         case 401:
-                            // Unauthorized - handled by AuthGuard usually, but good as backup
-                            // Don't show alert if it's just a login failure which has its own handling
+                            // Unauthorized - session expired or invalid token
                             if (!request.url.includes('/login')) {
                                 icon = 'warning';
                                 errorTitle = 'Sesión Expirada';
                                 errorMessage = 'Tu sesión ha caducado. Por favor inicia sesión nuevamente.';
+                                localStorage.removeItem('token');
                                 this.router.navigate(['/login']);
                             }
+                            break;
+                        case 402:
+                            icon = 'warning';
+                            errorTitle = 'Límite de Plan';
+                            errorMessage = error.error?.detail || 'Has alcanzado el límite de tu plan actual. Actualiza tu suscripción para continuar.';
                             break;
                         case 403:
                             icon = 'warning';

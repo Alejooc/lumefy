@@ -42,7 +42,8 @@ class MaintenanceMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             # If DB fails, we probably shouldn't block everything unless intended.
             # But if DB is down, app is effectively down.
-            print(f"Maintenance Check Failed: {e}")
+            import logging
+            logging.getLogger(__name__).warning(f"Maintenance check failed: {e}")
             pass
 
         return await call_next(request)

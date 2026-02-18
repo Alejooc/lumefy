@@ -3,9 +3,19 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5>Órdenes de Compra</h5>
-                <a [routerLink]="['/purchasing/orders/add']" class="btn btn-primary btn-sm">
-                    <i class="feather icon-plus"></i> Nueva Orden de Compra
-                </a>
+                <div>
+                    <div class="btn-group btn-group-sm me-2">
+                        <button class="btn btn-outline-success" (click)="exportData('excel')">
+                            <i class="feather icon-file"></i> Excel
+                        </button>
+                        <button class="btn btn-outline-success" (click)="exportData('csv')">
+                            <i class="feather icon-file-text"></i> CSV
+                        </button>
+                    </div>
+                    <a [routerLink]="['/purchasing/orders/add']" class="btn btn-primary btn-sm">
+                        <i class="feather icon-plus"></i> Nueva Orden de Compra
+                    </a>
+                </div>
             </div>
             <div class="card-body">
                 <div class="table-responsive">

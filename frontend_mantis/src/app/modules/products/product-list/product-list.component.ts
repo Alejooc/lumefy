@@ -3,6 +3,7 @@ import { ApiService } from '../../../core/services/api.service';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { PermissionService } from '../../../core/services/permission.service';
+import { ExportService } from '../../../core/services/export.service';
 
 @Component({
     selector: 'app-product-list',
@@ -23,7 +24,8 @@ export class ProductListComponent implements OnInit {
         private swal: SweetAlertService,
         private auth: AuthService,
         private permissionService: PermissionService,
-        private cdr: ChangeDetectorRef
+        private cdr: ChangeDetectorRef,
+        private exportService: ExportService
     ) { }
 
     ngOnInit(): void {
@@ -100,5 +102,11 @@ export class ProductListComponent implements OnInit {
 
     trackByFn(index: number, item: any): any {
         return item.id;
+    }
+
+    exportData(format: 'excel' | 'csv') {
+        const params: Record<string, string> = {};
+        if (this.searchQuery) params['search'] = this.searchQuery;
+        this.exportService.download('/products/export', format, params);
     }
 }

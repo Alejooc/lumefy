@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { InventoryService, InventoryItem } from '../inventory.service';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { ApiService } from '../../../core/services/api.service';
+import { ExportService } from '../../../core/services/export.service';
 
 @Component({
     selector: 'app-inventory-list',
@@ -19,7 +20,8 @@ export class InventoryListComponent implements OnInit {
         private inventoryService: InventoryService,
         private api: ApiService,
         private cdr: ChangeDetectorRef,
-        private swal: SweetAlertService
+        private swal: SweetAlertService,
+        private exportService: ExportService
     ) { }
 
     ngOnInit(): void {
@@ -56,5 +58,11 @@ export class InventoryListComponent implements OnInit {
                 this.cdr.detectChanges();
             }
         });
+    }
+
+    exportData(format: 'excel' | 'csv') {
+        const params: Record<string, string> = {};
+        if (this.selectedBranchId) params['branch_id'] = this.selectedBranchId;
+        this.exportService.download('/inventory/export', format, params);
     }
 }

@@ -55,8 +55,10 @@ export class AdminService {
         return this.http.post<any>(`${this.apiUrl}/users/${userId}/impersonate`, {});
     }
 
-    getUsers(): Observable<any[]> {
-        return this.http.get<any[]>(`${this.apiUrl}/users`);
+    getUsers(search: string = ''): Observable<any[]> {
+        let params = '';
+        if (search) params = `?search=${search}`;
+        return this.http.get<any[]>(`${this.apiUrl}/users${params}`);
     }
 
     extendSubscription(companyId: string, data: { valid_until: string, plan?: string }): Observable<any> {
@@ -64,27 +66,27 @@ export class AdminService {
     }
 
     getSystemHealth(): Observable<any> {
-        return this.http.get<any>(`${this.apiUrl}/system/health`);
+        return this.http.get<any>(`${environment.apiUrl}/system/health`);
     }
 
     getMaintenanceStatus(): Observable<{ enabled: boolean }> {
-        return this.http.get<{ enabled: boolean }>(`${this.apiUrl}/system/maintenance`);
+        return this.http.get<{ enabled: boolean }>(`${environment.apiUrl}/system/maintenance`);
     }
 
     setMaintenanceStatus(enabled: boolean): Observable<{ enabled: boolean }> {
-        return this.http.post<{ enabled: boolean }>(`${this.apiUrl}/system/maintenance`, { enabled });
+        return this.http.post<{ enabled: boolean }>(`${environment.apiUrl}/system/maintenance`, { enabled });
     }
 
     getDatabaseStats(): Observable<any[]> {
-        return this.http.get<any[]>(`${this.apiUrl}/system/database-stats`);
+        return this.http.get<any[]>(`${environment.apiUrl}/system/database-stats`);
     }
 
     getBroadcast(): Observable<any> {
-        return this.http.get<any>(`${this.apiUrl}/system/broadcast`);
+        return this.http.get<any>(`${environment.apiUrl}/system/broadcast`);
     }
 
     setBroadcast(msg: any): Observable<any> {
-        return this.http.post<any>(`${this.apiUrl}/system/broadcast`, msg);
+        return this.http.post<any>(`${environment.apiUrl}/system/broadcast`, msg);
     }
 
     // --- Notification Admin ---

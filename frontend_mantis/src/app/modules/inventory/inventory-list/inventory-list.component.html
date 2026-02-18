@@ -8,6 +8,14 @@
                         <option value="">Todas las sucursales</option>
                         <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
                     </select>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-success" (click)="exportData('excel')">
+                            <i class="feather icon-file"></i> Excel
+                        </button>
+                        <button class="btn btn-outline-success" (click)="exportData('csv')">
+                            <i class="feather icon-file-text"></i> CSV
+                        </button>
+                    </div>
                     <button class="btn btn-primary btn-sm" routerLink="/inventory/movement">
                         <i class="feather icon-plus"></i> Nuevo Movimiento
                     </button>

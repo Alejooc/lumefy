@@ -176,7 +176,7 @@ async def set_broadcast_message(
     result = await db.execute(query)
     setting = result.scalar_one_or_none()
     
-    value_json = json.dumps(msg.dict())
+    value_json = json.dumps(msg.model_dump())
     
     if setting:
         setting.value = value_json
@@ -186,3 +186,90 @@ async def set_broadcast_message(
         
     await db.commit()
     return msg
+
+from app.schemas.landing import LandingConfig
+from sqlalchemy.orm import Session
+
+from app.models.plan import Plan
+
+@router.get("/landing", response_model=LandingConfig)
+async def get_landing_config(
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Get public landing page configuration + Dynamic Plans.
+    """
+    # 1. Fetch Config
+    query = text("SELECT value FROM system_settings WHERE key = 'landing_config'")
+    result = await db.execute(query)
+    value = result.scalar_one_or_none()
+    
+    config_data = {}
+    if value:
+        try:
+            config_data = json.loads(value)
+        except:
+            pass
+            
+    # 2. Fetch Active Public Plans
+    q_plans = select(Plan).where(Plan.is_active == True, Plan.is_public == True).order_by(Plan.price.asc())
+    res_plans = await db.execute(q_plans)
+    plans = res_plans.scalars().all()
+    
+    # 3. Serialize Plans (Simple dict for now to match schema)
+    plans_data = []
+    for p in plans:
+        # Parse features if string check needed, usually it's dict
+        features_list = []
+        if p.features and isinstance(p.features, dict):
+             # Assuming features is {"feature_name": true, ...} or list
+             # For now just passing crude to frontend, frontend has to handle
+             pass
+        
+        plans_data.append({
+            "id": str(p.id),
+            "name": p.name,
+            "code": p.code,
+            "price": p.price,
+            "currency": p.currency,
+            "description": p.description,
+            "duration_days": p.duration_days,
+            "features": p.features, # JSON
+            "limits": p.limits
+        })
+        
+    # 4. Merge
+    # We use the pydantic model to merge. 
+    # If config_data comes from DB, it might already have 'plans' if saved, 
+    # BUT we want the LIVE plans from plans table to override or be the source of truth.
+    config_data["plans"] = plans_data
+    
+    return config_data
+
+@router.put("/landing", response_model=LandingConfig)
+async def update_landing_config(
+    *,
+    db: AsyncSession = Depends(get_db),
+    config: LandingConfig,
+    current_user: User = Depends(auth.get_current_user),
+) -> Any:
+    """
+    Update landing page configuration (Super Admin only).
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+    query = select(SystemSetting).where(SystemSetting.key == "landing_config")
+    result = await db.execute(query)
+    setting = result.scalar_one_or_none()
+    
+    value_json = json.dumps(config.model_dump())
+    
+    if setting:
+        setting.value = value_json
+    else:
+        setting = SystemSetting(key="landing_config", value=value_json, group="landing", is_public=True)
+        db.add(setting)
+        
+    await db.commit()
+    return config

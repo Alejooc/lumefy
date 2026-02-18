@@ -2,6 +2,14 @@
     <div class="col-sm-12">
         <app-card [cardTitle]="'Productos'">
             <ng-template #headerOptionsTemplate>
+                <div class="btn-group btn-group-sm me-2">
+                    <button class="btn btn-outline-success" (click)="exportData('excel')" title="Exportar Excel">
+                        <i class="feather icon-file"></i> Excel
+                    </button>
+                    <button class="btn btn-outline-success" (click)="exportData('csv')" title="Exportar CSV">
+                        <i class="feather icon-file-text"></i> CSV
+                    </button>
+                </div>
                 <button class="btn btn-outline-primary me-2" routerLink="/products/import">
                     <i class="feather icon-upload"></i> Importar
                 </button>
@@ -21,12 +29,9 @@
                 </div>
             </div>
 
-            <!-- Loading -->
-            <div *ngIf="isLoading" class="text-center p-4">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="sr-only">Cargando...</span>
-                </div>
-                <p class="mt-2">Cargando productos...</p>
+            <!-- Loading Skeleton -->
+            <div *ngIf="isLoading">
+                <app-skeleton type="table" [rowCount]="5" [colCount]="8"></app-skeleton>
             </div>
 
             <!-- Table -->
@@ -93,12 +98,15 @@
 
             <div class="text-center py-5 border rounded bg-light-subtle" *ngIf="!isLoading && products.length === 0">
                 <h6 class="mb-2">Aun no tienes productos cargados</h6>
-                <p class="text-muted mb-3" *ngIf="!searchQuery">Empieza creando tu primer producto para activar inventario y ventas.</p>
-                <p class="text-muted mb-3" *ngIf="searchQuery">No hubo coincidencias para <strong>"{{ searchQuery }}"</strong>. Prueba con otro termino.</p>
+                <p class="text-muted mb-3" *ngIf="!searchQuery">Empieza creando tu primer producto para activar
+                    inventario y ventas.</p>
+                <p class="text-muted mb-3" *ngIf="searchQuery">No hubo coincidencias para <strong>"{{ searchQuery
+                        }}"</strong>. Prueba con otro termino.</p>
                 <div class="d-flex justify-content-center gap-2 flex-wrap">
                     <a routerLink="/products/create" class="btn btn-primary btn-sm">Crear primer producto</a>
                     <a routerLink="/products/import" class="btn btn-outline-primary btn-sm">Importar catalogo</a>
-                    <a routerLink="/sales/first-sale-wizard" class="btn btn-outline-secondary btn-sm" *ngIf="canAccessWizard">Ir al Wizard MVP</a>
+                    <a routerLink="/sales/first-sale-wizard" class="btn btn-outline-secondary btn-sm"
+                        *ngIf="canAccessWizard">Ir al Wizard MVP</a>
                 </div>
             </div>
         </app-card>

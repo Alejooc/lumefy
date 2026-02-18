@@ -93,7 +93,10 @@ export class UserFormComponent implements OnInit {
   }
 
   onSubmit() {
-    if (this.userForm.invalid) return;
+    if (this.userForm.invalid) {
+      this.userForm.markAllAsTouched();
+      return;
+    }
 
     this.isLoading = true;
     const userData = this.userForm.value;

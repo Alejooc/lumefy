@@ -3,6 +3,9 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
 from app.core.config import settings
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Basic configuration
 conf = ConnectionConfig(
@@ -31,9 +34,7 @@ class EmailService:
         try:
             await fm.send_message(message)
         except Exception as e:
-            print(f"EMAIL ERROR: {e}")
-            print(f"MOCKED EMAIL TO: {email_to}")
-            print(f"SUBJECT: {subject}")
+            logger.warning(f"Email send failed to {email_to}: {e}")
             # Don't re-raise in dev to allow flow testing
             if settings.ENVIRONMENT == "production":
                 raise e
@@ -42,7 +43,7 @@ class EmailService:
     async def send_reset_password_email(email_to: str, token: str):
         project_name = settings.PROJECT_NAME
         subject = f"{project_name} - Recuperación de Contraseña"
-        link = f"http://localhost:4200/reset-password?token={token}"
+        link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
         
         html_content = f"""
         <html>

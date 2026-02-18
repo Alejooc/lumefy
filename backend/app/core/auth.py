@@ -10,13 +10,11 @@ from app.core.database import get_db
 from app.schemas.token import TokenPayload
 from app.models.user import User
 
-from app.models.company import Company
-from app.core import security
-import uuid
-print("DEBUG: AUTH LOADED NEW VERSION")
+import logging
 
-# Auto error false allows us to handle missing token manually (for dev mode)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/login/access-token", auto_error=False)
+logger = logging.getLogger(__name__)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/login/access-token")
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -28,69 +26,23 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
+async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
-        # DEV MODE: If no token, return first user or create default
-        if not token:
-            # Check if any user exists
-            result = await db.execute(select(User).limit(1))
-            user = result.scalars().first()
-            if user:
-                return user
-                
-            # Create Default Company
-            company = Company(
-                name="Lumefy Demo Corp",
-                currency="USD",
-                tax_id="123456789"
-            )
-            db.add(company)
-            await db.commit()
-            await db.refresh(company)
-            
-            # Check/Create Default Admin Role
-            from app.models.role import Role
-            result = await db.execute(select(Role).where(Role.name == "Admin"))
-            role = result.scalars().first()
-            if not role:
-                role = Role(name="Admin", description="Super Admin", permissions={"all": True})
-                db.add(role)
-                await db.commit()
-                await db.refresh(role)
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        token_data = TokenPayload(**payload)
+    except (JWTError, AttributeError):
+        raise credentials_exception
 
-            # Create Default Admin User
-            user = User(
-                email="admin@lumefy.com",
-                full_name="Admin User",
-                hashed_password=security.get_password_hash("admin"),
-                is_active=True,
-                company_id=company.id,
-                role_id=role.id
-            )
-            db.add(user)
-            await db.commit()
-            await db.refresh(user)
-            print(f"DEV MODE: Created default user {user.email}")
-            return user
+    result = await db.execute(select(User).where(User.email == token_data.sub))
+    user = result.scalars().first()
 
-        credentials_exception = HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-        try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-            token_data = TokenPayload(**payload)
-        except (JWTError, AttributeError):
-            raise credentials_exception
-        
-        result = await db.execute(select(User).where(User.email == token_data.sub))
-        user = result.scalars().first()
-        
-        if user is None:
-            raise credentials_exception
-        return user
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Auth Error: {str(e)}")
+    if user is None:
+        raise credentials_exception
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Inactive user")
+    return user

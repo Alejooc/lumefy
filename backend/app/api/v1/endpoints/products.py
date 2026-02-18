@@ -11,6 +11,7 @@ from app.schemas import product as schemas
 from app.schemas import product_variant as variant_schemas
 from app.models.user import User
 from app.core.permissions import PermissionChecker
+from app.core.plan_limits import PlanLimitChecker
 from app.core.audit import log_activity
 
 router = APIRouter()
@@ -60,6 +61,68 @@ async def read_products(
     result = await db.execute(query)
     return result.scalars().all()
 
+@router.get("/export")
+async def export_products(
+    db: AsyncSession = Depends(get_db),
+    format: str = "excel",
+    search: str = None,
+    category_id: str = None,
+    brand_id: str = None,
+    current_user: User = Depends(PermissionChecker("view_products")),
+) -> Any:
+    """Export products to Excel or CSV."""
+    from app.services.export_service import ExportService
+
+    query = select(Product).options(
+        selectinload(Product.brand),
+        selectinload(Product.category),
+        selectinload(Product.unit_of_measure),
+    )
+    if current_user.company_id:
+        query = query.where(Product.company_id == current_user.company_id)
+    if search:
+        search_filter = f"%{search}%"
+        query = query.where(
+            or_(Product.name.ilike(search_filter), Product.sku.ilike(search_filter))
+        )
+    if category_id:
+        query = query.where(Product.category_id == category_id)
+    if brand_id:
+        query = query.where(Product.brand_id == brand_id)
+
+    result = await db.execute(query)
+    products = result.scalars().all()
+
+    columns = {
+        "sku": "SKU",
+        "name": "Nombre",
+        "product_type": "Tipo",
+        "category_name": "Categoría",
+        "brand_name": "Marca",
+        "sale_price": "Precio Venta",
+        "cost_price": "Precio Costo",
+        "uom_name": "Unidad",
+        "is_active": "Activo",
+    }
+
+    rows = []
+    for p in products:
+        rows.append({
+            "sku": p.sku or "",
+            "name": p.name,
+            "product_type": p.product_type or "",
+            "category_name": p.category.name if p.category else "",
+            "brand_name": p.brand.name if p.brand else "",
+            "sale_price": float(p.sale_price) if p.sale_price else 0,
+            "cost_price": float(p.cost_price) if p.cost_price else 0,
+            "uom_name": p.unit_of_measure.name if p.unit_of_measure else "",
+            "is_active": "Sí" if p.is_active else "No",
+        })
+
+    if format == "csv":
+        return ExportService.to_csv_response(rows, columns, filename="productos")
+    return ExportService.to_excel_response(rows, columns, filename="productos")
+
 @router.get("/{product_id}", response_model=schemas.Product)
 async def read_product(
     product_id: str,
@@ -91,6 +154,7 @@ async def create_product(
     db: AsyncSession = Depends(get_db),
     product_in: schemas.ProductCreate,
     current_user: User = Depends(PermissionChecker("manage_inventory")),
+    _plan: User = Depends(PlanLimitChecker(resource="products", count_model=Product)),
 ) -> Any:
     """Create new product."""
     try:

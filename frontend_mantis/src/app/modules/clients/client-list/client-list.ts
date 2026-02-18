@@ -3,6 +3,7 @@ import { ClientService } from '../client.service';
 import { Client } from '../client.model';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { PermissionService } from '../../../core/services/permission.service';
+import { ExportService } from '../../../core/services/export.service';
 
 @Component({
   selector: 'app-client-list',
@@ -20,7 +21,8 @@ export class ClientListComponent implements OnInit {
     private clientService: ClientService,
     private swal: SweetAlertService,
     private permissionService: PermissionService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private exportService: ExportService
   ) { }
 
   ngOnInit(): void {
@@ -62,5 +64,9 @@ export class ClientListComponent implements OnInit {
         });
       }
     });
+  }
+
+  exportData(format: 'excel' | 'csv') {
+    this.exportService.download('/clients/export', format);
   }
 }

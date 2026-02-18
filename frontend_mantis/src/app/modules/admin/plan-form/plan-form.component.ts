@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormArray } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormArray, FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { PlanService } from '../plan.service';
 import { SharedModule } from '../../../theme/shared/shared.module';
@@ -9,7 +9,7 @@ import Swal from 'sweetalert2';
 @Component({
     selector: 'app-plan-form',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, RouterModule, SharedModule], // SharedModule likely exports CardComponent etc.
+    imports: [CommonModule, ReactiveFormsModule, RouterModule, SharedModule, FormsModule], // SharedModule likely exports CardComponent etc.
     templateUrl: './plan-form.component.html'
 })
 export class PlanFormComponent implements OnInit {
@@ -24,14 +24,9 @@ export class PlanFormComponent implements OnInit {
     private route = inject(ActivatedRoute);
     private cdr = inject(ChangeDetectorRef);
 
-    // Common features to toggle
-    availableFeatures = [
-        { key: 'inventory', label: 'Inventario' },
-        { key: 'pos', label: 'Punto de Venta' },
-        { key: 'purchasing', label: 'Compras' },
-        { key: 'reports', label: 'Reportes Avanzados' },
-        { key: 'multi_branch', label: 'Multi-Sucursal' }
-    ];
+    // Dynamic Features List
+    featuresList: string[] = [];
+    newFeatureText: string = '';
 
     constructor() {
         this.planForm = this.fb.group({
@@ -46,14 +41,7 @@ export class PlanFormComponent implements OnInit {
             // Limits
             limit_users: [5, Validators.required],
             limit_storage: [1000, Validators.required], // MB
-            limit_branches: [1, Validators.required],
-            // Features
-            features: this.fb.group(
-                this.availableFeatures.reduce((acc: any, curr) => {
-                    acc[curr.key] = [true];
-                    return acc;
-                }, {})
-            )
+            limit_branches: [1, Validators.required]
         });
     }
 
@@ -86,14 +74,41 @@ export class PlanFormComponent implements OnInit {
                     limit_storage: plan.limits?.storage || 0,
                     limit_branches: plan.limits?.branches || 1
                 });
-                // Patch features
+
+                // Load Features (Handle Legacy Dict vs New Array)
+                this.featuresList = [];
                 if (plan.features) {
-                    this.planForm.get('features')?.patchValue(plan.features);
+                    if (Array.isArray(plan.features)) {
+                        this.featuresList = plan.features;
+                    } else if (typeof plan.features === 'object') {
+                        // Convert legacy dict keys to list
+                        this.featuresList = Object.keys(plan.features);
+                    }
                 }
+
                 this.loading = false;
                 this.cdr.detectChanges();
             }
         });
+    }
+
+    addFeature() {
+        if (this.newFeatureText.trim()) {
+            this.featuresList.push(this.newFeatureText.trim());
+            this.newFeatureText = '';
+        }
+    }
+
+    removeFeature(index: number) {
+        this.featuresList.splice(index, 1);
+    }
+
+    // Capture enter key in input to prevent submit and add feature instead
+    onFeatureKeydown(event: KeyboardEvent) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            this.addFeature();
+        }
     }
 
     onSubmit() {
@@ -112,9 +127,9 @@ export class PlanFormComponent implements OnInit {
         const payload = {
             ...formVal,
             limits: limits,
-            features: formVal.features
+            features: this.featuresList // Send simple list of strings
         };
-        // Remove flat limit fields from payload if backend strictly validates schema (Pydantic usually ignores extras but let's be clean)
+        // Remove flat limit fields
         delete payload.limit_users;
         delete payload.limit_storage;
         delete payload.limit_branches;

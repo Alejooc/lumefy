@@ -3,6 +3,17 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5>Gestión Global de Usuarios</h5>
+                <div class="row g-2">
+                    <div class="col-auto">
+                        <input type="text" class="form-control form-control-sm" [(ngModel)]="searchTerm"
+                            (keyup.enter)="loadUsers()" placeholder="Buscar por nombre o email...">
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary btn-sm" (click)="loadUsers()">
+                            <i class="feather icon-search"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="card-body">
                 <div class="table-responsive">

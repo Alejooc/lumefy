@@ -1,0 +1,351 @@
+<div class="landing-container" *ngIf="!isLoading && config">
+    <!-- Scroll Sentinel (Triggers navbar style when scrolled past 50px) -->
+    <div #scrollSentinel
+        style="position: absolute; top: 10px; left: 0; width: 1px; height: 1px; pointer-events: none; visibility: hidden;">
+    </div>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top" [class.menu-open]="isMenuOpen"
+        [class.scrolled]="isScrolled">
+        <div class="container">
+            <a class="navbar-brand font-weight-bold d-flex align-items-center gap-2" href="#">
+                <i class="bi bi-stack text-primary f-24"></i>
+                <span>Lumefy</span>
+            </a>
+            <button class="navbar-toggler border-0 p-0" type="button" (click)="toggleMenu()">
+                <i class="bi bi-list text-white f-30" *ngIf="!isMenuOpen"></i>
+                <i class="bi bi-x-lg text-white f-24" *ngIf="isMenuOpen"></i>
+            </button>
+            <!-- Desktop Menu -->
+            <div class="collapse navbar-collapse justify-content-end d-none d-lg-flex">
+                <ul class="navbar-nav align-items-center">
+                    <li class="nav-item">
+                        <a class="nav-link" href="javascript:void(0)" (click)="scrollTo('features')">Características</a>
+                    </li>
+                    <li class="nav-item" *ngIf="config.pricing_visible">
+                        <a class="nav-link" href="javascript:void(0)" (click)="scrollTo('pricing')">Precios</a>
+                    </li>
+                    <li class="nav-item ms-lg-3">
+                        <button class="btn btn-link text-white text-decoration-none me-2"
+                            (click)="navigateToLogin()">Ingresar</button>
+                        <button class="btn btn-primary rounded-pill px-4"
+                            [routerLink]="['/register']">Registrarse</button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu Drawer (Decoupled from Navbar) -->
+    <div class="mobile-menu-drawer" [class.open]="isMenuOpen">
+        <div class="drawer-header p-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-stack text-primary f-20"></i>
+                <span class="text-white fw-bold f-18 letter-spacing-1">LUMEFY</span>
+            </div>
+            <button class="btn btn-icon btn-sm text-muted hover-white border-0 bg-transparent" (click)="closeMenu()">
+                <i class="bi bi-x-lg f-20"></i>
+            </button>
+        </div>
+
+        <!-- Decoration Line -->
+        <div class="w-100 bg-gradient-primary opacity-25" style="height: 1px; margin-top: -10px; margin-bottom: 20px;">
+        </div>
+
+        <div class="drawer-body px-4 d-flex flex-column gap-3 overflow-auto">
+            <!-- Main Navigation -->
+            <div class="text-xs text-muted fw-bold letter-spacing-2 mt-2 mb-1">PRODUCTO</div>
+            <a class="nav-link-mobile" (click)="scrollTo('features')">
+                <i class="bi bi-grid-fill me-3 opacity-50"></i> Características
+            </a>
+            <a class="nav-link-mobile" href="javascript:void(0)">
+                <i class="bi bi-briefcase-fill me-3 opacity-50"></i> Soluciones <span
+                    class="badge bg-primary-subtle text-primary ms-2 rounded-pill" style="font-size: 0.6em">Nuevo</span>
+            </a>
+            <a class="nav-link-mobile" *ngIf="config.pricing_visible" (click)="scrollTo('pricing')">
+                <i class="bi bi-tag-fill me-3 opacity-50"></i> Precios
+            </a>
+
+            <!-- Resources & Company -->
+            <div class="text-xs text-muted fw-bold letter-spacing-2 mt-4 mb-1">RECURSOS</div>
+            <a class="nav-link-mobile" href="javascript:void(0)">
+                <i class="bi bi-journal-text me-3 opacity-50"></i> Blog
+            </a>
+            <a class="nav-link-mobile" href="javascript:void(0)">
+                <i class="bi bi-life-preserver me-3 opacity-50"></i> Centro de Ayuda
+            </a>
+            <a class="nav-link-mobile" href="javascript:void(0)">
+                <i class="bi bi-building me-3 opacity-50"></i> Empresa
+            </a>
+
+            <div class="py-4"></div> <!-- Extra scrolling space -->
+        </div>
+
+        <!-- Sticky Footer (Auth & Legal) -->
+        <div class="drawer-footer p-4 border-top border-white-10 bg-darker-bg">
+            <!-- Auth Buttons -->
+            <div class="d-grid gap-2 mb-4">
+                <button class="btn btn-outline-light rounded-pill py-2" (click)="navigateToLogin()">Ingresar</button>
+                <button class="btn btn-primary rounded-pill shadow-lg py-2"
+                    [routerLink]="['/register']">Registrarse</button>
+            </div>
+
+            <!-- Legal Footer -->
+            <div class="d-flex justify-content-center gap-3 text-muted small opacity-50">
+                <a href="#" class="text-reset text-decoration-none">Privacidad</a>
+                <span>•</span>
+                <a href="#" class="text-reset text-decoration-none">Términos</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backdrop -->
+    <div class="menu-backdrop" *ngIf="isMenuOpen" (click)="closeMenu()"></div>
+
+    <!-- Hero Section -->
+    <header id="hero" class="hero-section d-flex align-items-center">
+        <div class="container hero-content">
+            <div class="row align-items-center">
+                <div class="col-lg-5 mb-5 mb-lg-0">
+                    <div
+                        class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-2 mb-3 animate-up">
+                        <i class="bi bi-lightning-charge-fill me-1"></i> Nueva Versión 2.0
+                    </div>
+                    <h1 class="display-title animate-up delay-100">{{ config.hero.title }}</h1>
+                    <p class="lead-text animate-up delay-200">{{ config.hero.subtitle }}</p>
+                    <div class="d-flex gap-3 animate-up delay-200">
+                        <a [routerLink]="config.hero.cta_link"
+                            class="btn btn-primary btn-lg rounded-pill px-5 shadow-lg">{{
+                            config.hero.cta_text }}</a>
+                        <button (click)="scrollTo('features')" class="btn btn-outline-light btn-lg rounded-pill px-4">
+                            <i class="bi bi-play-circle me-2"></i> Demo
+                        </button>
+                    </div>
+                    <div class="mt-4 text-muted small animate-up delay-300">
+                        <i class="bi bi-check-circle-fill text-success me-1"></i> Sin tarjeta de crédito
+                        <i class="bi bi-check-circle-fill text-success ms-3 me-1"></i> 14 días gratis
+                    </div>
+                </div>
+                <div class="col-lg-7 text-center animate-up delay-300 dashboard-mockup-container">
+                    <!-- CSS Only Dashboard Mockup (Premium Look) -->
+                    <div class="dashboard-mockup">
+                        <div class="mockup-header">
+                            <div class="dot red"></div>
+                            <div class="dot yellow"></div>
+                            <div class="dot green"></div>
+                        </div>
+                        <div class="mockup-body d-flex flex-column gap-3">
+                            <!-- Fake UI Elements -->
+                            <div class="d-flex justify-content-between mb-2">
+                                <div
+                                    style="height: 32px; width: 120px; background: rgba(255,255,255,0.1); border-radius: 8px;">
+                                </div>
+                                <div
+                                    style="height: 32px; width: 32px; background: rgba(99, 102, 241, 0.2); border-radius: 50%;">
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-4">
+                                    <div
+                                        style="height: 80px; background: rgba(99, 102, 241, 0.1); border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.2);">
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div
+                                        style="height: 80px; background: rgba(236, 72, 153, 0.1); border-radius: 12px; border: 1px solid rgba(236, 72, 153, 0.2);">
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div
+                                        style="height: 80px; background: rgba(34, 197, 94, 0.1); border-radius: 12px; border: 1px solid rgba(34, 197, 94, 0.2);">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-2 flex-grow-1"
+                                style="background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); height: 160px; position: relative; overflow: hidden;">
+                                <!-- Fake Chart Line -->
+                                <svg viewBox="0 0 500 150"
+                                    style="position: absolute; bottom: 0; left: 0; width: 100%; opacity: 0.5;">
+                                    <path d="M0,100 C150,50 350,0 500,50 L500,150 L0,150 Z"
+                                        fill="rgba(99, 102, 241, 0.2)">
+                                    </path>
+                                    <path d="M0,100 C150,50 350,0 500,50" fill="none" stroke="#6366f1" stroke-width="3">
+                                    </path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Clients Section -->
+    <section class="clients-section">
+        <div class="container">
+            <p class="text-center text-muted small text-uppercase letter-spacing-2 mb-5 opacity-75">Empresas innovadoras
+                que confían en nosotros</p>
+
+            <!-- Dynamic Clients -->
+            <div class="d-flex flex-wrap justify-content-center align-items-center gap-5"
+                *ngIf="config.clients.length > 0">
+                <ng-container *ngFor="let client of config.clients">
+                    <img [src]="client.logo_url" [alt]="client.name" class="client-logo">
+                </ng-container>
+            </div>
+
+            <!-- Fallback Clients (Styled Text) -->
+            <div *ngIf="!config.clients.length"
+                class="row justify-content-center align-items-center g-4 opacity-50 grayscale-hover">
+                <div class="col-6 col-md-auto text-center">
+                    <h4 class="fw-bold mb-0 text-white font-monospace">ACME<span class="text-primary">.Corp</span></h4>
+                </div>
+                <div class="col-6 col-md-auto text-center">
+                    <h4 class="fw-bold mb-0 text-white letter-spacing-2">STARK<span class="fw-light">IND</span></h4>
+                </div>
+                <div class="col-6 col-md-auto text-center">
+                    <h4 class="fw-bold mb-0 text-white" style="font-family: serif;">WayneEnt.</h4>
+                </div>
+                <div class="col-6 col-md-auto text-center">
+                    <h4 class="fw-bold mb-0 text-white fst-italic">Cyberdyne</h4>
+                </div>
+                <div class="col-6 col-md-auto text-center">
+                    <h4 class="fw-bold mb-0 text-white"><i class="bi bi-hexagon-fill text-primary me-2"></i>Umbrella
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features-section">
+        <div class="container">
+            <div class="text-center mb-5 mw-700 mx-auto">
+                <h2 class="display-6 font-weight-bold mb-3 text-white">Todo lo que necesitas para escalar</h2>
+                <p class="text-muted f-18">Gestiona tu negocio con herramientas diseñadas para el crecimiento moderno.
+                </p>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-md-4" *ngFor="let feature of config.features">
+                    <div class="feature-card">
+                        <div class="icon-box">
+                            <i class="bi bi-{{ feature.icon }}"></i>
+                        </div>
+                        <h5 class="mb-3">{{ feature.title }}</h5>
+                        <p class="mb-0">{{ feature.description }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing-section" *ngIf="config.pricing_visible">
+        <div class="container">
+            <div class="text-center mb-5 mw-700 mx-auto">
+                <h2 class="display-6 font-weight-bold mb-3">Precios Transparentes</h2>
+                <p class="text-muted f-18">Comienza gratis, crece a tu ritmo. Sin comisiones ocultas.</p>
+            </div>
+            <div class="row justify-content-center">
+                <!-- Dynamic Pricing Cards -->
+                <div class="col-lg-4 col-md-6 mb-4" *ngFor="let plan of config.plans">
+                    <div class="pricing-card h-100" [class.popular]="plan.code === 'PRO'"
+                        [class.transform-scale]="plan.code === 'PRO'">
+                        <div class="card-header border-0 py-2 text-center" *ngIf="plan.code === 'PRO'">Recomendado</div>
+                        <div class="card-body text-center">
+                            <h5 class="text-uppercase mb-4" [class.text-primary]="plan.code === 'PRO'"
+                                [class.text-muted]="plan.code !== 'PRO'">{{ plan.name }}</h5>
+                            <div class="price-amount mb-4">
+                                <span class="currency">{{ plan.currency === 'USD' ? '$' : plan.currency }}</span>
+                                <span class="value">{{ plan.price | number:'1.0-0' }}</span>
+                                <span class="period">/mes</span>
+                            </div>
+                            <ul class="list-unstyled mb-5 text-start">
+                                <li class="mb-3" *ngFor="let feature of getPlanFeatures(plan)">
+                                    <i class="bi bi-check-lg me-2"></i>{{ feature }}
+                                </li>
+                                <!-- Fallback if no features parsed -->
+                                <li class="mb-3" *ngIf="getPlanFeatures(plan).length === 0">
+                                    <i class="bi bi-check-lg me-2"></i>Características completas
+                                </li>
+                            </ul>
+                            <a [routerLink]="['/register']" [queryParams]="{plan: plan.code}"
+                                class="btn w-100 rounded-pill py-2" [class.btn-primary]="plan.code === 'PRO'"
+                                [class.shadow-lg]="plan.code === 'PRO'" [class.btn-outline-light]="plan.code !== 'PRO'">
+                                {{ plan.price === 0 ? 'Crear Cuenta Gratis' : 'Comenzar Prueba Gratis' }}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fallback if no plans found -->
+                <div class="col-12 text-center" *ngIf="!config.plans || config.plans.length === 0">
+                    <p class="text-muted">No hay planes disponibles en este momento.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row gy-4">
+                <div class="col-md-4">
+                    <h5 class="mb-3 d-flex align-items-center gap-2">
+                        <i class="bi bi-stack text-primary"></i> Lumefy
+                    </h5>
+                    <p class="small text-muted mb-4">Plataforma integral de gestión empresarial. Simplificamos tus
+                        operaciones para que te enfoques en crecer.</p>
+                    <div class="d-flex gap-3">
+                        <a href="#" class="btn btn-icon btn-sm btn-outline-secondary rounded-circle"><i
+                                class="bi bi-facebook"></i></a>
+                        <a href="#" class="btn btn-icon btn-sm btn-outline-secondary rounded-circle"><i
+                                class="bi bi-twitter-x"></i></a>
+                        <a href="#" class="btn btn-icon btn-sm btn-outline-secondary rounded-circle"><i
+                                class="bi bi-instagram"></i></a>
+                        <a href="#" class="btn btn-icon btn-sm btn-outline-secondary rounded-circle"><i
+                                class="bi bi-linkedin"></i></a>
+                    </div>
+                </div>
+                <div class="col-md-2 col-6">
+                    <h6 class="text-uppercase mb-3 small font-weight-bold">Producto</h6>
+                    <ul class="list-unstyled small">
+                        <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Características</a></li>
+                        <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Precios</a></li>
+                        <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Integraciones</a></li>
+                        <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Roadmap</a></li>
+                    </ul>
+                </div>
+                <!-- ... more cols ... -->
+                <div class="col-md-4">
+                    <h6 class="text-uppercase mb-3 small font-weight-bold">Contacto</h6>
+                    <ul class="list-unstyled small text-muted">
+                        <li class="mb-3 d-flex gap-2"><i class="bi bi-envelope-fill text-primary"></i> {{
+                            config.contact.email }}</li>
+                        <li class="mb-3 d-flex gap-2"><i class="bi bi-telephone-fill text-primary"></i> {{
+                            config.contact.phone }}</li>
+                        <li class="mb-3 d-flex gap-2"><i class="bi bi-geo-alt-fill text-primary"></i> {{
+                            config.contact.address }}</li>
+                    </ul>
+                </div>
+            </div>
+            <hr class="border-secondary my-5 opacity-25">
+            <div class="row align-items-center">
+                <div class="col-md-6 text-center text-md-start small text-muted">
+                    &copy; {{ 2026 }} Lumefy SaaS. Todos los derechos reservados.
+                </div>
+                <div class="col-md-6 text-center text-md-end small text-muted">
+                    <a href="#" class="text-muted text-decoration-none me-3">Privacidad</a>
+                    <a href="#" class="text-muted text-decoration-none">Términos</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+</div>
+
+<div *ngIf="isLoading" class="d-flex justify-content-center align-items-center vh-100 bg-darker-bg">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>

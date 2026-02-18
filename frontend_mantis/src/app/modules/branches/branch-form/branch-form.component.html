@@ -8,11 +8,12 @@
                 <form [formGroup]="branchForm" (ngSubmit)="onSubmit()">
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Nombre de Sucursal</label>
-                            <input type="text" class="form-control" formControlName="name">
-                            <div *ngIf="branchForm.get('name')?.touched && branchForm.get('name')?.errors?.['required']"
-                                class="text-danger small">
-                                Requerido
+                            <label class="form-label">Nombre de Sucursal <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" formControlName="name"
+                                [class.is-invalid]="branchForm.get('name')?.invalid && branchForm.get('name')?.touched">
+                            <div class="invalid-feedback"
+                                *ngIf="branchForm.get('name')?.touched && branchForm.get('name')?.errors?.['required']">
+                                El nombre de la sucursal es requerido
                             </div>
                         </div>
                         <div class="col-md-6">

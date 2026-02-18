@@ -18,6 +18,7 @@ async def read_users(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
+    search: str = None,
     current_user: User = Depends(auth.get_current_user),
 ) -> Any:
     """
@@ -26,7 +27,16 @@ async def read_users(
     if not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
-    result = await db.execute(select(User).offset(skip).limit(limit))
+    query = select(User)
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(
+            (User.email.ilike(search_term)) | 
+            (User.full_name.ilike(search_term))
+        )
+    
+    result = await db.execute(query.offset(skip).limit(limit))
     users = result.scalars().all()
     return [schemas.User.model_validate(u) for u in users]
 

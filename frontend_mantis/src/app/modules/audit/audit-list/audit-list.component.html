@@ -1,46 +1,101 @@
 <div class="row">
     <div class="col-sm-12">
         <div class="card">
-            <div class="card-header">
-                <h5>Audit Logs</h5>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Registro de Auditoría</h5>
+                <span class="badge bg-light text-dark" *ngIf="logs.length">{{ logs.length }} registros</span>
             </div>
+
+            <!-- Filter Bar -->
+            <div class="card-body border-bottom py-2">
+                <div class="row align-items-end g-2">
+                    <div class="col-auto">
+                        <label class="form-label small mb-1">Acción</label>
+                        <select class="form-select form-select-sm" [(ngModel)]="filterAction" style="width: 150px;">
+                            <option value="">Todas</option>
+                            <option *ngFor="let a of actionTypes" [value]="a">{{ a }}</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small mb-1">Módulo</label>
+                        <select class="form-select form-select-sm" [(ngModel)]="filterEntityType" style="width: 160px;">
+                            <option value="">Todos</option>
+                            <option *ngFor="let e of entityTypes" [value]="e">{{ e }}</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small mb-1">Usuario</label>
+                        <select class="form-select form-select-sm" [(ngModel)]="filterUserId" style="width: 180px;">
+                            <option value="">Todos</option>
+                            <option *ngFor="let u of users" [value]="u.id">{{ u.full_name }}</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small mb-1">Desde</label>
+                        <input type="date" class="form-control form-control-sm" [(ngModel)]="dateFrom"
+                            style="width: 150px;">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small mb-1">Hasta</label>
+                        <input type="date" class="form-control form-control-sm" [(ngModel)]="dateTo"
+                            style="width: 150px;">
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary btn-sm me-1" (click)="applyFilters()">
+                            <i class="feather icon-filter"></i> Filtrar
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" (click)="clearFilters()"
+                            *ngIf="hasActiveFilters">
+                            <i class="feather icon-x"></i> Limpiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="card-body">
-                <div class="table-responsive">
+                <div *ngIf="isLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Cargando registros...</p>
+                </div>
+
+                <div class="table-responsive" *ngIf="!isLoading">
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>User</th>
-                                <th>Action</th>
-                                <th>Entity Type</th>
+                                <th>Fecha</th>
+                                <th>Usuario</th>
+                                <th>Acción</th>
+                                <th>Módulo</th>
                                 <th>Entity ID</th>
-                                <th>Details</th>
+                                <th>Detalles</th>
                             </tr>
                         </thead>
                         <tbody>
                             @for (log of logs; track log.id) {
                             <tr>
-                                <td>{{ log.created_at | date:'short' }}</td>
+                                <td>{{ log.created_at | date:'dd/MM/yyyy HH:mm' }}</td>
                                 <td>
                                     <div *ngIf="log.user">
                                         <div class="fw-bold">{{ log.user.full_name }}</div>
                                         <small class="text-muted">{{ log.user.email }}</small>
                                     </div>
-                                    <span *ngIf="!log.user">{{ log.user_id }}</span>
+                                    <span *ngIf="!log.user" class="text-muted">{{ log.user_id }}</span>
                                 </td>
-                                <!-- Joined with user name -->
                                 <td><span class="badge" [ngClass]="getBadgeClass(log.action)">{{ log.action }}</span>
                                 </td>
                                 <td>{{ log.entity_type }}</td>
-                                <td>{{ log.entity_id }}</td>
+                                <td><code>{{ log.entity_id | slice:0:8 }}</code></td>
                                 <td>
                                     <pre
-                                        style="max-height: 100px; overflow: auto; font-size: 0.8rem;">{{ log.details | json }}</pre>
+                                        style="max-height: 80px; overflow: auto; font-size: 0.75rem; margin: 0;">{{ log.details | json }}</pre>
                                 </td>
                             </tr>
                             } @empty {
                             <tr>
-                                <td colspan="6" class="text-center">No logs found</td>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    <i class="feather icon-inbox" style="font-size: 2rem;"></i>
+                                    <p class="mt-2">No se encontraron registros de auditoría</p>
+                                </td>
                             </tr>
                             }
                         </tbody>

@@ -6,6 +6,7 @@ import { ClientListComponent } from './client-list/client-list';
 import { ClientFormComponent } from './client-form/client-form';
 import { ClientService } from './client.service';
 import { SharedModule } from '../../theme/shared/shared.module';
+import { SkeletonComponent } from '../../theme/shared/components/skeleton/skeleton.component';
 
 @NgModule({
   declarations: [
@@ -17,7 +18,8 @@ import { SharedModule } from '../../theme/shared/shared.module';
     ClientsRoutingModule,
     SharedModule,
     ReactiveFormsModule,
-    FormsModule
+    FormsModule,
+    SkeletonComponent
   ],
   providers: [
     ClientService

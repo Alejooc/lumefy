@@ -1,16 +1,11 @@
 <ul class="list-unstyled">
   <li class="pc-h-item pc-sidebar-collapse">
-    <a
-      title="click to menu collapse"
-      class="pc-head-link ms-0"
-      [ngClass]="{ on: navCollapsed() }"
-      id="sidebar-hide mobile-collapse"
-      (click)="navCollapse()"
-    >
+    <a title="click to menu collapse" class="pc-head-link ms-0" [ngClass]="{ on: navCollapsed() }"
+      id="sidebar-hide mobile-collapse" (click)="navCollapse()">
       @if (navCollapsed() === true) {
-        <i antIcon type="menu-unfold" theme="outline"></i>
+      <i antIcon type="menu-unfold" theme="outline"></i>
       } @else {
-        <i antIcon type="menu-fold" theme="outline"></i>
+      <i antIcon type="menu-fold" theme="outline"></i>
       }
     </a>
   </li>
@@ -32,10 +27,103 @@
       </form>
     </div>
   </li>
-  <li class="pc-h-item d-none d-md-inline-flex">
-    <form class="header-search">
+  <li class="pc-h-item d-none d-md-inline-flex position-relative">
+    <div class="header-search">
       <i class="search f-12" antIcon type="search" theme="outline"></i>
-      <input type="search" class="form-control" placeholder="Ctrl + K" />
-    </form>
+      <input type="text" class="form-control" placeholder="Ctrl + K" [(ngModel)]="searchTerm"
+        (ngModelChange)="onSearch($event)" (blur)="closeSearch()" (focus)="onSearch(searchTerm)">
+    </div>
+
+    <!-- Search Results Dropdown -->
+    @if (showResults && (isSearching || searchResults)) {
+    <div class="search-dropdown card shadow-lg position-absolute start-0 top-100 mt-2"
+      style="width: 400px; z-index: 1050; max-height: 500px; overflow-y: auto;">
+      <div class="card-body p-0">
+
+        @if (isSearching) {
+        <div class="p-3 text-center text-muted">
+          <i class="feather icon-loader fa-spin me-2"></i> Buscando...
+        </div>
+        }
+
+        @if (!isSearching && searchResults) {
+        <!-- Products -->
+        @if (searchResults.products.length > 0) {
+        <div class="p-2 bg-light fw-bold text-uppercase text-xs text-muted">Productos</div>
+        @for (item of searchResults.products; track item.id) {
+        <a href="javascript:" (click)="navigateTo(item.url)"
+          class="d-flex align-items-center p-2 border-bottom text-dark text-decoration-none hover-bg-light">
+          <div class="avtar avtar-s bg-light-primary me-3">
+            <i class="feather icon-shopping-cart text-primary"></i>
+          </div>
+          <div>
+            <h6 class="mb-0">{{ item.title }}</h6>
+            <small class="text-muted">{{ item.subtitle }}</small>
+          </div>
+        </a>
+        }
+        }
+
+        <!-- Clients -->
+        @if (searchResults.clients.length > 0) {
+        <div class="p-2 bg-light fw-bold text-uppercase text-xs text-muted">Clientes</div>
+        @for (item of searchResults.clients; track item.id) {
+        <a href="javascript:" (click)="navigateTo(item.url)"
+          class="d-flex align-items-center p-2 border-bottom text-dark text-decoration-none hover-bg-light">
+          <div class="avtar avtar-s bg-light-success me-3">
+            <i class="feather icon-user text-success"></i>
+          </div>
+          <div>
+            <h6 class="mb-0">{{ item.title }}</h6>
+            <small class="text-muted">{{ item.subtitle }}</small>
+          </div>
+        </a>
+        }
+        }
+
+        <!-- Sales -->
+        @if (searchResults.sales.length > 0) {
+        <div class="p-2 bg-light fw-bold text-uppercase text-xs text-muted">Ventas</div>
+        @for (item of searchResults.sales; track item.id) {
+        <a href="javascript:" (click)="navigateTo(item.url)"
+          class="d-flex align-items-center p-2 border-bottom text-dark text-decoration-none hover-bg-light">
+          <div class="avtar avtar-s bg-light-warning me-3">
+            <i class="feather icon-file-text text-warning"></i>
+          </div>
+          <div>
+            <h6 class="mb-0">{{ item.title }}</h6>
+            <small class="text-muted">{{ item.subtitle }}</small>
+          </div>
+        </a>
+        }
+        }
+
+        <!-- Users -->
+        @if (searchResults.users.length > 0) {
+        <div class="p-2 bg-light fw-bold text-uppercase text-xs text-muted">Usuarios</div>
+        @for (item of searchResults.users; track item.id) {
+        <a href="javascript:" (click)="navigateTo(item.url)"
+          class="d-flex align-items-center p-2 border-bottom text-dark text-decoration-none hover-bg-light">
+          <div class="avtar avtar-s bg-light-info me-3">
+            <i class="feather icon-users text-info"></i>
+          </div>
+          <div>
+            <h6 class="mb-0">{{ item.title }}</h6>
+            <small class="text-muted">{{ item.subtitle }}</small>
+          </div>
+        </a>
+        }
+        }
+
+        @if (!searchResults.products.length && !searchResults.clients.length && !searchResults.sales.length &&
+        !searchResults.users.length) {
+        <div class="p-3 text-center text-muted">
+          No se encontraron resultados
+        </div>
+        }
+        }
+      </div>
+    </div>
+    }
   </li>
 </ul>

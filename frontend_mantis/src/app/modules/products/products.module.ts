@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ProductsRoutingModule } from './products-routing.module';
 import { ProductListComponent } from './product-list/product-list.component';
 import { SharedModule } from '../../theme/shared/shared.module';
+import { SkeletonComponent } from '../../theme/shared/components/skeleton/skeleton.component';
 
 import { ProductImportComponent } from './product-import/product-import.component';
 
@@ -17,7 +18,8 @@ import { ProductImportComponent } from './product-import/product-import.componen
         FormsModule,
         ProductsRoutingModule,
         SharedModule,
-        ProductImportComponent
+        ProductImportComponent,
+        SkeletonComponent
     ]
 })
 export class ProductsModule { }

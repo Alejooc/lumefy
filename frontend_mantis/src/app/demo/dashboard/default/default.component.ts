@@ -4,6 +4,8 @@ import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { Observable, Subject, forkJoin, fromEvent, merge, of } from 'rxjs';
 import { catchError, filter, map, takeUntil } from 'rxjs/operators';
+import { FormsModule } from '@angular/forms';
+import { TourService, TourStep } from 'src/app/core/services/tour.service';
 
 // project import
 import { ApiService } from 'src/app/core/services/api.service';
@@ -54,7 +56,8 @@ type OnboardingStepDefinition = {
     MonthlyBarChartComponent,
     IncomeOverviewChartComponent,
     AnalyticsChartComponent,
-    SalesReportChartComponent
+    SalesReportChartComponent,
+    FormsModule
   ],
   templateUrl: './default.component.html',
   styleUrls: ['./default.component.scss']
@@ -67,6 +70,7 @@ export class DefaultComponent implements OnInit, OnDestroy {
   private permissionService = inject(PermissionService);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
+  private tourService = inject(TourService);
   private destroy$ = new Subject<void>();
 
   AnalyticEcommerce: DashboardCard[] = [];
@@ -84,8 +88,18 @@ export class DefaultComponent implements OnInit, OnDestroy {
   showOnboardingAssistant = false;
   private onboardingAutoChecks: Record<string, () => Observable<boolean>> = {};
 
+  // Filter properties
+  dateFrom = '';
+  dateTo = '';
+  selectedBranchId = '';
+  branches: any[] = [];
+
   constructor() {
     this.iconService.addIcon(...[RiseOutline, FallOutline, SettingOutline, GiftOutline, MessageOutline]);
+  }
+
+  get isSuperUser(): boolean {
+    return !!this.authService.currentUserValue?.is_superuser;
   }
 
   ngOnInit() {
@@ -99,8 +113,30 @@ export class DefaultComponent implements OnInit, OnDestroy {
     this.applyOnboardingAutoCompletion();
     this.setupOnboardingRefreshTriggers();
 
+    this.loadBranches();
+    this.loadDashboard();
+  }
+
+  loadBranches() {
+    this.apiService.get<any[]>('/branches').subscribe({
+      next: (data) => {
+        this.branches = data;
+        this.cdr.detectChanges();
+      },
+      error: () => { }
+    });
+  }
+
+  loadDashboard() {
     this.isLoading = true;
-    this.dashboardService.getStats().subscribe({
+    this.errorMessage = '';
+
+    const filters: any = {};
+    if (this.dateFrom) filters.date_from = this.dateFrom;
+    if (this.dateTo) filters.date_to = this.dateTo;
+    if (this.selectedBranchId) filters.branch_id = this.selectedBranchId;
+
+    this.dashboardService.getStats(filters).subscribe({
       next: (stats) => {
         this.AnalyticEcommerce = stats.cards;
         this.recentOrder = stats.recent_orders;
@@ -110,6 +146,7 @@ export class DefaultComponent implements OnInit, OnDestroy {
         this.salesReportData = stats.sales_report;
         this.isLoading = false;
         this.cdr.detectChanges();
+        this.checkAutoStartTour();
       },
       error: (error) => {
         console.error('Error fetching dashboard stats', error);
@@ -118,6 +155,59 @@ export class DefaultComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  applyFilters() {
+    this.loadDashboard();
+  }
+
+  clearFilters() {
+    this.dateFrom = '';
+    this.dateTo = '';
+    this.selectedBranchId = '';
+    this.loadDashboard();
+  }
+
+  startDashboardTour(): void {
+    const steps: TourStep[] = [
+      {
+        target: '#dashboard-filters',
+        title: '📅 Filtros del Dashboard',
+        content: 'Filtra tus datos por rango de fecha y sucursal para analizar periodos específicos.',
+        position: 'bottom'
+      },
+      {
+        target: '#dashboard-kpis',
+        title: '📊 Métricas Clave',
+        content: 'Aquí verás los indicadores principales: ingresos totales, pedidos, usuarios activos y productos.',
+        position: 'bottom'
+      },
+      {
+        target: '#dashboard-recent-orders',
+        title: '🛒 Pedidos Recientes',
+        content: 'Los últimos pedidos aparecen aquí con su estado y monto para seguimiento rápido.',
+        position: 'top'
+      },
+      {
+        target: '#dashboard-charts',
+        title: '📈 Gráficas de Rendimiento',
+        content: 'Visualiza ingresos semanales, ventas mensuales y reportes de ventas en gráficas interactivas.',
+        position: 'top'
+      },
+      {
+        target: '.pc-sidebar',
+        title: '📁 Navegación',
+        content: 'Usa el menú lateral para acceder a Productos, Ventas, Inventario, Reportes y más. ¡Explora!',
+        position: 'right'
+      }
+    ];
+    this.tourService.startTour(steps);
+  }
+
+  private checkAutoStartTour(): void {
+    if (!this.tourService.hasCompletedTour && !this.isLoading) {
+      setTimeout(() => this.startDashboardTour(), 1500);
+    }
   }
 
   ngOnDestroy(): void {

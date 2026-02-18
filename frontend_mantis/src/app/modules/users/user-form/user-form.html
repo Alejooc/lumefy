@@ -5,29 +5,50 @@
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label required">Nombre Completo</label>
-                        <input type="text" class="form-control" formControlName="full_name"
-                            placeholder="Ej: Juan Pérez">
+                        <input type="text" class="form-control" formControlName="full_name" placeholder="Ej: Juan Pérez"
+                            [class.is-invalid]="userForm.get('full_name')?.invalid && userForm.get('full_name')?.touched">
+                        <div class="invalid-feedback" *ngIf="userForm.get('full_name')?.errors?.['required']">
+                            El nombre es requerido
+                        </div>
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label class="form-label required">Email</label>
-                        <input type="email" class="form-control" formControlName="email" placeholder="juan@ejemplo.com">
+                        <input type="email" class="form-control" formControlName="email" placeholder="juan@ejemplo.com"
+                            [class.is-invalid]="userForm.get('email')?.invalid && userForm.get('email')?.touched">
+                        <div class="invalid-feedback" *ngIf="userForm.get('email')?.errors?.['required']">
+                            El email es requerido
+                        </div>
+                        <div class="invalid-feedback" *ngIf="userForm.get('email')?.errors?.['email']">
+                            Ingrese un email válido
+                        </div>
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label class="form-label" [class.required]="!isEditMode">Contraseña</label>
                         <input type="password" class="form-control" formControlName="password"
-                            [placeholder]="isEditMode ? 'Dejar en blanco para mantener actual' : 'Mínimo 6 caracteres'">
+                            [placeholder]="isEditMode ? 'Dejar en blanco para mantener actual' : 'Mínimo 6 caracteres'"
+                            [class.is-invalid]="userForm.get('password')?.invalid && userForm.get('password')?.touched">
+                        <div class="invalid-feedback" *ngIf="userForm.get('password')?.errors?.['required']">
+                            La contraseña es requerida
+                        </div>
+                        <div class="invalid-feedback" *ngIf="userForm.get('password')?.errors?.['minlength']">
+                            Mínimo 6 caracteres
+                        </div>
                     </div>
 
                     <div class="col-md-6 mb-3">
                         <label class="form-label required">Rol</label>
-                        <select class="form-select" formControlName="role_id">
+                        <select class="form-select" formControlName="role_id"
+                            [class.is-invalid]="userForm.get('role_id')?.invalid && userForm.get('role_id')?.touched">
                             <option [ngValue]="null" disabled>Seleccionar Rol</option>
                             <option *ngFor="let role of roles" [value]="role.id">
                                 {{ role.name }}{{ role.description ? ' - ' + role.description : '' }}
                             </option>
                         </select>
+                        <div class="invalid-feedback" *ngIf="userForm.get('role_id')?.errors?.['required']">
+                            Debe seleccionar un rol
+                        </div>
                         <small class="text-muted d-block mt-1" *ngIf="selectedRoleDescription">
                             {{ selectedRoleDescription }}
                         </small>

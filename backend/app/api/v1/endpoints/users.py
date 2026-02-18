@@ -11,6 +11,7 @@ from app.core.security import get_password_hash
 from app.core.security import get_password_hash
 from app.models.user import User
 from app.core.permissions import PermissionChecker 
+from app.core.plan_limits import PlanLimitChecker
 from app.core.audit import log_activity
 from app.schemas import user as schemas
 
@@ -23,7 +24,6 @@ async def read_user_me(
     """
     Get current user.
     """
-    print(f"DEBUG: /me called. User: {current_user.email}, Role: {current_user.role}")
     return current_user
 
 @router.get("/", response_model=List[schemas.User])
@@ -70,12 +70,12 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
     user_in: schemas.UserCreate,
     current_user: User = Depends(PermissionChecker("manage_users")),
+    _plan: User = Depends(PlanLimitChecker(resource="users", count_model=User)),
 ) -> Any:
     """
     Create new user.
     """
     # Check if user with email already exists
-    print(f"DEBUG: Creating user with email {user_in.email} and role {user_in.role_id}")
     result = await db.execute(select(User).where(User.email == user_in.email))
     existing_user = result.scalars().first()
     if existing_user:
@@ -286,9 +286,9 @@ async def send_recovery_email(
         await EmailService.send_reset_password_email(user.email, reset_token)
     except Exception as e:
         # Log error but don't crash if SMTP is not configured
-        print(f"ERROR: Failed to send email: {e}")
-        # In DEV without SMTP, print the link
-        print(f"DEBUG LINK: http://localhost:4200/reset-password?token={reset_token}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to send recovery email: {e}")
         if settings.ENVIRONMENT == "production":
              raise HTTPException(status_code=500, detail="Failed to send email")
     

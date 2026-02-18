@@ -38,6 +38,45 @@ async def read_clients(
     result = await db.execute(query)
     return result.scalars().all()
 
+@router.get("/export")
+async def export_clients(
+    db: AsyncSession = Depends(get_db),
+    format: str = "excel",
+    current_user: User = Depends(PermissionChecker("manage_clients")),
+) -> Any:
+    """Export clients to Excel or CSV."""
+    from app.services.export_service import ExportService
+
+    query = select(Client).where(Client.company_id == current_user.company_id)
+    result = await db.execute(query)
+    clients = result.scalars().all()
+
+    columns = {
+        "name": "Nombre",
+        "tax_id": "RUC/NIT",
+        "email": "Email",
+        "phone": "Teléfono",
+        "address": "Dirección",
+        "city": "Ciudad",
+        "created_at": "Fecha Registro",
+    }
+
+    rows = []
+    for c in clients:
+        rows.append({
+            "name": c.name or "",
+            "tax_id": c.tax_id or "",
+            "email": c.email or "",
+            "phone": c.phone or "",
+            "address": c.address or "",
+            "city": getattr(c, "city", "") or "",
+            "created_at": c.created_at.strftime("%Y-%m-%d") if c.created_at else "",
+        })
+
+    if format == "csv":
+        return ExportService.to_csv_response(rows, columns, filename="clientes")
+    return ExportService.to_excel_response(rows, columns, filename="clientes")
+
 @router.post("/", response_model=schemas.Client)
 async def create_client(
     *,

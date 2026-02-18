@@ -45,6 +45,64 @@ async def read_sales(
     result = await db.execute(query)
     return result.scalars().all()
 
+@router.get("/export")
+async def export_sales(
+    db: AsyncSession = Depends(get_db),
+    format: str = "excel",
+    status: str = None,
+    date_from: str = None,
+    date_to: str = None,
+    current_user: User = Depends(PermissionChecker("view_sales")),
+) -> Any:
+    """Export sales to Excel or CSV."""
+    from app.services.export_service import ExportService
+
+    query = select(Sale).options(
+        selectinload(Sale.client),
+        selectinload(Sale.user),
+        selectinload(Sale.branch),
+    ).where(Sale.company_id == current_user.company_id).order_by(Sale.created_at.desc())
+
+    if status:
+        query = query.where(Sale.status == status)
+    if date_from:
+        query = query.where(Sale.created_at >= datetime.fromisoformat(date_from))
+    if date_to:
+        query = query.where(Sale.created_at <= datetime.fromisoformat(date_to))
+
+    result = await db.execute(query)
+    sales = result.scalars().all()
+
+    columns = {
+        "order_number": "# Orden",
+        "created_at": "Fecha",
+        "client_name": "Cliente",
+        "branch_name": "Sucursal",
+        "status": "Estado",
+        "subtotal": "Subtotal",
+        "tax_amount": "Impuesto",
+        "total": "Total",
+        "user_name": "Vendedor",
+    }
+
+    rows = []
+    for s in sales:
+        rows.append({
+            "order_number": s.order_number or "",
+            "created_at": s.created_at.strftime("%Y-%m-%d %H:%M") if s.created_at else "",
+            "client_name": s.client.name if s.client else "Consumidor Final",
+            "branch_name": s.branch.name if s.branch else "",
+            "status": s.status or "",
+            "subtotal": float(s.subtotal) if s.subtotal else 0,
+            "tax_amount": float(s.tax_amount) if s.tax_amount else 0,
+            "total": float(s.total) if s.total else 0,
+            "user_name": s.user.full_name if s.user else "",
+        })
+
+    if format == "csv":
+        return ExportService.to_csv_response(rows, columns, filename="ventas")
+    return ExportService.to_excel_response(rows, columns, filename="ventas")
+
 @router.get("/{id}", response_model=schemas.Sale)
 async def read_sale(
     *,

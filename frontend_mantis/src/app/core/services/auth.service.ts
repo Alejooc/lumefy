@@ -39,6 +39,14 @@ export interface Branch {
     phone?: string;
 }
 
+export interface UserRegister {
+    first_name: string;
+    last_name: string;
+    email: string;
+    password: string;
+    company_name: string;
+}
+
 @Injectable({
     providedIn: 'root'
 })
@@ -104,6 +112,18 @@ export class AuthService {
             tap(company => {
                 localStorage.setItem('currentCompany', JSON.stringify(company));
                 this.currentCompanySubject.next(company);
+            })
+        );
+    }
+
+    register(user: UserRegister): Observable<any> {
+        return this.api.post<any>('/login/register', user).pipe(
+            switchMap(response => {
+                if (response && response.access_token) {
+                    localStorage.setItem('access_token', response.access_token);
+                    return this.fetchMe();
+                }
+                return of(null);
             })
         );
     }

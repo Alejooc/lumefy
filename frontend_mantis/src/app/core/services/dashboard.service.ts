@@ -64,8 +64,16 @@ export class DashboardService {
 
     constructor(private http: HttpClient) { }
 
-    getStats(): Observable<DashboardStats> {
-        return this.http.get<DashboardStats>(this.apiUrl);
+    getStats(filters?: { date_from?: string; date_to?: string; branch_id?: string }): Observable<DashboardStats> {
+        let params: any = {};
+        if (filters) {
+            if (filters.date_from) params.date_from = filters.date_from;
+            if (filters.date_to) params.date_to = filters.date_to;
+            if (filters.branch_id) params.branch_id = filters.branch_id;
+        }
+        const queryString = new URLSearchParams(params).toString();
+        const url = queryString ? `${this.apiUrl}?${queryString}` : this.apiUrl;
+        return this.http.get<DashboardStats>(url);
     }
 
     getHealth(): Observable<DashboardHealth> {
