@@ -40,7 +40,19 @@ export class InventoryMovementComponent implements OnInit {
             type: ['IN', Validators.required],
             quantity: [1, [Validators.required, Validators.min(0.001)]],
             reason: [''],
-            reference_id: ['']
+            reference_id: [''],
+            destination_branch_id: [null] // Added for TRF
+        });
+
+        // Dynamic validation for TRF
+        this.movementForm.get('type')?.valueChanges.subscribe(val => {
+            const destControl = this.movementForm.get('destination_branch_id');
+            if (val === 'TRF') {
+                destControl?.setValidators([Validators.required]);
+            } else {
+                destControl?.clearValidators();
+            }
+            destControl?.updateValueAndValidity();
         });
     }
 
@@ -88,10 +100,45 @@ export class InventoryMovementComponent implements OnInit {
                 if (data.length === 1) {
                     this.movementForm.patchValue({ branch_id: data[0].id });
                 }
+
+                // Trigger filter update initially if value exists
+                const current = this.movementForm.get('branch_id')?.value;
+                if (current) this.updateFilteredBranches(current);
+
                 this.cdr.detectChanges();
             },
             error: (err) => console.error('Error loading branches', err)
         });
+
+        // Listen for branch_id changes to filter destination branches
+        this.movementForm.get('branch_id')?.valueChanges.subscribe(val => {
+            this.updateFilteredBranches(val);
+        });
+    }
+
+    // ... (rest of methods)
+
+    // ... (rest of methods)
+
+    // ... (rest of methods)
+
+    // ...
+
+    // ...
+
+    filteredBranches: any[] = [];
+
+    updateFilteredBranches(sourceId: string) {
+        if (!sourceId) {
+            this.filteredBranches = [];
+        } else {
+            this.filteredBranches = this.branches.filter(b => b.id !== sourceId);
+        }
+        // If current destination is the same as new source, clear it
+        const currentDest = this.movementForm.get('destination_branch_id')?.value;
+        if (currentDest === sourceId) {
+            this.movementForm.patchValue({ destination_branch_id: null });
+        }
     }
 
     onSubmit() {
@@ -102,10 +149,17 @@ export class InventoryMovementComponent implements OnInit {
                     this.isSubmitting = false;
                     const typeLabels: any = { IN: 'Entrada', OUT: 'Salida', ADJ: 'Ajuste', TRF: 'Transferencia' };
                     const typeName = typeLabels[this.movementForm.value.type] || this.movementForm.value.type;
+
+                    let msg = `${typeName} de ${this.movementForm.value.quantity} unidades registrada.`;
+                    if (this.movementForm.value.type !== 'TRF') {
+                        msg += `\nStock anterior: ${result.previous_stock} → Nuevo stock: ${result.new_stock}`;
+                    } else {
+                        msg += `\nTransferencia enviada exitosamente.`;
+                    }
+
                     this.swal.success(
                         'Movimiento Registrado',
-                        `${typeName} de ${this.movementForm.value.quantity} unidades registrada.\n` +
-                        `Stock anterior: ${result.previous_stock} → Nuevo stock: ${result.new_stock}`
+                        msg
                     );
                     this.router.navigate(['/inventory']);
                 },

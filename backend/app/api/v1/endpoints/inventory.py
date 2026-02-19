@@ -139,63 +139,136 @@ async def create_movement(
     # IN, ADJ (Postive) -> +
     # OUT -> -
     
-    final_change = 0.0
-    
-    if movement_in.type == MovementType.IN:
-        final_change = abs(change_qty)
-    elif movement_in.type == MovementType.OUT:
-        final_change = -abs(change_qty)
-    elif movement_in.type == MovementType.ADJ:
-        final_change = change_qty # ADJ can be positive or negative
-    elif movement_in.type == MovementType.TRF:
-        final_change = -abs(change_qty) # Sender, need logic for Receiver? 
-        # Transfer is complex, usually implies TWO movements. 
-        # For now treat simple TRF as OUT from this branch.
+    if movement_in.type == MovementType.TRF:
+        # Transfer Logic
+        if not movement_in.destination_branch_id:
+             raise HTTPException(status_code=400, detail="Destination branch required for transfer")
+        if movement_in.destination_branch_id == movement_in.branch_id:
+             raise HTTPException(status_code=400, detail="Source and Destination branch cannot be the same")
+             
+        # 1. OUT from Source
+        # (inventory_item already fetched above)
+        previous_stock_src = inventory_item.quantity
+        final_change_src = -abs(change_qty)
+        new_stock_src = previous_stock_src + final_change_src
+        inventory_item.quantity = new_stock_src
         
-    new_stock = previous_stock + final_change
-    
-    # 3. Update Inventory
-    inventory_item.quantity = new_stock
-    
-    # 4. Create Movement Record
-    movement = InventoryMovement(
-        product_id=movement_in.product_id,
-        branch_id=movement_in.branch_id,
-        user_id=current_user.id,
-        type=movement_in.type,
-        quantity=final_change, # Store the actual signed change
-        previous_stock=previous_stock,
-        new_stock=new_stock,
-        reason=movement_in.reason,
-        reference_id=movement_in.reference_id
-    )
-    
-    db.add(movement)
-    
-    try:
-        await db.commit()
-        await db.refresh(movement)
-        # Eager load relationships for the response
-        query = select(InventoryMovement).options(
-            selectinload(InventoryMovement.product).options(
-                selectinload(Product.images),
-                selectinload(Product.variants),
-                selectinload(Product.brand),
-                selectinload(Product.unit_of_measure),
-                selectinload(Product.purchase_uom),
-                selectinload(Product.category)
-            ),
-            selectinload(InventoryMovement.branch),
-            selectinload(InventoryMovement.user)
-        ).where(InventoryMovement.id == movement.id)
+        movement_src = InventoryMovement(
+            product_id=movement_in.product_id,
+            branch_id=movement_in.branch_id,
+            user_id=current_user.id,
+            type=MovementType.TRF,
+            quantity=final_change_src, 
+            previous_stock=previous_stock_src,
+            new_stock=new_stock_src,
+            reason=f"Transfer OUT to Branch {movement_in.destination_branch_id}",
+            reference_id=movement_in.reference_id
+        )
+        db.add(movement_src)
         
-        result = await db.execute(query)
-        movement = result.scalars().first()
+        # 2. IN to Destination
+        # Fetch Dest Inventory
+        result_dest = await db.execute(
+            select(Inventory).where(
+                Inventory.product_id == movement_in.product_id,
+                Inventory.branch_id == movement_in.destination_branch_id
+            )
+        )
+        inv_dest = result_dest.scalars().first()
         
-        return movement
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        previous_stock_dest = 0.0
+        if inv_dest:
+            previous_stock_dest = inv_dest.quantity
+        else:
+            inv_dest = Inventory(
+                product_id=movement_in.product_id,
+                branch_id=movement_in.destination_branch_id,
+                quantity=0.0
+            )
+            db.add(inv_dest)
+            
+        final_change_dest = abs(change_qty)
+        new_stock_dest = previous_stock_dest + final_change_dest
+        inv_dest.quantity = new_stock_dest
+        
+        movement_dest = InventoryMovement(
+            product_id=movement_in.product_id,
+            branch_id=movement_in.destination_branch_id,
+            user_id=current_user.id,
+            type=MovementType.TRF,
+            quantity=final_change_dest,
+            previous_stock=previous_stock_dest,
+            new_stock=new_stock_dest,
+            reason=f"Transfer IN from Branch {movement_in.branch_id}",
+            reference_id=movement_in.reference_id
+        )
+        db.add(movement_dest)
+        
+        try:
+            await db.commit()
+            await db.refresh(movement_src)
+            # Return source movement as main response
+            movement = movement_src 
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    else:
+        # Standard Logic (IN, OUT, ADJ)
+        final_change = 0.0
+        
+        if movement_in.type == MovementType.IN:
+            final_change = abs(change_qty)
+        elif movement_in.type == MovementType.OUT:
+            final_change = -abs(change_qty)
+        elif movement_in.type == MovementType.ADJ:
+            final_change = change_qty 
+            
+        new_stock = previous_stock + final_change
+        
+        # 3. Update Inventory
+        inventory_item.quantity = new_stock
+        
+        # 4. Create Movement Record
+        movement = InventoryMovement(
+            product_id=movement_in.product_id,
+            branch_id=movement_in.branch_id,
+            user_id=current_user.id,
+            type=movement_in.type,
+            quantity=final_change, # Store the actual signed change
+            previous_stock=previous_stock,
+            new_stock=new_stock,
+            reason=movement_in.reason,
+            reference_id=movement_in.reference_id
+        )
+        
+        db.add(movement)
+        
+        try:
+            await db.commit()
+            await db.refresh(movement)
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    # Eager load relationships for the response (Common)
+    query = select(InventoryMovement).options(
+        selectinload(InventoryMovement.product).options(
+            selectinload(Product.images),
+            selectinload(Product.variants),
+            selectinload(Product.brand),
+            selectinload(Product.unit_of_measure),
+            selectinload(Product.purchase_uom),
+            selectinload(Product.category)
+        ),
+        selectinload(InventoryMovement.branch),
+        selectinload(InventoryMovement.user)
+    ).where(InventoryMovement.id == movement.id)
+    
+    result = await db.execute(query)
+    movement = result.scalars().first()
+    
+    return movement
 
 @router.get("/movements", response_model=List[schemas.Movement])
 async def read_movements(

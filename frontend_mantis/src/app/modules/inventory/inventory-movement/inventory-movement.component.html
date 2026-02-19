@@ -41,6 +41,15 @@
                             <option value="IN">Entrada (Compra/Devolución)</option>
                             <option value="OUT">Salida (Venta/Merma)</option>
                             <option value="ADJ">Ajuste (Corrección)</option>
+                            <option value="TRF">Transferencia</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4 mb-3" *ngIf="movementForm.get('type')?.value === 'TRF'">
+                        <label class="form-label">Sucursal Destino <span class="text-danger">*</span></label>
+                        <select class="form-select" formControlName="destination_branch_id">
+                            <option [ngValue]="null" disabled>Seleccione Destino</option>
+                            <option *ngFor="let b of filteredBranches" [value]="b.id">{{b.name}}</option>
                         </select>
                     </div>
 

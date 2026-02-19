@@ -41,6 +41,7 @@ class MovementBase(BaseModel):
     quantity: float
     reason: Optional[str] = None
     reference_id: Optional[str] = None
+    destination_branch_id: Optional[UUID] = None # Added for Transfers
 
 class MovementCreate(MovementBase):
     pass # user_id will be injected by backend
