@@ -96,6 +96,29 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  faqs = [
+    {
+      question: "¿Puedo cancelar en cualquier momento?",
+      answer: "Sí, Lumefy no tiene contratos de permanencia. Puedes cancelar tu suscripción cuando quieras desde el panel de administración."
+    },
+    {
+      question: "¿Necesito tarjeta de crédito para la prueba?",
+      answer: "No. Puedes probar todas las funcionalidades Premium durante 14 días sin ingresar datos de pago."
+    },
+    {
+      question: "¿Ofrecen facturación electrónica?",
+      answer: "Sí, Lumefy cumple con la normativa de la DIAN en Colombia y generamos facturas electrónicas automáticamente."
+    },
+    {
+      question: "¿Mis datos están seguros?",
+      answer: "Absolutamente. Usamos encriptación de grado bancario y realizamos copias de seguridad diarias para proteger tu información."
+    },
+    {
+      question: "¿Incluye soporte técnico?",
+      answer: "Sí, todos los planes incluyen soporte por chat y correo electrónico. El plan Enterprise incluye soporte prioritario dedicado."
+    }
+  ];
+
   ngAfterViewInit() {
     // We defer observer setup to ngOnInit data load to ensure sentinel exists
   }
@@ -137,6 +160,27 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
 
   navigateToLogin() {
     this.router.navigate(['/login']);
+  }
+
+  // FAQ Accordion State
+  openFaqIndex: number | null = null;
+
+  toggleFaq(index: number) {
+    if (this.openFaqIndex === index) {
+      this.openFaqIndex = null; // Close if already open
+    } else {
+      this.openFaqIndex = index; // Open clicked
+    }
+  }
+
+  getPlanButtonText(plan: any): string {
+    if (plan.button_text) return plan.button_text;
+
+    // Fallback defaults
+    if (plan.code === 'FREE') return 'Crear Cuenta Gratis';
+    if (plan.code === 'PRO') return 'Comenzar Prueba Gratis';
+    if (plan.code === 'ENTERPRISE') return 'Contactar Ventas';
+    return 'Seleccionar Plan';
   }
 
   getPlanFeatures(plan: any): string[] {

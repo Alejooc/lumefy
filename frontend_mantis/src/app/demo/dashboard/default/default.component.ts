@@ -400,14 +400,14 @@ export class DefaultComponent implements OnInit, OnDestroy {
   }
 
   private endpointHasItems(path: string, minItems = 1): Observable<boolean> {
-    return this.apiService.get<any>(path).pipe(
+    return this.apiService.get<any>(path, undefined, true).pipe(
       map((payload) => Array.isArray(payload) && payload.length >= minItems),
       catchError(() => of(false))
     );
   }
 
   private endpointHasTruthyValue(path: string, key: string): Observable<boolean> {
-    return this.apiService.get<any>(path).pipe(
+    return this.apiService.get<any>(path, undefined, true).pipe(
       map((payload) => !!payload && !!payload[key]),
       catchError(() => of(false))
     );

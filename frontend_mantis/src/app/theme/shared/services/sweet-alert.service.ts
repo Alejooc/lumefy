@@ -72,4 +72,12 @@ export class SweetAlertService {
             title: title
         });
     }
+
+    input(options: any): Promise<any> {
+        return Swal.fire(options);
+    }
+
+    close() {
+        Swal.close();
+    }
 }

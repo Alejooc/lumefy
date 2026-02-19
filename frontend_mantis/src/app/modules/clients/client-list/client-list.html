@@ -6,8 +6,8 @@
                     <input type="text" class="form-control" placeholder="Buscar cliente..." [(ngModel)]="searchQuery"
                         (keyup.enter)="loadClients()">
                 </div>
-                <div class="col-md-8 text-end">
-                    <div class="btn-group btn-group-sm me-2">
+                <div class="col-md-8 d-flex flex-wrap justify-content-end gap-2">
+                    <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-success" (click)="exportData('excel')">
                             <i class="feather icon-file"></i> Excel
                         </button>

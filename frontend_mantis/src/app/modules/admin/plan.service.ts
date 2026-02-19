@@ -11,6 +11,7 @@ export interface Plan {
     price: number;
     currency: string;
     duration_days: number;
+    button_text?: string;
     features: any; // Dict
     limits: any; // Dict
     is_active: boolean;

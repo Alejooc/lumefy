@@ -61,6 +61,9 @@ export class CompanyFormComponent implements OnInit {
             next: (companies: any[]) => {
                 const company = companies.find((c: any) => c.id === id);
                 if (company) {
+                    if (company.valid_until) {
+                        company.valid_until = company.valid_until.split('T')[0]; // Format YYYY-MM-DD for input[date]
+                    }
                     this.companyForm.patchValue(company);
                 }
                 this.loading = false;

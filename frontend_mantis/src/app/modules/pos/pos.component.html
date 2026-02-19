@@ -4,31 +4,66 @@
         <app-card [showHeader]="false">
             <div class="mb-4">
                 <label class="form-label fw-bold">Buscar Producto</label>
-                <ng-select [items]="products" bindLabel="name" bindValue="id" [typeahead]="productSearchInput$"
-                    [loading]="isLoading" placeholder="Escribe nombre o SKU (Ej: 'Coca Cola')"
-                    notFoundText="No encontrado" (change)="addToCart($event)">
-                    <ng-template ng-option-tmp let-item="item">
-                        <div class="d-flex justify-content-between">
-                            <span>{{item.name}}</span>
-                            <span class="badge bg-light-primary text-primary">$ {{item.price}}</span>
-                        </div>
-                        <small class="text-muted">SKU: {{item.sku}} | Stock: Disp.</small> <!-- Todo: Add stock -->
-                    </ng-template>
-                </ng-select>
+                <div class="d-flex gap-2">
+                    <ng-select [items]="products" bindLabel="name" bindValue="id" [typeahead]="productSearchInput$"
+                        [loading]="isLoading" placeholder="Escribe nombre o SKU (Ej: 'Coca Cola')"
+                        notFoundText="No encontrado" (change)="addToCart($event)" class="flex-grow-1">
+                        <ng-template ng-option-tmp let-item="item">
+                            <div class="d-flex align-items-center">
+                                <img *ngIf="item.image_url" [src]="item.image_url" width="40" height="40"
+                                    class="rounded me-2" style="object-fit: cover;">
+                                <div *ngIf="!item.image_url"
+                                    class="bg-light rounded me-2 d-flex align-items-center justify-content-center"
+                                    style="width: 40px; height: 40px;">
+                                    <i class="feather icon-image text-muted"></i>
+                                </div>
+                                <div>
+                                    <div class="d-flex justify-content-between" style="min-width: 200px;">
+                                        <span class="fw-bold">{{item.name}}</span>
+                                        <span class="badge bg-light-primary text-primary">{{currencySymbol}}
+                                            {{item.price}}</span>
+                                    </div>
+                                    <small class="text-muted">SKU: {{item.sku}} | Stock: {{item.stock ||
+                                        'Disp.'}}</small>
+                                </div>
+                            </div>
+                        </ng-template>
+                    </ng-select>
+                </div>
             </div>
 
-            <!-- Quick Categories / Favorites Grid could go here -->
-            <div class="alert alert-secondary" *ngIf="products.length === 0 && !isLoading">
-                <i class="feather icon-info me-2"></i> Usa el buscador para encontrar productos.
+            <!-- Categories (New Feature in Old Layout) -->
+            <div class="mb-3 d-flex gap-2 overflow-auto pb-2">
+                <button *ngFor="let cat of categories" class="btn btn-sm rounded-pill"
+                    [ngClass]="selectedCategory === cat.id ? 'btn-dark' : 'btn-outline-secondary'"
+                    (click)="selectCategory(cat.id)">{{cat.name}}</button>
             </div>
 
-            <!-- Product Grid (Optional implementation for later) -->
-            <div class="row" *ngIf="products.length > 0">
-                <div class="col-md-4 mb-3" *ngFor="let p of products | slice:0:6">
+            <div class="alert alert-secondary" *ngIf="filteredProducts.length === 0 && !isLoading">
+                <i class="feather icon-info me-2"></i> No se encontraron productos.
+            </div>
+
+            <!-- Product Grid (Original but Enhanced with Images) -->
+            <div class="row" *ngIf="filteredProducts.length > 0">
+                <div class="col-md-4 mb-3" *ngFor="let p of filteredProducts | slice:0:9">
                     <div class="card h-100 border cursor-pointer product-card" (click)="addToCart(p)">
-                        <div class="card-body text-center p-3">
-                            <h6 class="mb-1 text-truncate">{{p.name}}</h6>
-                            <span class="badge bg-success">{{currencySymbol}} {{p.price}}</span>
+                        <div class="position-relative">
+                            <img *ngIf="p.image_url" [src]="p.image_url" class="card-img-top"
+                                style="height: 120px; object-fit: cover;" alt="{{p.name}}">
+                            <div *ngIf="!p.image_url"
+                                class="card-img-top bg-light d-flex align-items-center justify-content-center"
+                                style="height: 120px;">
+                                <i class="feather icon-image text-muted fs-2"></i>
+                            </div>
+                            <span class="position-absolute top-0 end-0 badge m-2"
+                                [ngClass]="getProductStock(p) > 0 ? 'bg-success' : 'bg-danger'">
+                                {{ p.track_inventory ? 'Stock: ' + getProductStock(p) : 'Disponible' }}
+                            </span>
+                        </div>
+                        <div class="card-body text-center p-2">
+                            <h6 class="mb-1 text-truncate" title="{{p.name}}">{{p.name}}</h6>
+                            <div class="fw-bold text-primary mb-1">{{currencySymbol}} {{p.price | number:'1.0-0'}}</div>
+                            <small class="text-muted d-block">{{p.sku}}</small>
                         </div>
                     </div>
                 </div>
@@ -52,9 +87,25 @@
             <!-- Cart Header -->
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Ticket de Venta</h5>
-                <button class="btn btn-sm btn-outline-danger" (click)="resetCart()" *ngIf="cart.length > 0">
-                    <i class="feather icon-trash-2"></i> Limpiar
-                </button>
+                <div class="d-flex gap-2">
+                    <!-- Parked Orders Button -->
+                    <button class="btn btn-sm btn-warning text-dark" *ngIf="parkedOrders.length > 0"
+                        (click)="showParkedOrders()">
+                        <i class="feather icon-clock"></i> Pendientes ({{parkedOrders.length}})
+                    </button>
+
+                    <!-- Park Order Button -->
+                    <button class="btn btn-sm btn-secondary" (click)="parkOrder()" [disabled]="cart.length === 0"
+                        title="Guardar Orden">
+                        <i class="feather icon-pause"></i> <span class="d-none d-sm-inline ms-1">Pausar</span>
+                    </button>
+
+                    <!-- Clear Cart Button -->
+                    <button class="btn btn-sm btn-danger" (click)="resetCart()" *ngIf="cart.length > 0"
+                        title="Limpiar Carrito">
+                        <i class="feather icon-trash-2"></i> <span class="d-none d-sm-inline ms-1">Limpiar</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Cart Items -->
@@ -66,8 +117,10 @@
                 <div class="d-flex justify-content-between align-items-center p-2 border-bottom"
                     *ngFor="let item of cart; let i = index">
                     <div style="flex: 1;">
-                        <h6 class="mb-0">{{item.product.name}}</h6>
+                        <h6 class="mb-0">{{item.name}}</h6>
                         <small class="text-muted">{{currencySymbol}} {{item.price}} x {{item.quantity}}</small>
+                        <small class="text-success d-block" *ngIf="item.discount > 0">Desc:
+                            -{{currencySymbol}}{{item.discount}}</small>
                     </div>
                     <div class="d-flex align-items-center">
                         <button class="btn btn-icon btn-link-secondary btn-sm" (click)="updateQuantity(item, -1)">
@@ -93,31 +146,62 @@
                     <span class="text-muted">Subtotal</span>
                     <span class="fw-bold">{{currencySymbol}} {{subtotal | number:'1.2-2'}}</span>
                 </div>
+                <div class="d-flex justify-content-end mb-2">
+                    <button class="btn btn-sm btn-link-primary p-0" (click)="applyDiscount()">
+                        <i class="feather icon-tag me-1"></i> Agregar Descuento
+                    </button>
+                </div>
                 <div class="d-flex justify-content-between mb-3">
                     <span class="h4 mb-0">Total</span>
                     <span class="h4 text-primary mb-0">{{currencySymbol}} {{total | number:'1.2-2'}}</span>
                 </div>
 
-                <!-- Payment Controls -->
+                <!-- Payment Controls (Enhanced) -->
                 <div class="card bg-light p-3 mb-3">
-                    <div class="mb-2">
-                        <label class="form-label">Método de Pago</label>
-                        <select class="form-select" [(ngModel)]="paymentMethod">
-                            <option value="CASH">Efectivo</option>
-                            <option value="CARD">Tarjeta</option>
-                            <option value="TRANSFER">Transferencia</option>
-                        </select>
+                    <label class="form-label fw-bold mb-2">Método de Pago</label>
+                    <div class="row g-2 mb-3">
+                        <div class="col-4">
+                            <button
+                                class="btn w-100 py-2 d-flex flex-column align-items-center justify-content-center gap-1"
+                                [ngClass]="paymentMethod === 'CASH' ? 'btn-success text-white shadow-sm' : 'btn-white border text-muted bg-white'"
+                                (click)="paymentMethod = 'CASH'">
+                                <i class="feather icon-dollar-sign fs-5"></i>
+                                <span class="small fw-bold">Efectivo</span>
+                            </button>
+                        </div>
+                        <div class="col-4">
+                            <button
+                                class="btn w-100 py-2 d-flex flex-column align-items-center justify-content-center gap-1"
+                                [ngClass]="paymentMethod === 'CARD' ? 'btn-primary text-white shadow-sm' : 'btn-white border text-muted bg-white'"
+                                (click)="paymentMethod = 'CARD'">
+                                <i class="feather icon-credit-card fs-5"></i>
+                                <span class="small fw-bold">Tarjeta</span>
+                            </button>
+                        </div>
+                        <div class="col-4">
+                            <button
+                                class="btn w-100 py-2 d-flex flex-column align-items-center justify-content-center gap-1"
+                                [ngClass]="paymentMethod === 'TRANSFER' ? 'btn-info text-white shadow-sm' : 'btn-white border text-muted bg-white'"
+                                (click)="paymentMethod = 'TRANSFER'">
+                                <i class="feather icon-smartphone fs-5"></i>
+                                <span class="small fw-bold">Transf.</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="mb-2" *ngIf="paymentMethod === 'CASH'">
-                        <label class="form-label">Paga con</label>
-                        <input type="number" class="form-control form-control-lg" [(ngModel)]="amountPaid"
-                            (ngModelChange)="updateChange()">
+                        <label class="form-label">Recibido</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white">{{currencySymbol}}</span>
+                            <input type="number" class="form-control form-control-lg fw-bold" [(ngModel)]="amountPaid"
+                                (ngModelChange)="updateChange()">
+                        </div>
                     </div>
 
-                    <div class="d-flex justify-content-between text-success fw-bold" *ngIf="paymentMethod === 'CASH'">
+                    <div class="d-flex justify-content-between text-success fw-bold mt-2"
+                        *ngIf="paymentMethod === 'CASH'">
                         <span>Cambio:</span>
-                        <span>{{currencySymbol}} {{change | number:'1.2-2'}}</span>
+                        <span class="fs-5">{{currencySymbol}} {{change | number:'1.2-2'}}</span>
                     </div>
                 </div>
 

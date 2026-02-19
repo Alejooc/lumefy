@@ -6,9 +6,11 @@ from app.models.purchase import PurchaseStatus
 from app.schemas.supplier import Supplier
 from app.schemas.branch import Branch
 from app.schemas.product import Product
+from app.schemas.product_variant import ProductVariant
 
 class PurchaseOrderItemBase(BaseModel):
     product_id: UUID
+    variant_id: Optional[UUID] = None
     quantity: float
     unit_cost: float
 
@@ -20,6 +22,8 @@ class PurchaseOrderItem(PurchaseOrderItemBase):
     purchase_id: UUID
     subtotal: float
     product: Optional[Product] = None
+    product: Optional[Product] = None
+    variant: Optional[ProductVariant] = None
 
     class Config:
         from_attributes = True

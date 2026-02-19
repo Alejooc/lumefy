@@ -11,6 +11,7 @@ class PlanBase(BaseModel):
     price: Optional[float] = 0.0
     currency: Optional[str] = "USD"
     duration_days: Optional[int] = 30
+    button_text: Optional[str] = "Seleccionar Plan"
     features: Optional[Any] = [] # Can be Dict (legacy) or List[str] (new)
     limits: Optional[Dict[str, Any]] = {}
     is_active: Optional[bool] = True
@@ -20,6 +21,7 @@ class PlanBase(BaseModel):
 class PlanCreate(PlanBase):
     name: str
     code: str
+    button_text: Optional[str] = None
 
 # Properties to receive on update
 class PlanUpdate(PlanBase):

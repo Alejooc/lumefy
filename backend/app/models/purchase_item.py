@@ -11,6 +11,7 @@ class PurchaseOrderItem(BaseModel):
     
     purchase_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("purchase_orders.id"), index=True)
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), index=True)
+    variant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("product_variants.id"), nullable=True)
     
     quantity: Mapped[float] = mapped_column(Float, default=1.0)
     unit_cost: Mapped[float] = mapped_column(Float, default=0.0)
@@ -19,3 +20,4 @@ class PurchaseOrderItem(BaseModel):
     # Relationships
     purchase = relationship("PurchaseOrder", backref="items")
     product = relationship("Product")
+    variant = relationship("ProductVariant")

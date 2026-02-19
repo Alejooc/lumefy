@@ -73,8 +73,11 @@ export class GlobalErrorInterceptor implements HttpInterceptor {
                     }
                 }
 
-                // Only show alert if we have a message and it's not a handled 401 login attempt
-                if (errorMessage && !(error.status === 401 && request.url.includes('/login'))) {
+                // Check if error suppression is requested
+                const suppressError = request.headers.get('X-Suppress-Error') === 'true';
+
+                // Only show alert if we have a message, it's not a handled 401 login attempt, and not suppressed
+                if (errorMessage && !(error.status === 401 && request.url.includes('/login')) && !suppressError) {
                     Swal.fire({
                         title: errorTitle,
                         text: errorMessage,
@@ -91,11 +94,30 @@ export class GlobalErrorInterceptor implements HttpInterceptor {
 
     private formatValidationErrors(errorBody: any): string {
         if (errorBody && errorBody.detail && Array.isArray(errorBody.detail)) {
-            return errorBody.detail.map((err: any) =>
-                // Translate common Pydantic locations like ['body', 'email'] -> 'email'
-                `${err.loc[err.loc.length - 1]}: ${err.msg}`
-            ).join('\n');
+            return errorBody.detail.map((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                let msg = err.msg;
+
+                // Simple translation map
+                if (err.type === 'value_error.email') msg = 'El correo electrónico no es válido.';
+                if (err.type === 'string_too_short') msg = `Debe tener al menos ${err.ctx?.min_length || 8} caracteres.`;
+                if (err.type === 'missing') msg = 'Este campo es requerido.';
+
+                return `• ${this.translateField(field)}: ${msg}`;
+            }).join('\n');
         }
         return errorBody?.detail || 'Verifica los datos ingresados.';
+    }
+
+    private translateField(field: string): string {
+        const map: { [key: string]: string } = {
+            email: 'Correo',
+            password: 'Contraseña',
+            first_name: 'Nombre',
+            last_name: 'Apellido',
+            company_name: 'Nombre de Empresa',
+            phone: 'Teléfono'
+        };
+        return map[field] || field;
     }
 }

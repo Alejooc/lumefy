@@ -10,6 +10,7 @@ export interface PurchaseOrderItem {
     unit_cost: number;
     subtotal?: number;
     product?: { name: string; sku: string };
+    variant?: { name: string; sku?: string }; // Added for variant support
 }
 
 export interface PurchaseOrder {

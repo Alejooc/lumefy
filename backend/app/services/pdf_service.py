@@ -340,9 +340,19 @@ class PDFService:
         headers = ['PRODUCTO', 'SKU', 'CANT.', 'COSTO', 'TOTAL']
         data = [headers]
         for item in purchase.items:
+            product_name = item.product.name if item.product else "N/A"
+            if item.variant:
+                product_name += f" - {item.variant.name}"
+            
+            sku = "-"
+            if item.variant and item.variant.sku:
+                 sku = item.variant.sku
+            elif item.product:
+                 sku = item.product.sku or "-"
+
             data.append([
-                item.product.name if item.product else "N/A",
-                item.product.sku if item.product else "-",
+                product_name,
+                sku,
                 str(item.quantity),
                 f"${item.unit_cost:,.2f}",
                 f"${item.subtotal:,.2f}"

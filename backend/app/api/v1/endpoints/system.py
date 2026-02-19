@@ -235,7 +235,8 @@ async def get_landing_config(
             "description": p.description,
             "duration_days": p.duration_days,
             "features": p.features, # JSON
-            "limits": p.limits
+            "limits": p.limits,
+            "button_text": p.button_text
         })
         
     # 4. Merge

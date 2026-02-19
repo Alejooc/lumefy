@@ -23,8 +23,12 @@ export class ApiService {
         return headers;
     }
 
-    get<T>(path: string, params: HttpParams = new HttpParams()): Observable<T> {
-        return this.http.get<T>(`${environment.apiUrl}${path}`, { headers: this.getHeaders(), params });
+    get<T>(path: string, params: HttpParams = new HttpParams(), suppressError: boolean = false): Observable<T> {
+        let headers = this.getHeaders();
+        if (suppressError) {
+            headers = headers.set('X-Suppress-Error', 'true');
+        }
+        return this.http.get<T>(`${environment.apiUrl}${path}`, { headers, params });
     }
 
     post<T>(path: string, body: any = {}): Observable<T> {

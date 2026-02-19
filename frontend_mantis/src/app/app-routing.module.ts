@@ -53,6 +53,11 @@ const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       {
+        path: 'dashboard',
+        redirectTo: 'dashboard/default',
+        pathMatch: 'full'
+      },
+      {
         path: 'dashboard/default',
         loadComponent: () => import('./demo/dashboard/default/default.component').then((c) => c.DefaultComponent)
       },

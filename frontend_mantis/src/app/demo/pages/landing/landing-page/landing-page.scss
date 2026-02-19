@@ -519,22 +519,97 @@ p {
     }
 }
 
+// FAQ Section
+.faq-section {
+    padding: 100px 0;
+    // slightly lighter than dark bg for distinct section
+    background: lighten($dark-bg, 2%);
+
+    .accordion-item {
+        background-color: transparent;
+        border: none;
+        border-bottom: 1px solid $border-color;
+        margin-bottom: 0;
+        border-radius: 0;
+
+        &:last-child {
+            border-bottom: none;
+        }
+
+        .accordion-button {
+            background-color: transparent;
+            color: $text-main;
+            font-weight: 600;
+            font-size: 1.15rem;
+            padding: 1.75rem 0.5rem;
+            box-shadow: none;
+            transition: color 0.2s;
+
+            &:not(.collapsed) {
+                color: $primary;
+                background-color: transparent;
+                box-shadow: none;
+            }
+
+            &::after {
+                filter: invert(1) brightness(2); // White arrow
+                transform: scale(0.9);
+                transition: transform 0.2s;
+            }
+
+            &:not(.collapsed)::after {
+                background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%236366f1'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+                transform: rotate(-180deg) scale(0.9);
+                filter: none; // Use the colored indigo arrow
+            }
+
+            &:hover {
+                color: lighten($primary, 10%);
+            }
+        }
+
+        .accordion-body {
+            padding: 0 0.5rem 2rem 0.5rem;
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: $text-muted;
+        }
+    }
+}
+
 // CTA Section
 .cta-section {
-    padding: 100px 0;
-    background: $card-bg;
-    border-top: 1px solid $border-color;
-    text-align: center;
+    padding: 120px 0;
+    background: $dark-bg;
+    position: relative;
 
-    h2 {
-        color: $text-main;
-        margin-bottom: 1.5rem;
-    }
+    .cta-card {
+        background: linear-gradient(145deg, rgba($primary, 0.08) 0%, rgba($card-bg, 0.4) 100%);
+        border: 1px solid rgba($primary, 0.15);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 0 60px -20px rgba($primary, 0.2);
 
-    p {
-        color: $text-muted;
-        max-width: 600px;
-        margin: 0 auto 2.5rem;
+        &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba($primary, 0.5), transparent);
+        }
+
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba($primary, 0.5), transparent);
+        }
     }
 }
 

@@ -11,6 +11,7 @@ class Plan(BaseModel):
     price: Mapped[float] = mapped_column(Float, default=0.0)
     currency: Mapped[str] = mapped_column(String, default="USD")
     duration_days: Mapped[int] = mapped_column(default=30)
+    button_text: Mapped[str] = mapped_column(String, nullable=True, default="Seleccionar Plan")
     
     # Features & Limits
     features: Mapped[dict] = mapped_column(JSON, default={}) # List of enabled features

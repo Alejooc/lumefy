@@ -62,8 +62,11 @@ export class AuthRegisterComponent {
       },
       error: (err) => {
         this.isLoading = false;
-        const msg = err.error?.detail || 'Error al registrar usuario';
-        Swal.fire('Error', msg, 'error');
+        // Only show redundancy alert if it's NOT a validation error (managed by Interceptor)
+        if (err.status !== 422) {
+          const msg = err.error?.detail || 'Error al registrar usuario';
+          Swal.fire('Error', msg, 'error');
+        }
       }
     });
   }

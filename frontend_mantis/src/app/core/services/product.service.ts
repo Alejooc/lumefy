@@ -30,6 +30,17 @@ export interface Product {
     unit_of_measure_id?: string;
     purchase_uom_id?: string;
     images: ProductImage[];
+    variants?: ProductVariant[]; // Added for variant support
+}
+
+export interface ProductVariant {
+    id: string;
+    product_id: string;
+    name: string;
+    sku?: string;
+    barcode?: string;
+    price_extra: number;
+    cost_extra: number;
 }
 
 @Injectable({

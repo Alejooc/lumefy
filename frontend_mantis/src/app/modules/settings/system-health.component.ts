@@ -57,9 +57,7 @@ export class SystemHealthComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    const canAccess =
-      !!this.authService.currentUserValue?.is_superuser ||
-      this.permissionService.hasPermission('manage_company');
+    const canAccess = !!this.authService.currentUserValue?.is_superuser;
 
     if (!canAccess) {
       this.router.navigate(['/dashboard/default']);

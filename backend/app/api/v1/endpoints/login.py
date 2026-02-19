@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
@@ -9,6 +9,7 @@ from app.core import security
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.user import User
+from app.models.plan import Plan
 from app.core.auth import create_access_token
 from app.schemas.token import Token
 from app.core.rate_limit import limiter
@@ -137,25 +138,29 @@ async def register(
         
     # 2. Start Transaction
     try:
-        # Get Admin Role
-        result = await db.execute(select(Role).where(Role.name == "admin"))
-        role = result.scalars().first()
-        if not role:
-            # Fallback - should not happen if seeded
-            role = Role(name="admin", description="Administrator", permissions={"manage_company": True})
-            db.add(role)
-            await db.flush()
+        # 1. Get Plan Duration (Safely)
+        try:
+            stmt = select(Plan).where(Plan.code == "FREE")
+            result = await db.execute(stmt)
+            plan_db = result.scalars().first()
+            duration_days = plan_db.duration_days if plan_db else 30
+        except Exception as e:
+            print(f"Error fetching plan duration: {e}")
+            duration_days = 30
+            
+        valid_until = datetime.utcnow() + timedelta(days=duration_days)
 
-        # Create Company
+        # 2. Create Company
         company = Company(
             name=user_in.company_name,
             plan="FREE",
+            valid_until=valid_until.isoformat(),
             is_active=True
         )
         db.add(company)
         await db.flush() # Get ID
         
-        # Create Default Branch
+        # 2. Create Default Branch
         branch = Branch(
             name="Principal",
             company_id=company.id,
@@ -163,15 +168,25 @@ async def register(
         )
         db.add(branch)
         
-        # Create User
+        # 3. Create Admin Role for this Company
+        # We must create a specific role for this new tenant
+        role = Role(
+            name="ADMINISTRADOR", 
+            description="Administrador del sistema", 
+            permissions={"all": True}, # Full permissions
+            company_id=company.id
+        )
+        db.add(role)
+        await db.flush() # Get Role ID
+
+        # 4. Create User
         user = User(
             email=user_in.email,
             hashed_password=security.get_password_hash(user_in.password),
-            first_name=user_in.first_name,
-            last_name=user_in.last_name,
+            full_name=f"{user_in.first_name} {user_in.last_name}",
             company_id=company.id,
             is_superuser=False,
-            role_id=role.id, # Use role_id
+            role_id=role.id, 
             is_active=True
         )
         db.add(user)

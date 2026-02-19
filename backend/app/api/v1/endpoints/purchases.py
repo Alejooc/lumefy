@@ -358,7 +358,10 @@ async def download_pdf(
         PurchaseOrder.id == purchase_id,
         PurchaseOrder.company_id == current_user.company_id
     ).options(
-        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product),
+        selectinload(PurchaseOrder.items).options(
+            selectinload(PurchaseOrderItem.product),
+            selectinload(PurchaseOrderItem.variant)
+        ),
         selectinload(PurchaseOrder.supplier),
         selectinload(PurchaseOrder.branch)
     )

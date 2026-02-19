@@ -117,7 +117,7 @@ export class AuthService {
     }
 
     register(user: UserRegister): Observable<any> {
-        return this.api.post<any>('/login/register', user).pipe(
+        return this.api.post<any>('/register', user).pipe(
             switchMap(response => {
                 if (response && response.access_token) {
                     localStorage.setItem('access_token', response.access_token);

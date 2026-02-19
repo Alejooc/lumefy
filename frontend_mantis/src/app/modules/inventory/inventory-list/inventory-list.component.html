@@ -2,7 +2,7 @@
     <div class="col-sm-12">
         <app-card [cardTitle]="'Inventario'">
             <ng-template #headerOptionsTemplate>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex flex-wrap align-items-center gap-2">
                     <select class="form-select form-select-sm" style="width: 200px;" [(ngModel)]="selectedBranchId"
                         (ngModelChange)="onBranchChange()">
                         <option value="">Todas las sucursales</option>

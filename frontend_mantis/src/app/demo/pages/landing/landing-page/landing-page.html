@@ -25,6 +25,12 @@
                     <li class="nav-item" *ngIf="config.pricing_visible">
                         <a class="nav-link" href="javascript:void(0)" (click)="scrollTo('pricing')">Precios</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="javascript:void(0)" (click)="scrollTo('faq')">Preguntas</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="javascript:void(0)" (click)="scrollTo('contact')">Contacto</a>
+                    </li>
                     <li class="nav-item ms-lg-3">
                         <button class="btn btn-link text-white text-decoration-none me-2"
                             (click)="navigateToLogin()">Ingresar</button>
@@ -58,12 +64,14 @@
             <a class="nav-link-mobile" (click)="scrollTo('features')">
                 <i class="bi bi-grid-fill me-3 opacity-50"></i> Características
             </a>
-            <a class="nav-link-mobile" href="javascript:void(0)">
-                <i class="bi bi-briefcase-fill me-3 opacity-50"></i> Soluciones <span
-                    class="badge bg-primary-subtle text-primary ms-2 rounded-pill" style="font-size: 0.6em">Nuevo</span>
-            </a>
             <a class="nav-link-mobile" *ngIf="config.pricing_visible" (click)="scrollTo('pricing')">
                 <i class="bi bi-tag-fill me-3 opacity-50"></i> Precios
+            </a>
+            <a class="nav-link-mobile" (click)="scrollTo('faq')">
+                <i class="bi bi-question-circle-fill me-3 opacity-50"></i> Preguntas
+            </a>
+            <a class="nav-link-mobile" (click)="scrollTo('contact')">
+                <i class="bi bi-envelope-fill me-3 opacity-50"></i> Contacto
             </a>
 
             <!-- Resources & Company -->
@@ -180,60 +188,50 @@
         </div>
     </header>
 
-    <!-- Clients Section -->
+    <!-- Clients / Trust Section -->
     <section class="clients-section">
         <div class="container">
-            <p class="text-center text-muted small text-uppercase letter-spacing-2 mb-5 opacity-75">Empresas innovadoras
-                que confían en nosotros</p>
-
-            <!-- Dynamic Clients -->
-            <div class="d-flex flex-wrap justify-content-center align-items-center gap-5"
-                *ngIf="config.clients.length > 0">
-                <ng-container *ngFor="let client of config.clients">
-                    <img [src]="client.logo_url" [alt]="client.name" class="client-logo">
+            <p class="text-center text-muted text-uppercase small letter-spacing-2 mb-4">Empresas que confían en
+                nosotros</p>
+            <div class="d-flex flex-wrap justify-content-center align-items-center gap-5 px-4" style="opacity: 0.7;">
+                <!-- Fallback Clients if API config is empty -->
+                <ng-container *ngIf="!config.clients || config.clients.length === 0">
+                    <h4 class="text-muted fw-bold m-0"
+                        style="font-family: 'Inter'; letter-spacing: -1px; opacity: 0.5;">ACME Corp</h4>
+                    <h4 class="text-muted fw-bold m-0"
+                        style="font-family: 'Inter'; letter-spacing: -1px; opacity: 0.5;">GlobalTech</h4>
+                    <h4 class="text-muted fw-bold m-0"
+                        style="font-family: 'Inter'; letter-spacing: -1px; opacity: 0.5;">Nebula</h4>
+                    <h4 class="text-muted fw-bold m-0"
+                        style="font-family: 'Inter'; letter-spacing: -1px; opacity: 0.5;">FoxRun</h4>
+                    <h4 class="text-muted fw-bold m-0"
+                        style="font-family: 'Inter'; letter-spacing: -1px; opacity: 0.5;">Starlight</h4>
                 </ng-container>
-            </div>
 
-            <!-- Fallback Clients (Styled Text) -->
-            <div *ngIf="!config.clients.length"
-                class="row justify-content-center align-items-center g-4 opacity-50 grayscale-hover">
-                <div class="col-6 col-md-auto text-center">
-                    <h4 class="fw-bold mb-0 text-white font-monospace">ACME<span class="text-primary">.Corp</span></h4>
-                </div>
-                <div class="col-6 col-md-auto text-center">
-                    <h4 class="fw-bold mb-0 text-white letter-spacing-2">STARK<span class="fw-light">IND</span></h4>
-                </div>
-                <div class="col-6 col-md-auto text-center">
-                    <h4 class="fw-bold mb-0 text-white" style="font-family: serif;">WayneEnt.</h4>
-                </div>
-                <div class="col-6 col-md-auto text-center">
-                    <h4 class="fw-bold mb-0 text-white fst-italic">Cyberdyne</h4>
-                </div>
-                <div class="col-6 col-md-auto text-center">
-                    <h4 class="fw-bold mb-0 text-white"><i class="bi bi-hexagon-fill text-primary me-2"></i>Umbrella
-                    </h4>
-                </div>
+                <!-- Dynamic Clients -->
+                <ng-container *ngFor="let client of config.clients">
+                    <img [src]="client.logo_url" [alt]="client.name" class="client-logo" style="max-height: 28px;">
+                </ng-container>
             </div>
         </div>
     </section>
 
-    <!-- Features Section -->
+    <!-- Features Grid -->
     <section id="features" class="features-section">
         <div class="container">
             <div class="text-center mb-5 mw-700 mx-auto">
-                <h2 class="display-6 font-weight-bold mb-3 text-white">Todo lo que necesitas para escalar</h2>
-                <p class="text-muted f-18">Gestiona tu negocio con herramientas diseñadas para el crecimiento moderno.
-                </p>
+                <h2 class="display-6 font-weight-bold mb-3 text-white">Todo lo que necesitas para crecer</h2>
+                <p class="text-muted f-18">Una suite completa de herramientas diseñadas para escalar tu operación.</p>
             </div>
 
             <div class="row g-4">
-                <div class="col-md-4" *ngFor="let feature of config.features">
-                    <div class="feature-card">
+                <div class="col-md-6 col-lg-4" *ngFor="let feature of config.features">
+                    <div class="feature-card h-100 p-4">
                         <div class="icon-box">
-                            <i class="bi bi-{{ feature.icon }}"></i>
+                            <i [class]="'bi bi-' + feature.icon"></i>
                         </div>
-                        <h5 class="mb-3">{{ feature.title }}</h5>
-                        <p class="mb-0">{{ feature.description }}</p>
+                        <h5 class="fw-bold">{{ feature.title }}</h5>
+                        <p>{{ feature.description }}</p>
                     </div>
                 </div>
             </div>
@@ -241,54 +239,109 @@
     </section>
 
     <!-- Pricing Section -->
-    <section id="pricing" class="pricing-section" *ngIf="config.pricing_visible">
+    <section id="pricing" class="pricing-section"
+        *ngIf="config.pricing_visible && config.plans && config.plans.length > 0">
         <div class="container">
             <div class="text-center mb-5 mw-700 mx-auto">
-                <h2 class="display-6 font-weight-bold mb-3">Precios Transparentes</h2>
-                <p class="text-muted f-18">Comienza gratis, crece a tu ritmo. Sin comisiones ocultas.</p>
+                <h2 class="display-6 font-weight-bold mb-3 text-white">Planes simples y transparentes</h2>
+                <p class="text-muted f-18">Sin costos ocultos. Cancela cuando quieras.</p>
             </div>
-            <div class="row justify-content-center">
-                <!-- Dynamic Pricing Cards -->
-                <div class="col-lg-4 col-md-6 mb-4" *ngFor="let plan of config.plans">
-                    <div class="pricing-card h-100" [class.popular]="plan.code === 'PRO'"
-                        [class.transform-scale]="plan.code === 'PRO'">
-                        <div class="card-header border-0 py-2 text-center" *ngIf="plan.code === 'PRO'">Recomendado</div>
-                        <div class="card-body text-center">
-                            <h5 class="text-uppercase mb-4" [class.text-primary]="plan.code === 'PRO'"
-                                [class.text-muted]="plan.code !== 'PRO'">{{ plan.name }}</h5>
-                            <div class="price-amount mb-4">
-                                <span class="currency">{{ plan.currency === 'USD' ? '$' : plan.currency }}</span>
+
+            <div class="row g-4 justify-content-center">
+                <div class="col-md-6 col-lg-4" *ngFor="let plan of config.plans">
+                    <div class="pricing-card h-100" [class.popular]="plan.code === 'PRO'">
+                        <div class="card-header" *ngIf="plan.code === 'PRO'">
+                            MÁS POPULAR
+                        </div>
+                        <div class="card-body d-flex flex-column">
+                            <h4 class="text-white mb-2">{{ plan.name }}</h4>
+                            <p class="text-muted small mb-4">{{ plan.description || 'Para negocios en crecimiento' }}
+                            </p>
+
+                            <div class="price-amount">
+                                <span class="currency">$</span>
                                 <span class="value">{{ plan.price | number:'1.0-0' }}</span>
-                                <span class="period">/mes</span>
+                                <span class="period">/ mes</span>
                             </div>
-                            <ul class="list-unstyled mb-5 text-start">
-                                <li class="mb-3" *ngFor="let feature of getPlanFeatures(plan)">
-                                    <i class="bi bi-check-lg me-2"></i>{{ feature }}
-                                </li>
-                                <!-- Fallback if no features parsed -->
-                                <li class="mb-3" *ngIf="getPlanFeatures(plan).length === 0">
-                                    <i class="bi bi-check-lg me-2"></i>Características completas
+
+                            <ul class="list-unstyled mt-4 mb-5 flex-grow-1">
+                                <!-- Dynamic Features parsing if array -->
+                                <ng-container *ngIf="getPlanFeatures(plan) as features">
+                                    <li *ngFor="let feat of features">
+                                        <i class="bi bi-check-circle-fill"></i> {{ feat }}
+                                    </li>
+                                </ng-container>
+                                <li *ngIf="getPlanFeatures(plan).length === 0" class="text-muted font-italic">
+                                    Ver detalles en la plataforma
                                 </li>
                             </ul>
+
                             <a [routerLink]="['/register']" [queryParams]="{plan: plan.code}"
                                 class="btn w-100 rounded-pill py-2" [class.btn-primary]="plan.code === 'PRO'"
                                 [class.shadow-lg]="plan.code === 'PRO'" [class.btn-outline-light]="plan.code !== 'PRO'">
-                                {{ plan.price === 0 ? 'Crear Cuenta Gratis' : 'Comenzar Prueba Gratis' }}
+                                {{ getPlanButtonText(plan) }}
                             </a>
                         </div>
                     </div>
                 </div>
+                <!-- Fallback if no plans (optional, but API should return defaults) -->
+            </div>
+        </div>
+    </section>
 
-                <!-- Fallback if no plans found -->
-                <div class="col-12 text-center" *ngIf="!config.plans || config.plans.length === 0">
-                    <p class="text-muted">No hay planes disponibles en este momento.</p>
+    <!-- FAQ Section -->
+    <section id="faq" class="faq-section">
+        <div class="container">
+            <div class="text-center mb-5 mw-700 mx-auto">
+                <h2 class="display-6 font-weight-bold mb-3 text-white">Preguntas Frecuentes</h2>
+                <p class="text-muted f-18">Resolvemos tus dudas para que tomes la mejor decisión.</p>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="accordion" id="faqAccordion">
+                        <div class="accordion-item" *ngFor="let faq of faqs; let i = index">
+                            <h2 class="accordion-header" [id]="'heading'+i">
+                                <button class="accordion-button" [class.collapsed]="openFaqIndex !== i" type="button"
+                                    (click)="toggleFaq(i)" [attr.aria-expanded]="openFaqIndex === i"
+                                    [attr.aria-controls]="'collapse'+i">
+                                    {{ faq.question }}
+                                </button>
+                            </h2>
+                            <div [id]="'collapse'+i" class="accordion-collapse collapse"
+                                [class.show]="openFaqIndex === i" [attr.aria-labelledby]="'heading'+i">
+                                <div class="accordion-body text-muted">
+                                    {{ faq.answer }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <div class="cta-card p-5 rounded-4 text-center">
+                <h2 class="display-6 font-weight-bold mb-4 text-white">¿Listo para escalar tu negocio?</h2>
+                <p class="lead text-muted mb-5 mx-auto" style="max-width: 600px;">
+                    Únete a cientos de empresas que ya usan Lumefy para gestionar sus operaciones.
+                </p>
+                <div class="d-flex justify-content-center gap-3">
+                    <button class="btn btn-primary btn-lg rounded-pill px-5 shadow-lg" [routerLink]="['/register']">
+                        Comenzar Prueba Gratis
+                    </button>
+                    <button class="btn btn-outline-light btn-lg rounded-pill px-4" (click)="scrollTo('contact')">
+                        Agendar Demo
+                    </button>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer class="footer">
+    <footer id="contact" class="footer">
         <div class="container">
             <div class="row gy-4">
                 <div class="col-md-4">

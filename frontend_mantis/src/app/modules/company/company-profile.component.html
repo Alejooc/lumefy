@@ -13,6 +13,14 @@
   } @else {
   <div class="card">
     <div class="card-body">
+      @if (companyValidUntil) {
+      <div class="alert alert-info d-flex align-items-center mb-4" role="alert">
+        <i class="fas fa-calendar-alt me-2"></i>
+        <div>
+          Tu plan actual es válido hasta: <strong>{{ companyValidUntil | date:'mediumDate' }}</strong>
+        </div>
+      </div>
+      }
       <form [formGroup]="profileForm" (ngSubmit)="saveCompanyProfile()">
         <div class="row g-3">
           <div class="col-md-6">
@@ -75,4 +83,3 @@
   </div>
   }
 </div>
-

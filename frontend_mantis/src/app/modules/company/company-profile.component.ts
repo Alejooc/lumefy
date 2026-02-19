@@ -17,6 +17,7 @@ type CompanyProfile = {
   currency?: string | null;
   currency_symbol?: string | null;
   logo_url?: string | null;
+  valid_until?: string | null;
 };
 
 @Component({
@@ -33,6 +34,7 @@ export class CompanyProfileComponent implements OnInit {
 
   loading = false;
   saving = false;
+  companyValidUntil: string | null = null;
 
   readonly currencies = [
     { code: 'USD', symbol: '$' },
@@ -70,6 +72,7 @@ export class CompanyProfileComponent implements OnInit {
     this.loading = true;
     this.api.get<CompanyProfile>('/companies/me').subscribe({
       next: (company) => {
+        this.companyValidUntil = company.valid_until || null; // Store for display
         this.profileForm.patchValue({
           name: company.name ?? '',
           tax_id: company.tax_id ?? '',

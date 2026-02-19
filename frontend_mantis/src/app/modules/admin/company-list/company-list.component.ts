@@ -84,9 +84,9 @@ export class CompanyListComponent implements OnInit {
             title: 'Extender Suscripción',
             html: `
                 <p>Empresa: <b>${company.name}</b></p>
-                <p>Vence actualmente: ${company.valid_until || 'Indefinido'}</p>
+                <p>Vence actualmente: ${company.valid_until ? company.valid_until.split('T')[0] : 'Indefinido'}</p>
                 <label>Nueva Fecha de Vencimiento:</label>
-                <input type="date" id="swal-input1" class="swal2-input" value="${company.valid_until}">
+                <input type="date" id="swal-input1" class="swal2-input" value="${company.valid_until ? company.valid_until.split('T')[0] : ''}">
             `,
             focusConfirm: false,
             showCancelButton: true,

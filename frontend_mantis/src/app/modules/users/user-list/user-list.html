@@ -2,8 +2,8 @@
     <div class="col-sm-12">
         <app-card [cardTitle]="'Gestión de Usuarios'" [showHeader]="true">
             <div class="row mb-3">
-                <div class="col-md-12 text-end">
-                    <button class="btn btn-outline-secondary me-2" [routerLink]="['/users/roles']" *ngIf="canManageRoles">
+                <div class="col-md-12 d-flex flex-wrap justify-content-end gap-2">
+                    <button class="btn btn-outline-secondary" [routerLink]="['/users/roles']" *ngIf="canManageRoles">
                         <i class="feather icon-shield"></i> Roles y Permisos
                     </button>
                     <button class="btn btn-primary" [routerLink]="['/users/new']">
