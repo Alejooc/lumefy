@@ -11,6 +11,10 @@ const routes: Routes = [
     {
         path: 'packing/:id',
         component: PackingComponent
+    },
+    {
+        path: 'package-types',
+        loadComponent: () => import('./package-types/package-types.component').then(m => m.PackageTypesComponent)
     }
 ];
 

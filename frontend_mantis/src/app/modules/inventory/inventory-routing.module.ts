@@ -25,6 +25,18 @@ const routes: Routes = [
     {
         path: 'picking/print/:id',
         loadComponent: () => import('./picking-print/picking-print.component').then(m => m.PickingPrintComponent)
+    },
+    {
+        path: 'stock-take',
+        loadComponent: () => import('./stock-take-list/stock-take-list.component').then(m => m.StockTakeListComponent)
+    },
+    {
+        path: 'stock-take/:id',
+        loadComponent: () => import('./stock-take-form/stock-take-form.component').then(m => m.StockTakeFormComponent)
+    },
+    {
+        path: 'logistics-board',
+        loadComponent: () => import('./logistics-board/logistics-board.component').then(m => m.LogisticsBoardComponent)
     }
 ];
 

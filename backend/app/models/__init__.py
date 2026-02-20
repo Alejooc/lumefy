@@ -25,4 +25,7 @@ from .notification import Notification
 from .notification_template import NotificationTemplate
 from .app_definition import AppDefinition
 from .company_app_install import CompanyAppInstall
+from .stock_take import StockTake, StockTakeItem, StockTakeStatus
+from .return_order import ReturnOrder, ReturnOrderItem, ReturnStatus, ReturnType
+from .account_ledger import AccountLedger, LedgerType, PartnerType
 

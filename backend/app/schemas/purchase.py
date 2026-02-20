@@ -17,24 +17,34 @@ class PurchaseOrderItemBase(BaseModel):
 class PurchaseOrderItemCreate(PurchaseOrderItemBase):
     pass
 
+class ReceiveItemInput(BaseModel):
+    item_id: UUID
+    qty_received: float
+
 class PurchaseOrderItem(PurchaseOrderItemBase):
     id: UUID
     purchase_id: UUID
     subtotal: float
-    product: Optional[Product] = None
+    received_qty: float = 0.0
     product: Optional[Product] = None
     variant: Optional[ProductVariant] = None
 
     class Config:
         from_attributes = True
 
+class ReceiveInput(BaseModel):
+    items: List[ReceiveItemInput]
+
 class PurchaseOrderBase(BaseModel):
     supplier_id: Optional[UUID] = None
     branch_id: Optional[UUID] = None
     notes: Optional[str] = None
     expected_date: Optional[datetime] = None
+    order_date: Optional[datetime] = None
+    reference_number: Optional[str] = None
 
 class PurchaseOrderCreate(PurchaseOrderBase):
+    payment_method: Optional[str] = "CASH"
     items: List[PurchaseOrderItemCreate] = []
 
 class PurchaseOrderUpdate(BaseModel):
@@ -43,11 +53,15 @@ class PurchaseOrderUpdate(BaseModel):
     notes: Optional[str] = None
     expected_date: Optional[datetime] = None
     status: Optional[PurchaseStatus] = None
+    payment_method: Optional[str] = None
 
 class PurchaseOrder(PurchaseOrderBase):
     id: UUID
     status: PurchaseStatus
+    payment_method: str
     total_amount: float
+    order_date: datetime
+    reference_number: Optional[str] = None
     created_at: datetime
     company_id: Optional[UUID] = None
     user_id: Optional[UUID] = None

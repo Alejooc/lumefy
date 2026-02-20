@@ -66,7 +66,7 @@ export class SalesViewComponent implements OnInit {
         });
     }
 
-    updateStatus(status: 'CONFIRMED' | 'PICKING' | 'PACKING' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED') {
+    updateStatus(status: 'CONFIRMED' | 'PICKING' | 'PACKING' | 'DISPATCHED' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED') {
         if (!this.sale) return;
 
         let confirmText = '';
@@ -124,9 +124,73 @@ export class SalesViewComponent implements OnInit {
                 buttonText = 'Sí, despachar';
                 break;
             case 'DELIVERED':
-                confirmText = '¿Marcar como entregada al cliente?';
-                buttonText = 'Sí, entregada';
-                break;
+                // Use dedicated delivery confirmation with notes
+                Swal.fire({
+                    title: 'Confirmar Entrega',
+                    html: `
+                        <div class="text-start">
+                            <label class="form-label">Notas de entrega</label>
+                            <textarea id="delivery-notes" class="form-control" rows="3" placeholder="Ej: Recibido por Juan, portería..."></textarea>
+                            <label class="form-label mt-3">URL de evidencia (foto/firma)</label>
+                            <input id="delivery-evidence" type="text" class="form-control" placeholder="https://...">
+                        </div>
+                    `,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Confirmar Entrega',
+                    cancelButtonText: 'Cancelar',
+                    preConfirm: () => {
+                        const notes = (document.getElementById('delivery-notes') as HTMLTextAreaElement)?.value;
+                        const evidence = (document.getElementById('delivery-evidence') as HTMLInputElement)?.value;
+                        return { notes, evidence_url: evidence || null };
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        this.loading = true;
+                        this.saleService.confirmDelivery(this.sale!.id, result.value).subscribe({
+                            next: (updated) => {
+                                this.sale = updated;
+                                this.loading = false;
+                                this.cdr.detectChanges();
+                                Swal.fire('Entregado', 'La entrega ha sido confirmada.', 'success');
+                            },
+                            error: (err) => {
+                                this.loading = false;
+                                this.cdr.detectChanges();
+                                Swal.fire('Error', err.error?.detail || 'No se pudo confirmar la entrega', 'error');
+                            }
+                        });
+                    }
+                });
+                return;
+            case 'COMPLETED':
+                // Use dedicated complete endpoint
+                Swal.fire({
+                    title: 'Cerrar Venta',
+                    text: '¿Marcar esta venta como completada? Esta acción es definitiva.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, cerrar venta',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        this.loading = true;
+                        this.saleService.completeSale(this.sale!.id).subscribe({
+                            next: (updated) => {
+                                this.sale = updated;
+                                this.loading = false;
+                                this.cdr.detectChanges();
+                                Swal.fire('Completada', 'La venta ha sido cerrada exitosamente.', 'success');
+                            },
+                            error: (err) => {
+                                this.loading = false;
+                                this.cdr.detectChanges();
+                                Swal.fire('Error', err.error?.detail || 'No se pudo completar la venta', 'error');
+                            }
+                        });
+                    }
+                });
+                return;
             case 'CANCELLED':
                 confirmText = '¿Cancelar esta orden? Esto liberará el inventario reservado.';
                 buttonText = 'Sí, cancelar';
@@ -147,7 +211,7 @@ export class SalesViewComponent implements OnInit {
                     next: (updated) => {
                         this.sale = updated;
                         this.loading = false;
-                        this.cdr.detectChanges(); // Force UI update
+                        this.cdr.detectChanges();
                         Swal.fire('Actualizado', 'El estado ha sido actualizado.', 'success');
                     },
                     error: (err) => {

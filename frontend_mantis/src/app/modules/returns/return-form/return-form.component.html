@@ -1,0 +1,120 @@
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Nueva Devolución</h5>
+                <button class="btn btn-secondary btn-sm" [routerLink]="['/returns']">Volver</button>
+            </div>
+            <div class="card-body">
+                <!-- Sale Search -->
+                <div class="row mb-4" *ngIf="!sale">
+                    <div class="col-md-6">
+                        <label class="form-label">ID de Venta <span class="text-danger">*</span></label>
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" [(ngModel)]="saleId"
+                                placeholder="Ingrese el ID largo de la venta" (keyup.enter)="searchSale()">
+                            <button class="btn btn-outline-primary" (click)="searchSale()" [disabled]="searchingSale">
+                                <i class="ti ti-search me-1"></i>Buscar
+                            </button>
+                        </div>
+                        <div class="alert alert-info py-2" role="alert">
+                            <i class="ti ti-info-circle me-1"></i>
+                            <strong>Tip:</strong> Para mayor practicidad, puedes ir al detalle de cualquier venta
+                            <strong>Entregada</strong> o <strong>Cerrada</strong> en el módulo de Ventas y usar el botón
+                            <span class="badge bg-warning text-dark"><i class="ti ti-transform me-1"></i>Crear
+                                Devolución</span> para que el ID se cargue automáticamente.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sale Info -->
+                <div *ngIf="sale">
+                    <div class="alert alert-light d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <strong>Venta #{{ sale.id | slice:0:8 }}</strong>
+                            <span class="badge bg-info ms-2">{{ sale.status }}</span>
+                            <span class="ms-3 text-muted">{{ sale.client?.name || 'Cliente Ocasional' }}</span>
+                            <span class="ms-3 text-muted">Total: <strong>{{ formatCurrency(sale.total)
+                                    }}</strong></span>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm"
+                            (click)="sale = null; formItems = []">Cambiar</button>
+                    </div>
+
+                    <!-- Return Reason -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Motivo de Devolución</label>
+                            <select class="form-select" [(ngModel)]="reason">
+                                <option value="">Seleccionar motivo</option>
+                                <option value="Producto defectuoso">Producto defectuoso</option>
+                                <option value="Producto incorrecto">Producto incorrecto</option>
+                                <option value="No satisfecho con el producto">No satisfecho con el producto</option>
+                                <option value="Duplicado">Pedido duplicado</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Notas adicionales</label>
+                            <input type="text" class="form-control" [(ngModel)]="notes"
+                                placeholder="Detalles opcionales...">
+                        </div>
+                    </div>
+
+                    <!-- Items to Return -->
+                    <h6 class="mb-3">Productos a devolver</h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" class="form-check-input" (change)="selectAll($event)">
+                                    </th>
+                                    <th>Producto</th>
+                                    <th class="text-center">Vendido</th>
+                                    <th class="text-center" style="width: 120px;">Devolver</th>
+                                    <th class="text-end">Precio Unit.</th>
+                                    <th class="text-end">Subtotal Reembolso</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let item of formItems" [class.table-active]="item.selected">
+                                    <td>
+                                        <input type="checkbox" class="form-check-input" [(ngModel)]="item.selected">
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold">{{ item.saleItem.product?.name }}</div>
+                                        <small class="text-muted">{{ item.saleItem.product?.sku }}</small>
+                                    </td>
+                                    <td class="text-center">{{ item.saleItem.quantity }}</td>
+                                    <td class="text-center">
+                                        <input type="number" class="form-control form-control-sm text-center"
+                                            [(ngModel)]="item.quantity" [min]="1" [max]="item.maxQuantity"
+                                            [disabled]="!item.selected" style="width: 80px; margin: 0 auto;">
+                                    </td>
+                                    <td class="text-end">{{ formatCurrency(item.saleItem.price) }}</td>
+                                    <td class="text-end fw-bold" [class.text-danger]="item.selected">
+                                        {{ item.selected ? formatCurrency(item.quantity * item.saleItem.price) : '—' }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="5" class="text-end fw-bold">Total Reembolso:</td>
+                                    <td class="text-end fw-bold text-danger fs-5">{{ formatCurrency(totalRefund) }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div class="text-end mt-3">
+                        <button class="btn btn-primary" [disabled]="!hasSelectedItems || loading"
+                            (click)="submitReturn()">
+                            <i class="ti ti-arrow-back-up me-1"></i>Crear Devolución
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

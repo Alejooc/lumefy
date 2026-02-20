@@ -43,6 +43,12 @@ class Sale(BaseModel):
     shipping_address: Mapped[str] = mapped_column(String, nullable=True)
     notes: Mapped[str] = mapped_column(String, nullable=True)
     
+    # Delivery Fields
+    delivered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivery_notes: Mapped[str] = mapped_column(String, nullable=True)
+    delivery_evidence_url: Mapped[str] = mapped_column(String, nullable=True)
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    
     # Relationships
     branch = relationship(Branch)
     user = relationship(User)

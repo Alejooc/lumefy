@@ -14,6 +14,7 @@ class PurchaseOrderItem(BaseModel):
     variant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("product_variants.id"), nullable=True)
     
     quantity: Mapped[float] = mapped_column(Float, default=1.0)
+    received_qty: Mapped[float] = mapped_column(Float, default=0.0)
     unit_cost: Mapped[float] = mapped_column(Float, default=0.0)
     subtotal: Mapped[float] = mapped_column(Float, default=0.0)
     

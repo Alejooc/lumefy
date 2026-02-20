@@ -1,7 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { ApiService } from '../../core/services/api.service';
 
 export interface PackageType {
     id: string;
@@ -33,7 +32,7 @@ export interface SalePackageItem {
     package_id: string;
     sale_item_id: string;
     quantity: number;
-    sale_item?: any; // To access product details
+    sale_item?: any;
 }
 
 export interface CreatePackageRequest {
@@ -52,26 +51,37 @@ export interface CreatePackageRequest {
     providedIn: 'root'
 })
 export class LogisticsService {
-    private http = inject(HttpClient);
-    private apiUrl = `${environment.apiUrl}/logistics`;
+    private api = inject(ApiService);
+    private basePath = '/logistics';
 
+    // --- Package Types ---
     getPackageTypes(): Observable<PackageType[]> {
-        return this.http.get<PackageType[]>(`${this.apiUrl}/package-types`);
+        return this.api.get<PackageType[]>(`${this.basePath}/package-types`);
     }
 
-    createPackageType(data: any): Observable<PackageType> {
-        return this.http.post<PackageType>(`${this.apiUrl}/package-types`, data);
+    createPackageType(data: Partial<PackageType>): Observable<PackageType> {
+        return this.api.post<PackageType>(`${this.basePath}/package-types`, data);
     }
 
+    updatePackageType(id: string, data: Partial<PackageType>): Observable<PackageType> {
+        return this.api.put<PackageType>(`${this.basePath}/package-types/${id}`, data);
+    }
+
+    deletePackageType(id: string): Observable<any> {
+        return this.api.delete<any>(`${this.basePath}/package-types/${id}`);
+    }
+
+    // --- Picking ---
     updatePickingItem(data: PickingUpdate): Observable<boolean> {
-        return this.http.post<boolean>(`${this.apiUrl}/picking/update-item`, data);
+        return this.api.post<boolean>(`${this.basePath}/picking/update-item`, data);
     }
 
+    // --- Packages ---
     getPackages(saleId: string): Observable<SalePackage[]> {
-        return this.http.get<SalePackage[]>(`${this.apiUrl}/packages/${saleId}`);
+        return this.api.get<SalePackage[]>(`${this.basePath}/packages/${saleId}`);
     }
 
     createPackage(data: CreatePackageRequest): Observable<SalePackage> {
-        return this.http.post<SalePackage>(`${this.apiUrl}/packages`, data);
+        return this.api.post<SalePackage>(`${this.basePath}/packages`, data);
     }
 }

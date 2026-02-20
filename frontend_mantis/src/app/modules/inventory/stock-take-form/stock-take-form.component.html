@@ -1,0 +1,141 @@
+<div class="row" *ngIf="!isLoading && stockTake">
+    <!-- Header -->
+    <div class="col-12 mb-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <button class="btn btn-link p-0 me-2" (click)="goBack()">
+                    <i class="ti ti-arrow-left"></i>
+                </button>
+                <h5 class="d-inline">Toma de Inventario</h5>
+                <span class="badge ms-2" [ngClass]="{
+                    'bg-warning': stockTake.status === 'IN_PROGRESS',
+                    'bg-success': stockTake.status === 'COMPLETED',
+                    'bg-danger': stockTake.status === 'CANCELLED'
+                }">
+                    {{ stockTake.status === 'IN_PROGRESS' ? 'En Progreso' : (stockTake.status === 'COMPLETED' ?
+                    'Completada' : 'Cancelada') }}
+                </span>
+            </div>
+            <div *ngIf="isInProgress">
+                <button class="btn btn-outline-danger me-2" (click)="cancelTake()" [disabled]="isSaving">
+                    <i class="ti ti-x me-1"></i>Cancelar
+                </button>
+                <button class="btn btn-outline-primary me-2" (click)="saveCounts()" [disabled]="isSaving">
+                    <i class="ti ti-device-floppy me-1"></i>Guardar Conteos
+                </button>
+                <button class="btn btn-primary" (click)="applyAdjustments()"
+                    [disabled]="isSaving || countedItems === 0">
+                    <i class="ti ti-check me-1"></i>Aplicar Ajustes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card mb-0">
+            <div class="card-body text-center py-3">
+                <h6 class="text-muted mb-1">Sucursal</h6>
+                <h5 class="mb-0">{{stockTake.branch?.name || '-'}}</h5>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card mb-0">
+            <div class="card-body text-center py-3">
+                <h6 class="text-muted mb-1">Total Productos</h6>
+                <h5 class="mb-0">{{totalItems}}</h5>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card mb-0">
+            <div class="card-body text-center py-3">
+                <h6 class="text-muted mb-1">Contados</h6>
+                <h5 class="mb-0 text-primary">{{countedItems}} / {{totalItems}}</h5>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6 mb-3">
+        <div class="card mb-0">
+            <div class="card-body text-center py-3">
+                <h6 class="text-muted mb-1">Con Diferencia</h6>
+                <h5 class="mb-0"
+                    [ngClass]="{'text-danger': itemsWithDifference > 0, 'text-success': itemsWithDifference === 0}">
+                    {{itemsWithDifference}}
+                </h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search -->
+    <div class="col-12 mb-3">
+        <div class="input-group">
+            <span class="input-group-text"><i class="ti ti-search"></i></span>
+            <input type="text" class="form-control" placeholder="Buscar producto por nombre o SKU..."
+                [(ngModel)]="searchTerm">
+        </div>
+    </div>
+
+    <!-- Items Table -->
+    <div class="col-12">
+        <app-card>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>SKU</th>
+                            <th class="text-end">Stock Sistema</th>
+                            <th class="text-center" style="width: 150px">Cantidad Contada</th>
+                            <th class="text-end">Diferencia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let item of filteredItems" [ngClass]="{
+                            'table-danger': item.difference < 0 && item.counted_qty !== null,
+                            'table-success': item.difference > 0 && item.counted_qty !== null
+                        }">
+                            <td>
+                                <strong>{{item.product?.name || 'Producto'}}</strong>
+                            </td>
+                            <td class="text-muted">{{item.product?.sku || '-'}}</td>
+                            <td class="text-end">{{item.system_qty | number:'1.0-2'}}</td>
+                            <td class="text-center">
+                                <input *ngIf="isInProgress" type="number"
+                                    class="form-control form-control-sm text-center" [(ngModel)]="item.counted_qty"
+                                    (ngModelChange)="onCountedChange(item)" [placeholder]="'Contar...'" min="0"
+                                    step="1">
+                                <span *ngIf="!isInProgress">
+                                    {{item.counted_qty !== null ? (item.counted_qty | number:'1.0-2') : '-'}}
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <span *ngIf="item.counted_qty !== null && item.counted_qty !== undefined" [ngClass]="{
+                                          'text-danger fw-bold': item.difference < 0,
+                                          'text-success fw-bold': item.difference > 0,
+                                          'text-muted': item.difference === 0
+                                      }">
+                                    {{item.difference > 0 ? '+' : ''}}{{item.difference | number:'1.0-2'}}
+                                </span>
+                                <span *ngIf="item.counted_qty === null || item.counted_qty === undefined"
+                                    class="text-muted">-</span>
+                            </td>
+                        </tr>
+                        <tr *ngIf="filteredItems.length === 0">
+                            <td colspan="5" class="text-center text-muted py-4">
+                                {{searchTerm ? 'No se encontraron productos' : 'No hay productos en esta toma'}}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </app-card>
+    </div>
+</div>
+
+<!-- Loading -->
+<div *ngIf="isLoading" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="mt-2 text-muted">Cargando toma de inventario...</p>
+</div>

@@ -13,15 +13,18 @@ class ClientBase(BaseModel):
     is_active: bool = True
 
 class ClientCreate(ClientBase):
-    pass
+    credit_limit: Optional[float] = 0.0
 
 class ClientUpdate(ClientBase):
     name: Optional[str] = None
     is_active: Optional[bool] = None
+    credit_limit: Optional[float] = None
 
 class Client(ClientBase):
     id: UUID
     company_id: UUID
+    credit_limit: float
+    current_balance: float
     created_at: datetime
     updated_at: datetime
 

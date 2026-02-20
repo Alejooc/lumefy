@@ -10,6 +10,7 @@ class PurchaseStatus(str, enum.Enum):
     DRAFT = "DRAFT"
     VALIDATION = "VALIDATION"
     CONFIRMED = "CONFIRMED"
+    PARTIAL = "PARTIAL"  # Partially received
     RECEIVED = "RECEIVED"
     CANCELLED = "CANCELLED"
 
@@ -24,9 +25,12 @@ class PurchaseOrder(BaseModel):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     
     status: Mapped[PurchaseStatus] = mapped_column(Enum(PurchaseStatus), default=PurchaseStatus.DRAFT, index=True)
+    payment_method: Mapped[str] = mapped_column(String, default="CASH")
     total_amount: Mapped[float] = mapped_column(Float, default=0.0)
     notes: Mapped[str] = mapped_column(String, nullable=True)
     expected_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    order_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    reference_number: Mapped[str] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships

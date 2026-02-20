@@ -50,12 +50,17 @@
                             <td>{{ client.email || '-' }}</td>
                             <td>{{ client.phone || '-' }}</td>
                             <td class="text-end">
+                                <button [routerLink]="['/clients/view', client.id]"
+                                    class="btn btn-icon btn-outline-info btn-sm me-1"
+                                    title="Ver Perfil y Estado de Cuenta">
+                                    <i class="feather icon-eye"></i>
+                                </button>
                                 <button [routerLink]="['/clients/edit', client.id]"
-                                    class="btn btn-icon btn-outline-primary btn-sm me-1">
+                                    class="btn btn-icon btn-outline-primary btn-sm me-1" title="Editar">
                                     <i class="feather icon-edit"></i>
                                 </button>
-                                <button (click)="deleteClient(client.id)"
-                                    class="btn btn-icon btn-outline-danger btn-sm">
+                                <button (click)="deleteClient(client.id)" class="btn btn-icon btn-outline-danger btn-sm"
+                                    title="Eliminar">
                                     <i class="feather icon-trash-2"></i>
                                 </button>
                             </td>

@@ -37,7 +37,17 @@
                     </button>
                     <button *ngIf="sale.status === 'DISPATCHED'" class="btn btn-success btn-sm me-2"
                         (click)="updateStatus('DELIVERED')">
-                        Entregar
+                        <i class="ti ti-package-export me-1"></i>Confirmar Entrega
+                    </button>
+                    <button *ngIf="sale.status === 'DELIVERED'" class="btn btn-primary btn-sm me-2"
+                        (click)="updateStatus('COMPLETED')">
+                        <i class="ti ti-circle-check me-1"></i>Cerrar Venta
+                    </button>
+                    <!-- Create Return directly from the Sale -->
+                    <button *ngIf="sale.status === 'DELIVERED' || sale.status === 'COMPLETED'"
+                        class="btn btn-warning btn-sm me-2" [routerLink]="['/returns/new']"
+                        [queryParams]="{sale_id: sale.id}">
+                        <i class="ti ti-transform me-1"></i>Crear Devolución
                     </button>
                     <button
                         *ngIf="sale.status !== 'CANCELLED' && sale.status !== 'COMPLETED' && sale.status !== 'DELIVERED'"
@@ -70,6 +80,32 @@
                     <div class="col-12">
                         <h6>Notas</h6>
                         <p class="alert alert-light">{{ sale.notes }}</p>
+                    </div>
+                </div>
+
+                <!-- Delivery Info -->
+                <div class="row mb-4" *ngIf="sale.delivered_at">
+                    <div class="col-12">
+                        <div class="alert alert-success d-flex align-items-start">
+                            <i class="ti ti-truck-delivery me-2 fs-4"></i>
+                            <div>
+                                <strong>Entrega Confirmada</strong> — {{ sale.delivered_at | date:'medium' }}
+                                <p class="mb-0 mt-1" *ngIf="sale.delivery_notes">{{ sale.delivery_notes }}</p>
+                                <a *ngIf="sale.delivery_evidence_url" [href]="sale.delivery_evidence_url"
+                                    target="_blank" class="text-decoration-underline">Ver evidencia</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-4" *ngIf="sale.completed_at">
+                    <div class="col-12">
+                        <div class="alert alert-primary d-flex align-items-start">
+                            <i class="ti ti-circle-check me-2 fs-4"></i>
+                            <div>
+                                <strong>Venta Cerrada</strong> — {{ sale.completed_at | date:'medium' }}
+                            </div>
+                        </div>
                     </div>
                 </div>
 

@@ -70,11 +70,17 @@ class Sale(SaleBase):
     created_at: datetime
     updated_at: datetime
     
+    # Delivery fields
+    delivered_at: Optional[datetime] = None
+    delivery_notes: Optional[str] = None
+    delivery_evidence_url: Optional[str] = None
+    completed_at: Optional[datetime] = None
+    
     items: List[SaleItem] = []
     payments: List[Payment] = []
     user: Optional[User] = None
     branch: Optional[Branch] = None
-    client: Optional[Client] = None # Added Client
+    client: Optional[Client] = None
     
     class Config:
         from_attributes = True
@@ -90,11 +96,17 @@ class SaleSummary(SaleBase):
     total: float
     created_at: datetime
     updated_at: datetime
+    delivered_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     
-    # Exclude items and payments for summary
     user: Optional[User] = None
     branch: Optional[Branch] = None
     client: Optional[Client] = None
     
     class Config:
         from_attributes = True
+
+# --- Delivery Confirmation ---
+class DeliveryConfirmation(BaseModel):
+    notes: Optional[str] = None
+    evidence_url: Optional[str] = None

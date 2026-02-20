@@ -37,6 +37,10 @@ export interface Sale {
     notes?: string;
     created_at: string;
     updated_at?: string;
+    delivered_at?: string;
+    delivery_notes?: string;
+    delivery_evidence_url?: string;
+    completed_at?: string;
     items?: SaleItem[];
     payments?: Payment[];
     client?: { name: string; email: string; address?: string; phone?: string };
@@ -80,5 +84,13 @@ export class SaleService {
 
     downloadPdf(id: string, type: string): Observable<Blob> {
         return this.http.get(`${this.apiUrl}/${id}/pdf/${type}`, { responseType: 'blob' });
+    }
+
+    confirmDelivery(id: string, data: { notes?: string; evidence_url?: string }): Observable<Sale> {
+        return this.http.post<Sale>(`${this.apiUrl}/${id}/deliver`, data);
+    }
+
+    completeSale(id: string): Observable<Sale> {
+        return this.http.post<Sale>(`${this.apiUrl}/${id}/complete`, {});
     }
 }

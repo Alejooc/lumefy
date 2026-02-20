@@ -16,8 +16,13 @@ class Supplier(BaseModel):
     address: Mapped[str] = mapped_column(String, nullable=True)
     tax_id: Mapped[str] = mapped_column(String, nullable=True) # NIT/RUT/VAT
     
+    # Credit and Accounts Payable
+    credit_limit: Mapped[float] = mapped_column(default=0.0)
+    current_balance: Mapped[float] = mapped_column(default=0.0) # Positive means we owe money to supplier
+    
     price_list_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("price_lists.id"), nullable=True)
 
     # Relationships
     company = relationship("Company")
     price_list = relationship("PriceList")
+    ledger_entries = relationship("AccountLedger", primaryjoin="and_(AccountLedger.partner_id==Supplier.id, AccountLedger.partner_type=='SUPPLIER')", foreign_keys="[AccountLedger.partner_id]", lazy="select", back_populates="supplier")

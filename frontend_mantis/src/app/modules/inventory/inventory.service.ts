@@ -53,4 +53,29 @@ export class InventoryService {
     createMovement(movement: InventoryMovement): Observable<InventoryMovement> {
         return this.api.post<InventoryMovement>('/inventory/movement', movement);
     }
+
+    // Stock Take
+    getStockTakes(): Observable<any[]> {
+        return this.api.get<any[]>('/stock-take');
+    }
+
+    createStockTake(data: { branch_id: string; notes?: string }): Observable<any> {
+        return this.api.post<any>('/stock-take', data);
+    }
+
+    getStockTake(id: string): Observable<any> {
+        return this.api.get<any>(`/stock-take/${id}`);
+    }
+
+    updateStockTakeCounts(id: string, items: { id: string; counted_qty: number | null }[]): Observable<any> {
+        return this.api.put<any>(`/stock-take/${id}/count`, { items });
+    }
+
+    applyStockTake(id: string): Observable<any> {
+        return this.api.post<any>(`/stock-take/${id}/apply`, {});
+    }
+
+    cancelStockTake(id: string): Observable<any> {
+        return this.api.post<any>(`/stock-take/${id}/cancel`, {});
+    }
 }

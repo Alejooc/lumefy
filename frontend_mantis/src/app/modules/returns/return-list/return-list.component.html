@@ -1,0 +1,91 @@
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Devoluciones</h5>
+                <div class="d-flex gap-2">
+                    <select class="form-select form-select-sm" [(ngModel)]="filterStatus" (change)="loadReturns()"
+                        style="width: 160px;">
+                        <option value="">Todos</option>
+                        <option value="PENDING">Pendientes</option>
+                        <option value="APPROVED">Aprobadas</option>
+                        <option value="REJECTED">Rechazadas</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" (click)="createReturn()">
+                        <i class="ti ti-plus me-1"></i>Nueva Devolución
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div *ngIf="loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+
+                <div *ngIf="!loading && returns.length === 0" class="text-center py-5">
+                    <i class="ti ti-arrow-back-up" style="font-size: 3rem; color: var(--bs-secondary);"></i>
+                    <p class="text-muted mt-2">No hay devoluciones registradas</p>
+                </div>
+
+                <div class="table-responsive" *ngIf="!loading && returns.length > 0">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Venta</th>
+                                <th>Tipo</th>
+                                <th>Estado</th>
+                                <th>Motivo</th>
+                                <th class="text-end">Reembolso</th>
+                                <th>Creado por</th>
+                                <th>Fecha</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let ret of returns">
+                                <td>
+                                    <code>{{ ret.id | slice:0:8 }}</code>
+                                </td>
+                                <td>
+                                    <a [routerLink]="['/sales/view', ret.sale_id]" class="text-decoration-none">
+                                        {{ ret.sale_id | slice:0:8 }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ getTypeLabel(ret.return_type) }}</span>
+                                </td>
+                                <td>
+                                    <span [ngClass]="getStatusBadge(ret.status)">{{ getStatusLabel(ret.status) }}</span>
+                                </td>
+                                <td>{{ ret.reason || '—' }}</td>
+                                <td class="text-end fw-bold">{{ formatCurrency(ret.total_refund) }}</td>
+                                <td>{{ ret.creator?.full_name || '—' }}</td>
+                                <td>{{ ret.created_at | date:'short' }}</td>
+                                <td class="text-center">
+                                    <div *ngIf="ret.status === 'PENDING'" class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-success" (click)="approveReturn(ret)"
+                                            title="Aprobar">
+                                            <i class="ti ti-check"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" (click)="rejectReturn(ret)"
+                                            title="Rechazar">
+                                            <i class="ti ti-x"></i>
+                                        </button>
+                                    </div>
+                                    <span *ngIf="ret.status === 'APPROVED'" class="text-success">
+                                        <i class="ti ti-circle-check"></i> {{ ret.approved_at | date:'short' }}
+                                    </span>
+                                    <span *ngIf="ret.status === 'REJECTED'" class="text-danger">
+                                        <i class="ti ti-circle-x"></i>
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

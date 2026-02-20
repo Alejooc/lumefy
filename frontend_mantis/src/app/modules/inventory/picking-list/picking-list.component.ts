@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { SaleService, Sale } from '../../../core/services/sale.service';
+import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
 
 @Component({
@@ -22,10 +23,13 @@ export class PickingListComponent implements OnInit {
 
     loadPendingSales() {
         this.loading = true;
-        // Fetch confirmed orders waiting for dispatch
-        this.saleService.getSales('CONFIRMED').subscribe({
-            next: (data) => {
-                this.pendingSales = data;
+        // Fetch both CONFIRMED and PICKING orders
+        forkJoin([
+            this.saleService.getSales('CONFIRMED'),
+            this.saleService.getSales('PICKING')
+        ]).subscribe({
+            next: ([confirmed, picking]) => {
+                this.pendingSales = [...confirmed, ...picking];
                 this.loading = false;
             },
             error: (err) => {

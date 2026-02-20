@@ -195,7 +195,35 @@ async def create_sale(
         sale.subtotal = total_amount
         sale.total = total_amount # + tax + shipping
         
+        # CRM: Register debt if this is a CREDIT sale and a client is attached
+        if sale.payment_method == "CREDIT" and sale.client_id:
+            from app.models.client import Client
+            from app.models.account_ledger import AccountLedger, LedgerType, PartnerType
+            
+            client_result = await db.execute(select(Client).where(Client.id == sale.client_id))
+            client = client_result.scalar_one_or_none()
+            if client:
+                new_balance = client.current_balance + sale.total
+                client.current_balance = new_balance
+                db.add(client)
+                
+                # Check credit limit if necessary (Optional feature)
+                if client.credit_limit > 0 and new_balance > client.credit_limit:
+                    raise ValueError(f"El cliente excedió su límite de crédito. Máximo: {client.credit_limit}, Saldo Intentado: {new_balance}")
+
+                ledger = AccountLedger(
+                    partner_id=client.id,
+                    partner_type=PartnerType.CLIENT,
+                    type=LedgerType.CHARGE,
+                    amount=sale.total,
+                    balance_after=new_balance,
+                    reference_id=str(sale.id),
+                    description=f"Venta a crédito"
+                )
+                db.add(ledger)
+
         await db.commit()
+
         
         # --- Notification Trigger ---
         from app.models.notification import Notification
@@ -227,7 +255,7 @@ async def create_sale(
                     type=template.type, # Use template type
                     title=title,
                     message=message,
-                    link=f"/admin/sales/view/{sale.id}"
+                    link=f"/sales/view/{sale.id}"
                 )
                 db.add(notification)
             await db.commit()
@@ -360,14 +388,9 @@ async def update_status(
 
                 # --- Low Stock Warning ---
                 if inventory.quantity <= item.product.min_stock:
-                    # Notify All Users
-                    # We need to query users if not already queried
-                    # For efficiency, we might want to move this outside the loop or cache it, 
-                    # but for now, query here is safer to ensure we get them.
-                    # Or simpler: Query once before loop? No, loop might be empty.
-                    # Let's query inside but it's N*M queries.  
-                    # Optimization: Query all company users ONCE at start of this block.
-                    
+                    from app.models.notification import Notification
+                    from app.schemas.notification import NotificationType
+
                     users_result = await db.execute(select(User).where(User.company_id == current_user.company_id))
                     users_list = users_result.scalars().all()
 
@@ -377,7 +400,7 @@ async def update_status(
                             type=NotificationType.WARNING,
                             title="⚠️ Stock Bajo",
                             message=f"El producto '{item.product.name}' ha llegado a su stock mínimo ({inventory.quantity} restantes).",
-                            link=f"/admin/inventory"
+                            link=f"/inventory"
                         )
                         db.add(notif)
                 # -------------------------
@@ -536,3 +559,87 @@ async def download_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+# ──────────── Delivery & Completion ────────────
+
+@router.post("/{sale_id}/deliver", response_model=schemas.Sale)
+async def confirm_delivery(
+    *,
+    db: AsyncSession = Depends(get_db),
+    sale_id: uuid.UUID,
+    delivery_in: schemas.DeliveryConfirmation,
+    current_user: User = Depends(PermissionChecker("manage_sales")),
+) -> Any:
+    """Confirm delivery of a dispatched sale."""
+    result = await db.execute(
+        select(Sale).options(
+            selectinload(Sale.items).selectinload(SaleItem.product).options(
+                selectinload(Product.images),
+                selectinload(Product.variants),
+            ),
+            selectinload(Sale.payments),
+            selectinload(Sale.user),
+            selectinload(Sale.branch),
+            selectinload(Sale.client),
+        ).where(
+            Sale.id == sale_id,
+            Sale.company_id == current_user.company_id,
+        )
+    )
+    sale = result.scalars().first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    if sale.status != SaleStatus.DISPATCHED:
+        raise HTTPException(status_code=400, detail=f"Sale must be DISPATCHED to confirm delivery. Current: {sale.status.value}")
+
+    from datetime import datetime, timezone
+    sale.status = SaleStatus.DELIVERED
+    sale.delivered_at = datetime.now(timezone.utc)
+    sale.delivery_notes = delivery_in.notes
+    sale.delivery_evidence_url = delivery_in.evidence_url
+
+    await db.commit()
+    await db.refresh(sale)
+    return sale
+
+
+@router.post("/{sale_id}/complete", response_model=schemas.Sale)
+async def complete_sale(
+    *,
+    db: AsyncSession = Depends(get_db),
+    sale_id: uuid.UUID,
+    current_user: User = Depends(PermissionChecker("manage_sales")),
+) -> Any:
+    """Mark a delivered sale as completed."""
+    result = await db.execute(
+        select(Sale).options(
+            selectinload(Sale.items).selectinload(SaleItem.product).options(
+                selectinload(Product.images),
+                selectinload(Product.variants),
+            ),
+            selectinload(Sale.payments),
+            selectinload(Sale.user),
+            selectinload(Sale.branch),
+            selectinload(Sale.client),
+        ).where(
+            Sale.id == sale_id,
+            Sale.company_id == current_user.company_id,
+        )
+    )
+    sale = result.scalars().first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    if sale.status != SaleStatus.DELIVERED:
+        raise HTTPException(status_code=400, detail=f"Sale must be DELIVERED to complete. Current: {sale.status.value}")
+
+    from datetime import datetime, timezone
+    sale.status = SaleStatus.COMPLETED
+    sale.completed_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(sale)
+    return sale
+

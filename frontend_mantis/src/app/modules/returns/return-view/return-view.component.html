@@ -1,0 +1,100 @@
+<div class="row" *ngIf="returnOrder">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>
+                    Devolución #{{ returnOrder.id | slice:0:8 }}
+                    <span [ngClass]="getStatusBadge(returnOrder.status)" class="ms-2">{{ returnOrder.status }}</span>
+                </h5>
+                <div>
+                    <button class="btn btn-secondary btn-sm me-2" [routerLink]="['/returns']">Volver</button>
+                    <!-- Actions based on status -->
+                    <button *ngIf="returnOrder.status === 'PENDING'" class="btn btn-success btn-sm me-2"
+                        (click)="approveReturn(returnOrder)">
+                        <i class="ti ti-check me-1"></i>Aprobar Devolución
+                    </button>
+                    <button *ngIf="returnOrder.status === 'PENDING'" class="btn btn-danger btn-sm"
+                        (click)="rejectReturn(returnOrder)">
+                        <i class="ti ti-x me-1"></i>Rechazar
+                    </button>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <h6>Información de Venta</h6>
+                        <p class="mb-1"><strong>Venta:</strong> <a
+                                [routerLink]="['/sales/view', returnOrder.sale_id]">{{ returnOrder.sale_id | slice:0:8
+                                }}</a></p>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>Tipo y Estado</h6>
+                        <p class="mb-1"><strong>Tipo:</strong> {{ returnOrder.return_type === 'TOTAL' ? 'Total' :
+                            'Parcial' }}</p>
+                        <p class="mb-1"><strong>Estado:</strong> {{ returnOrder.status }}</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>Detalles</h6>
+                        <p class="mb-1"><strong>Creado:</strong> {{ returnOrder.created_at | date:'medium' }}</p>
+                        <p class="mb-1 text-muted">{{ returnOrder.creator?.full_name || 'Desconocido' }}</p>
+                    </div>
+                    <div class="col-md-3" *ngIf="returnOrder.approved_at">
+                        <h6>Aprobado/Rechazado</h6>
+                        <p class="mb-1"><strong>Fecha:</strong> {{ returnOrder.approved_at | date:'medium' }}</p>
+                        <p class="mb-1 text-muted">{{ returnOrder.approver?.full_name || 'Sistema' }}</p>
+                    </div>
+                </div>
+
+                <div class="row mb-4" *ngIf="returnOrder.reason || returnOrder.notes">
+                    <div class="col-12">
+                        <h6>Motivo y Notas</h6>
+                        <div class="alert alert-light">
+                            <strong>{{ returnOrder.reason || 'Sin motivo especificado' }}</strong>
+                            <p class="mb-0 mt-1" *ngIf="returnOrder.notes">{{ returnOrder.notes }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-center">Cant. Devuelta</th>
+                                <th class="text-end">Precio Unit. (Venta)</th>
+                                <th class="text-end">Subtotal Reembolso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let item of returnOrder.items">
+                                <td>
+                                    <div class="fw-bold">{{ item.product?.name }}</div>
+                                    <small class="text-muted">{{ item.product?.sku }}</small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark">{{ item.quantity_returned }}</span>
+                                </td>
+                                <td class="text-end">{{ formatCurrency(item.unit_price) }}</td>
+                                <td class="text-end">{{ formatCurrency(item.subtotal) }}</td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold">Total a Reembolsar:</td>
+                                <td class="text-end fw-bold text-danger fs-5">{{
+                                    formatCurrency(returnOrder.total_refund) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div *ngIf="loading" class="text-center mt-5">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Cargando...</span>
+    </div>
+</div>

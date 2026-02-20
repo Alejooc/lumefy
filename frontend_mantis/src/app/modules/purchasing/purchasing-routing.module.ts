@@ -8,6 +8,8 @@ import { PurchaseViewComponent } from './purchase-view/purchase-view.component';
 import { PriceListListComponent } from './pricelist-list/pricelist-list.component';
 import { PriceListFormComponent } from './pricelist-form/pricelist-form.component';
 
+import { SupplierViewComponent } from './supplier-view/supplier-view.component';
+
 const routes: Routes = [
     {
         path: '',
@@ -23,6 +25,10 @@ const routes: Routes = [
             {
                 path: 'suppliers/edit/:id',
                 component: SupplierFormComponent
+            },
+            {
+                path: 'suppliers/view/:id',
+                component: SupplierViewComponent
             },
             {
                 path: 'orders',

@@ -51,8 +51,11 @@ export class PurchaseFormComponent implements OnInit {
             supplier_id: ['', Validators.required],
             branch_id: ['', Validators.required],
             price_list_id: [''],
+            payment_method: ['CASH', Validators.required],
             notes: [''],
+            order_date: [''],
             expected_date: [''],
+            reference_number: [''],
             items: this.fb.array([])
         });
     }
@@ -362,9 +365,12 @@ export class PurchaseFormComponent implements OnInit {
             ...formVal,
             notes: notesKey,
             branch_id: formVal.branch_id || null,
+            order_date: formVal.order_date || null,
             expected_date: formVal.expected_date || null,
+            reference_number: formVal.reference_number || null,
             supplier_id: formVal.supplier_id || null, // Although required
             price_list_id: formVal.price_list_id || null,
+            payment_method: formVal.payment_method || 'CASH',
             items: formVal.items.map((i: any) => ({
                 product_id: i.product_id,
                 variant_id: i.variant_id || null, // Include variant_id

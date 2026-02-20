@@ -130,6 +130,8 @@ async def create_purchase(
             branch_id=purchase_in.branch_id,
             notes=purchase_in.notes,
             expected_date=purchase_in.expected_date,
+            order_date=purchase_in.order_date,
+            reference_number=purchase_in.reference_number,
             user_id=current_user.id,
             company_id=current_user.company_id,
             status=PurchaseStatus.DRAFT,
@@ -154,6 +156,31 @@ async def create_purchase(
             db.add(item)
         
         purchase.total_amount = total
+        purchase.payment_method = purchase_in.payment_method if purchase_in.payment_method else "CASH"
+
+        # CRM: Register debt if this is a CREDIT purchase and a supplier is attached
+        if purchase.payment_method == "CREDIT" and purchase.supplier_id:
+            from app.models.supplier import Supplier
+            from app.models.account_ledger import AccountLedger, LedgerType, PartnerType
+            
+            supplier_result = await db.execute(select(Supplier).where(Supplier.id == purchase.supplier_id))
+            supplier = supplier_result.scalar_one_or_none()
+            if supplier:
+                new_balance = supplier.current_balance + total
+                supplier.current_balance = new_balance
+                db.add(supplier)
+                
+                ledger = AccountLedger(
+                    partner_id=supplier.id,
+                    partner_type=PartnerType.SUPPLIER,
+                    type=LedgerType.CHARGE,
+                    amount=total,
+                    balance_after=new_balance,
+                    reference_id=str(purchase.id),
+                    description=f"Compra a crédito"
+                )
+                db.add(ledger)
+
         await db.commit()
         
         # Reload with items
@@ -385,3 +412,118 @@ async def download_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+@router.post("/{purchase_id}/receive", response_model=schemas.PurchaseOrder)
+async def receive_purchase(
+    purchase_id: UUID,
+    *,
+    db: AsyncSession = Depends(get_db),
+    receive_in: schemas.ReceiveInput,
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> Any:
+    """
+    Receive items for a purchase order (supports partial receipts).
+    Each call records the received quantities and creates IN movements.
+    """
+    # Load PO
+    query = select(PurchaseOrder).where(
+        PurchaseOrder.id == purchase_id,
+        PurchaseOrder.company_id == current_user.company_id
+    ).options(
+        selectinload(PurchaseOrder.items)
+    )
+    result = await db.execute(query)
+    purchase = result.scalars().first()
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+
+    if purchase.status in (PurchaseStatus.RECEIVED, PurchaseStatus.CANCELLED):
+        raise HTTPException(status_code=400, detail="Purchase Order already received or cancelled")
+
+    for ri in receive_in.items:
+        # Find item
+        item = next((i for i in purchase.items if i.id == ri.item_id), None)
+        if not item:
+            continue
+        if ri.qty_received <= 0:
+            continue
+
+        remaining = item.quantity - item.received_qty
+        qty_to_receive = min(ri.qty_received, remaining)
+        if qty_to_receive <= 0:
+            continue
+
+        item.received_qty += qty_to_receive
+
+        # Update inventory
+        inv_result = await db.execute(
+            select(Inventory).where(
+                Inventory.product_id == item.product_id,
+                Inventory.branch_id == purchase.branch_id
+            )
+        )
+        inv = inv_result.scalars().first()
+
+        previous_stock = inv.quantity if inv else 0.0
+        new_stock = previous_stock + qty_to_receive
+
+        if inv:
+            inv.quantity = new_stock
+        else:
+            inv = Inventory(
+                product_id=item.product_id,
+                branch_id=purchase.branch_id,
+                quantity=new_stock
+            )
+            db.add(inv)
+
+        # Create IN movement
+        movement = InventoryMovement(
+            product_id=item.product_id,
+            branch_id=purchase.branch_id,
+            user_id=current_user.id,
+            type=MovementType.IN,
+            quantity=qty_to_receive,
+            previous_stock=previous_stock,
+            new_stock=new_stock,
+            reason=f"PO Receipt (Order #{str(purchase.id)[:8]})",
+            reference_id=str(purchase.id)
+        )
+        db.add(movement)
+
+    # Determine status
+    all_received = all(i.received_qty >= i.quantity for i in purchase.items)
+    any_received = any(i.received_qty > 0 for i in purchase.items)
+
+    if all_received:
+        purchase.status = PurchaseStatus.RECEIVED
+    elif any_received:
+        purchase.status = PurchaseStatus.PARTIAL
+    # else keep current status
+
+    await db.commit()
+
+    # Reload with full relationships
+    return await _load_purchase_detail(db, purchase_id, current_user.company_id)
+
+
+async def _load_purchase_detail(db: AsyncSession, purchase_id: UUID, company_id: UUID):
+    """Helper to load a PO with all relationships."""
+    query = select(PurchaseOrder).where(
+        PurchaseOrder.id == purchase_id,
+        PurchaseOrder.company_id == company_id
+    ).options(
+        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product).options(
+            selectinload(Product.images),
+            selectinload(Product.variants),
+            selectinload(Product.brand),
+            selectinload(Product.unit_of_measure),
+            selectinload(Product.category)
+        ),
+        selectinload(PurchaseOrder.supplier),
+        selectinload(PurchaseOrder.branch)
+    )
+    result = await db.execute(query)
+    return result.scalars().first()
+

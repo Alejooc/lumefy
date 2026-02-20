@@ -20,6 +20,7 @@ export interface NavigationItem {
 }
 
 export const NavigationItems: NavigationItem[] = [
+  // ──────────────────── Dashboard ────────────────────
   {
     id: 'dashboard',
     title: 'Dashboard',
@@ -37,6 +38,8 @@ export const NavigationItems: NavigationItem[] = [
       }
     ]
   },
+
+  // ──────────────────── Super Admin ────────────────────
   {
     id: 'admin',
     title: 'Super Admin',
@@ -130,12 +133,14 @@ export const NavigationItems: NavigationItem[] = [
       }
     ]
   },
+
+  // ──────────────────── Catálogo (product master data) ────────────────────
   {
-    id: 'inventory',
+    id: 'catalog',
     title: 'Catálogo',
     type: 'group',
     icon: 'icon-navigation',
-    permissions: ['view_inventory'],
+    permissions: ['view_products'],
     children: [
       {
         id: 'products',
@@ -155,16 +160,6 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'gold',
         breadcrumbs: true,
         permissions: ['view_products']
-      },
-      {
-        id: 'stock',
-        title: 'Inventario',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/inventory',
-        icon: 'database',
-        breadcrumbs: true,
-        permissions: ['view_inventory']
       },
       {
         id: 'brands',
@@ -188,6 +183,39 @@ export const NavigationItems: NavigationItem[] = [
       }
     ]
   },
+
+  // ──────────────────── Inventario (warehouse operations) ────────────────────
+  {
+    id: 'inventory',
+    title: 'Inventario',
+    type: 'group',
+    icon: 'icon-navigation',
+    permissions: ['view_inventory'],
+    children: [
+      {
+        id: 'stock',
+        title: 'Stock',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/inventory',
+        icon: 'database',
+        breadcrumbs: true,
+        permissions: ['view_inventory']
+      },
+      {
+        id: 'stock-take',
+        title: 'Toma de Inventario',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/inventory/stock-take',
+        icon: 'file-search',
+        breadcrumbs: true,
+        permissions: ['manage_inventory']
+      }
+    ]
+  },
+
+  // ──────────────────── Compras ────────────────────
   {
     id: 'purchasing',
     title: 'Compras',
@@ -227,6 +255,8 @@ export const NavigationItems: NavigationItem[] = [
       }
     ]
   },
+
+  // ──────────────────── Ventas ────────────────────
   {
     id: 'sales',
     title: 'Ventas',
@@ -254,6 +284,15 @@ export const NavigationItems: NavigationItem[] = [
         permissions: ['view_sales']
       },
       {
+        id: 'returns-list',
+        title: 'Devoluciones',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/returns',
+        icon: 'rollback',
+        permissions: ['manage_sales']
+      },
+      {
         id: 'first-sale-wizard',
         title: 'Wizard Primera Venta',
         type: 'item',
@@ -264,6 +303,49 @@ export const NavigationItems: NavigationItem[] = [
       }
     ]
   },
+
+  // ──────────────────── Logística (fulfillment) ────────────────────
+  {
+    id: 'logistics',
+    title: 'Logística',
+    type: 'group',
+    icon: 'icon-navigation',
+    permissions: ['view_sales'],
+    children: [
+      {
+        id: 'logistics-board',
+        title: 'Tablero Fulfillment',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/inventory/logistics-board',
+        icon: 'layout',
+        breadcrumbs: true,
+        permissions: ['view_sales']
+      },
+      {
+        id: 'picking',
+        title: 'Picking',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/inventory/picking',
+        icon: 'carry-out',
+        breadcrumbs: true,
+        permissions: ['manage_sales']
+      },
+      {
+        id: 'package-types',
+        title: 'Tipos de Empaque',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/logistics/package-types',
+        icon: 'box',
+        breadcrumbs: true,
+        permissions: ['manage_sales']
+      }
+    ]
+  },
+
+  // ──────────────────── Reportes ────────────────────
   {
     id: 'reports',
     title: 'Reportes',
@@ -283,6 +365,8 @@ export const NavigationItems: NavigationItem[] = [
       }
     ]
   },
+
+  // ──────────────────── Tienda de Apps ────────────────────
   {
     id: 'apps-platform',
     title: 'Tienda de Apps',
@@ -318,6 +402,8 @@ export const NavigationItems: NavigationItem[] = [
       }
     ]
   },
+
+  // ──────────────────── Gestión ────────────────────
   {
     id: 'management',
     title: 'Gestión',
@@ -365,16 +451,6 @@ export const NavigationItems: NavigationItem[] = [
         permissions: ['manage_company']
       },
       {
-        id: 'audit',
-        title: 'Audit Logs',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/audit',
-        icon: 'audit',
-        breadcrumbs: false,
-        permissions: ['view_reports']
-      },
-      {
         id: 'branches',
         title: 'Sucursales',
         type: 'item',
@@ -384,6 +460,16 @@ export const NavigationItems: NavigationItem[] = [
         breadcrumbs: false,
         permissions: ['manage_settings']
       },
+      {
+        id: 'audit',
+        title: 'Audit Logs',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/audit',
+        icon: 'audit',
+        breadcrumbs: false,
+        permissions: ['view_reports']
+      }
     ]
   }
 ];

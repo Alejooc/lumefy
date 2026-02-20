@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
-    login, products, categories, inventory, pos, companies, reports, clients, users, roles, audit, suppliers, purchases, pricelists, sales, admin, branches, logistics, plans, brands, units_of_measure, upload, dashboard, admin_users, system, notifications, notification_admin, apps, search
+    login, products, categories, inventory, pos, companies, reports, clients, users, roles, audit, suppliers, purchases, pricelists, sales, admin, branches, logistics, plans, brands, units_of_measure, upload, dashboard, admin_users, system, notifications, notification_admin, apps, search, stock_take, returns
 )
 api_router = APIRouter()
 api_router.include_router(login.router, tags=["login"])
@@ -32,3 +32,5 @@ api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(notification_admin.router, prefix="/admin/notifications", tags=["notification_admin"])
 api_router.include_router(apps.router, prefix="/apps", tags=["apps"])
+api_router.include_router(stock_take.router, prefix="/stock-take", tags=["stock_take"])
+api_router.include_router(returns.router, prefix="/returns", tags=["returns"])

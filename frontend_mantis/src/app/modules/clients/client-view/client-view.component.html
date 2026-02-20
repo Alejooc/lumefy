@@ -1,0 +1,175 @@
+<div *ngIf="isLoading" class="text-center p-5">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p>Cargando información del cliente...</p>
+</div>
+
+<div *ngIf="!isLoading && client">
+    <!-- Header -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-1">{{ client.name }}</h3>
+                    <p class="text-muted mb-0"><i class="ti ti-id me-1"></i>{{ client.tax_id || 'Sin Identificación' }}
+                    </p>
+                </div>
+                <div class="text-end">
+                    <p class="mb-0 text-muted">Saldo Pendiente</p>
+                    <h3 [ngClass]="client.current_balance > 0 ? 'text-danger' : 'text-success'">
+                        {{ currencySymbol }} {{ client.current_balance | number:'1.2-2' }}
+                    </h3>
+                    <small *ngIf="client.credit_limit > 0" class="text-muted">Límite: {{ currencySymbol }} {{
+                        client.credit_limit | number:'1.2-2' }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-pills mb-4">
+        <li class="nav-item">
+            <a class="nav-link cursor-pointer" [class.active]="activeTab === 'general'" (click)="setTab('general')">
+                <i class="ti ti-user me-2"></i>Información General
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link cursor-pointer" [class.active]="activeTab === 'statement'" (click)="setTab('statement')">
+                <i class="ti ti-receipt me-2"></i>Estado de Cuenta
+            </a>
+        </li>
+    </ul>
+
+    <!-- Tab Content: General -->
+    <div *ngIf="activeTab === 'general'">
+        <app-card [cardTitle]="'Detalles del Cliente'" [showHeader]="true">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="fw-bold">Email</label>
+                    <p>{{ client.email || 'No especificado' }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="fw-bold">Teléfono</label>
+                    <p>{{ client.phone || 'No especificado' }}</p>
+                </div>
+                <div class="col-md-12 mb-3">
+                    <label class="fw-bold">Dirección</label>
+                    <p>{{ client.address || 'No especificado' }}</p>
+                </div>
+                <div class="col-md-12 mb-3">
+                    <label class="fw-bold">Notas</label>
+                    <p>{{ client.notes || 'Sin notas' }}</p>
+                </div>
+            </div>
+
+            <!-- We could add sales history here in the future -->
+        </app-card>
+    </div>
+
+    <!-- Tab Content: Statement -->
+    <div *ngIf="activeTab === 'statement'">
+        <app-card [cardTitle]="'Movimientos de Crédito'" [showHeader]="true">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <p class="text-muted mb-0">Listado de compras a crédito y abonos realizados.</p>
+                <button class="btn btn-primary" (click)="openPaymentModal()" [disabled]="client.current_balance <= 0">
+                    <i class="ti ti-cash me-1"></i> Registrar Abono
+                </button>
+            </div>
+
+            <div *ngIf="isLoadingStatement" class="text-center p-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            </div>
+
+            <div class="table-responsive" *ngIf="!isLoadingStatement">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Descripción</th>
+                            <th>Referencia</th>
+                            <th class="text-end">Cargo (Deuda)</th>
+                            <th class="text-end">Abono (Pago)</th>
+                            <th class="text-end">Saldo Final</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let entry of statement?.entries">
+                            <td>{{ entry.created_at | date:'medium' }}</td>
+                            <td>
+                                <span class="badge me-2"
+                                    [ngClass]="entry.type === 'CHARGE' ? 'bg-danger' : 'bg-success'">
+                                    {{ entry.type === 'CHARGE' ? 'CARGO' : 'ABONO' }}
+                                </span>
+                                {{ entry.description }}
+                            </td>
+                            <td>{{ entry.reference_id || '-' }}</td>
+                            <td class="text-end text-danger fw-bold">
+                                <span *ngIf="entry.type === 'CHARGE'">{{ currencySymbol }} {{ entry.amount |
+                                    number:'1.2-2' }}</span>
+                            </td>
+                            <td class="text-end text-success fw-bold">
+                                <span *ngIf="entry.type !== 'CHARGE'">{{ currencySymbol }} {{ entry.amount |
+                                    number:'1.2-2' }}</span>
+                            </td>
+                            <td class="text-end fw-bold">{{ currencySymbol }} {{ entry.balance_after | number:'1.2-2' }}
+                            </td>
+                        </tr>
+                        <tr *ngIf="!statement?.entries || statement.entries.length === 0">
+                            <td colspan="6" class="text-center text-muted">No hay movimientos registrados para este
+                                cliente.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </app-card>
+    </div>
+</div>
+
+<!-- Modal Registrar Abono -->
+<div class="modal" tabindex="-1" [ngClass]="{'show d-block': showPaymentModal}"
+    style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Abono</h5>
+                <button type="button" class="btn-close" (click)="closePaymentModal()"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    Saldo Pendiente Actual: <strong>{{ currencySymbol }} {{ statement?.current_balance | number:'1.2-2'
+                        }}</strong>
+                </div>
+
+                <form [formGroup]="paymentForm">
+                    <div class="mb-3">
+                        <label class="form-label">Monto a Abonar ({{ currencySymbol }}) *</label>
+                        <input type="number" class="form-control" formControlName="amount" min="0.01" step="0.01"
+                            [ngClass]="{'is-invalid': paymentForm.get('amount')?.invalid && paymentForm.get('amount')?.touched}">
+                        <div class="invalid-feedback">Ingrese un monto válido.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Descripción *</label>
+                        <input type="text" class="form-control" formControlName="description">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Nro. Referencia (Opcional)</label>
+                        <input type="text" class="form-control" formControlName="reference_id"
+                            placeholder="Ej. TRF-123456">
+                        <small class="text-muted">Si pagó por transferencia o cheque.</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" (click)="closePaymentModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary" (click)="submitPayment()"
+                    [disabled]="paymentForm.invalid || isSubmittingPayment">
+                    <span *ngIf="isSubmittingPayment" class="spinner-border spinner-border-sm me-1"
+                        role="status"></span>
+                    Guardar Pago
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

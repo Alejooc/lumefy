@@ -36,23 +36,43 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">Lista de Precios</label>
                             <select class="form-select" formControlName="price_list_id">
                                 <option value="">Ninguna (Costo Manual)</option>
                                 <option *ngFor="let pl of priceLists" [value]="pl.id">{{ pl.name }}</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label class="form-label">Fecha del Pedido</label>
+                            <input type="date" class="form-control" formControlName="order_date">
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label">Fecha Esperada</label>
                             <input type="date" class="form-control" formControlName="expected_date">
                         </div>
                     </div>
 
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Método de Pago</label>
+                            <select class="form-select" formControlName="payment_method">
+                                <option value="CASH">Efectivo</option>
+                                <option value="CREDIT">Crédito (Cuenta por Pagar)</option>
+                                <option value="CARD">Tarjeta</option>
+                                <option value="BANK_TRANSFER">Transferencia</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">N° de Factura / Referencia Proveedor</label>
+                            <input type="text" class="form-control" formControlName="reference_number"
+                                placeholder="Ej. FAC-12345">
+                        </div>
+                    </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Notes</label>
+                        <label class="form-label">Notas</label>
                         <textarea class="form-control" formControlName="notes" rows="2"></textarea>
                     </div>
                     <hr>
