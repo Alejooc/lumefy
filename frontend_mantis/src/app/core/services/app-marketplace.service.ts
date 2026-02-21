@@ -30,6 +30,7 @@ export interface AppInstalledDetail extends InstalledApp {
   description: string | null;
   category: string | null;
   version: string;
+  icon: string | null;
   config_schema: Record<string, string>;
 }
 
@@ -59,7 +60,7 @@ export class AppMarketplaceService {
   private installedChangedSource = new Subject<void>();
   installedChanged$ = this.installedChangedSource.asObservable();
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService) { }
 
   notifyInstalledChanged(): void {
     this.installedChangedSource.next();

@@ -41,6 +41,17 @@
                     </div>
                 </div>
 
+                <!-- Category chips -->
+                <div class="pos-category-chips" *ngIf="categories.length > 0">
+                    <button class="chip" [class.active]="selectedCategory === ''" (click)="selectCategory('')">
+                        <i class="feather icon-grid me-1" style="font-size:11px"></i> Todos
+                    </button>
+                    <button class="chip" *ngFor="let cat of categories" [class.active]="selectedCategory === cat"
+                        (click)="selectCategory(cat)">
+                        {{ cat }}
+                    </button>
+                </div>
+
                 <!-- Products grid -->
                 <div class="pos-card-body p-2">
                     <div class="row g-2 m-0">

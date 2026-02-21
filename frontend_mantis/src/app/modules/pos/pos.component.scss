@@ -220,3 +220,46 @@
         border-radius: 0;
     }
 }
+
+// ──────────────────────────────────────────────
+// Category filter chips
+// ──────────────────────────────────────────────
+.pos-category-chips {
+    display: flex;
+    gap: 6px;
+    padding: 6px 10px;
+    overflow-x: auto;
+    border-bottom: 1px solid #eee;
+    background: #fff;
+    flex-shrink: 0;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+.chip {
+    flex-shrink: 0;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1.5px solid #d9d9d9;
+    background: #fafafa;
+    color: #555;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+
+    &:hover {
+        border-color: #1890ff;
+        color: #1890ff;
+    }
+
+    &.active {
+        background: #1890ff;
+        border-color: #1890ff;
+        color: #fff;
+    }
+}

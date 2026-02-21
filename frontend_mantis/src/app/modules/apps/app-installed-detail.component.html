@@ -1,26 +1,177 @@
-<div class="app-detail-page" *ngIf="appDetail">
-  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-    <div>
-      <h4 class="mb-1">{{ appDetail.name }}</h4>
-      <p class="text-muted mb-0">{{ appDetail.slug }} | v{{ appDetail.version }} | {{ appDetail.category || 'General' }}</p>
-    </div>
-    <div class="d-flex gap-2">
-      <button class="btn btn-outline-secondary btn-sm" (click)="loadDetail()" [disabled]="loading">Refrescar</button>
-      <button class="btn btn-primary btn-sm" (click)="runDemo()">Debug / Probar</button>
+<div class="container-fluid py-4" *ngIf="!loading && appDetail; else loadingTpl">
+
+  <!-- App Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm app-header-card">
+        <div class="card-body d-flex align-items-center gap-4 flex-wrap p-4">
+          <div class="app-icon-wrapper">
+            <div class="app-icon">
+              <i class="feather" [ngClass]="appDetail.icon ? appDetail.icon : 'icon-box'"
+                style="font-size: 2.2rem;"></i>
+            </div>
+          </div>
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+              <h3 class="mb-0">{{ appDetail.name }}</h3>
+              <span class="badge bg-primary-subtle text-primary" style="font-size:.75rem;">
+                v{{ appDetail.version }}
+              </span>
+              <span class="badge bg-success-subtle text-success" *ngIf="appDetail.is_enabled">Activa</span>
+              <span class="badge bg-danger-subtle text-danger" *ngIf="!appDetail.is_enabled">Desactivada</span>
+            </div>
+            <p class="text-muted mb-1 small">{{ appDetail.description || 'Sin descripción.' }}</p>
+            <p class="text-muted mb-0" style="font-size:.75rem;">
+              <span class="me-3"><i class="feather icon-tag me-1"></i>{{ appDetail.category || 'General' }}</span>
+              <span><i class="feather icon-code me-1"></i>{{ appDetail.slug }}</span>
+            </p>
+          </div>
+          <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-outline-secondary btn-sm" (click)="loadDetail()" [disabled]="loading">
+              <i class="feather icon-refresh-cw me-1"></i>Refrescar
+            </button>
+            <button class="btn btn-outline-info btn-sm" (click)="runDemo()">
+              <i class="feather icon-terminal me-1"></i>Debug
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-body">
-      <h6>Campos esperados</h6>
-      <pre class="schema-box">{{ appDetail.config_schema | json }}</pre>
+  <!-- Configuration Form -->
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom d-flex align-items-center gap-2">
+          <i class="feather icon-settings text-primary"></i>
+          <h5 class="mb-0">Configuración</h5>
+        </div>
+        <div class="card-body p-4">
 
-      <label class="form-label mt-3">Configuracion JSON</label>
-      <textarea class="form-control config-editor" rows="12" [(ngModel)]="configEditor"></textarea>
+          <!-- Dynamic fields from config_schema -->
+          <ng-container *ngIf="schemaFields.length > 0; else noSchema">
+            <div class="mb-4" *ngFor="let field of schemaFields">
 
-      <div class="d-flex justify-content-end mt-3">
-        <button class="btn btn-success" (click)="saveConfig()">Guardar configuracion</button>
+              <!-- Boolean → Toggle switch -->
+              <ng-container *ngIf="field.type === 'boolean'">
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                  <div>
+                    <label class="form-label mb-0 fw-semibold">{{ field.title }}</label>
+                    <p class="text-muted small mb-0" *ngIf="field.description">{{ field.description }}</p>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" style="width:2.5rem; height:1.3rem;"
+                      [id]="'field-' + field.key" [(ngModel)]="configForm[field.key]">
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- Enum → Select -->
+              <ng-container *ngIf="field.type === 'string' && field.enum">
+                <label [for]="'field-' + field.key" class="form-label fw-semibold">{{ field.title }}</label>
+                <p class="text-muted small mb-1" *ngIf="field.description">{{ field.description }}</p>
+                <select class="form-select" [id]="'field-' + field.key" [(ngModel)]="configForm[field.key]">
+                  <option *ngFor="let opt of field.enum" [value]="opt">{{ opt }}</option>
+                </select>
+              </ng-container>
+
+              <!-- Number → Input -->
+              <ng-container *ngIf="field.type === 'number' || field.type === 'integer'">
+                <label [for]="'field-' + field.key" class="form-label fw-semibold">{{ field.title }}</label>
+                <p class="text-muted small mb-1" *ngIf="field.description">{{ field.description }}</p>
+                <input type="number" class="form-control" [id]="'field-' + field.key"
+                  [(ngModel)]="configForm[field.key]">
+              </ng-container>
+
+              <!-- Plain string → Input (no enum) -->
+              <ng-container *ngIf="(field.type === 'string' || !field.type) && !field.enum">
+                <label [for]="'field-' + field.key" class="form-label fw-semibold">{{ field.title }}</label>
+                <p class="text-muted small mb-1" *ngIf="field.description">{{ field.description }}</p>
+                <input type="text" class="form-control" [id]="'field-' + field.key" [(ngModel)]="configForm[field.key]">
+              </ng-container>
+
+            </div>
+          </ng-container>
+
+          <!-- No schema defined yet -->
+          <ng-template #noSchema>
+            <div class="text-center py-5">
+              <i class="feather icon-sliders text-muted" style="font-size: 3rem; opacity:.4;"></i>
+              <h6 class="text-muted mt-3">Sin campos de configuración definidos</h6>
+              <p class="text-muted small">El desarrollador de esta app no definió un esquema de configuración todavía.
+              </p>
+            </div>
+          </ng-template>
+
+          <div class="d-flex justify-content-between align-items-center mt-4">
+            <!-- Raw JSON toggle -->
+            <button class="btn btn-link btn-sm text-muted p-0" (click)="showRawJson = !showRawJson">
+              <i class="feather icon-code me-1"></i>{{ showRawJson ? 'Ocultar' : 'Ver' }} JSON crudo
+            </button>
+            <button class="btn btn-primary" (click)="saveConfig()" *ngIf="schemaFields.length > 0">
+              <i class="feather icon-save me-2"></i>Guardar configuración
+            </button>
+          </div>
+
+          <!-- Raw JSON accordion -->
+          <div class="mt-3" *ngIf="showRawJson">
+            <label class="form-label small fw-semibold text-muted">JSON de configuración actual</label>
+            <textarea class="form-control font-monospace" rows="10" [(ngModel)]="configEditor"
+              style="font-size:.8rem; background:#1e1e2e; color:#cdd6f4; border:none; border-radius:8px;"></textarea>
+            <div class="d-flex justify-content-end mt-2">
+              <button class="btn btn-outline-secondary btn-sm" (click)="saveRawJson()">
+                <i class="feather icon-save me-1"></i>Guardar JSON
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Info sidebar -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white border-bottom">
+          <h6 class="mb-0"><i class="feather icon-info me-2 text-muted"></i>Información de instalación</h6>
+        </div>
+        <div class="card-body px-4 py-3">
+          <div class="info-row">
+            <span class="text-muted small">Instalada</span>
+            <span class="small fw-semibold">{{ appDetail.installed_at | date:'mediumDate' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="text-muted small">ID de instalación</span>
+            <span class="small text-truncate fw-mono" style="max-width: 150px;" [title]="appDetail.install_id">{{
+              appDetail.install_id }}</span>
+          </div>
+          <div class="info-row">
+            <span class="text-muted small">Slug</span>
+            <code class="small">{{ appDetail.slug }}</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- Schema preview -->
+      <div class="card border-0 shadow-sm" *ngIf="schemaFields.length > 0">
+        <div class="card-header bg-white border-bottom">
+          <h6 class="mb-0"><i class="feather icon-list me-2 text-muted"></i>Campos disponibles</h6>
+        </div>
+        <div class="card-body px-4 py-3">
+          <div class="d-flex justify-content-between align-items-center py-1" *ngFor="let field of schemaFields">
+            <span class="small">{{ field.title }}</span>
+            <span class="badge bg-light text-muted" style="font-size: .7rem;">{{ field.type || 'string' }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Loading state -->
+<ng-template #loadingTpl>
+  <div class="d-flex justify-content-center align-items-center" style="height: 300px;">
+    <div class="spinner-border text-primary" role="status"></div>
+  </div>
+</ng-template>

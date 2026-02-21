@@ -10,6 +10,7 @@ class POSProduct(BaseModel):
     price: float
     stock: float
     category_id: Optional[UUID] = None
+    category_name: Optional[str] = None
     image_url: Optional[str] = None
 
 class POSCartItem(BaseModel):

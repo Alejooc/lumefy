@@ -10,6 +10,7 @@ from app.models.product import Product
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.user import User
+from app.models.category import Category
 from app.core.permissions import PermissionChecker
 from app.schemas import pos as schemas
 import uuid
@@ -46,16 +47,18 @@ async def get_pos_products(
     """
     Optimized endpoint to fetch all products and their stock for the POS interface.
     """
-    query = select(Product, Inventory).outerjoin(
+    query = select(Product, Inventory, Category).outerjoin(
         Inventory, 
         and_(Inventory.product_id == Product.id, Inventory.branch_id == branch_id)
+    ).outerjoin(
+        Category, Category.id == Product.category_id
     ).where(Product.company_id == current_user.company_id, Product.is_active == True)
     
     result = await db.execute(query)
     rows = result.all()
     
     products = []
-    for product, inventory in rows:
+    for product, inventory, category in rows:
         products.append({
             "id": product.id,
             "name": product.name,
@@ -64,6 +67,7 @@ async def get_pos_products(
             "price": product.price,
             "stock": inventory.quantity if inventory else 0.0,
             "category_id": product.category_id,
+            "category_name": category.name if category else None,
             "image_url": product.image_url
         })
         
@@ -137,16 +141,22 @@ async def pos_checkout(
                 )
                 db.add(inventory)
             
+            # Capture stock BEFORE deduction for the kardex
+            prev_qty = inventory.quantity
             inventory.quantity -= item_in.quantity
+            new_qty = inventory.quantity
             
-            # Inventory Movement
+            # Inventory Movement (kardex entry)
             movement = InventoryMovement(
                 product_id=item_in.product_id,
                 branch_id=checkout_in.branch_id,
+                user_id=current_user.id,
                 type=MovementType.OUT,
                 quantity=-item_in.quantity,
+                previous_stock=prev_qty,
+                new_stock=new_qty,
                 reference_id=str(sale.id),
-                reason="Venta POS Automatizada"
+                reason=f"Venta POS \u2014 {current_user.full_name or current_user.email}"
             )
             db.add(movement)
             

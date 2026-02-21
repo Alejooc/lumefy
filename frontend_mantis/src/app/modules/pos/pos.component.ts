@@ -31,6 +31,10 @@ export class PosComponent implements OnInit {
     currentBranchId: string = '';
     branches: any[] = [];
 
+    // Category filters
+    categories: string[] = [];
+    selectedCategory: string = '';
+
     // Checkout Modal
     showCheckoutModal = false;
     paymentMethod: string = 'CASH';
@@ -90,18 +94,32 @@ export class PosComponent implements OnInit {
     loadProducts() {
         this.posService.getProducts(this.currentBranchId).subscribe((data) => {
             this.products = data;
+            // Extract unique category names
+            const cats = data
+                .map(p => p.category_name)
+                .filter((c): c is string => !!c);
+            this.categories = [...new Set(cats)].sort();
+            this.selectedCategory = '';
             this.filteredProducts = data;
             this.cdr.detectChanges();
         });
     }
 
+    selectCategory(cat: string) {
+        this.selectedCategory = cat;
+        this.filterProducts();
+    }
+
     filterProducts() {
         const query = this.searchQuery.toLowerCase();
-        this.filteredProducts = this.products.filter(p =>
-            p.name.toLowerCase().includes(query) ||
-            (p.barcode && p.barcode.includes(query)) ||
-            (p.sku && p.sku.toLowerCase().includes(query))
-        );
+        this.filteredProducts = this.products.filter(p => {
+            const matchesSearch = !query ||
+                p.name.toLowerCase().includes(query) ||
+                (p.barcode && p.barcode.includes(query)) ||
+                (p.sku && p.sku.toLowerCase().includes(query));
+            const matchesCategory = !this.selectedCategory || p.category_name === this.selectedCategory;
+            return matchesSearch && matchesCategory;
+        });
 
         // Exact barcode match -> auto add
         if (this.searchQuery && this.filteredProducts.length === 1 && this.filteredProducts[0].barcode === this.searchQuery) {

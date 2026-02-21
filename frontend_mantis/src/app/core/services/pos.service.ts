@@ -11,6 +11,7 @@ export interface POSProduct {
     price: number;
     stock: number;
     category_id?: string;
+    category_name?: string;
     image_url?: string;
 }
 
