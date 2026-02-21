@@ -48,6 +48,11 @@ const routes: Routes = [
     ]
   },
   {
+    path: 'pos',
+    canActivate: [AuthGuard],
+    loadComponent: () => import('./modules/pos/pos.component').then((c) => c.PosComponent)
+  },
+  {
     path: '',
     component: AdminLayout,
     canActivate: [AuthGuard],
@@ -92,10 +97,6 @@ const routes: Routes = [
       {
         path: 'inventory',
         loadChildren: () => import('./modules/inventory/inventory.module').then((m) => m.InventoryModule)
-      },
-      {
-        path: 'pos',
-        loadChildren: () => import('./modules/pos/pos.module').then((m) => m.PosModule)
       },
       {
         path: 'reports',

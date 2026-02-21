@@ -36,11 +36,11 @@
                         Despachar
                     </button>
                     <button *ngIf="sale.status === 'DISPATCHED'" class="btn btn-success btn-sm me-2"
-                        (click)="updateStatus('DELIVERED')">
+                        (click)="openDeliveryModal()">
                         <i class="ti ti-package-export me-1"></i>Confirmar Entrega
                     </button>
                     <button *ngIf="sale.status === 'DELIVERED'" class="btn btn-primary btn-sm me-2"
-                        (click)="updateStatus('COMPLETED')">
+                        (click)="completeSale()">
                         <i class="ti ti-circle-check me-1"></i>Cerrar Venta
                     </button>
                     <!-- Create Return directly from the Sale -->
@@ -170,5 +170,45 @@
 <div *ngIf="loading" class="text-center mt-5">
     <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Cargando...</span>
+    </div>
+</div>
+
+<!-- Delivery Confirmation Modal -->
+<div class="modal fade" id="deliveryModal" tabindex="-1" aria-hidden="true" [class.show]="showDeliveryModal"
+    [style.display]="showDeliveryModal ? 'block' : 'none'"
+    [style.background]="showDeliveryModal ? 'rgba(0,0,0,0.5)' : ''">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Entrega al Cliente</h5>
+                <button type="button" class="btn-close" (click)="closeDeliveryModal()"></button>
+            </div>
+            <div class="modal-body">
+                <form [formGroup]="deliveryForm">
+                    <div class="mb-3">
+                        <label class="form-label">Notas de Entrega (Opcional)</label>
+                        <textarea class="form-control" formControlName="notes" rows="3"
+                            placeholder="Ej. Entregado al portero, recibido en buenas condiciones..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">URL de Evidencia (Opcional)</label>
+                        <input type="url" class="form-control" formControlName="evidence_url"
+                            placeholder="https://link-a-foto-o-firma.com">
+                        <small class="text-muted">Si tienes una foto de la entrega o firma electrónica, coloca
+                            el enlace aquí.</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" (click)="closeDeliveryModal()"
+                    [disabled]="isSubmittingDelivery">Cancelar</button>
+                <button type="button" class="btn btn-success" (click)="confirmDelivery()"
+                    [disabled]="isSubmittingDelivery">
+                    <i class="feather icon-check me-1"></i>
+                    <span *ngIf="isSubmittingDelivery" class="spinner-border spinner-border-sm me-1"></span>
+                    Confirmar Entrega Final
+                </button>
+            </div>
+        </div>
     </div>
 </div>

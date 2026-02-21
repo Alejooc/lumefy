@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { SaleService, Sale } from '../../../core/services/sale.service';
 import Swal from 'sweetalert2';
 import { LogisticsService } from '../../logistics/logistics.service';
@@ -8,7 +9,7 @@ import { LogisticsService } from '../../logistics/logistics.service';
 @Component({
     selector: 'app-sales-view',
     standalone: true,
-    imports: [CommonModule, RouterModule],
+    imports: [CommonModule, RouterModule, ReactiveFormsModule],
     templateUrl: './sales-view.component.html'
 })
 export class SalesViewComponent implements OnInit {
@@ -16,11 +17,23 @@ export class SalesViewComponent implements OnInit {
     loading = false;
     packedQuantities: { [key: string]: number } = {};
 
+    showDeliveryModal = false;
+    isSubmittingDelivery = false;
+    deliveryForm: FormGroup;
+
     private route = inject(ActivatedRoute);
     private router = inject(Router);
     private saleService = inject(SaleService);
     private logisticsService = inject(LogisticsService);
     private cdr = inject(ChangeDetectorRef);
+    private fb = inject(FormBuilder);
+
+    constructor() {
+        this.deliveryForm = this.fb.group({
+            notes: [''],
+            evidence_url: ['']
+        });
+    }
 
     ngOnInit() {
         this.route.paramMap.subscribe(params => {
@@ -124,47 +137,10 @@ export class SalesViewComponent implements OnInit {
                 buttonText = 'Sí, despachar';
                 break;
             case 'DELIVERED':
-                // Use dedicated delivery confirmation with notes
-                Swal.fire({
-                    title: 'Confirmar Entrega',
-                    html: `
-                        <div class="text-start">
-                            <label class="form-label">Notas de entrega</label>
-                            <textarea id="delivery-notes" class="form-control" rows="3" placeholder="Ej: Recibido por Juan, portería..."></textarea>
-                            <label class="form-label mt-3">URL de evidencia (foto/firma)</label>
-                            <input id="delivery-evidence" type="text" class="form-control" placeholder="https://...">
-                        </div>
-                    `,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Confirmar Entrega',
-                    cancelButtonText: 'Cancelar',
-                    preConfirm: () => {
-                        const notes = (document.getElementById('delivery-notes') as HTMLTextAreaElement)?.value;
-                        const evidence = (document.getElementById('delivery-evidence') as HTMLInputElement)?.value;
-                        return { notes, evidence_url: evidence || null };
-                    }
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        this.loading = true;
-                        this.saleService.confirmDelivery(this.sale!.id, result.value).subscribe({
-                            next: (updated) => {
-                                this.sale = updated;
-                                this.loading = false;
-                                this.cdr.detectChanges();
-                                Swal.fire('Entregado', 'La entrega ha sido confirmada.', 'success');
-                            },
-                            error: (err) => {
-                                this.loading = false;
-                                this.cdr.detectChanges();
-                                Swal.fire('Error', err.error?.detail || 'No se pudo confirmar la entrega', 'error');
-                            }
-                        });
-                    }
-                });
+                // Removed since we use custom modal now
                 return;
             case 'COMPLETED':
-                // Use dedicated complete endpoint
+                // Removed since we use completeSale method now
                 Swal.fire({
                     title: 'Cerrar Venta',
                     text: '¿Marcar esta venta como completada? Esta acción es definitiva.',
@@ -237,5 +213,76 @@ export class SalesViewComponent implements OnInit {
             case 'CANCELLED': return 'badge bg-danger';
             default: return 'badge bg-secondary';
         }
+    }
+
+    // --- Delivery Modal Flow ---
+
+    openDeliveryModal() {
+        this.deliveryForm.reset();
+        this.showDeliveryModal = true;
+        this.cdr.detectChanges();
+    }
+
+    closeDeliveryModal() {
+        this.showDeliveryModal = false;
+        this.cdr.detectChanges();
+    }
+
+    confirmDelivery() {
+        if (!this.sale) return;
+
+        this.isSubmittingDelivery = true;
+        const formValue = this.deliveryForm.value;
+        const payload = {
+            notes: formValue.notes || null,
+            evidence_url: formValue.evidence_url || null
+        };
+
+        this.saleService.confirmDelivery(this.sale.id, payload).subscribe({
+            next: (updated) => {
+                this.sale = updated;
+                this.isSubmittingDelivery = false;
+                this.closeDeliveryModal();
+                Swal.fire('Entregado', 'La entrega ha sido confirmada exitosamente.', 'success');
+                this.cdr.detectChanges();
+            },
+            error: (err) => {
+                this.isSubmittingDelivery = false;
+                this.cdr.detectChanges();
+                Swal.fire('Error', err.error?.detail || 'No se pudo confirmar la entrega', 'error');
+            }
+        });
+    }
+
+    // --- Completion Flow ---
+
+    completeSale() {
+        if (!this.sale) return;
+
+        Swal.fire({
+            title: 'Cerrar Venta',
+            text: '¿Marcar esta venta como completada? Esta acción es definitiva.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, cerrar venta',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                this.loading = true;
+                this.saleService.completeSale(this.sale!.id).subscribe({
+                    next: (updated) => {
+                        this.sale = updated;
+                        this.loading = false;
+                        this.cdr.detectChanges();
+                        Swal.fire('Completada', 'La venta ha sido cerrada exitosamente.', 'success');
+                    },
+                    error: (err) => {
+                        this.loading = false;
+                        this.cdr.detectChanges();
+                        Swal.fire('Error', err.error?.detail || 'No se pudo completar la venta', 'error');
+                    }
+                });
+            }
+        });
     }
 }

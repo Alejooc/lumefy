@@ -210,7 +210,15 @@ export class NavContentComponent implements OnInit {
         return { ...item, children };
       }
       if (item.children) {
-        return { ...item, children: this.attachInstalledApps(item.children, installed) };
+        let filteredChildren = this.attachInstalledApps(item.children, installed);
+
+        // Hide POS if the module is not installed
+        const hasPosApp = installed.some(app => app.slug === 'pos_module' && app.is_enabled);
+        if (!hasPosApp) {
+          filteredChildren = filteredChildren.filter(child => child.id !== 'pos');
+        }
+
+        return { ...item, children: filteredChildren };
       }
       return item;
     });

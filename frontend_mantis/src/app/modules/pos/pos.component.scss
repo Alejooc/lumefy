@@ -1,22 +1,222 @@
-.product-card {
-    transition: transform 0.2s, box-shadow 0.2s;
-
-    &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        border-color: #1890ff !important;
-    }
+// ──────────────────────────────────────────────
+// Host fills 100% viewport height — no scrollbars
+// ──────────────────────────────────────────────
+:host {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100dvh; // dynamic viewport height (mobile browser-chrome aware)
+    overflow: hidden;
+    background: #f0f2f5;
 }
 
-.cart-items {
+// ──────────────────────────────────────────────
+// Main 2-column POS layout
+// ──────────────────────────────────────────────
+.pos-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0; // essential for flex children to shrink below content height
+    overflow: hidden;
+    gap: 8px;
+    padding: 8px;
+}
+
+// Left: product grid
+.pos-products-panel {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+// Right: cart
+.pos-cart-panel {
+    flex: 0 0 340px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+// ──────────────────────────────────────────────
+// Shared card wrapper
+// ──────────────────────────────────────────────
+.pos-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+    overflow: hidden;
+}
+
+.pos-card-header {
+    flex: 0 0 auto;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    background: #fff;
+}
+
+.pos-card-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     scrollbar-width: thin;
+    scrollbar-color: #ccc transparent;
 
     &::-webkit-scrollbar {
-        width: 6px;
+        width: 5px;
     }
 
     &::-webkit-scrollbar-thumb {
-        background-color: #d9d9d9;
+        background: #ccc;
         border-radius: 4px;
+    }
+}
+
+.pos-card-footer {
+    flex: 0 0 auto;
+    padding: 12px;
+    border-top: 1px solid #eee;
+    background: #fff;
+}
+
+// ──────────────────────────────────────────────
+// Product cards
+// ──────────────────────────────────────────────
+.product-card {
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1.5px solid #e8e8e8;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    background: #fff;
+    overflow: hidden;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(24, 144, 255, .15);
+        border-color: #1890ff !important;
+    }
+
+    &.out-of-stock {
+        opacity: 0.6;
+        border-color: #ffa39e !important;
+        pointer-events: none; // prevent adding
+    }
+}
+
+.product-img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    background: #f4f6f8;
+}
+
+.product-img-placeholder {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: linear-gradient(135deg, #e6f4ff 0%, #f0f0f0 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #bbb;
+    font-size: 2rem;
+}
+
+// ──────────────────────────────────────────────
+// Cart items area
+// ──────────────────────────────────────────────
+.cart-items-list {
+    padding: 4px 0;
+}
+
+.cart-item {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f0f0f0;
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+// ──────────────────────────────────────────────
+// Mobile: tabs for switching between products/cart
+// ──────────────────────────────────────────────
+.pos-mobile-tabs {
+    display: none;
+    gap: 0;
+    background: #fff;
+    border-bottom: 2px solid #1890ff;
+
+    button {
+        flex: 1;
+        padding: 12px 0;
+        border: none;
+        background: none;
+        font-size: .9rem;
+        font-weight: 600;
+        color: #aaa;
+        cursor: pointer;
+        transition: color .2s;
+
+        &.active {
+            color: #1890ff;
+            border-bottom: 2px solid #1890ff;
+            margin-bottom: -2px;
+        }
+    }
+}
+
+// ──────────────────────────────────────────────
+// Receipt view
+// ──────────────────────────────────────────────
+.receipt-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.ticket-wrapper {
+    max-width: 380px;
+    width: 100%;
+}
+
+// ──────────────────────────────────────────────
+// Responsive breakpoint (≤ 768px → single pane + tabs)
+// ──────────────────────────────────────────────
+@media (max-width: 768px) {
+    .pos-mobile-tabs {
+        display: flex;
+    }
+
+    .pos-layout {
+        flex-direction: column;
+        padding: 0;
+        gap: 0;
+    }
+
+    .pos-products-panel,
+    .pos-cart-panel {
+        flex: 0 0 auto;
+        width: 100%;
+    }
+
+    .pos-cart-panel {
+        flex: 1;
+    }
+
+    // hidden when not the active mobile tab
+    .pos-products-panel.mobile-hidden,
+    .pos-cart-panel.mobile-hidden {
+        display: none;
+    }
+
+    .pos-card {
+        border-radius: 0;
     }
 }

@@ -1,0 +1,38 @@
+// Optimized for 80mm thermal printers (approx 3.125 inches width)
+.receipt {
+    width: 300px;
+    margin: 0 auto;
+    font-family: 'Courier New', Courier, monospace !important;
+    background-color: white;
+    color: black;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 10px;
+
+    .header {
+        h4 {
+            font-size: 18px;
+            font-weight: bold;
+        }
+    }
+
+    .dashed-line {
+        border-top: 1px dashed black;
+        width: 100%;
+    }
+
+    .border-bottom-dashed {
+        border-bottom: 1px dashed #dedede;
+    }
+
+    .table {
+        color: black;
+        margin-bottom: 0;
+
+        th,
+        td {
+            padding: 4px 0;
+            border-color: black;
+        }
+    }
+}
