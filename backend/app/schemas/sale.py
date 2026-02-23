@@ -110,3 +110,7 @@ class SaleSummary(SaleBase):
 class DeliveryConfirmation(BaseModel):
     notes: Optional[str] = None
     evidence_url: Optional[str] = None
+
+class ClientSalesResponse(BaseModel):
+    total: int
+    items: List[SaleSummary]

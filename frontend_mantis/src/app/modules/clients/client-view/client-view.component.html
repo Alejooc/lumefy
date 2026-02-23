@@ -4,170 +4,331 @@
 </div>
 
 <div *ngIf="!isLoading && client">
-    <!-- Header -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="mb-1">{{ client.name }}</h3>
-                    <p class="text-muted mb-0"><i class="ti ti-id me-1"></i>{{ client.tax_id || 'Sin Identificación' }}
-                    </p>
-                </div>
-                <div class="text-end">
-                    <p class="mb-0 text-muted">Saldo Pendiente</p>
-                    <h3 [ngClass]="client.current_balance > 0 ? 'text-danger' : 'text-success'">
-                        {{ currencySymbol }} {{ client.current_balance | number:'1.2-2' }}
-                    </h3>
-                    <small *ngIf="client.credit_limit > 0" class="text-muted">Límite: {{ currencySymbol }} {{
+    <!-- Header with Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white mb-3">
+                <div class="card-body">
+                    <h6 class="text-white opacity-75">Saldo Pendiente</h6>
+                    <h2 class="text-white mb-0">{{ currencySymbol }} {{ client.current_balance | number:'1.2-2' }}</h2>
+                    <small *ngIf="client.credit_limit > 0" class="opacity-75">Límite: {{ currencySymbol }} {{
                         client.credit_limit | number:'1.2-2' }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white mb-3">
+                <div class="card-body">
+                    <h6 class="text-white opacity-75">Ventas Totales (LTV)</h6>
+                    <h2 class="text-white mb-0">{{ currencySymbol }} {{ stats?.total_sales | number:'1.2-2' }}</h2>
+                    <small class="opacity-75">{{ stats?.order_count }} pedidos realizados</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h3 class="mb-0">{{ client.name }}</h3>
+                            <span class="badge" [ngClass]="{
+                                'bg-success': client.status === 'active',
+                                'bg-warning': client.status === 'prospective',
+                                'bg-danger': client.status === 'at_risk',
+                                'bg-secondary': client.status === 'inactive'
+                            }">{{ client.status | uppercase }}</span>
+                            <p class="text-muted small mt-2 mb-0"><i class="ti ti-id me-1"></i>{{ client.tax_id || 'Sin
+                                NIT/DNI' }}</p>
+                        </div>
+                        <div class="text-end" *ngIf="client.tags">
+                            <span *ngFor="let tag of client.tags | keyvalue"
+                                class="badge bg-light text-dark border me-1">{{ tag.key }}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Tabs -->
-    <ul class="nav nav-pills mb-4">
-        <li class="nav-item">
-            <a class="nav-link cursor-pointer" [class.active]="activeTab === 'general'" (click)="setTab('general')">
-                <i class="ti ti-user me-2"></i>Información General
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link cursor-pointer" [class.active]="activeTab === 'statement'" (click)="setTab('statement')">
-                <i class="ti ti-receipt me-2"></i>Estado de Cuenta
-            </a>
-        </li>
-    </ul>
-
-    <!-- Tab Content: General -->
-    <div *ngIf="activeTab === 'general'">
-        <app-card [cardTitle]="'Detalles del Cliente'" [showHeader]="true">
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="fw-bold">Email</label>
-                    <p>{{ client.email || 'No especificado' }}</p>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="fw-bold">Teléfono</label>
-                    <p>{{ client.phone || 'No especificado' }}</p>
-                </div>
-                <div class="col-md-12 mb-3">
-                    <label class="fw-bold">Dirección</label>
-                    <p>{{ client.address || 'No especificado' }}</p>
-                </div>
-                <div class="col-md-12 mb-3">
-                    <label class="fw-bold">Notas</label>
-                    <p>{{ client.notes || 'Sin notas' }}</p>
-                </div>
-            </div>
-
-            <!-- We could add sales history here in the future -->
-        </app-card>
+    <!-- Main Navigation Tabs -->
+    <div class="card mb-4">
+        <div class="card-body p-0">
+            <ul class="nav nav-tabs nav-tabs-bottom mb-0">
+                <li class="nav-item">
+                    <a class="nav-link cursor-pointer" [class.active]="activeTab === 'general'"
+                        (click)="setTab('general')">
+                        <i class="ti ti-user me-2"></i>General
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link cursor-pointer" [class.active]="activeTab === 'timeline'"
+                        (click)="setTab('timeline')">
+                        <i class="ti ti-list-details me-2"></i>Línea de Tiempo
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link cursor-pointer" [class.active]="activeTab === 'sales'" (click)="setTab('sales')">
+                        <i class="ti ti-shopping-cart me-2"></i>Ventas
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link cursor-pointer" [class.active]="activeTab === 'statement'"
+                        (click)="setTab('statement')">
+                        <i class="ti ti-receipt me-2"></i>Estado de Cuenta
+                    </a>
+                </li>
+            </ul>
+        </div>
     </div>
 
-    <!-- Tab Content: Statement -->
-    <div *ngIf="activeTab === 'statement'">
-        <app-card [cardTitle]="'Movimientos de Crédito'" [showHeader]="true">
+    <!-- Tab Content -->
+    <div [ngSwitch]="activeTab">
 
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <p class="text-muted mb-0">Listado de compras a crédito y abonos realizados.</p>
-                <button class="btn btn-primary" (click)="openPaymentModal()" [disabled]="client.current_balance <= 0">
-                    <i class="ti ti-cash me-1"></i> Registrar Abono
-                </button>
+        <!-- General Tab -->
+        <div *ngSwitchCase="'general'">
+            <div class="row">
+                <div class="col-md-6">
+                    <app-card [cardTitle]="'Información de Contacto'">
+                        <div class="row">
+                            <div class="col-sm-4 fw-bold">Email:</div>
+                            <div class="col-sm-8 mb-2">{{ client.email || 'No especificado' }}</div>
+                            <div class="col-sm-4 fw-bold">Teléfono:</div>
+                            <div class="col-sm-8 mb-2">{{ client.phone || 'No especificado' }}</div>
+                            <div class="col-sm-4 fw-bold">Dirección:</div>
+                            <div class="col-sm-8 mb-2">{{ client.address || 'No especificado' }}</div>
+                            <div class="col-sm-4 fw-bold">Registro:</div>
+                            <div class="col-sm-8 mb-2">{{ client.created_at | date:'medium' }}</div>
+                        </div>
+                    </app-card>
+                </div>
+                <div class="col-md-6">
+                    <app-card [cardTitle]="'Métricas y Configuración'">
+                        <div class="row">
+                            <div class="col-sm-6 mb-3">
+                                <label class="text-muted small">Ticket Promedio</label>
+                                <h4 class="mb-0">{{ currencySymbol }} {{ stats?.average_order_value | number:'1.2-2' }}
+                                </h4>
+                            </div>
+                            <div class="col-sm-6 mb-3">
+                                <label class="text-muted small">Última Compra</label>
+                                <h4 class="mb-0">{{ stats?.last_sale_at ? (stats.last_sale_at | date:'shortDate') :
+                                    'Nunca' }}</h4>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <label class="fw-bold">Notas Internas</label>
+                                <div class="bg-light p-3 rounded mt-1 border">{{ client.notes || 'Sin notas
+                                    adicionales.' }}</div>
+                            </div>
+                        </div>
+                    </app-card>
+                </div>
             </div>
+        </div>
 
-            <div *ngIf="isLoadingStatement" class="text-center p-3">
-                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-            </div>
-
-            <div class="table-responsive" *ngIf="!isLoadingStatement">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Descripción</th>
-                            <th>Referencia</th>
-                            <th class="text-end">Cargo (Deuda)</th>
-                            <th class="text-end">Abono (Pago)</th>
-                            <th class="text-end">Saldo Final</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr *ngFor="let entry of statement?.entries">
-                            <td>{{ entry.created_at | date:'medium' }}</td>
-                            <td>
-                                <span class="badge me-2"
-                                    [ngClass]="entry.type === 'CHARGE' ? 'bg-danger' : 'bg-success'">
-                                    {{ entry.type === 'CHARGE' ? 'CARGO' : 'ABONO' }}
+        <!-- Timeline Tab -->
+        <div *ngSwitchCase="'timeline'">
+            <div class="row">
+                <div class="col-md-4">
+                    <app-card [cardTitle]="'Añadir Nota/Interacción'">
+                        <form [formGroup]="activityForm" (ngSubmit)="submitActivity()">
+                            <div class="mb-3">
+                                <label class="form-label">Tipo</label>
+                                <select class="form-select" formControlName="type">
+                                    <option value="NOTE">Nota Interna</option>
+                                    <option value="CALL">Llamada</option>
+                                    <option value="MEETING">Reunión</option>
+                                    <option value="EMAIL">Correo Electrónico</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Contenido</label>
+                                <textarea class="form-control" formControlName="content" rows="4"
+                                    placeholder="¿Qué pasó con el cliente?"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100"
+                                [disabled]="activityForm.invalid || isSubmittingActivity">
+                                <span *ngIf="isSubmittingActivity" class="spinner-border spinner-border-sm me-1"></span>
+                                Guardar Interacción
+                            </button>
+                        </form>
+                    </app-card>
+                </div>
+                <div class="col-md-8">
+                    <app-card [cardTitle]="'Historial de Interacciones'">
+                        <div *ngIf="isLoadingTimeline" class="text-center p-4">
+                            <div class="spinner-border text-primary"></div>
+                        </div>
+                        <div class="timeline-feed" *ngIf="!isLoadingTimeline">
+                            <div *ngFor="let item of timeline"
+                                class="timeline-item pb-4 border-start ps-4 position-relative ms-3">
+                                <span
+                                    class="timeline-icon position-absolute start-0 translate-middle-x bg-white border rounded-circle d-flex align-items-center justify-content-center"
+                                    style="width:32px; height:32px; left: -1px; z-index:1;">
+                                    <i class="ti" [ngClass]="{
+                                        'ti-phone text-primary': item.category === 'CALL',
+                                        'ti-mail text-info': item.category === 'EMAIL',
+                                        'ti-users text-warning': item.category === 'MEETING',
+                                        'ti-note text-secondary': item.category === 'NOTE' || item.category === 'SYSTEM',
+                                        'ti-receipt-2 text-danger': item.category === 'CHARGE' || item.category === 'SALE',
+                                        'ti-cash text-success': item.category === 'PAYMENT' || item.category === 'REFUND'
+                                    }"></i>
                                 </span>
-                                {{ entry.description }}
-                            </td>
-                            <td>{{ entry.reference_id || '-' }}</td>
-                            <td class="text-end text-danger fw-bold">
-                                <span *ngIf="entry.type === 'CHARGE'">{{ currencySymbol }} {{ entry.amount |
-                                    number:'1.2-2' }}</span>
-                            </td>
-                            <td class="text-end text-success fw-bold">
-                                <span *ngIf="entry.type !== 'CHARGE'">{{ currencySymbol }} {{ entry.amount |
-                                    number:'1.2-2' }}</span>
-                            </td>
-                            <td class="text-end fw-bold">{{ currencySymbol }} {{ entry.balance_after | number:'1.2-2' }}
-                            </td>
-                        </tr>
-                        <tr *ngIf="!statement?.entries || statement.entries.length === 0">
-                            <td colspan="6" class="text-center text-muted">No hay movimientos registrados para este
-                                cliente.</td>
-                        </tr>
-                    </tbody>
-                </table>
+                                <div class="timeline-header d-flex justify-content-between">
+                                    <h6 class="mb-1 fw-bold">{{ item.category }}</h6>
+                                    <small class="text-muted">{{ item.created_at | date:'short' }}</small>
+                                </div>
+                                <p class="mb-0 text-secondary">{{ item.content }}</p>
+                                <strong *ngIf="item.amount" class="d-block mt-1"
+                                    [ngClass]="item.amount > 0 ? 'text-danger' : 'text-success'">
+                                    {{ currencySymbol }} {{ item.amount | number:'1.2-2' }}
+                                </strong>
+                            </div>
+                            <div *ngIf="timeline.length === 0" class="text-center p-5 opacity-50">
+                                <i class="ti ti-history fs-huge d-block mb-3"></i>
+                                Sin actividad reciente.
+                            </div>
+                        </div>
+                    </app-card>
+                </div>
             </div>
-        </app-card>
+        </div>
+
+        <!-- Sales Tab -->
+        <div *ngSwitchCase="'sales'">
+            <app-card [cardTitle]="'Historial de Compras'">
+                <div *ngIf="isLoadingSales" class="text-center p-5">
+                    <div class="spinner-border text-primary"></div>
+                </div>
+                <div class="table-responsive" *ngIf="!isLoadingSales">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Nro. Orden</th>
+                                <th>Fecha</th>
+                                <th>Sucursal</th>
+                                <th>Artículos</th>
+                                <th>Estado</th>
+                                <th class="text-end">Total</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let sale of sales">
+                                <td><strong>#{{ sale.id.substring(0,8) }}</strong></td>
+                                <td>{{ sale.created_at | date:'short' }}</td>
+                                <td>{{ sale.branch_id }}</td>
+                                <td>{{ sale.items?.length || 0 }}</td>
+                                <td>
+                                    <span class="badge bg-light-primary text-primary">{{ sale.status }}</span>
+                                </td>
+                                <td class="text-end fw-bold">{{ currencySymbol }} {{ sale.total | number:'1.2-2' }}</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-icon btn-light"
+                                        [routerLink]="['/sales/view', sale.id]">
+                                        <i class="ti ti-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </app-card>
+        </div>
+
+        <!-- Ledger/Statement Tab -->
+        <div *ngSwitchCase="'statement'">
+            <app-card [cardTitle]="'Estado Financiero'" [showHeader]="true">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <p class="text-muted mb-0">Movimientos de cargos y abonos.</p>
+                    <button class="btn btn-primary" (click)="openPaymentModal()"
+                        [disabled]="client.current_balance <= 0">
+                        <i class="ti ti-cash me-1"></i> Registrar Abono
+                    </button>
+                </div>
+                <div *ngIf="isLoadingStatement" class="text-center p-4">
+                    <div class="spinner-border text-primary"></div>
+                </div>
+                <div class="table-responsive" *ngIf="!isLoadingStatement">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Descripción</th>
+                                <th class="text-end">Cargo</th>
+                                <th class="text-end">Abono</th>
+                                <th class="text-end">Saldo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let entry of statement?.entries">
+                                <td>{{ entry.created_at | date:'short' }}</td>
+                                <td>
+                                    <span class="badge"
+                                        [ngClass]="entry.type === 'CHARGE' ? 'bg-light-danger text-danger' : 'bg-light-success text-success'">
+                                        {{ entry.type }}
+                                    </span>
+                                </td>
+                                <td>{{ entry.description }}</td>
+                                <td class="text-end text-danger"><span *ngIf="entry.type === 'CHARGE'">{{ entry.amount |
+                                        number:'1.2-2' }}</span></td>
+                                <td class="text-end text-success"><span *ngIf="entry.type !== 'CHARGE'">{{ entry.amount
+                                        | number:'1.2-2' }}</span></td>
+                                <td class="text-end fw-bold">{{ entry.balance_after | number:'1.2-2' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </app-card>
+        </div>
     </div>
 </div>
 
-<!-- Modal Registrar Abono -->
+<!-- Modal Registrar Abono (same as before) -->
 <div class="modal" tabindex="-1" [ngClass]="{'show d-block': showPaymentModal}"
     style="background-color: rgba(0,0,0,0.5);">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Registrar Abono</h5>
-                <button type="button" class="btn-close" (click)="closePaymentModal()"></button>
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title text-white">Registrar Abono</h5>
+                <button type="button" class="btn-close btn-close-white" (click)="closePaymentModal()"></button>
             </div>
-            <div class="modal-body">
-                <div class="alert alert-info">
-                    Saldo Pendiente Actual: <strong>{{ currencySymbol }} {{ statement?.current_balance | number:'1.2-2'
-                        }}</strong>
+            <div class="modal-body p-4">
+                <div
+                    class="alert bg-light-primary border-0 text-primary mb-4 p-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="small d-block opacity-75">Deuda Pendiente</span>
+                        <h4 class="mb-0 text-primary">{{ currencySymbol }} {{ statement?.current_balance |
+                            number:'1.2-2' }}</h4>
+                    </div>
+                    <i class="ti ti-coins fs-2"></i>
                 </div>
 
                 <form [formGroup]="paymentForm">
                     <div class="mb-3">
-                        <label class="form-label">Monto a Abonar ({{ currencySymbol }}) *</label>
-                        <input type="number" class="form-control" formControlName="amount" min="0.01" step="0.01"
-                            [ngClass]="{'is-invalid': paymentForm.get('amount')?.invalid && paymentForm.get('amount')?.touched}">
-                        <div class="invalid-feedback">Ingrese un monto válido.</div>
+                        <label class="form-label fw-bold">Monto a abonar</label>
+                        <div class="input-group">
+                            <span class="input-group-text">{{ currencySymbol }}</span>
+                            <input type="number" class="form-control form-control-lg" formControlName="amount">
+                        </div>
                     </div>
-
                     <div class="mb-3">
-                        <label class="form-label">Descripción *</label>
-                        <input type="text" class="form-control" formControlName="description">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Nro. Referencia (Opcional)</label>
+                        <label class="form-label fw-bold">Método / Referencia</label>
                         <input type="text" class="form-control" formControlName="reference_id"
-                            placeholder="Ej. TRF-123456">
-                        <small class="text-muted">Si pagó por transferencia o cheque.</small>
+                            placeholder="Nro de comprobante">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Notas del pago</label>
+                        <textarea class="form-control" formControlName="description" rows="2"></textarea>
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" (click)="closePaymentModal()">Cancelar</button>
-                <button type="button" class="btn btn-primary" (click)="submitPayment()"
+            <div class="modal-footer border-0 p-3">
+                <button type="button" class="btn btn-outline-secondary px-4"
+                    (click)="closePaymentModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary px-4" (click)="submitPayment()"
                     [disabled]="paymentForm.invalid || isSubmittingPayment">
-                    <span *ngIf="isSubmittingPayment" class="spinner-border spinner-border-sm me-1"
-                        role="status"></span>
-                    Guardar Pago
+                    Registrar Pago
                 </button>
             </div>
         </div>

@@ -10,6 +10,7 @@ from .product_variant import ProductVariant
 from .inventory_movement import InventoryMovement
 from .inventory import Inventory
 from .client import Client
+from .client_activity import ClientActivity
 from .supplier import Supplier
 from .purchase import PurchaseOrder, PurchaseStatus
 from .pricelist import PriceList, PriceListType

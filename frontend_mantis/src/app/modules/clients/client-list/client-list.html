@@ -2,9 +2,18 @@
     <div class="col-sm-12">
         <app-card [cardTitle]="'Lista de Clientes'" [showHeader]="true">
             <div class="row mb-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <input type="text" class="form-control" placeholder="Buscar cliente..." [(ngModel)]="searchQuery"
                         (keyup.enter)="loadClients()">
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" [(ngModel)]="selectedStatus" (change)="loadClients()">
+                        <option value="">Todos los estados</option>
+                        <option value="active">Activo</option>
+                        <option value="inactive">Inactivo</option>
+                        <option value="prospective">Prospecto</option>
+                        <option value="at_risk">En Riesgo</option>
+                    </select>
                 </div>
                 <div class="col-md-8 d-flex flex-wrap justify-content-end gap-2">
                     <div class="btn-group btn-group-sm">
@@ -42,6 +51,12 @@
                                 <div class="d-inline-block align-middle">
                                     <div class="d-inline-block">
                                         <h6 class="m-b-0">{{ client.name }}</h6>
+                                        <span class="badge" [ngClass]="{
+                                            'bg-success': client.status === 'active',
+                                            'bg-warning': client.status === 'prospective',
+                                            'bg-danger': client.status === 'at_risk',
+                                            'bg-secondary': client.status === 'inactive'
+                                        }" style="font-size: 0.65rem;">{{ client.status | uppercase }}</span>
                                         <p class="m-b-0 text-muted" *ngIf="client.notes">{{ client.notes }}</p>
                                     </div>
                                 </div>

@@ -8,8 +8,14 @@ from app.core.permissions import PermissionChecker
 from app.core.database import get_db
 from app.models.client import Client
 from app.models.user import User
+from app.models.client_activity import ClientActivity, ActivityType
+from app.models.sale import Sale
+from app.models.account_ledger import AccountLedger, PartnerType, LedgerType
 from app.schemas import client as schemas
 from app.schemas import account_ledger as account_ledger_schemas
+from app.schemas.sale import ClientSalesResponse
+from sqlalchemy import func, desc, and_
+from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 
@@ -19,6 +25,7 @@ async def read_clients(
     skip: int = 0,
     limit: int = 100,
     q: str = Query(None, min_length=1),
+    status: str = Query(None),
     current_user: User = Depends(PermissionChecker("manage_clients")),
 ) -> Any:
     """
@@ -34,6 +41,9 @@ async def read_clients(
                 Client.email.ilike(f"%{q}%")
             )
         )
+        
+    if status:
+        query = query.where(Client.status == status)
         
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
@@ -251,4 +261,189 @@ async def register_client_payment(
     await db.refresh(ledger_entry)
 
     return ledger_entry
+
+
+@router.get("/{client_id}/activities", response_model=List[schemas.Activity])
+async def get_client_activities(
+    *,
+    db: AsyncSession = Depends(get_db),
+    client_id: UUID,
+    current_user: User = Depends(PermissionChecker("manage_clients")),
+) -> Any:
+    """Get all activity logs for a client."""
+    query = select(ClientActivity).where(
+        ClientActivity.client_id == client_id,
+        ClientActivity.company_id == current_user.company_id
+    ).order_by(desc(ClientActivity.created_at))
+    
+    result = await db.execute(query)
+    activities = result.scalars().all()
+    
+    # Enrich with user name (could be optimized with a join)
+    enriched = []
+    for a in activities:
+        user_query = select(User).where(User.id == a.user_id)
+        u_res = await db.execute(user_query)
+        u = u_res.scalar_one_or_none()
+        
+        act_dict = {
+            "id": a.id,
+            "client_id": a.client_id,
+            "user_id": a.user_id,
+            "type": a.type,
+            "content": a.content,
+            "created_at": a.created_at,
+            "user_name": u.full_name if u else "Desconocido"
+        }
+        enriched.append(act_dict)
+        
+    return enriched
+
+
+@router.post("/{client_id}/activities", response_model=schemas.Activity)
+async def create_client_activity(
+    *,
+    db: AsyncSession = Depends(get_db),
+    client_id: UUID,
+    activity_in: schemas.ActivityCreate,
+    current_user: User = Depends(PermissionChecker("manage_clients")),
+) -> Any:
+    """Create a new activity log (note, call, etc) for a client."""
+    activity = ClientActivity(
+        **activity_in.model_dump(),
+        client_id=client_id,
+        user_id=current_user.id,
+        company_id=current_user.company_id
+    )
+    db.add(activity)
+    
+    # Update last interaction
+    client_query = select(Client).where(Client.id == client_id)
+    c_res = await db.execute(client_query)
+    client = c_res.scalar_one_or_none()
+    if client:
+        client.last_interaction_at = func.now()
+        db.add(client)
+        
+    await db.commit()
+    await db.refresh(activity)
+    
+    return {
+        **activity.__dict__,
+        "user_name": current_user.full_name
+    }
+
+
+@router.get("/{client_id}/stats", response_model=schemas.ClientStats)
+async def get_client_stats(
+    *,
+    db: AsyncSession = Depends(get_db),
+    client_id: UUID,
+    current_user: User = Depends(PermissionChecker("manage_clients")),
+) -> Any:
+    """Get CRM statistics for a client (LTV, AOV, etc)."""
+    # Total sales and count
+    sales_query = select(
+        func.sum(Sale.total).label("total_sales"),
+        func.count(Sale.id).label("order_count"),
+        func.max(Sale.created_at).label("last_sale_at")
+    ).where(
+        Sale.client_id == client_id,
+        Sale.company_id == current_user.company_id,
+        Sale.is_active == True
+    )
+    
+    result = await db.execute(sales_query)
+    stats = result.one()
+    
+    total_sales = float(stats.total_sales or 0)
+    order_count = int(stats.order_count or 0)
+    avg_value = total_sales / order_count if order_count > 0 else 0
+    
+    return {
+        "total_sales": total_sales,
+        "order_count": order_count,
+        "average_order_value": avg_value,
+        "last_sale_at": stats.last_sale_at
+    }
+
+
+@router.get("/{client_id}/timeline", response_model=List[schemas.UnifiedTimelineItem])
+async def get_client_timeline(
+    *,
+    db: AsyncSession = Depends(get_db),
+    client_id: UUID,
+    current_user: User = Depends(PermissionChecker("manage_clients")),
+) -> Any:
+    """Get a unified timeline of activities and ledger movements."""
+    timeline = []
+    
+    # 1. Activities
+    act_query = select(ClientActivity).where(ClientActivity.client_id == client_id).order_by(desc(ClientActivity.created_at)).limit(50)
+    act_res = await db.execute(act_query)
+    for a in act_res.scalars().all():
+        timeline.append({
+            "id": a.id,
+            "type": "ACTIVITY",
+            "category": a.type,
+            "content": a.content,
+            "created_at": a.created_at
+        })
+        
+    # 2. Ledger Entries
+    led_query = select(AccountLedger).where(
+        AccountLedger.partner_id == client_id,
+        AccountLedger.partner_type == PartnerType.CLIENT
+    ).order_by(desc(AccountLedger.created_at)).limit(50)
+    led_res = await db.execute(led_query)
+    for l in led_res.scalars().all():
+        timeline.append({
+            "id": l.id,
+            "type": "LEDGER",
+            "category": l.type,
+            "content": l.description or f"Movimiento de {l.type}",
+            "amount": float(l.amount),
+            "created_at": l.created_at
+        })
+        
+    # Sort unified timeline
+    timeline.sort(key=lambda x: x["created_at"], reverse=True)
+    return timeline[:50]
+
+
+@router.get("/{client_id}/sales", response_model=ClientSalesResponse)
+async def get_client_sales(
+    *,
+    db: AsyncSession = Depends(get_db),
+    client_id: UUID,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1),
+    current_user: User = Depends(PermissionChecker("manage_clients")),
+) -> Any:
+    """Get sales history for a specific client."""
+    query = select(Sale).where(
+        Sale.client_id == client_id,
+        Sale.company_id == current_user.company_id
+    ).options(
+        selectinload(Sale.branch),
+        selectinload(Sale.client),
+        selectinload(Sale.user)
+    ).order_by(desc(Sale.created_at))
+    
+    # Total count for pagination
+    count_query = select(func.count()).select_from(query.subquery())
+    count_res = await db.execute(count_query)
+    total = count_res.scalar_one()
+    
+    # Execution
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+    sales = result.scalars().all()
+    
+    return {
+        "total": total,
+        "items": sales
+    }
+
+
 

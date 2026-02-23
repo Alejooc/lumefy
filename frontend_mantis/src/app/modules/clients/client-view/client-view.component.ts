@@ -1,10 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService } from '../../../core/services/api.service';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { ChangeDetectorRef } from '@angular/core';
+import { ClientService } from '../client.service';
 
 @Component({
     selector: 'app-client-view',
@@ -16,10 +15,19 @@ export class ClientViewComponent implements OnInit {
     clientId: string;
     client: any;
     statement: any;
+    stats: any;
+    timeline: any[] = [];
+    sales: any[] = [];
+
     isLoading = true;
     isLoadingStatement = false;
+    isLoadingTimeline = false;
+    isLoadingSales = false;
     isSubmittingPayment = false;
+    isSubmittingActivity = false;
+
     activeTab = 'general';
+    activityForm: FormGroup;
 
     currencySymbol = '$';
 
@@ -29,7 +37,7 @@ export class ClientViewComponent implements OnInit {
     constructor(
         private route: ActivatedRoute,
         private router: Router,
-        private api: ApiService,
+        private clientService: ClientService,
         private fb: FormBuilder,
         private sweetAlert: SweetAlertService,
         private auth: AuthService,
@@ -39,6 +47,11 @@ export class ClientViewComponent implements OnInit {
             amount: [null, [Validators.required, Validators.min(0.01)]],
             reference_id: [''],
             description: ['Abono a cuenta', [Validators.required]]
+        });
+
+        this.activityForm = this.fb.group({
+            type: ['NOTE', Validators.required],
+            content: ['', [Validators.required, Validators.minLength(3)]]
         });
     }
 
@@ -52,15 +65,22 @@ export class ClientViewComponent implements OnInit {
 
         this.clientId = this.route.snapshot.paramMap.get('id');
         if (this.clientId) {
-            this.loadClient();
-            this.loadStatement();
+            this.loadAll();
         } else {
             this.router.navigate(['/clients']);
         }
     }
 
+    loadAll() {
+        this.loadClient();
+        this.loadStatement();
+        this.loadStats();
+        this.loadTimeline();
+        this.loadSales();
+    }
+
     loadClient() {
-        this.api.get<any>(`/clients/${this.clientId}`).subscribe({
+        this.clientService.getClient(this.clientId).subscribe({
             next: (data) => {
                 this.client = data;
                 this.isLoading = false;
@@ -75,7 +95,7 @@ export class ClientViewComponent implements OnInit {
 
     loadStatement() {
         this.isLoadingStatement = true;
-        this.api.get<any>(`/clients/${this.clientId}/statement`).subscribe({
+        this.clientService.getStatement(this.clientId).subscribe({
             next: (data) => {
                 this.statement = data;
                 this.isLoadingStatement = false;
@@ -91,8 +111,34 @@ export class ClientViewComponent implements OnInit {
         });
     }
 
+    loadStats() {
+        this.clientService.getStats(this.clientId).subscribe(data => {
+            this.stats = data;
+            this.cdr.detectChanges();
+        });
+    }
+
+    loadTimeline() {
+        this.isLoadingTimeline = true;
+        this.clientService.getTimeline(this.clientId).subscribe(data => {
+            this.timeline = data;
+            this.isLoadingTimeline = false;
+            this.cdr.detectChanges();
+        });
+    }
+
+    loadSales() {
+        this.isLoadingSales = true;
+        this.clientService.getSales(this.clientId).subscribe(data => {
+            this.sales = data.items;
+            this.isLoadingSales = false;
+            this.cdr.detectChanges();
+        });
+    }
+
     setTab(tab: string) {
         this.activeTab = tab;
+        this.cdr.detectChanges();
     }
 
     openPaymentModal() {
@@ -114,21 +160,34 @@ export class ClientViewComponent implements OnInit {
         this.isSubmittingPayment = true;
         const paymentData = this.paymentForm.value;
 
-        this.api.post(`/clients/${this.clientId}/payments`, paymentData).subscribe({
+        this.clientService.registerPayment(this.clientId, paymentData).subscribe({
             next: () => {
                 this.sweetAlert.success('Pago Registrado', 'El abono se registró correctamente.');
                 this.isSubmittingPayment = false;
                 this.showPaymentModal = false;
-                this.cdr.detectChanges();
-
-                // Reload data
-                this.loadClient();
-                this.loadStatement();
+                this.loadAll();
             },
             error: (err) => {
                 this.isSubmittingPayment = false;
                 this.cdr.detectChanges();
                 this.sweetAlert.error('Error', err.error?.detail || 'No se pudo registrar el pago.');
+            }
+        });
+    }
+
+    submitActivity() {
+        if (this.activityForm.invalid) return;
+        this.isSubmittingActivity = true;
+        this.clientService.createActivity(this.clientId, this.activityForm.value).subscribe({
+            next: () => {
+                this.isSubmittingActivity = false;
+                this.activityForm.reset({ type: 'NOTE', content: '' });
+                this.loadTimeline();
+                this.sweetAlert.success('Actividad registrada');
+            },
+            error: () => {
+                this.isSubmittingActivity = false;
+                this.cdr.detectChanges();
             }
         });
     }

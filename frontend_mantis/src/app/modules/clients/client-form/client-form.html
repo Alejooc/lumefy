@@ -37,6 +37,27 @@
                     <input type="text" class="form-control" formControlName="address">
                 </div>
 
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Estado CRM</label>
+                        <select class="form-select" formControlName="status">
+                            <option value="active">Activo</option>
+                            <option value="inactive">Inactivo</option>
+                            <option value="prospective">Prospecto</option>
+                            <option value="at_risk">En Riesgo</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Límite de Crédito</label>
+                        <input type="number" class="form-control" formControlName="credit_limit">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Etiquetas (Opcional)</label>
+                        <input type="text" class="form-control" placeholder="VIP, Mayorista..." disabled
+                            title="Próximamente: Tags dinámicos">
+                    </div>
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label">Notas</label>
                     <textarea class="form-control" rows="3" formControlName="notes"></textarea>

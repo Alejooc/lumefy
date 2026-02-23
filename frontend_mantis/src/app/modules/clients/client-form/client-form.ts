@@ -29,7 +29,10 @@ export class ClientFormComponent implements OnInit {
       email: ['', [Validators.email]],
       phone: [''],
       address: [''],
-      notes: ['']
+      notes: [''],
+      status: ['active', Validators.required],
+      tags: [null],
+      credit_limit: [0, [Validators.min(0)]]
     });
   }
 
@@ -45,6 +48,7 @@ export class ClientFormComponent implements OnInit {
     this.isLoading = true;
     this.clientService.getClient(id).subscribe({
       next: (client) => {
+        // Ensure tags are handled correctly if they arrive as object
         this.form.patchValue(client);
         this.isLoading = false;
       },

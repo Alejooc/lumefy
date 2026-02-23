@@ -1,4 +1,52 @@
-// Estilos para la vista de cliente
+.timeline-item {
+    border-color: #f1f1f1 !important;
+
+    &:last-child {
+        border-left-color: transparent !important;
+    }
+}
+
+.timeline-icon {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
 .cursor-pointer {
     cursor: pointer;
+}
+
+.nav-tabs-bottom {
+    border-bottom: none;
+
+    .nav-link {
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding-bottom: 12px;
+        color: #666;
+
+        &.active {
+            border-bottom-color: #2196f3;
+            color: #2196f3;
+            background: transparent;
+        }
+    }
+}
+
+.bg-light-primary {
+    background: #e3f2fd;
+}
+
+.bg-light-success {
+    background: #e8f5e9;
+}
+
+.bg-light-danger {
+    background: #ffebee;
+}
+
+.bg-light-warning {
+    background: #fff8e1;
+}
+
+.fs-huge {
+    font-size: 3rem;
 }

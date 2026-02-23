@@ -15,6 +15,7 @@ export class ClientListComponent implements OnInit {
   clients: Client[] = [];
   isLoading = false;
   searchQuery = '';
+  selectedStatus = '';
   canAccessWizard = false;
 
   constructor(
@@ -35,6 +36,9 @@ export class ClientListComponent implements OnInit {
     const params: any = {};
     if (this.searchQuery) {
       params.q = this.searchQuery;
+    }
+    if (this.selectedStatus) {
+      params.status = this.selectedStatus;
     }
 
     this.clientService.getClients(params).subscribe({
