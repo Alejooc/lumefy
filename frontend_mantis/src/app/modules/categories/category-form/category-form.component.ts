@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CategoryService } from '../category.service';
@@ -10,17 +10,17 @@ import { CategoryService } from '../category.service';
     styleUrls: ['./category-form.component.scss']
 })
 export class CategoryFormComponent implements OnInit {
+    private fb = inject(FormBuilder);
+    private categoryService = inject(CategoryService);
+    private router = inject(Router);
+    private route = inject(ActivatedRoute);
+
     form: FormGroup;
     isEditMode = false;
     categoryId: string | null = null;
     submitted = false;
 
-    constructor(
-        private fb: FormBuilder,
-        private categoryService: CategoryService,
-        private router: Router,
-        private route: ActivatedRoute
-    ) {
+    constructor() {
         this.form = this.fb.group({
             name: ['', Validators.required],
             description: ['']

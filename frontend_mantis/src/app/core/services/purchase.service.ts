@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -46,13 +46,28 @@ export interface PurchaseOrder {
     branch?: Branch;
 }
 
+export interface PurchaseOrderCreate {
+    supplier_id: string;
+    branch_id: string;
+    payment_method: string;
+    notes?: string;
+    expected_date?: string;
+    order_date?: string;
+    reference_number?: string;
+    items: Array<{
+        product_id: string;
+        quantity: number;
+        unit_cost: number;
+    }>;
+}
+
 @Injectable({
     providedIn: 'root'
 })
 export class PurchaseService {
-    private apiUrl = `${environment.apiUrl}/purchases`;
+    private http = inject(HttpClient);
 
-    constructor(private http: HttpClient) { }
+    private apiUrl = `${environment.apiUrl}/purchases`;
 
     getPurchases(): Observable<PurchaseOrder[]> {
         return this.http.get<PurchaseOrder[]>(this.apiUrl);
@@ -62,7 +77,7 @@ export class PurchaseService {
         return this.http.get<PurchaseOrder>(`${this.apiUrl}/${id}`);
     }
 
-    createPurchase(purchase: any): Observable<PurchaseOrder> {
+    createPurchase(purchase: PurchaseOrderCreate): Observable<PurchaseOrder> {
         return this.http.post<PurchaseOrder>(this.apiUrl, purchase);
     }
 

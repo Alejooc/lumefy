@@ -5,13 +5,24 @@ import { AdminService } from '../admin.service';
 import { AuthService } from 'src/app/core/services/auth.service';
 import Swal from 'sweetalert2';
 
+interface Company {
+    id: string;
+    name: string;
+    logo_url?: string;
+    tax_id?: string;
+    plan?: 'FREE' | 'PRO' | 'ENTERPRISE' | string;
+    is_active?: boolean;
+    email?: string;
+    valid_until?: string;
+}
+
 @Component({
     selector: 'app-company-list',
     standalone: false, // Part of AdminModule
     templateUrl: './company-list.component.html'
 })
 export class CompanyListComponent implements OnInit {
-    companies: any[] = [];
+    companies: Company[] = [];
     loading = false;
 
     private api = inject(ApiService);
@@ -26,7 +37,7 @@ export class CompanyListComponent implements OnInit {
 
     loadCompanies() {
         this.loading = true;
-        this.api.get<any[]>('/admin/companies').subscribe({
+        this.api.get<Company[]>('/admin/companies').subscribe({
             next: (data) => {
                 this.companies = data;
                 this.loading = false;
@@ -40,7 +51,7 @@ export class CompanyListComponent implements OnInit {
         });
     }
 
-    impersonate(company: any) {
+    impersonate(company: Company) {
         Swal.fire({
             title: '¿Iniciar sesión como administrador?',
             text: `Entrarás a la cuenta de ${company.name}`,
@@ -79,7 +90,7 @@ export class CompanyListComponent implements OnInit {
         });
     }
 
-    extendSubscription(company: any) {
+    extendSubscription(company: Company) {
         Swal.fire({
             title: 'Extender Suscripción',
             html: `
@@ -107,7 +118,7 @@ export class CompanyListComponent implements OnInit {
                         this.loadCompanies(); // Reload list
                         this.cdr.detectChanges();
                     },
-                    error: (err) => {
+                    error: () => {
                         this.loading = false;
                         Swal.fire('Error', 'No se pudo actualizar', 'error');
                         this.cdr.detectChanges();

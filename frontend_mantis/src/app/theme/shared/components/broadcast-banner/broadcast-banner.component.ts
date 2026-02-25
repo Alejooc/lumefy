@@ -1,21 +1,23 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { AdminService } from 'src/app/modules/admin/admin.service';
+import { AdminService, BroadcastConfig } from 'src/app/modules/admin/admin.service';
 
 @Component({
   selector: 'app-broadcast-banner',
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div *ngIf="message && message.is_active" 
-         class="broadcast-banner d-flex justify-content-center align-items-center"
-         [ngClass]="getHeaderClass()">
-      <div class="content d-flex align-items-center justify-content-center w-100">
-        <i class="feather icon-volume-2 me-3 fs-5"></i> 
-        <span class="message-text">{{ message.message }}</span>
+    @if (message && message.is_active) {
+      <div
+        class="broadcast-banner d-flex justify-content-center align-items-center"
+        [ngClass]="getHeaderClass()">
+        <div class="content d-flex align-items-center justify-content-center w-100">
+          <i class="feather icon-volume-2 me-3 fs-5"></i>
+          <span class="message-text">{{ message.message }}</span>
+        </div>
       </div>
-    </div>
-  `,
+    }
+    `,
   styles: [`
     .broadcast-banner {
       z-index: 1020;
@@ -51,8 +53,8 @@ import { AdminService } from 'src/app/modules/admin/admin.service';
 export class BroadcastBannerComponent implements OnInit, OnDestroy {
   private adminService = inject(AdminService);
 
-  message: any = null;
-  private intervalId: any;
+  message: BroadcastConfig | null = null;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit() {
     this.checkBroadcast();

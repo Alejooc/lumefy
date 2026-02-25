@@ -1,127 +1,136 @@
 <div class="row">
-    <div class="col-sm-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>Ventas y Cotizaciones</h5>
-                <div>
-                    <div class="btn-group btn-group-sm me-2">
-                        <button class="btn btn-outline-success" (click)="exportData('excel')">
-                            <i class="feather icon-file"></i> Excel
-                        </button>
-                        <button class="btn btn-outline-success" (click)="exportData('csv')">
-                            <i class="feather icon-file-text"></i> CSV
-                        </button>
-                    </div>
-                    <a [routerLink]="['/sales/quote']" class="btn btn-secondary btn-sm me-2">
-                        <i class="feather icon-file-text"></i> Nueva Cotización
-                    </a>
-                    <a [routerLink]="['/sales/order']" class="btn btn-primary btn-sm">
-                        <i class="feather icon-plus"></i> Nueva Venta
-                    </a>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <select class="form-select" [(ngModel)]="filterStatus" (change)="loadSales()">
-                            <option value="">Todos los Estados</option>
-                            <option value="DRAFT">Borrador</option>
-                            <option value="QUOTE">Cotización</option>
-                            <option value="CONFIRMED">Confirmada</option>
-                            <option value="PICKING">En Picking</option>
-                            <option value="PACKING">Empacando</option>
-                            <option value="DISPATCHED">Despachada</option>
-                            <option value="DELIVERED">Entregada</option>
-                            <option value="COMPLETED">Completada</option>
-                            <option value="CANCELLED">Cancelada</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="table-responsive" *ngIf="sales.length > 0">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th># ID</th>
-                                <th>Cliente</th>
-                                <th>Sucursal</th>
-                                <th>Fecha</th>
-                                <th>Total</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let sale of sales">
-                                <td>{{ sale.id | slice:0:8 }}</td>
-                                <td>{{ sale.client?.name || 'Cliente Casual' }}</td>
-                                <td>{{ sale.branch?.name }}</td>
-                                <td>{{ sale.created_at | date:'short' }}</td>
-                                <td>{{ sale.total | currency }}</td>
-                                <td>
-                                    <span [ngClass]="getStatusClass(sale.status)">
-                                        {{ getStatusLabel(sale.status) }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div ngbDropdown container="body" class="d-inline-block">
-                                        <button class="btn btn-sm btn-light no-arrow" ngbDropdownToggle>
-                                            <i class="feather icon-more-vertical"></i>
-                                        </button>
-                                        <div ngbDropdownMenu>
-                                            <button ngbDropdownItem [routerLink]="['/sales/view', sale.id]">
-                                                <i class="feather icon-eye text-info"></i> Ver Detalle
-                                            </button>
-
-                                            <!-- PDF Options -->
-                                            <button ngbDropdownItem (click)="downloadPdf(sale.id, 'invoice')">
-                                                <i class="feather icon-file-text text-primary"></i> Ver Factura
-                                            </button>
-
-                                            <button
-                                                *ngIf="['CONFIRMED', 'PICKING', 'PACKING', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(sale.status)"
-                                                ngbDropdownItem (click)="downloadPdf(sale.id, 'picking')">
-                                                <i class="feather icon-box text-warning"></i> Ver Picking
-                                            </button>
-
-                                            <button
-                                                *ngIf="['PACKING', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(sale.status)"
-                                                ngbDropdownItem (click)="downloadPdf(sale.id, 'packing')">
-                                                <i class="feather icon-package text-success"></i> Ver Packing
-                                            </button>
-
-                                            <div class="dropdown-divider"></div>
-
-                                            <button *ngIf="['DRAFT', 'QUOTE', 'CANCELLED'].includes(sale.status)"
-                                                ngbDropdownItem (click)="deleteSale(sale.id)" class="text-danger">
-                                                <i class="feather icon-trash-2"></i> Eliminar
-                                            </button>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="text-center py-5 border rounded bg-light-subtle" *ngIf="sales.length === 0 && !loading">
-                    <h6 class="mb-2">No hay ventas registradas aun</h6>
-                    <p class="text-muted mb-3">Activa tu operacion creando la primera venta guiada del sistema.</p>
-                    <div class="d-flex justify-content-center gap-2 flex-wrap">
-                        <a [routerLink]="['/sales/first-sale-wizard']" class="btn btn-primary btn-sm"
-                            *ngIf="canAccessWizard">
-                            Iniciar Wizard Primera Venta
-                        </a>
-                        <a [routerLink]="['/sales/quote']" class="btn btn-outline-secondary btn-sm">Nueva Cotizacion</a>
-                        <a [routerLink]="['/products/create']" class="btn btn-outline-secondary btn-sm">Crear
-                            Producto</a>
-                    </div>
-                </div>
-
-                <div *ngIf="loading">
-                    <app-skeleton type="table" [rowCount]="5" [colCount]="7"></app-skeleton>
-                </div>
-            </div>
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>Ventas y Cotizaciones</h5>
+        <div>
+          <div class="btn-group btn-group-sm me-2">
+            <button class="btn btn-outline-success" (click)="exportData('excel')">
+              <i class="feather icon-file"></i> Excel
+            </button>
+            <button class="btn btn-outline-success" (click)="exportData('csv')">
+              <i class="feather icon-file-text"></i> CSV
+            </button>
+          </div>
+          <a [routerLink]="['/sales/quote']" class="btn btn-secondary btn-sm me-2">
+            <i class="feather icon-file-text"></i> Nueva Cotización
+          </a>
+          <a [routerLink]="['/sales/order']" class="btn btn-primary btn-sm">
+            <i class="feather icon-plus"></i> Nueva Venta
+          </a>
         </div>
+      </div>
+      <div class="card-body">
+        <div class="row mb-3">
+          <div class="col-md-3">
+            <select class="form-select" [(ngModel)]="filterStatus" (change)="loadSales()">
+              <option value="">Todos los Estados</option>
+              <option value="DRAFT">Borrador</option>
+              <option value="QUOTE">Cotización</option>
+              <option value="CONFIRMED">Confirmada</option>
+              <option value="PICKING">En Picking</option>
+              <option value="PACKING">Empacando</option>
+              <option value="DISPATCHED">Despachada</option>
+              <option value="DELIVERED">Entregada</option>
+              <option value="COMPLETED">Completada</option>
+              <option value="CANCELLED">Cancelada</option>
+            </select>
+          </div>
+        </div>
+
+        @if (sales.length > 0) {
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th># ID</th>
+                  <th>Cliente</th>
+                  <th>Sucursal</th>
+                  <th>Fecha</th>
+                  <th>Total</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (sale of sales; track sale) {
+                  <tr>
+                    <td>{{ sale.id | slice:0:8 }}</td>
+                    <td>{{ sale.client?.name || 'Cliente Casual' }}</td>
+                    <td>{{ sale.branch?.name }}</td>
+                    <td>{{ sale.created_at | date:'short' }}</td>
+                    <td>{{ sale.total | currency }}</td>
+                    <td>
+                      <span [ngClass]="getStatusClass(sale.status)">
+                        {{ getStatusLabel(sale.status) }}
+                      </span>
+                    </td>
+                    <td>
+                      <div ngbDropdown container="body" class="d-inline-block">
+                        <button class="btn btn-sm btn-light no-arrow" ngbDropdownToggle>
+                          <i class="feather icon-more-vertical"></i>
+                        </button>
+                        <div ngbDropdownMenu>
+                          <button ngbDropdownItem [routerLink]="['/sales/view', sale.id]">
+                            <i class="feather icon-eye text-info"></i> Ver Detalle
+                          </button>
+                          <!-- PDF Options -->
+                          <button ngbDropdownItem (click)="downloadPdf(sale.id, 'invoice')">
+                            <i class="feather icon-file-text text-primary"></i> Ver Factura
+                          </button>
+                          @if (['CONFIRMED', 'PICKING', 'PACKING', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(sale.status)) {
+                            <button
+                              ngbDropdownItem (click)="downloadPdf(sale.id, 'picking')">
+                              <i class="feather icon-box text-warning"></i> Ver Picking
+                            </button>
+                          }
+                          @if (['PACKING', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(sale.status)) {
+                            <button
+                              ngbDropdownItem (click)="downloadPdf(sale.id, 'packing')">
+                              <i class="feather icon-package text-success"></i> Ver Packing
+                            </button>
+                          }
+                          <div class="dropdown-divider"></div>
+                          @if (['DRAFT', 'QUOTE', 'CANCELLED'].includes(sale.status)) {
+                            <button
+                              ngbDropdownItem (click)="deleteSale(sale.id)" class="text-danger">
+                              <i class="feather icon-trash-2"></i> Eliminar
+                            </button>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        @if (sales.length === 0 && !loading) {
+          <div class="text-center py-5 border rounded bg-light-subtle">
+            <h6 class="mb-2">No hay ventas registradas aun</h6>
+            <p class="text-muted mb-3">Activa tu operacion creando la primera venta guiada del sistema.</p>
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+              @if (canAccessWizard) {
+                <a [routerLink]="['/sales/first-sale-wizard']" class="btn btn-primary btn-sm"
+                  >
+                  Iniciar Wizard Primera Venta
+                </a>
+              }
+              <a [routerLink]="['/sales/quote']" class="btn btn-outline-secondary btn-sm">Nueva Cotizacion</a>
+              <a [routerLink]="['/products/create']" class="btn btn-outline-secondary btn-sm">Crear
+              Producto</a>
+            </div>
+          </div>
+        }
+
+        @if (loading) {
+          <div>
+            <app-skeleton type="table" [rowCount]="5" [colCount]="7"></app-skeleton>
+          </div>
+        }
+      </div>
     </div>
+  </div>
 </div>

@@ -1,7 +1,7 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, TemplateRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SharedModule } from 'src/app/theme/shared/shared.module';
-import { AdminService } from '../../admin.service';
+import { AdminService, NotificationTemplate } from '../../admin.service';
 import Swal from 'sweetalert2';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { FormsModule } from '@angular/forms';
@@ -16,10 +16,10 @@ export class NotificationTemplatesComponent implements OnInit {
     private adminService = inject(AdminService);
     private modalService = inject(NgbModal);
 
-    templates: any[] = [];
+    templates: NotificationTemplate[] = [];
     loading = false;
 
-    selectedTemplate: any = {};
+    selectedTemplate: Partial<NotificationTemplate> = {};
 
     ngOnInit() {
         this.loadTemplates();
@@ -36,12 +36,12 @@ export class NotificationTemplatesComponent implements OnInit {
         });
     }
 
-    editTemplate(template: any, content: any) {
+    editTemplate(template: NotificationTemplate, content: TemplateRef<unknown>) {
         this.selectedTemplate = { ...template }; // Clone
         this.modalService.open(content, { size: 'lg' });
     }
 
-    createTemplate(content: any) {
+    createTemplate(content: TemplateRef<unknown>) {
         this.selectedTemplate = {
             code: '',
             name: '',
@@ -53,7 +53,7 @@ export class NotificationTemplatesComponent implements OnInit {
         this.modalService.open(content, { size: 'lg' });
     }
 
-    toggleActive(template: any) {
+    toggleActive(template: NotificationTemplate) {
         template.is_active = !template.is_active;
         this.adminService.updateNotificationTemplate(template.id, { is_active: template.is_active }).subscribe({
             next: () => {
@@ -80,13 +80,13 @@ export class NotificationTemplatesComponent implements OnInit {
                 error: () => Swal.fire('Error', 'No se pudo guardar', 'error')
             });
         } else {
-            this.adminService.createNotificationTemplate(this.selectedTemplate).subscribe({
+            this.adminService.createNotificationTemplate(this.selectedTemplate as Omit<NotificationTemplate, 'id'>).subscribe({
                 next: (res) => {
                     this.templates.push(res);
                     this.modalService.dismissAll();
                     Swal.fire('Creado', 'Template creado correctamente', 'success');
                 },
-                error: (err) => Swal.fire('Error', err.error.detail || 'No se pudo crear', 'error')
+                error: (err: { error?: { detail?: string } }) => Swal.fire('Error', err.error?.detail || 'No se pudo crear', 'error')
             });
         }
     }

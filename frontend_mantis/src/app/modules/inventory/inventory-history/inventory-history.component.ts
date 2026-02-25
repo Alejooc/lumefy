@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { InventoryService, InventoryMovement } from '../inventory.service';
@@ -12,16 +12,14 @@ import { SharedModule } from '../../../theme/shared/shared.module';
     imports: [CommonModule, SharedModule, RouterModule]
 })
 export class InventoryHistoryComponent implements OnInit {
+    private route = inject(ActivatedRoute);
+    private router = inject(Router);
+    private inventoryService = inject(InventoryService);
+
     movements: InventoryMovement[] = [];
     isLoading = false;
     productId: string | null = null;
     branchId: string | null = null;
-
-    constructor(
-        private route: ActivatedRoute,
-        private router: Router,
-        private inventoryService: InventoryService
-    ) { }
 
     ngOnInit(): void {
         this.productId = this.route.snapshot.paramMap.get('productId');

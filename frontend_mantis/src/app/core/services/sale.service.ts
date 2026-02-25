@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -48,18 +48,35 @@ export interface Sale {
     branch?: { name: string };
 }
 
+export interface SalePayload {
+    branch_id: string;
+    client_id?: string;
+    status?: Sale['status'];
+    subtotal: number;
+    tax: number;
+    discount: number;
+    shipping_cost: number;
+    total: number;
+    payment_method?: string;
+    valid_until?: string;
+    shipping_address?: string;
+    notes?: string;
+    items?: SaleItem[];
+    payments?: Payment[];
+}
+
 @Injectable({
     providedIn: 'root'
 })
 export class SaleService {
+    private http = inject(HttpClient);
+
     private apiUrl = `${environment.apiUrl}/sales`;
 
-    constructor(private http: HttpClient) { }
-
     getSales(status?: string, clientId?: string): Observable<Sale[]> {
-        let params: any = {};
-        if (status) params.status = status;
-        if (clientId) params.client_id = clientId;
+        const params: Record<string, string> = {};
+        if (status) params['status'] = status;
+        if (clientId) params['client_id'] = clientId;
         return this.http.get<Sale[]>(this.apiUrl, { params });
     }
 
@@ -67,11 +84,11 @@ export class SaleService {
         return this.http.get<Sale>(`${this.apiUrl}/${id}`);
     }
 
-    createSale(saleData: any): Observable<Sale> {
+    createSale(saleData: SalePayload): Observable<Sale> {
         return this.http.post<Sale>(this.apiUrl, saleData);
     }
 
-    updateSale(id: string, saleData: any): Observable<Sale> {
+    updateSale(id: string, saleData: Partial<SalePayload>): Observable<Sale> {
         return this.http.put<Sale>(`${this.apiUrl}/${id}`, saleData);
     }
 

@@ -1,15 +1,15 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { PriceListService } from '../../../core/services/pricelist.service';
+import { PriceListItem, PriceListService } from '../../../core/services/pricelist.service';
 import { ProductService, Product } from '../../../core/services/product.service';
 import Swal from 'sweetalert2';
 
 @Component({
     selector: 'app-pricelist-form',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, RouterModule],
+    imports: [ReactiveFormsModule, RouterModule],
     templateUrl: './pricelist-form.component.html',
     styleUrls: ['./pricelist-form.component.scss']
 })
@@ -72,7 +72,7 @@ export class PriceListFormComponent implements OnInit {
         });
     }
 
-    createItemGroup(item?: any): FormGroup {
+    createItemGroup(item?: PriceListItem): FormGroup {
         return this.fb.group({
             product_id: [item?.product_id || '', Validators.required],
             min_quantity: [item?.min_quantity || 0, [Validators.required, Validators.min(0)]],

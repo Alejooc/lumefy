@@ -1,7 +1,7 @@
 // angular import
-import { Component, output, inject, input, ChangeDetectorRef } from '@angular/core';
+import { Component, output, inject, input, ChangeDetectorRef, OnInit } from '@angular/core';
 import { NgbDropdownModule, NgbNavModule } from '@ng-bootstrap/ng-bootstrap';
-import { NotificationService } from 'src/app/core/services/notification.service';
+import { Notification, NotificationService } from 'src/app/core/services/notification.service';
 import { RouterModule } from '@angular/router';
 
 // project import
@@ -38,7 +38,7 @@ import {
   templateUrl: './nav-right.component.html',
   styleUrls: ['./nav-right.component.scss']
 })
-export class NavRightComponent {
+export class NavRightComponent implements OnInit {
   private iconService = inject(IconService);
   private authService = inject(AuthService);
   private notificationService = inject(NotificationService);
@@ -46,7 +46,7 @@ export class NavRightComponent {
 
   currentUser$ = this.authService.currentUser;
 
-  notifications: any[] = [];
+  notifications: Notification[] = [];
   unreadCount = 0;
 
   // public props

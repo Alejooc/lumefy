@@ -67,21 +67,23 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let app of apps">
-              <td>{{ app.name }}</td>
-              <td><code>{{ app.slug }}</code></td>
-              <td>{{ app.version }}</td>
-              <td>
-                <span class="badge" [class.bg-success]="app.is_active" [class.bg-secondary]="!app.is_active">
-                  {{ app.is_active ? 'Publicada' : 'Oculta' }}
-                </span>
-              </td>
-              <td class="text-end">
-                <button class="btn btn-sm btn-outline-primary" (click)="toggleActive(app)">
-                  {{ app.is_active ? 'Ocultar' : 'Publicar' }}
-                </button>
-              </td>
-            </tr>
+            @for (app of apps; track app) {
+              <tr>
+                <td>{{ app.name }}</td>
+                <td><code>{{ app.slug }}</code></td>
+                <td>{{ app.version }}</td>
+                <td>
+                  <span class="badge" [class.bg-success]="app.is_active" [class.bg-secondary]="!app.is_active">
+                    {{ app.is_active ? 'Publicada' : 'Oculta' }}
+                  </span>
+                </td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-primary" (click)="toggleActive(app)">
+                    {{ app.is_active ? 'Ocultar' : 'Publicar' }}
+                  </button>
+                </td>
+              </tr>
+            }
           </tbody>
         </table>
       </div>

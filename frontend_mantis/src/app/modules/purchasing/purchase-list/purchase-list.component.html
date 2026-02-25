@@ -1,81 +1,85 @@
 <div class="row">
-    <div class="col-sm-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>Órdenes de Compra</h5>
-                <div>
-                    <div class="btn-group btn-group-sm me-2">
-                        <button class="btn btn-outline-success" (click)="exportData('excel')">
-                            <i class="feather icon-file"></i> Excel
-                        </button>
-                        <button class="btn btn-outline-success" (click)="exportData('csv')">
-                            <i class="feather icon-file-text"></i> CSV
-                        </button>
-                    </div>
-                    <a [routerLink]="['/purchasing/orders/add']" class="btn btn-primary btn-sm">
-                        <i class="feather icon-plus"></i> Nueva Orden de Compra
-                    </a>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Referencia</th>
-                                <th>Factura/Ref Proveedor</th>
-                                <th>Proveedor</th>
-                                <th>Sucursal</th>
-                                <th>Fecha Esperada</th>
-                                <th>Total</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @for (po of purchases; track po.id) {
-                            <tr>
-                                <td>{{ po.id | slice:0:8 }}</td>
-                                <td>{{ po.reference_number || '-' }}</td>
-                                <td>{{ po.supplier?.name || po.supplier_id }}</td>
-                                <td>{{ po.branch_id ? (po.branch_id | slice:0:8) : '-' }}</td>
-                                <td>{{ po.expected_date | date }}</td>
-                                <td>{{ po.total_amount | currency }}</td>
-                                <td><span [ngClass]="getStatusClass(po.status)">{{ getStatusLabel(po.status) }}</span>
-                                </td>
-                                <td>
-                                    <div ngbDropdown container="body" class="d-inline-block">
-                                        <button class="btn btn-sm btn-light no-arrow" ngbDropdownToggle>
-                                            <i class="feather icon-more-vertical"></i>
-                                        </button>
-                                        <div ngbDropdownMenu>
-                                            <button ngbDropdownItem [routerLink]="['/purchasing/orders/view', po.id]">
-                                                <i class="feather icon-eye text-info"></i> Ver Detalle
-                                            </button>
-
-                                            <!-- PDF Options -->
-                                            <button ngbDropdownItem (click)="downloadPdf(po.id)">
-                                                <i class="feather icon-file-text text-primary"></i> Ver Factura
-                                            </button>
-
-                                            <!-- Delete (Only Draft) -->
-                                            <div class="dropdown-divider" *ngIf="po.status === 'DRAFT'"></div>
-                                            <button *ngIf="po.status === 'DRAFT'" ngbDropdownItem class="text-danger">
-                                                <i class="feather icon-trash-2"></i> Eliminar
-                                            </button>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            } @empty {
-                            <tr>
-                                <td colspan="8" class="text-center">No se encontraron órdenes de compra</td>
-                            </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>Órdenes de Compra</h5>
+        <div>
+          <div class="btn-group btn-group-sm me-2">
+            <button class="btn btn-outline-success" (click)="exportData('excel')">
+              <i class="feather icon-file"></i> Excel
+            </button>
+            <button class="btn btn-outline-success" (click)="exportData('csv')">
+              <i class="feather icon-file-text"></i> CSV
+            </button>
+          </div>
+          <a [routerLink]="['/purchasing/orders/add']" class="btn btn-primary btn-sm">
+            <i class="feather icon-plus"></i> Nueva Orden de Compra
+          </a>
         </div>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Referencia</th>
+                <th>Factura/Ref Proveedor</th>
+                <th>Proveedor</th>
+                <th>Sucursal</th>
+                <th>Fecha Esperada</th>
+                <th>Total</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (po of purchases; track po.id) {
+                <tr>
+                  <td>{{ po.id | slice:0:8 }}</td>
+                  <td>{{ po.reference_number || '-' }}</td>
+                  <td>{{ po.supplier?.name || po.supplier_id }}</td>
+                  <td>{{ po.branch_id ? (po.branch_id | slice:0:8) : '-' }}</td>
+                  <td>{{ po.expected_date | date }}</td>
+                  <td>{{ po.total_amount | currency }}</td>
+                  <td><span [ngClass]="getStatusClass(po.status)">{{ getStatusLabel(po.status) }}</span>
+                </td>
+                <td>
+                  <div ngbDropdown container="body" class="d-inline-block">
+                    <button class="btn btn-sm btn-light no-arrow" ngbDropdownToggle>
+                      <i class="feather icon-more-vertical"></i>
+                    </button>
+                    <div ngbDropdownMenu>
+                      <button ngbDropdownItem [routerLink]="['/purchasing/orders/view', po.id]">
+                        <i class="feather icon-eye text-info"></i> Ver Detalle
+                      </button>
+
+                      <!-- PDF Options -->
+                      <button ngbDropdownItem (click)="downloadPdf(po.id)">
+                        <i class="feather icon-file-text text-primary"></i> Ver Factura
+                      </button>
+
+                      <!-- Delete (Only Draft) -->
+                      @if (po.status === 'DRAFT') {
+                        <div class="dropdown-divider"></div>
+                      }
+                      @if (po.status === 'DRAFT') {
+                        <button ngbDropdownItem class="text-danger">
+                          <i class="feather icon-trash-2"></i> Eliminar
+                        </button>
+                      }
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              } @empty {
+              <tr>
+                <td colspan="8" class="text-center">No se encontraron órdenes de compra</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     </div>
+  </div>
+</div>
 </div>

@@ -6,7 +6,7 @@ import { ApiService } from 'src/app/core/services/api.service';
 import Swal from 'sweetalert2';
 import { first } from 'rxjs/operators';
 
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { SharedModule } from 'src/app/theme/shared/shared.module';
@@ -14,7 +14,7 @@ import { SharedModule } from 'src/app/theme/shared/shared.module';
 @Component({
     selector: 'app-profile-edit',
     standalone: true,
-    imports: [CommonModule, SharedModule, RouterModule, ReactiveFormsModule, FormsModule],
+    imports: [SharedModule, RouterModule, ReactiveFormsModule, FormsModule],
     templateUrl: './profile-edit.component.html'
 })
 export class ProfileEditComponent implements OnInit {
@@ -58,7 +58,7 @@ export class ProfileEditComponent implements OnInit {
         }
 
         this.loading = true;
-        const payload: any = {
+        const payload: { full_name: string; password?: string } = {
             full_name: val.full_name
         };
         if (val.password) {
@@ -88,3 +88,4 @@ export class ProfileEditComponent implements OnInit {
         });
     }
 }
+

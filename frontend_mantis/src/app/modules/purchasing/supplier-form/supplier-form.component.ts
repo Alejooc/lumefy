@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { SupplierService } from '../../../core/services/supplier.service';
@@ -9,7 +9,7 @@ import Swal from 'sweetalert2';
 @Component({
     selector: 'app-supplier-form',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, RouterModule],
+    imports: [ReactiveFormsModule, RouterModule],
     templateUrl: './supplier-form.component.html',
     styleUrls: ['./supplier-form.component.scss']
 })

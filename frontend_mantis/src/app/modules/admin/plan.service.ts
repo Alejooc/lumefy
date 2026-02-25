@@ -12,8 +12,22 @@ export interface Plan {
     currency: string;
     duration_days: number;
     button_text?: string;
-    features: any; // Dict
-    limits: any; // Dict
+    features: string[] | Record<string, boolean | string>;
+    limits: { users?: number; storage?: number; branches?: number };
+    is_active: boolean;
+    is_public: boolean;
+}
+
+export interface PlanPayload {
+    name: string;
+    code: string;
+    description?: string;
+    price: number;
+    currency: string;
+    duration_days: number;
+    button_text?: string;
+    features: string[] | Record<string, boolean | string>;
+    limits: { users?: number; storage?: number; branches?: number };
     is_active: boolean;
     is_public: boolean;
 }
@@ -33,11 +47,11 @@ export class PlanService {
         return this.http.get<Plan[]>(`${this.apiUrl}/all`);
     }
 
-    createPlan(plan: any): Observable<Plan> {
+    createPlan(plan: PlanPayload): Observable<Plan> {
         return this.http.post<Plan>(this.apiUrl, plan);
     }
 
-    updatePlan(id: string, plan: any): Observable<Plan> {
+    updatePlan(id: string, plan: Partial<PlanPayload>): Observable<Plan> {
         return this.http.put<Plan>(`${this.apiUrl}/${id}`, plan);
     }
 }

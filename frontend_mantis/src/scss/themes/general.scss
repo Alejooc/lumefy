@@ -1,3 +1,5 @@
+@use 'sass:map';
+
 /**  =====================
     2. Custom css start
 ==========================  **/
@@ -155,11 +157,11 @@ strong {
 
     @while $i<=900 {
       &.bg-#{$name}-#{$i} {
-        color: color-contrast(map-get($value, $i));
+        color: color-contrast(map.get($value, $i));
       }
 
       &.text-#{$name}-#{$i} {
-        background-color: color-contrast(map-get($value, $i));
+        background-color: color-contrast(map.get($value, $i));
       }
 
       $i: $i + 100;

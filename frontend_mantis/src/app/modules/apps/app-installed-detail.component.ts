@@ -2,7 +2,13 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AppInstalledDetail, AppMarketplaceService } from 'src/app/core/services/app-marketplace.service';
+import {
+  AppInstallEvent,
+  AppInstalledDetail,
+  AppMarketplaceService,
+  BillingSummary,
+  WebhookDelivery
+} from 'src/app/core/services/app-marketplace.service';
 import { AuthService } from 'src/app/core/services/auth.service';
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
@@ -35,12 +41,15 @@ export class AppInstalledDetailComponent implements OnInit {
   appDetail: AppInstalledDetail | null = null;
 
   // Form
-  configForm: Record<string, any> = {};
+  configForm: Record<string, unknown> = {};
   schemaFields: SchemaField[] = [];
 
   // Raw JSON fallback
   configEditor = '{}';
   showRawJson = false;
+  events: AppInstallEvent[] = [];
+  billing: BillingSummary | null = null;
+  webhookDeliveries: WebhookDelivery[] = [];
 
   ngOnInit(): void {
     if (this.authService.currentUserValue?.is_superuser) {
@@ -70,23 +79,24 @@ export class AppInstalledDetailComponent implements OnInit {
         this.configEditor = JSON.stringify(data.settings || {}, null, 2);
 
         // Build schemaFields from config_schema
-        const schema = (data as any).config_schema;
+        const schema = data.config_schema;
         this.schemaFields = [];
-        if (schema && schema.properties) {
-          for (const key of Object.keys(schema.properties)) {
-            const prop = schema.properties[key];
+        const properties = schema?.['properties'] as Record<string, Record<string, unknown>> | undefined;
+        if (properties) {
+          for (const key of Object.keys(properties)) {
+            const prop = properties[key];
             this.schemaFields.push({
               key,
-              title: prop.title || key,
-              type: prop.type || 'string',
-              enum: prop.enum,
-              description: prop.description
+              title: typeof prop['title'] === 'string' ? prop['title'] : key,
+              type: typeof prop['type'] === 'string' ? prop['type'] : 'string',
+              enum: Array.isArray(prop['enum']) ? prop['enum'].filter((opt): opt is string => typeof opt === 'string') : undefined,
+              description: typeof prop['description'] === 'string' ? prop['description'] : undefined
             });
           }
         }
 
         // Populate configForm from current settings, fall back to defaults
-        const defaults = (data as any).default_config || {};
+        const defaults = data.default_config || {};
         const saved = data.settings || {};
         this.configForm = {};
         for (const f of this.schemaFields) {
@@ -94,6 +104,13 @@ export class AppInstalledDetailComponent implements OnInit {
         }
 
         this.loading = false;
+        this.loadEvents();
+        this.loadBilling();
+        if (this.supportsWebhooks()) {
+          this.loadWebhookDeliveries();
+        } else {
+          this.webhookDeliveries = [];
+        }
       },
       error: (err) => {
         this.loading = false;
@@ -101,6 +118,124 @@ export class AppInstalledDetailComponent implements OnInit {
         this.router.navigate(['/apps/store']);
       }
     });
+  }
+
+  loadEvents(): void {
+    this.appService.getInstalledEvents(this.slug, 20).subscribe({
+      next: (events) => {
+        this.events = events;
+      },
+      error: () => {
+        this.events = [];
+      }
+    });
+  }
+
+  loadBilling(): void {
+    this.appService.getBillingSummary(this.slug).subscribe({
+      next: (billing) => {
+        this.billing = billing;
+      },
+      error: () => {
+        this.billing = null;
+      }
+    });
+  }
+
+  loadWebhookDeliveries(): void {
+    if (!this.supportsWebhooks()) {
+      this.webhookDeliveries = [];
+      return;
+    }
+    this.appService.getWebhookDeliveries(this.slug, 25).subscribe({
+      next: (deliveries) => {
+        this.webhookDeliveries = deliveries;
+      },
+      error: () => {
+        this.webhookDeliveries = [];
+      }
+    });
+  }
+
+  rotateApiKey(): void {
+    this.appService.rotateApiKey(this.slug).subscribe({
+      next: (result) => {
+        this.swal.success('API key rotada', result.new_api_key);
+        this.loadDetail();
+      },
+      error: (err) => {
+        this.swal.error('Error', err?.error?.detail || 'No se pudo rotar la API key.');
+      }
+    });
+  }
+
+  rotateWebhookSecret(): void {
+    if (!this.supportsWebhooks()) return;
+    this.appService.rotateWebhookSecret(this.slug).subscribe({
+      next: (result) => {
+        this.swal.success('Webhook secret rotado', result.webhook_secret);
+        this.loadDetail();
+      },
+      error: (err) => {
+        this.swal.error('Error', err?.error?.detail || 'No se pudo rotar el webhook secret.');
+      }
+    });
+  }
+
+  rotateClientSecret(): void {
+    if (!this.supportsExternalApi()) return;
+    this.appService.rotateClientSecret(this.slug).subscribe({
+      next: (result) => {
+        this.swal.success('Client secret rotado', result.new_client_secret);
+        this.loadDetail();
+      },
+      error: (err) => {
+        this.swal.error('Error', err?.error?.detail || 'No se pudo rotar el client secret.');
+      }
+    });
+  }
+
+  testWebhook(): void {
+    if (!this.supportsWebhooks()) return;
+    this.appService.sendWebhookTest(this.slug).subscribe({
+      next: (result) => {
+        if (result.delivered) {
+          this.swal.success('Webhook enviado', `Status: ${result.status_code || 'ok'}`);
+        } else {
+          this.swal.warning('Webhook no enviado', result.reason || 'Sin endpoint configurado.');
+        }
+        this.loadEvents();
+        this.loadWebhookDeliveries();
+      },
+      error: (err) => {
+        this.swal.error('Error', err?.error?.detail || 'No se pudo enviar test webhook.');
+      }
+    });
+  }
+
+  retryWebhook(deliveryId: string): void {
+    if (!this.supportsWebhooks()) return;
+    this.appService.retryWebhookDelivery(this.slug, deliveryId).subscribe({
+      next: (result) => {
+        if (result.delivered) {
+          this.swal.success('Retry exitoso', `Status: ${result.status_code || 'ok'}`);
+        } else {
+          this.swal.warning('Retry fallo', result.reason || 'No se pudo entregar.');
+        }
+        this.loadWebhookDeliveries();
+      },
+      error: (err) => {
+        this.swal.error('Error', err?.error?.detail || 'No se pudo reintentar webhook.');
+      }
+    });
+  }
+
+  supportsWebhooks(): boolean {
+    return !!this.appDetail?.capabilities?.includes('webhook_consumer');
+  }
+
+  supportsExternalApi(): boolean {
+    return !!this.appDetail?.capabilities?.includes('external_api');
   }
 
   saveConfig(): void {

@@ -10,6 +10,7 @@ import { TourService, TourStep } from 'src/app/core/services/tour.service';
 // project import
 import { ApiService } from 'src/app/core/services/api.service';
 import { AuthService } from 'src/app/core/services/auth.service';
+import { Branch } from 'src/app/core/services/branch.service';
 import {
   DashboardCard,
   DashboardService,
@@ -45,6 +46,7 @@ type OnboardingStepDefinition = {
   routes: RouteOption[];
   autoCheck?: () => Observable<boolean>;
 };
+type DashboardFilters = { date_from?: string; date_to?: string; branch_id?: string };
 
 @Component({
   selector: 'app-default',
@@ -92,7 +94,7 @@ export class DefaultComponent implements OnInit, OnDestroy {
   dateFrom = '';
   dateTo = '';
   selectedBranchId = '';
-  branches: any[] = [];
+  branches: Branch[] = [];
 
   constructor() {
     this.iconService.addIcon(...[RiseOutline, FallOutline, SettingOutline, GiftOutline, MessageOutline]);
@@ -118,7 +120,7 @@ export class DefaultComponent implements OnInit, OnDestroy {
   }
 
   loadBranches() {
-    this.apiService.get<any[]>('/branches').subscribe({
+    this.apiService.get<Branch[]>('/branches').subscribe({
       next: (data) => {
         this.branches = data;
         this.cdr.detectChanges();
@@ -131,7 +133,7 @@ export class DefaultComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.errorMessage = '';
 
-    const filters: any = {};
+    const filters: DashboardFilters = {};
     if (this.dateFrom) filters.date_from = this.dateFrom;
     if (this.dateTo) filters.date_to = this.dateTo;
     if (this.selectedBranchId) filters.branch_id = this.selectedBranchId;
@@ -400,15 +402,19 @@ export class DefaultComponent implements OnInit, OnDestroy {
   }
 
   private endpointHasItems(path: string, minItems = 1): Observable<boolean> {
-    return this.apiService.get<any>(path, undefined, true).pipe(
+    return this.apiService.get<unknown>(path, undefined, true).pipe(
       map((payload) => Array.isArray(payload) && payload.length >= minItems),
       catchError(() => of(false))
     );
   }
 
   private endpointHasTruthyValue(path: string, key: string): Observable<boolean> {
-    return this.apiService.get<any>(path, undefined, true).pipe(
-      map((payload) => !!payload && !!payload[key]),
+    return this.apiService.get<unknown>(path, undefined, true).pipe(
+      map((payload) => {
+        if (!payload || typeof payload !== 'object') return false;
+        const record = payload as Record<string, unknown>;
+        return !!record[key];
+      }),
       catchError(() => of(false))
     );
   }

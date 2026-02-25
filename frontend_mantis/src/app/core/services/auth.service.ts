@@ -1,7 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, of } from 'rxjs';
-import { map, catchError, tap, switchMap } from 'rxjs/operators';
+import { tap, switchMap } from 'rxjs/operators';
 import { ApiService } from './api.service';
 
 export interface Role {
@@ -47,20 +47,24 @@ export interface UserRegister {
     company_name: string;
 }
 
+interface AuthTokenResponse {
+    access_token: string;
+}
+
 @Injectable({
     providedIn: 'root'
 })
 export class AuthService {
+    private api = inject(ApiService);
+    private router = inject(Router);
+
     private currentUserSubject: BehaviorSubject<User | null>;
     public currentUser: Observable<User | null>;
 
     private currentCompanySubject: BehaviorSubject<Company | null>;
     public currentCompany: Observable<Company | null>;
 
-    constructor(
-        private api: ApiService,
-        private router: Router
-    ) {
+    constructor() {
         this.currentUserSubject = new BehaviorSubject<User | null>(JSON.parse(localStorage.getItem('currentUser') || 'null'));
         this.currentUser = this.currentUserSubject.asObservable();
 
@@ -76,12 +80,12 @@ export class AuthService {
         return this.currentCompanySubject.value;
     }
 
-    login(username: string, password: string): Observable<any> {
+    login(username: string, password: string): Observable<User | null> {
         const formData = new FormData();
         formData.append('username', username);
         formData.append('password', password);
 
-        return this.api.post<any>('/login/access-token', formData).pipe(
+        return this.api.post<AuthTokenResponse>('/login/access-token', formData).pipe(
             switchMap(response => {
                 if (response && response.access_token) {
                     localStorage.setItem('access_token', response.access_token);
@@ -92,7 +96,7 @@ export class AuthService {
         );
     }
 
-    fetchMe(): Observable<any> {
+    fetchMe(): Observable<User> {
         // First get user
         return this.api.get<User>('/users/me').pipe(
             tap(user => {
@@ -116,8 +120,8 @@ export class AuthService {
         );
     }
 
-    register(user: UserRegister): Observable<any> {
-        return this.api.post<any>('/register', user).pipe(
+    register(user: UserRegister): Observable<User | null> {
+        return this.api.post<AuthTokenResponse>('/register', user).pipe(
             switchMap(response => {
                 if (response && response.access_token) {
                     localStorage.setItem('access_token', response.access_token);

@@ -13,6 +13,8 @@ import Swal from 'sweetalert2';
     styleUrls: ['./purchase-view.component.scss']
 })
 export class PurchaseViewComponent implements OnInit {
+    private cdr = inject(ChangeDetectorRef);
+
     purchase: PurchaseOrder | null = null;
     loading = false;
     receiveMode = false;
@@ -20,10 +22,6 @@ export class PurchaseViewComponent implements OnInit {
 
     private route = inject(ActivatedRoute);
     private purchaseService = inject(PurchaseService);
-
-    constructor(
-        private cdr: ChangeDetectorRef
-    ) { }
 
     ngOnInit() {
         this.route.paramMap.subscribe(params => {
@@ -64,7 +62,7 @@ export class PurchaseViewComponent implements OnInit {
         if (!this.purchase) return;
 
         const items = Object.entries(this.receiveQuantities)
-            .filter(([_, qty]) => qty > 0)
+            .filter((entry) => entry[1] > 0)
             .map(([item_id, qty_received]) => ({ item_id, qty_received }));
 
         if (items.length === 0) {
@@ -100,11 +98,11 @@ export class PurchaseViewComponent implements OnInit {
         });
     }
 
-    getRemainingQty(item: any): number {
+    getRemainingQty(item: { quantity: number; received_qty?: number }): number {
         return item.quantity - (item.received_qty || 0);
     }
 
-    getReceiveProgress(item: any): number {
+    getReceiveProgress(item: { quantity: number; received_qty?: number }): number {
         if (!item.quantity) return 0;
         return ((item.received_qty || 0) / item.quantity) * 100;
     }

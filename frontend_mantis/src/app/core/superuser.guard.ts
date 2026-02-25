@@ -8,6 +8,8 @@ export class SuperuserGuard implements CanActivate {
     private authService = inject(AuthService);
 
     canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean {
+        void route;
+        void state;
         const user = this.authService.currentUserValue;
 
         if (user && user.is_superuser) {

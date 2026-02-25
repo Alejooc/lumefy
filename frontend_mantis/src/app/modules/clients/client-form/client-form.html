@@ -1,77 +1,83 @@
 <div class="row">
-    <div class="col-sm-12">
-        <app-card [cardTitle]="isEdit ? 'Editar Cliente' : 'Nuevo Cliente'" [showHeader]="true">
-            <form [formGroup]="form" (ngSubmit)="onSubmit()">
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Nombre *</label>
-                        <input type="text" class="form-control" formControlName="name"
-                            [ngClass]="{'is-invalid': form.get('name')?.invalid && form.get('name')?.touched}">
-                        <div class="invalid-feedback" *ngIf="form.get('name')?.errors?.['required']">
-                            El nombre es requerido
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Identificación (RUC/NIT/DNI)</label>
-                        <input type="text" class="form-control" formControlName="tax_id">
-                    </div>
+  <div class="col-sm-12">
+    <app-card [cardTitle]="isEdit ? 'Editar Cliente' : 'Nuevo Cliente'" [showHeader]="true">
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Nombre *</label>
+            <input type="text" class="form-control" formControlName="name"
+              [ngClass]="{'is-invalid': form.get('name')?.invalid && form.get('name')?.touched}">
+              @if (form.get('name')?.errors?.['required']) {
+                <div class="invalid-feedback">
+                  El nombre es requerido
                 </div>
+              }
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Identificación (RUC/NIT/DNI)</label>
+              <input type="text" class="form-control" formControlName="tax_id">
+            </div>
+          </div>
 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" formControlName="email"
-                            [class.is-invalid]="form.get('email')?.invalid && form.get('email')?.touched">
-                        <div class="invalid-feedback" *ngIf="form.get('email')?.errors?.['email']">
-                            Ingrese un email válido
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Teléfono</label>
-                        <input type="text" class="form-control" formControlName="phone">
-                    </div>
-                </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" formControlName="email"
+                [class.is-invalid]="form.get('email')?.invalid && form.get('email')?.touched">
+                @if (form.get('email')?.errors?.['email']) {
+                  <div class="invalid-feedback">
+                    Ingrese un email válido
+                  </div>
+                }
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Teléfono</label>
+                <input type="text" class="form-control" formControlName="phone">
+              </div>
+            </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Dirección</label>
-                    <input type="text" class="form-control" formControlName="address">
-                </div>
+            <div class="mb-3">
+              <label class="form-label">Dirección</label>
+              <input type="text" class="form-control" formControlName="address">
+            </div>
 
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Estado CRM</label>
-                        <select class="form-select" formControlName="status">
-                            <option value="active">Activo</option>
-                            <option value="inactive">Inactivo</option>
-                            <option value="prospective">Prospecto</option>
-                            <option value="at_risk">En Riesgo</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Límite de Crédito</label>
-                        <input type="number" class="form-control" formControlName="credit_limit">
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Etiquetas (Opcional)</label>
-                        <input type="text" class="form-control" placeholder="VIP, Mayorista..." disabled
-                            title="Próximamente: Tags dinámicos">
-                    </div>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Estado CRM</label>
+                <select class="form-select" formControlName="status">
+                  <option value="active">Activo</option>
+                  <option value="inactive">Inactivo</option>
+                  <option value="prospective">Prospecto</option>
+                  <option value="at_risk">En Riesgo</option>
+                </select>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Límite de Crédito</label>
+                <input type="number" class="form-control" formControlName="credit_limit">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Etiquetas (Opcional)</label>
+                <input type="text" class="form-control" placeholder="VIP, Mayorista..." disabled
+                  title="Próximamente: Tags dinámicos">
                 </div>
+              </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Notas</label>
-                    <textarea class="form-control" rows="3" formControlName="notes"></textarea>
-                </div>
+              <div class="mb-3">
+                <label class="form-label">Notas</label>
+                <textarea class="form-control" rows="3" formControlName="notes"></textarea>
+              </div>
 
-                <div class="d-flex justify-content-end">
-                    <button type="button" class="btn btn-secondary me-2" routerLink="/clients">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isLoading">
-                        <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-1" role="status"
-                            aria-hidden="true"></span>
-                        {{ isEdit ? 'Actualizar' : 'Guardar' }}
-                    </button>
-                </div>
+              <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-secondary me-2" routerLink="/clients">Cancelar</button>
+                <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isLoading">
+                  @if (isLoading) {
+                    <span class="spinner-border spinner-border-sm me-1" role="status"
+                    aria-hidden="true"></span>
+                  }
+                  {{ isEdit ? 'Actualizar' : 'Guardar' }}
+                </button>
+              </div>
             </form>
-        </app-card>
-    </div>
-</div>
+          </app-card>
+        </div>
+      </div>

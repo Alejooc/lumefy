@@ -1,130 +1,136 @@
 <div class="row">
-    <div class="col-sm-12">
-        <div class="card">
-            <div class="card-header">
-                <h5>{{ isEditing ? 'Editar Plan' : 'Nuevo Plan' }}</h5>
-            </div>
-            <div class="card-body">
-                <form [formGroup]="planForm" (ngSubmit)="onSubmit()">
-                    <div class="row">
-                        <!-- Basics -->
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Nombre del Plan</label>
-                            <input type="text" class="form-control" formControlName="name"
-                                placeholder="Ej. Pro Mensual">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Código (Único)</label>
-                            <input type="text" class="form-control" formControlName="code"
-                                placeholder="Ej. PRO_MONTHLY">
-                        </div>
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-header">
+        <h5>{{ isEditing ? 'Editar Plan' : 'Nuevo Plan' }}</h5>
+      </div>
+      <div class="card-body">
+        <form [formGroup]="planForm" (ngSubmit)="onSubmit()">
+          <div class="row">
+            <!-- Basics -->
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Nombre del Plan</label>
+              <input type="text" class="form-control" formControlName="name"
+                placeholder="Ej. Pro Mensual">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Código (Único)</label>
+                <input type="text" class="form-control" formControlName="code"
+                  placeholder="Ej. PRO_MONTHLY">
+                </div>
 
-                        <div class="col-md-12 mb-3">
-                            <label class="form-label">Descripción</label>
-                            <textarea class="form-control" formControlName="description" rows="2"></textarea>
-                        </div>
+                <div class="col-md-12 mb-3">
+                  <label class="form-label">Descripción</label>
+                  <textarea class="form-control" formControlName="description" rows="2"></textarea>
+                </div>
 
-                        <div class="col-md-12 mb-3">
-                            <label class="form-label">Texto del Botón (CTA)</label>
-                            <input type="text" class="form-control" formControlName="button_text"
-                                placeholder="Ej. Comenzar Prueba Gratis">
-                        </div>
+                <div class="col-md-12 mb-3">
+                  <label class="form-label">Texto del Botón (CTA)</label>
+                  <input type="text" class="form-control" formControlName="button_text"
+                    placeholder="Ej. Comenzar Prueba Gratis">
+                  </div>
 
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Precio</label>
-                            <input type="number" class="form-control" formControlName="price">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Moneda</label>
-                            <select class="form-control" formControlName="currency">
-                                <option value="USD">USD</option>
-                                <option value="EUR">EUR</option>
-                                <option value="COP">COP</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Duración (Días)</label>
-                            <input type="number" class="form-control" formControlName="duration_days">
-                        </div>
-                    </div>
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">Precio</label>
+                    <input type="number" class="form-control" formControlName="price">
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">Moneda</label>
+                    <select class="form-control" formControlName="currency">
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="COP">COP</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">Duración (Días)</label>
+                    <input type="number" class="form-control" formControlName="duration_days">
+                  </div>
+                </div>
 
-                    <h5 class="mt-4">Límites</h5>
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Usuarios Máximos</label>
-                            <input type="number" class="form-control" formControlName="limit_users">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Almacenamiento (MB)</label>
-                            <input type="number" class="form-control" formControlName="limit_storage">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Sucursales Permitidas</label>
-                            <input type="number" class="form-control" formControlName="limit_branches">
-                        </div>
-                    </div>
+                <h5 class="mt-4">Límites</h5>
+                <div class="row">
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">Usuarios Máximos</label>
+                    <input type="number" class="form-control" formControlName="limit_users">
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">Almacenamiento (MB)</label>
+                    <input type="number" class="form-control" formControlName="limit_storage">
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">Sucursales Permitidas</label>
+                    <input type="number" class="form-control" formControlName="limit_branches">
+                  </div>
+                </div>
 
-                    <h5 class="mt-4">Características (Features)</h5>
-                    <p class="text-muted small">Agregue las características que se mostrarán en la Landing Page (ej:
-                        "Soporte 24/7", "Usuarios Ilimitados").</p>
+                <h5 class="mt-4">Características (Features)</h5>
+                <p class="text-muted small">Agregue las características que se mostrarán en la Landing Page (ej:
+                "Soporte 24/7", "Usuarios Ilimitados").</p>
 
-                    <div class="row">
-                        <div class="col-md-10">
-                            <div class="input-group mb-3">
-                                <input type="text" class="form-control" placeholder="Escriba una característica..."
-                                    [(ngModel)]="newFeatureText" [ngModelOptions]="{standalone: true}"
-                                    (keydown)="onFeatureKeydown($event)">
-                                <button class="btn btn-outline-primary" type="button" (click)="addFeature()">
-                                    <i class="feather icon-plus"></i> Agregar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-12">
-                            <div class="list-group">
-                                <div class="list-group-item d-flex justify-content-between align-items-center"
-                                    *ngFor="let feat of featuresList; let i = index">
-                                    <span><i class="feather icon-check-circle text-success me-2"></i> {{ feat }}</span>
-                                    <button type="button" class="btn btn-icon btn-sm btn-outline-danger"
-                                        (click)="removeFeature(i)">
-                                        <i class="feather icon-trash-2"></i>
-                                    </button>
-                                </div>
-                                <div class="text-center p-3 text-muted bg-light rounded"
-                                    *ngIf="featuresList.length === 0">
-                                    No hay características agregadas aún.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row mt-4">
-                        <div class="col-md-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" formControlName="is_active"
-                                    id="isActive">
-                                <label class="form-check-label" for="isActive">Activo (Disponible para asignar)</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" formControlName="is_public"
-                                    id="isPublic">
-                                <label class="form-check-label" for="isPublic">Público (Visible en web)</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 text-end">
-                        <button type="button" [routerLink]="['/admin/plans']"
-                            class="btn btn-secondary me-2">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" [disabled]="loading || planForm.invalid">
-                            <span *ngIf="loading" class="spinner-border spinner-border-sm me-1"></span>
-                            Guardar
+                <div class="row">
+                  <div class="col-md-10">
+                    <div class="input-group mb-3">
+                      <input type="text" class="form-control" placeholder="Escriba una característica..."
+                        [(ngModel)]="newFeatureText" [ngModelOptions]="{standalone: true}"
+                        (keydown)="onFeatureKeydown($event)">
+                        <button class="btn btn-outline-primary" type="button" (click)="addFeature()">
+                          <i class="feather icon-plus"></i> Agregar
                         </button>
+                      </div>
                     </div>
-                </form>
+                  </div>
+
+                  <div class="row">
+                    <div class="col-md-12">
+                      <div class="list-group">
+                        @for (feat of featuresList; track feat; let i = $index) {
+                          <div class="list-group-item d-flex justify-content-between align-items-center"
+                            >
+                            <span><i class="feather icon-check-circle text-success me-2"></i> {{ feat }}</span>
+                            <button type="button" class="btn btn-icon btn-sm btn-outline-danger"
+                              (click)="removeFeature(i)">
+                              <i class="feather icon-trash-2"></i>
+                            </button>
+                          </div>
+                        }
+                        @if (featuresList.length === 0) {
+                          <div class="text-center p-3 text-muted bg-light rounded"
+                            >
+                            No hay características agregadas aún.
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row mt-4">
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" formControlName="is_active"
+                          id="isActive">
+                          <label class="form-check-label" for="isActive">Activo (Disponible para asignar)</label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" formControlName="is_public"
+                            id="isPublic">
+                            <label class="form-check-label" for="isPublic">Público (Visible en web)</label>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="mt-4 text-end">
+                        <button type="button" [routerLink]="['/admin/plans']"
+                        class="btn btn-secondary me-2">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" [disabled]="loading || planForm.invalid">
+                          @if (loading) {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                          }
+                          Guardar
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
             </div>
-        </div>
-    </div>
-</div>

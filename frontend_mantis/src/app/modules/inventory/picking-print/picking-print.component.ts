@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
-import { SaleService, Sale } from '../../../core/services/sale.service';
+import { SaleService, Sale, SaleItem } from '../../../core/services/sale.service';
 import { InventoryService } from '../inventory.service';
 import { switchMap, forkJoin, map, of } from 'rxjs';
 
@@ -36,7 +36,7 @@ import { switchMap, forkJoin, map, of } from 'rxjs';
 })
 export class PickingPrintComponent implements OnInit {
     sale: Sale | null = null;
-    itemsWithLocation: any[] = [];
+    itemsWithLocation: Array<SaleItem & { location: string; stock: number }> = [];
     loading = false;
     currentDate = new Date();
 
@@ -83,8 +83,8 @@ export class PickingPrintComponent implements OnInit {
                 // Optional: Auto-print
                 // setTimeout(() => window.print(), 1000);
             },
-            error: (err) => {
-                console.error(err);
+            error: (error: unknown) => {
+                console.error(error);
                 this.loading = false;
             }
         });

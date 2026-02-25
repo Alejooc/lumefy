@@ -10,6 +10,8 @@ from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.user import User
 from app.models.product import Product
+from app.models.client import Client
+from app.models.account_ledger import AccountLedger, LedgerType, PartnerType
 from app.core.permissions import PermissionChecker
 from app.schemas import return_order as schemas
 from datetime import datetime, timezone
@@ -172,7 +174,7 @@ async def approve_return(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_sales")),
 ) -> Any:
-    """Approve a return and restore inventory."""
+    """Approve a return, restore inventory and apply financial reversal when needed."""
     result = await db.execute(
         select(ReturnOrder).options(
             selectinload(ReturnOrder.items)
@@ -190,6 +192,8 @@ async def approve_return(
     # Get the sale to know which branch to restock
     sale_result = await db.execute(select(Sale).where(Sale.id == ret.sale_id))
     sale = sale_result.scalars().first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Related sale not found")
     
     # Restore inventory for each returned item
     for item in ret.items:
@@ -231,6 +235,30 @@ async def approve_return(
             company_id=current_user.company_id,
         )
         db.add(movement)
+
+    # Financial reversal for credit sales: reduce customer's AR balance
+    if sale.payment_method == "CREDIT" and sale.client_id:
+        client_result = await db.execute(
+            select(Client).where(
+                Client.id == sale.client_id,
+                Client.company_id == current_user.company_id
+            )
+        )
+        client = client_result.scalars().first()
+        if client:
+            new_balance = client.current_balance - float(ret.total_refund or 0.0)
+            client.current_balance = new_balance
+            db.add(
+                AccountLedger(
+                    partner_id=client.id,
+                    partner_type=PartnerType.CLIENT,
+                    type=LedgerType.REFUND,
+                    amount=float(ret.total_refund or 0.0),
+                    balance_after=new_balance,
+                    reference_id=str(ret.id),
+                    description=f"Devolucion aprobada de venta {str(sale.id)[:8]}"
+                )
+            )
     
     ret.status = ReturnStatus.APPROVED
     ret.approved_at = datetime.now(timezone.utc)

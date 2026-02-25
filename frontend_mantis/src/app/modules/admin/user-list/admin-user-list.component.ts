@@ -2,7 +2,7 @@ import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { AdminService } from '../admin.service';
+import { AdminService, AdminUser } from '../admin.service';
 import { SharedModule } from '../../../theme/shared/shared.module';
 import { UserService } from '../../users/user.service';
 import { AuthService } from 'src/app/core/services/auth.service';
@@ -15,7 +15,7 @@ import Swal from 'sweetalert2';
     templateUrl: './admin-user-list.component.html'
 })
 export class AdminUserListComponent implements OnInit {
-    users: any[] = [];
+    users: AdminUser[] = [];
     loading = false;
     searchTerm = '';
 
@@ -45,7 +45,7 @@ export class AdminUserListComponent implements OnInit {
         });
     }
 
-    impersonate(user: any) {
+    impersonate(user: AdminUser) {
         Swal.fire({
             title: '¿Iniciar sesión como este usuario?',
             text: `Entrarás a la cuenta de ${user.full_name} (${user.email})`,
@@ -84,7 +84,7 @@ export class AdminUserListComponent implements OnInit {
         });
     }
 
-    sendRecoveryEmail(user: any) {
+    sendRecoveryEmail(user: AdminUser) {
         Swal.fire({
             title: '¿Enviar correo de recuperación?',
             text: `Se enviará un enlace para restablecer la contraseña a ${user.email}`,

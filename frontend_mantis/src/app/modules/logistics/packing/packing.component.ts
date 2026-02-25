@@ -1,11 +1,32 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, TemplateRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgbModal, NgbNavModule } from '@ng-bootstrap/ng-bootstrap';
 import Swal from 'sweetalert2';
-import { SaleService, Sale } from '../../../core/services/sale.service';
-import { LogisticsService, SalePackage, PackageType } from '../logistics.service';
+import { Sale, SaleItem, SaleService } from '../../../core/services/sale.service';
+import { CreatePackageRequest, LogisticsService, PackageType, SalePackage } from '../logistics.service';
+
+interface UnpackedSaleItem extends SaleItem {
+    id: string;
+    packed: number;
+}
+
+interface PackageItemFormValue {
+    sale_item_id: string;
+    product_name: string;
+    product_sku: string;
+    max_quantity: number;
+    quantity: number;
+}
+
+type PackageItemFormGroup = FormGroup<{
+    sale_item_id: FormControl<string>;
+    product_name: FormControl<string>;
+    product_sku: FormControl<string>;
+    max_quantity: FormControl<number>;
+    quantity: FormControl<number>;
+}>;
 
 @Component({
     selector: 'app-packing',
@@ -20,10 +41,7 @@ export class PackingComponent implements OnInit {
     packageTypes: PackageType[] = [];
     loading = false;
     activeTab = 1;
-
-    // Package Creation
     packageForm: FormGroup;
-    selectedPackageType: PackageType | null = null;
 
     private route = inject(ActivatedRoute);
     private router = inject(Router);
@@ -38,31 +56,32 @@ export class PackingComponent implements OnInit {
             package_type_id: [null, Validators.required],
             tracking_number: [''],
             weight: [0],
-            items: this.fb.array([]) // Complex handling omitted for brevity, logic below
+            items: this.fb.array<PackageItemFormGroup>([])
         });
     }
 
     ngOnInit() {
         this.saleId = this.route.snapshot.paramMap.get('id');
-        if (this.saleId) {
-            this.loadData();
-        }
+        if (this.saleId) this.loadData();
     }
 
     loadData() {
+        if (!this.saleId) return;
         this.loading = true;
-        // Load Sale, Packages, Types in parallel
-        this.saleService.getSale(this.saleId!).subscribe(s => {
-            this.sale = s;
+
+        this.saleService.getSale(this.saleId).subscribe((sale) => {
+            this.sale = sale;
             this.cdr.detectChanges();
         });
-        this.logisticsService.getPackageTypes().subscribe(t => {
-            this.packageTypes = t;
+
+        this.logisticsService.getPackageTypes().subscribe((types) => {
+            this.packageTypes = types;
             this.cdr.detectChanges();
         });
-        this.logisticsService.getPackages(this.saleId!).subscribe({
-            next: (p) => {
-                this.packages = p;
+
+        this.logisticsService.getPackages(this.saleId).subscribe({
+            next: (packages) => {
+                this.packages = packages;
                 this.loading = false;
                 this.cdr.detectChanges();
             },
@@ -73,71 +92,73 @@ export class PackingComponent implements OnInit {
         });
     }
 
-    // Helper calculate unpacked items
-    getUnpackedItems() {
-        if (!this.sale) return [];
-        // Map picked items
-        const items = this.sale.items.map((i: any) => ({ ...i, packed: 0 }));
+    getUnpackedItems(): UnpackedSaleItem[] {
+        if (!this.sale?.items) return [];
+        const items: UnpackedSaleItem[] = this.sale.items
+            .filter((item): item is SaleItem & { id: string } => !!item.id)
+            .map((item) => ({ ...item, id: item.id, packed: 0 }));
 
-        // Deduct packed
-        this.packages.forEach(pkg => {
-            pkg.items.forEach(pi => {
-                const item = items.find(i => i.id === pi.sale_item_id);
-                if (item) item.packed += pi.quantity;
+        this.packages.forEach((pkg) => {
+            pkg.items.forEach((packageItem) => {
+                const item = items.find((i) => i.id === packageItem.sale_item_id);
+                if (item) item.packed += packageItem.quantity;
             });
         });
 
-        // Return items with remaining > 0
-        return items.filter(i => (i.quantity_picked || 0) - i.packed > 0);
+        return items.filter((item) => (item.quantity_picked || 0) - item.packed > 0);
     }
 
-    get itemsFormArray() {
-        return this.packageForm.get('items') as any;
+    get itemsFormArray(): FormArray<PackageItemFormGroup> {
+        return this.packageForm.get('items') as FormArray<PackageItemFormGroup>;
     }
 
-    createPackage(content: any) {
-        this.selectedPackageType = null;
+    createPackage(content: TemplateRef<unknown>) {
         this.packageForm.reset();
+        this.itemsFormArray.clear();
 
-        // Clear existing items in FormArray
-        const itemsControl = this.packageForm.get('items') as any;
-        itemsControl.clear();
-
-        // Populate with unpacked items
         const unpacked = this.getUnpackedItems();
-        unpacked.forEach(item => {
+        unpacked.forEach((item) => {
             const remaining = (item.quantity_picked || 0) - item.packed;
-            itemsControl.push(this.fb.group({
-                sale_item_id: [item.id],
-                product_name: [item.product?.name],
-                product_sku: [item.product?.sku],
-                max_quantity: [remaining],
-                quantity: [remaining, [Validators.min(0), Validators.max(remaining)]] // Default to all
-            }));
+            this.itemsFormArray.push(
+                this.fb.group({
+                    sale_item_id: this.fb.nonNullable.control(item.id),
+                    product_name: this.fb.nonNullable.control(item.product?.name || 'Producto'),
+                    product_sku: this.fb.nonNullable.control(item.product?.sku || ''),
+                    max_quantity: this.fb.nonNullable.control(remaining),
+                    quantity: this.fb.nonNullable.control(remaining, [Validators.min(0), Validators.max(remaining)])
+                })
+            );
         });
 
         this.modalService.open(content, { size: 'lg' });
     }
 
     onSubmitPackage() {
-        const formVal = this.packageForm.value;
+        if (!this.saleId) return;
+        const formVal = this.packageForm.value as {
+            package_type_id: string | null;
+            tracking_number: string;
+            weight: number;
+            items: PackageItemFormValue[];
+        };
 
-        // Filter items with quantity > 0
-        const selectedItems = formVal.items.filter((i: any) => i.quantity > 0).map((i: any) => ({
-            sale_item_id: i.sale_item_id,
-            quantity: i.quantity
-        }));
+        const selectedItems = (formVal.items || [])
+            .filter((item) => item.quantity > 0)
+            .map((item) => ({
+                sale_item_id: item.sale_item_id,
+                quantity: item.quantity
+            }));
 
         if (selectedItems.length === 0) {
-            Swal.fire('Atención', 'Debes seleccionar al menos un producto para empacar', 'warning');
+            Swal.fire('Atencion', 'Debes seleccionar al menos un producto para empacar', 'warning');
             return;
         }
 
-        const payload = {
-            sale_id: this.saleId!,
-            package_type_id: formVal.package_type_id,
-            tracking_number: formVal.tracking_number,
-            weight: formVal.weight,
+        const payload: CreatePackageRequest = {
+            sale_id: this.saleId,
+            package_type_id: formVal.package_type_id || undefined,
+            tracking_number: formVal.tracking_number || undefined,
+            weight: Number(formVal.weight || 0),
             items: selectedItems
         };
 
@@ -146,9 +167,9 @@ export class PackingComponent implements OnInit {
                 this.packages.push(pkg);
                 this.modalService.dismissAll();
                 this.cdr.detectChanges();
-                Swal.fire('Éxito', 'Paquete creado', 'success');
+                Swal.fire('Exito', 'Paquete creado', 'success');
             },
-            error: (err) => {
+            error: () => {
                 Swal.fire('Error', 'No se pudo crear el paquete', 'error');
                 this.cdr.detectChanges();
             }
@@ -156,34 +177,31 @@ export class PackingComponent implements OnInit {
     }
 
     finishPacking() {
+        if (!this.saleId) return;
         const unpacked = this.getUnpackedItems();
-        let message = '¿Marcar como Despachado (Enviado)?';
-
-        if (unpacked.length > 0) {
-            message = 'Aún quedan productos sin empacar. ¿Deseas despachar igual?';
-        }
+        const message =
+            unpacked.length > 0 ? 'Aun quedan productos sin empacar. Deseas despachar igual?' : 'Marcar como despachado?';
 
         Swal.fire({
             title: 'Finalizar Empaque',
             text: message,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Sí, despachar'
+            confirmButtonText: 'Si, despachar'
         }).then((result) => {
-            if (result.isConfirmed) {
-                this.saleService.updateStatus(this.saleId!, 'DISPATCHED').subscribe({
-                    next: () => {
-                        this.cdr.detectChanges();
-                        Swal.fire('Éxito', 'Orden Despachada', 'success').then(() => {
-                            this.router.navigate(['/sales/view', this.saleId]);
-                        });
-                    },
-                    error: (err) => {
-                        this.cdr.detectChanges();
-                        Swal.fire('Error', 'No se pudo actualizar estado', 'error');
-                    }
-                });
-            }
+            if (!result.isConfirmed) return;
+            this.saleService.updateStatus(this.saleId as string, 'DISPATCHED').subscribe({
+                next: () => {
+                    this.cdr.detectChanges();
+                    Swal.fire('Exito', 'Orden despachada', 'success').then(() => {
+                        this.router.navigate(['/sales/view', this.saleId]);
+                    });
+                },
+                error: () => {
+                    this.cdr.detectChanges();
+                    Swal.fire('Error', 'No se pudo actualizar estado', 'error');
+                }
+            });
         });
     }
 }

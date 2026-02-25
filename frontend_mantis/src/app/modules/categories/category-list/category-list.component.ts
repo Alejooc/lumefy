@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { Category, CategoryService } from '../category.service';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 
@@ -9,14 +9,12 @@ import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.se
     styleUrls: ['./category-list.component.scss']
 })
 export class CategoryListComponent implements OnInit {
+    private categoryService = inject(CategoryService);
+    private cdr = inject(ChangeDetectorRef);
+    private swal = inject(SweetAlertService);
+
     categories: Category[] = [];
     isLoading = false;
-
-    constructor(
-        private categoryService: CategoryService,
-        private cdr: ChangeDetectorRef,
-        private swal: SweetAlertService
-    ) { }
 
     ngOnInit(): void {
         console.log('CategoryListComponent initialized');

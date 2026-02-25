@@ -1,147 +1,183 @@
-<div class="row" *ngIf="purchase">
+@if (purchase) {
+  <div class="row">
     <div class="col-sm-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>Orden de Compra: {{ purchase.id | slice:0:8 }}</h5>
-                <div>
-                    <span class="badge bg-secondary" *ngIf="purchase.status === 'DRAFT'">Borrador</span>
-                    <span class="badge bg-warning text-dark" *ngIf="purchase.status === 'VALIDATION'">Pendiente
-                        Validación</span>
-                    <span class="badge bg-primary" *ngIf="purchase.status === 'CONFIRMED'">Confirmada</span>
-                    <span class="badge bg-info" *ngIf="purchase.status === 'PARTIAL'">Parcialmente Recibida</span>
-                    <span class="badge bg-success" *ngIf="purchase.status === 'RECEIVED'">Recibida</span>
-                    <span class="badge bg-danger" *ngIf="purchase.status === 'CANCELLED'">Cancelada</span>
-                </div>
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5>Orden de Compra: {{ purchase.id | slice:0:8 }}</h5>
+          <div>
+            @if (purchase.status === 'DRAFT') {
+              <span class="badge bg-secondary">Borrador</span>
+            }
+            @if (purchase.status === 'VALIDATION') {
+              <span class="badge bg-warning text-dark">Pendiente
+              Validación</span>
+            }
+            @if (purchase.status === 'CONFIRMED') {
+              <span class="badge bg-primary">Confirmada</span>
+            }
+            @if (purchase.status === 'PARTIAL') {
+              <span class="badge bg-info">Parcialmente Recibida</span>
+            }
+            @if (purchase.status === 'RECEIVED') {
+              <span class="badge bg-success">Recibida</span>
+            }
+            @if (purchase.status === 'CANCELLED') {
+              <span class="badge bg-danger">Cancelada</span>
+            }
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <h6>Proveedor</h6>
+              <p>
+                <strong>{{ purchase.supplier?.name }}</strong><br>
+              </p>
             </div>
-            <div class="card-body">
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <h6>Proveedor</h6>
-                        <p>
-                            <strong>{{ purchase.supplier?.name }}</strong><br>
-                        </p>
-                    </div>
-                    <div class="col-md-6 text-md-end">
-                        <h6>Detalles</h6>
-                        <p>
-                            <strong>Registro:</strong> {{ purchase.created_at | date }}<br>
-                            <strong>Fecha de Emisión:</strong> {{ purchase.order_date ? (purchase.order_date | date) :
-                            (purchase.created_at | date) }}<br>
-                            <strong>Fecha Esperada:</strong> {{ (purchase.expected_date | date) || 'No especificada'
-                            }}<br>
-                            <strong>Método de Pago:</strong>
-                            <span *ngIf="purchase.payment_method === 'CASH'">Efectivo</span>
-                            <span *ngIf="purchase.payment_method === 'CREDIT'">Crédito (Cuenta por Pagar)</span>
-                            <span *ngIf="purchase.payment_method === 'CARD'">Tarjeta</span>
-                            <span *ngIf="purchase.payment_method === 'BANK_TRANSFER'">Transferencia</span><br>
-                            <strong>Referencia / Factura:</strong> {{ purchase.reference_number || 'N/A' }}
-                        </p>
-                        <div *ngIf="purchase.notes">
-                            <strong>Notas:</strong> {{ purchase.notes }}
-                        </div>
-                        <div *ngIf="!purchase.branch_id" class="text-danger">
-                            <i class="feather icon-alert-triangle"></i> <strong>Sin Sucursal de Destino</strong>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="table-responsive mb-4">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr>
-                                <th>Producto</th>
-                                <th class="text-end">Cantidad</th>
-                                <th class="text-end"
-                                    *ngIf="purchase.status === 'PARTIAL' || purchase.status === 'RECEIVED' || receiveMode">
-                                    Recibido</th>
-                                <th class="text-center" *ngIf="receiveMode" style="width: 140px">Recibir Ahora</th>
-                                <th class="text-end">Costo Unitario</th>
-                                <th class="text-end">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let item of purchase.items">
-                                <td>
-                                    {{ item.product?.name || item.product_id }}
-                                    <span *ngIf="item.variant" class="text-muted small d-block">
-                                        {{ item.variant.name }}
-                                    </span>
-                                </td>
-                                <td class="text-end">{{ item.quantity }}</td>
-                                <td class="text-end"
-                                    *ngIf="purchase.status === 'PARTIAL' || purchase.status === 'RECEIVED' || receiveMode">
+            <div class="col-md-6 text-md-end">
+              <h6>Detalles</h6>
+              <p>
+                <strong>Registro:</strong> {{ purchase.created_at | date }}<br>
+                <strong>Fecha de Emisión:</strong> {{ purchase.order_date ? (purchase.order_date | date) :
+                (purchase.created_at | date) }}<br>
+                <strong>Fecha Esperada:</strong> {{ (purchase.expected_date | date) || 'No especificada'
+                }}<br>
+                <strong>Método de Pago:</strong>
+                @if (purchase.payment_method === 'CASH') {
+                  <span>Efectivo</span>
+                }
+                @if (purchase.payment_method === 'CREDIT') {
+                  <span>Crédito (Cuenta por Pagar)</span>
+                }
+                @if (purchase.payment_method === 'CARD') {
+                  <span>Tarjeta</span>
+                }
+                @if (purchase.payment_method === 'BANK_TRANSFER') {
+                  <span>Transferencia</span>
+                  }<br>
+                  <strong>Referencia / Factura:</strong> {{ purchase.reference_number || 'N/A' }}
+                </p>
+                @if (purchase.notes) {
+                  <div>
+                    <strong>Notas:</strong> {{ purchase.notes }}
+                  </div>
+                }
+                @if (!purchase.branch_id) {
+                  <div class="text-danger">
+                    <i class="feather icon-alert-triangle"></i> <strong>Sin Sucursal de Destino</strong>
+                  </div>
+                }
+              </div>
+            </div>
+            <div class="table-responsive mb-4">
+              <table class="table table-bordered">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th class="text-end">Cantidad</th>
+                    @if (purchase.status === 'PARTIAL' || purchase.status === 'RECEIVED' || receiveMode) {
+                      <th class="text-end"
+                        >
+                      Recibido</th>
+                    }
+                    @if (receiveMode) {
+                      <th class="text-center" style="width: 140px">Recibir Ahora</th>
+                    }
+                    <th class="text-end">Costo Unitario</th>
+                    <th class="text-end">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of purchase.items; track item) {
+                    <tr>
+                      <td>
+                        {{ item.product?.name || item.product_id }}
+                        @if (item.variant) {
+                          <span class="text-muted small d-block">
+                            {{ item.variant.name }}
+                          </span>
+                        }
+                      </td>
+                      <td class="text-end">{{ item.quantity }}</td>
+                      @if (purchase.status === 'PARTIAL' || purchase.status === 'RECEIVED' || receiveMode) {
+                        <td class="text-end"
+                          >
                                     <span [ngClass]="{
                                         'text-success': (item.received_qty || 0) >= item.quantity,
                                         'text-warning': (item.received_qty || 0) > 0 && (item.received_qty || 0) < item.quantity,
                                         'text-muted': !(item.received_qty || 0)
                                     }">
-                                        {{ item.received_qty || 0 }} / {{ item.quantity }}
-                                    </span>
-                                    <div class="progress mt-1" style="height: 4px">
+                            {{ item.received_qty || 0 }} / {{ item.quantity }}
+                          </span>
+                          <div class="progress mt-1" style="height: 4px">
                                         <div class="progress-bar" [ngClass]="{
                                             'bg-success': getReceiveProgress(item) >= 100,
                                             'bg-warning': getReceiveProgress(item) > 0 && getReceiveProgress(item) < 100
                                         }" [style.width.%]="getReceiveProgress(item)"></div>
-                                    </div>
-                                </td>
-                                <td class="text-center" *ngIf="receiveMode">
-                                    <input type="number" class="form-control form-control-sm text-center"
-                                        [(ngModel)]="receiveQuantities[item.id!]" [max]="getRemainingQty(item)" min="0"
-                                        step="1" [disabled]="getRemainingQty(item) <= 0">
-                                </td>
-                                <td class="text-end">{{ item.unit_cost | currency }}</td>
-                                <td class="text-end">{{ (item.quantity * item.unit_cost) | currency }}</td>
-                            </tr>
-                            <tr>
-                                <td [attr.colspan]="receiveMode ? 5 : (purchase.status === 'PARTIAL' || purchase.status === 'RECEIVED' ? 4 : 3)"
-                                    class="text-end"><strong>Total</strong></td>
-                                <td class="text-end"><strong>{{ purchase.total_amount | currency }}</strong></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                          </div>
+                        </td>
+                      }
+                      @if (receiveMode) {
+                        <td class="text-center">
+                          <input type="number" class="form-control form-control-sm text-center"
+                            [(ngModel)]="receiveQuantities[item.id!]" [max]="getRemainingQty(item)" min="0"
+                            step="1" [disabled]="getRemainingQty(item) <= 0">
+                          </td>
+                        }
+                        <td class="text-end">{{ item.unit_cost | currency }}</td>
+                        <td class="text-end">{{ (item.quantity * item.unit_cost) | currency }}</td>
+                      </tr>
+                    }
+                    <tr>
+                      <td [attr.colspan]="receiveMode ? 5 : (purchase.status === 'PARTIAL' || purchase.status === 'RECEIVED' ? 4 : 3)"
+                        class="text-end"><strong>Total</strong></td>
+                        <td class="text-end"><strong>{{ purchase.total_amount | currency }}</strong></td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-
                 <div class="d-flex justify-content-end gap-2">
-                    <button class="btn btn-secondary" [routerLink]="['/purchasing/orders']">Volver</button>
-
-                    <ng-container *ngIf="purchase.status === 'DRAFT'">
-                        <button class="btn btn-warning" (click)="updateStatus('VALIDATION')" [disabled]="loading">Enviar
-                            a Validación</button>
-                        <button class="btn btn-danger" (click)="updateStatus('CANCELLED')"
-                            [disabled]="loading">Cancelar</button>
-                    </ng-container>
-
-                    <ng-container *ngIf="purchase.status === 'VALIDATION'">
-                        <button class="btn btn-primary" (click)="updateStatus('CONFIRMED')" [disabled]="loading">Aprobar
-                            y Confirmar</button>
-                        <button class="btn btn-outline-danger" (click)="updateStatus('CANCELLED')"
-                            [disabled]="loading">Rechazar / Cancelar</button>
-                    </ng-container>
-
-                    <ng-container *ngIf="purchase.status === 'CONFIRMED' || purchase.status === 'PARTIAL'">
-                        <ng-container *ngIf="!receiveMode">
-                            <button class="btn btn-success" (click)="toggleReceiveMode()"
-                                [disabled]="loading || !purchase.branch_id">
-                                <i class="ti ti-package me-1"></i>Recibir Productos
-                            </button>
-                        </ng-container>
-                        <ng-container *ngIf="receiveMode">
-                            <button class="btn btn-outline-secondary" (click)="toggleReceiveMode()">Cancelar
-                                Recepción</button>
-                            <button class="btn btn-success" (click)="confirmReceive()" [disabled]="loading">
-                                <i class="ti ti-check me-1"></i>Confirmar Recepción
-                            </button>
-                        </ng-container>
-                        <button *ngIf="!receiveMode" class="btn btn-outline-danger" (click)="updateStatus('CANCELLED')"
-                            [disabled]="loading">Cancelar</button>
-                    </ng-container>
+                  <button class="btn btn-secondary" [routerLink]="['/purchasing/orders']">Volver</button>
+                  @if (purchase.status === 'DRAFT') {
+                    <button class="btn btn-warning" (click)="updateStatus('VALIDATION')" [disabled]="loading">Enviar
+                    a Validación</button>
+                    <button class="btn btn-danger" (click)="updateStatus('CANCELLED')"
+                    [disabled]="loading">Cancelar</button>
+                  }
+                  @if (purchase.status === 'VALIDATION') {
+                    <button class="btn btn-primary" (click)="updateStatus('CONFIRMED')" [disabled]="loading">Aprobar
+                    y Confirmar</button>
+                    <button class="btn btn-outline-danger" (click)="updateStatus('CANCELLED')"
+                    [disabled]="loading">Rechazar / Cancelar</button>
+                  }
+                  @if (purchase.status === 'CONFIRMED' || purchase.status === 'PARTIAL') {
+                    @if (!receiveMode) {
+                      <button class="btn btn-success" (click)="toggleReceiveMode()"
+                        [disabled]="loading || !purchase.branch_id">
+                        <i class="ti ti-package me-1"></i>Recibir Productos
+                      </button>
+                    }
+                    @if (receiveMode) {
+                      <button class="btn btn-outline-secondary" (click)="toggleReceiveMode()">Cancelar
+                      Recepción</button>
+                      <button class="btn btn-success" (click)="confirmReceive()" [disabled]="loading">
+                        <i class="ti ti-check me-1"></i>Confirmar Recepción
+                      </button>
+                    }
+                    @if (!receiveMode) {
+                      <button class="btn btn-outline-danger" (click)="updateStatus('CANCELLED')"
+                      [disabled]="loading">Cancelar</button>
+                    }
+                  }
                 </div>
-
+              </div>
             </div>
+          </div>
         </div>
-    </div>
-</div>
+      }
 
-<div *ngIf="!purchase && !loading" class="alert alert-warning">
-    Orden de Compra no encontrada.
-</div>
+      @if (!purchase && !loading) {
+        <div class="alert alert-warning">
+          Orden de Compra no encontrada.
+        </div>
+      }

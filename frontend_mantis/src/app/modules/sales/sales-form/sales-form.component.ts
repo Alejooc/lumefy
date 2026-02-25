@@ -2,7 +2,7 @@ import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { SaleService } from '../../../core/services/sale.service';
+import { SalePayload, SaleService } from '../../../core/services/sale.service';
 import { ProductService, Product } from '../../../core/services/product.service';
 import { BranchService, Branch } from '../../../core/services/branch.service';
 import { ClientService } from '../../clients/client.service';
@@ -205,22 +205,33 @@ export class SalesFormComponent implements OnInit {
 
         this.loading = true;
         const formValue = this.saleForm.value;
+        const items = formValue.items.map((item: { product_id: string; quantity: number; price: number; discount: number }) => ({
+            product_id: item.product_id,
+            quantity: Number(item.quantity),
+            price: Number(item.price),
+            discount: Number(item.discount) || 0
+        }));
+        const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
+        const discount = items.reduce((acc, item) => acc + item.discount, 0);
+        const tax = 0;
+        const shippingCost = 0;
+        const total = subtotal - discount + tax + shippingCost;
 
         // Build clean payload - sanitize empty strings to null
-        const payload: any = {
+        const payload: SalePayload & { payments: unknown[] } = {
             branch_id: formValue.branch_id,
             status: formValue.status || 'DRAFT',
+            subtotal,
+            tax,
+            discount,
+            shipping_cost: shippingCost,
+            total,
             payment_method: formValue.payment_method || null,
             notes: formValue.notes || null,
             shipping_address: formValue.shipping_address || null,
             valid_until: formValue.valid_until || null,
             client_id: formValue.client_id || null,
-            items: formValue.items.map((item: any) => ({
-                product_id: item.product_id,
-                quantity: Number(item.quantity),
-                price: Number(item.price),
-                discount: Number(item.discount) || 0
-            })),
+            items,
             payments: []
         };
 

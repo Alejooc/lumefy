@@ -8,6 +8,8 @@ export class GuestGuard implements CanActivate {
     authService = inject(AuthService);
 
     canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot) {
+        void route;
+        void state;
         const currentUser = this.authService.currentUserValue;
         if (currentUser) {
             // logged in so redirect to dashboard

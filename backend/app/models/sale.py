@@ -26,6 +26,7 @@ class Sale(BaseModel):
 
     branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id"), index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
+    pos_session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("pos_sessions.id"), nullable=True, index=True)
     client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True)
     
     status: Mapped[SaleStatus] = mapped_column(Enum(SaleStatus), default=SaleStatus.DRAFT)

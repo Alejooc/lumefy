@@ -1,101 +1,117 @@
 <div class="row">
-    <div class="col-sm-12">
-        <app-card [cardTitle]="'Lista de Clientes'" [showHeader]="true">
-            <div class="row mb-3">
-                <div class="col-md-3">
-                    <input type="text" class="form-control" placeholder="Buscar cliente..." [(ngModel)]="searchQuery"
-                        (keyup.enter)="loadClients()">
-                </div>
-                <div class="col-md-2">
-                    <select class="form-select" [(ngModel)]="selectedStatus" (change)="loadClients()">
-                        <option value="">Todos los estados</option>
-                        <option value="active">Activo</option>
-                        <option value="inactive">Inactivo</option>
-                        <option value="prospective">Prospecto</option>
-                        <option value="at_risk">En Riesgo</option>
-                    </select>
-                </div>
-                <div class="col-md-8 d-flex flex-wrap justify-content-end gap-2">
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-success" (click)="exportData('excel')">
-                            <i class="feather icon-file"></i> Excel
-                        </button>
-                        <button class="btn btn-outline-success" (click)="exportData('csv')">
-                            <i class="feather icon-file-text"></i> CSV
-                        </button>
-                    </div>
-                    <button class="btn btn-primary" [routerLink]="['/clients/new']">
-                        <i class="feather icon-plus"></i> Nuevo Cliente
-                    </button>
-                </div>
+  <div class="col-sm-12">
+    <app-card [cardTitle]="'Lista de Clientes'" [showHeader]="true">
+      <div class="row mb-3">
+        <div class="col-md-3">
+          <input type="text" class="form-control" placeholder="Buscar cliente..." [(ngModel)]="searchQuery"
+            (keyup.enter)="loadClients()">
+          </div>
+          <div class="col-md-2">
+            <select class="form-select" [(ngModel)]="selectedStatus" (change)="loadClients()">
+              <option value="">Todos los estados</option>
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
+              <option value="prospective">Prospecto</option>
+              <option value="at_risk">En Riesgo</option>
+            </select>
+          </div>
+          <div class="col-md-8 d-flex flex-wrap justify-content-end gap-2">
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-success" (click)="exportData('excel')">
+                <i class="feather icon-file"></i> Excel
+              </button>
+              <button class="btn btn-outline-success" (click)="exportData('csv')">
+                <i class="feather icon-file-text"></i> CSV
+              </button>
             </div>
+            <button class="btn btn-primary" [routerLink]="['/clients/new']">
+              <i class="feather icon-plus"></i> Nuevo Cliente
+            </button>
+          </div>
+        </div>
 
-            <div *ngIf="isLoading">
-                <app-skeleton type="table" [rowCount]="5" [colCount]="5"></app-skeleton>
-            </div>
+        @if (isLoading) {
+          <div>
+            <app-skeleton type="table" [rowCount]="5" [colCount]="5"></app-skeleton>
+          </div>
+        }
 
-            <div class="table-responsive" *ngIf="clients.length > 0 && !isLoading">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Identificación</th>
-                            <th>Email</th>
-                            <th>Teléfono</th>
-                            <th class="text-end">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr *ngFor="let client of clients">
-                            <td>
-                                <div class="d-inline-block align-middle">
-                                    <div class="d-inline-block">
-                                        <h6 class="m-b-0">{{ client.name }}</h6>
+        @if (clients.length > 0 && !isLoading) {
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Identificación</th>
+                  <th>Email</th>
+                  <th>Teléfono</th>
+                  <th class="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (client of clients; track client) {
+                  <tr>
+                    <td>
+                      <div class="d-inline-block align-middle">
+                        <div class="d-inline-block">
+                          <h6 class="m-b-0">{{ client.name }}</h6>
                                         <span class="badge" [ngClass]="{
                                             'bg-success': client.status === 'active',
                                             'bg-warning': client.status === 'prospective',
                                             'bg-danger': client.status === 'at_risk',
                                             'bg-secondary': client.status === 'inactive'
                                         }" style="font-size: 0.65rem;">{{ client.status | uppercase }}</span>
-                                        <p class="m-b-0 text-muted" *ngIf="client.notes">{{ client.notes }}</p>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>{{ client.tax_id || '-' }}</td>
-                            <td>{{ client.email || '-' }}</td>
-                            <td>{{ client.phone || '-' }}</td>
-                            <td class="text-end">
-                                <button [routerLink]="['/clients/view', client.id]"
-                                    class="btn btn-icon btn-outline-info btn-sm me-1"
-                                    title="Ver Perfil y Estado de Cuenta">
-                                    <i class="feather icon-eye"></i>
-                                </button>
-                                <button [routerLink]="['/clients/edit', client.id]"
-                                    class="btn btn-icon btn-outline-primary btn-sm me-1" title="Editar">
-                                    <i class="feather icon-edit"></i>
-                                </button>
-                                <button (click)="deleteClient(client.id)" class="btn btn-icon btn-outline-danger btn-sm"
-                                    title="Eliminar">
-                                    <i class="feather icon-trash-2"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                          @if (client.notes) {
+                            <p class="m-b-0 text-muted">{{ client.notes }}</p>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                    <td>{{ client.tax_id || '-' }}</td>
+                    <td>{{ client.email || '-' }}</td>
+                    <td>{{ client.phone || '-' }}</td>
+                    <td class="text-end">
+                      <button [routerLink]="['/clients/view', client.id]"
+                        class="btn btn-icon btn-outline-info btn-sm me-1"
+                        title="Ver Perfil y Estado de Cuenta">
+                        <i class="feather icon-eye"></i>
+                      </button>
+                      <button [routerLink]="['/clients/edit', client.id]"
+                        class="btn btn-icon btn-outline-primary btn-sm me-1" title="Editar">
+                        <i class="feather icon-edit"></i>
+                      </button>
+                      <button (click)="deleteClient(client.id)" class="btn btn-icon btn-outline-danger btn-sm"
+                        title="Eliminar">
+                        <i class="feather icon-trash-2"></i>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
 
-            <div class="text-center py-5 border rounded bg-light-subtle" *ngIf="clients.length === 0 && !isLoading">
-                <h6 class="mb-2">No hay clientes registrados</h6>
-                <p class="text-muted mb-3" *ngIf="!searchQuery">Crea tu primer cliente para asociarlo a ventas y
-                    reportes.</p>
-                <p class="text-muted mb-3" *ngIf="searchQuery">No hubo coincidencias para <strong>"{{ searchQuery
-                        }}"</strong>.</p>
-                <div class="d-flex justify-content-center gap-2 flex-wrap">
-                    <a class="btn btn-primary btn-sm" [routerLink]="['/clients/new']">Crear primer cliente</a>
-                    <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/sales/first-sale-wizard']"
-                        *ngIf="canAccessWizard">Ir al Wizard MVP</a>
-                </div>
+        @if (clients.length === 0 && !isLoading) {
+          <div class="text-center py-5 border rounded bg-light-subtle">
+            <h6 class="mb-2">No hay clientes registrados</h6>
+            @if (!searchQuery) {
+              <p class="text-muted mb-3">Crea tu primer cliente para asociarlo a ventas y
+              reportes.</p>
+            }
+            @if (searchQuery) {
+              <p class="text-muted mb-3">No hubo coincidencias para <strong>"{{ searchQuery
+              }}"</strong>.</p>
+            }
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+              <a class="btn btn-primary btn-sm" [routerLink]="['/clients/new']">Crear primer cliente</a>
+              @if (canAccessWizard) {
+                <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/sales/first-sale-wizard']"
+                >Ir al Wizard MVP</a>
+              }
             </div>
-        </app-card>
+          </div>
+        }
+      </app-card>
     </div>
-</div>
+  </div>

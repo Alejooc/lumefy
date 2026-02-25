@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 import { ApiService } from './api.service';
 
@@ -11,9 +11,17 @@ export interface AppCatalogItem {
   version: string;
   icon: string | null;
   is_active: boolean;
+  is_listed: boolean;
+  requested_scopes: string[];
+  capabilities: string[];
+  pricing_model: string;
+  monthly_price: number;
+  setup_url: string | null;
+  docs_url: string | null;
+  support_url: string | null;
   installed: boolean;
   is_enabled: boolean;
-  config_schema: Record<string, string>;
+  config_schema: Record<string, unknown>;
 }
 
 export interface InstalledApp {
@@ -22,7 +30,14 @@ export interface InstalledApp {
   slug: string;
   name: string;
   is_enabled: boolean;
-  settings: Record<string, any>;
+  installed_version: string;
+  granted_scopes: string[];
+  api_key_prefix: string | null;
+  oauth_client_id: string | null;
+  webhook_url: string | null;
+  billing_status: string;
+  new_api_key?: string | null;
+  settings: Record<string, unknown>;
   installed_at: string;
 }
 
@@ -31,7 +46,19 @@ export interface AppInstalledDetail extends InstalledApp {
   category: string | null;
   version: string;
   icon: string | null;
-  config_schema: Record<string, string>;
+  config_schema: Record<string, unknown>;
+  default_config: Record<string, unknown>;
+  requested_scopes: string[];
+  capabilities: string[];
+  setup_url: string | null;
+  docs_url: string | null;
+  support_url: string | null;
+  pricing_model: string;
+  monthly_price: number;
+  api_key_prefix: string | null;
+  oauth_client_id: string | null;
+  webhook_url: string | null;
+  billing_status: string;
 }
 
 export interface AdminAppDefinition {
@@ -42,9 +69,77 @@ export interface AdminAppDefinition {
   category: string | null;
   version: string;
   icon: string | null;
-  config_schema: Record<string, any>;
-  default_config: Record<string, any>;
+  requested_scopes: string[];
+  capabilities: string[];
+  config_schema: Record<string, unknown>;
+  default_config: Record<string, unknown>;
+  setup_url: string | null;
+  docs_url: string | null;
+  support_url: string | null;
+  pricing_model: string;
+  monthly_price: number;
+  is_listed: boolean;
   is_active: boolean;
+}
+
+export interface AppInstallRequest {
+  granted_scopes: string[];
+  target_version?: string | null;
+}
+
+export interface AppInstallEvent {
+  id: string;
+  event_type: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+  triggered_by_user_id: string | null;
+}
+
+export interface RotateApiKeyResponse {
+  api_key_prefix: string;
+  new_api_key: string;
+  rotated_at: string;
+}
+
+export interface RotateWebhookSecretResponse {
+  webhook_secret: string;
+  rotated_at: string;
+}
+
+export interface RotateClientSecretResponse {
+  oauth_client_id: string;
+  new_client_secret: string;
+  rotated_at: string;
+}
+
+export interface BillingSummary {
+  slug: string;
+  name: string;
+  pricing_model: string;
+  monthly_price: number;
+  currency: string;
+  billing_status: string;
+  is_enabled: boolean;
+  next_invoice_date: string | null;
+}
+
+export interface WebhookTestResponse {
+  delivered: boolean;
+  endpoint?: string | null;
+  status_code?: number | null;
+  signature?: string | null;
+  reason?: string | null;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  event_name: string;
+  endpoint?: string | null;
+  success: boolean;
+  status_code?: number | null;
+  error_message?: string | null;
+  attempt_number: number;
+  created_at: string;
 }
 
 export interface DemoHelloResponse {
@@ -57,10 +152,10 @@ export interface DemoHelloResponse {
   providedIn: 'root'
 })
 export class AppMarketplaceService {
+  private api = inject(ApiService);
+
   private installedChangedSource = new Subject<void>();
   installedChanged$ = this.installedChangedSource.asObservable();
-
-  constructor(private api: ApiService) { }
 
   notifyInstalledChanged(): void {
     this.installedChangedSource.next();
@@ -78,15 +173,47 @@ export class AppMarketplaceService {
     return this.api.get<AppInstalledDetail>(`/apps/installed/${slug}`);
   }
 
-  install(slug: string): Observable<InstalledApp> {
-    return this.api.post<InstalledApp>(`/apps/install/${slug}`, {});
+  getInstalledEvents(slug: string, limit = 20): Observable<AppInstallEvent[]> {
+    return this.api.get<AppInstallEvent[]>(`/apps/installed/${slug}/events?limit=${limit}`);
+  }
+
+  getBillingSummary(slug: string): Observable<BillingSummary> {
+    return this.api.get<BillingSummary>(`/apps/installed/${slug}/billing`);
+  }
+
+  rotateApiKey(slug: string): Observable<RotateApiKeyResponse> {
+    return this.api.post<RotateApiKeyResponse>(`/apps/installed/${slug}/rotate-api-key`, {});
+  }
+
+  rotateWebhookSecret(slug: string): Observable<RotateWebhookSecretResponse> {
+    return this.api.post<RotateWebhookSecretResponse>(`/apps/installed/${slug}/rotate-webhook-secret`, {});
+  }
+
+  rotateClientSecret(slug: string): Observable<RotateClientSecretResponse> {
+    return this.api.post<RotateClientSecretResponse>(`/apps/installed/${slug}/rotate-client-secret`, {});
+  }
+
+  sendWebhookTest(slug: string): Observable<WebhookTestResponse> {
+    return this.api.post<WebhookTestResponse>(`/apps/installed/${slug}/webhooks/test`, {});
+  }
+
+  getWebhookDeliveries(slug: string, limit = 25): Observable<WebhookDelivery[]> {
+    return this.api.get<WebhookDelivery[]>(`/apps/installed/${slug}/webhooks/deliveries?limit=${limit}`);
+  }
+
+  retryWebhookDelivery(slug: string, deliveryId: string): Observable<WebhookTestResponse> {
+    return this.api.post<WebhookTestResponse>(`/apps/installed/${slug}/webhooks/deliveries/${deliveryId}/retry`, {});
+  }
+
+  install(slug: string, payload: AppInstallRequest): Observable<InstalledApp> {
+    return this.api.post<InstalledApp>(`/apps/install/${slug}`, payload);
   }
 
   uninstall(slug: string): Observable<InstalledApp> {
     return this.api.post<InstalledApp>(`/apps/uninstall/${slug}`, {});
   }
 
-  updateConfig(slug: string, settings: Record<string, any>): Observable<InstalledApp> {
+  updateConfig(slug: string, settings: Record<string, unknown>): Observable<InstalledApp> {
     return this.api.put<InstalledApp>(`/apps/config/${slug}`, { settings });
   }
 

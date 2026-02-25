@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from 'src/environments/environment';
@@ -43,8 +43,9 @@ export interface Plan {
     currency: string;
     description: string;
     duration_days: number;
-    features: any; // JSON object or array
-    limits: any;
+    button_text?: string;
+    features: Record<string, unknown> | unknown[];
+    limits: { users?: number; storage?: number; branches?: number } | Record<string, unknown> | unknown[];
 }
 
 export interface LandingConfig {
@@ -62,9 +63,9 @@ export interface LandingConfig {
     providedIn: 'root'
 })
 export class LandingService {
-    private apiUrl = `${environment.apiUrl}/system/landing`;
+    private http = inject(HttpClient);
 
-    constructor(private http: HttpClient) { }
+    private apiUrl = `${environment.apiUrl}/system/landing`;
 
     getLandingConfig(): Observable<LandingConfig> {
         return this.http.get<LandingConfig>(this.apiUrl);

@@ -1,4 +1,4 @@
-import { Directive, Input, TemplateRef, ViewContainerRef, OnInit, OnDestroy } from '@angular/core';
+import { Directive, Input, TemplateRef, ViewContainerRef, OnInit, OnDestroy, inject } from '@angular/core';
 import { PermissionService } from '../../../core/services/permission.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { Subject } from 'rxjs';
@@ -9,15 +9,13 @@ import { takeUntil } from 'rxjs/operators';
     standalone: true
 })
 export class HasPermissionDirective implements OnInit, OnDestroy {
+    private templateRef = inject<TemplateRef<unknown>>(TemplateRef);
+    private viewContainer = inject(ViewContainerRef);
+    private permissionService = inject(PermissionService);
+    private authService = inject(AuthService);
+
     private permission: string = '';
     private destroy$ = new Subject<void>();
-
-    constructor(
-        private templateRef: TemplateRef<any>,
-        private viewContainer: ViewContainerRef,
-        private permissionService: PermissionService,
-        private authService: AuthService
-    ) { }
 
     @Input()
     set appHasPermission(val: string) {

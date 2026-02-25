@@ -1,14 +1,15 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { AdminService, SystemSetting } from '../admin.service';
-import { SharedModule } from '../../../theme/shared/shared.module';
 import Swal from 'sweetalert2';
+import { SharedModule } from '../../../theme/shared/shared.module';
+import { AdminService, SystemSetting } from '../admin.service';
+
+type SettingsUpdate = Pick<SystemSetting, 'key' | 'value' | 'group' | 'is_public'>;
 
 @Component({
     selector: 'app-admin-settings',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, SharedModule],
+    imports: [ReactiveFormsModule, SharedModule],
     templateUrl: './admin-settings.component.html'
 })
 export class AdminSettingsComponent implements OnInit {
@@ -22,16 +23,11 @@ export class AdminSettingsComponent implements OnInit {
 
     constructor() {
         this.settingsForm = this.fb.group({
-            // Branding
             system_name: ['Lumefy SaaS'],
             logo_url: [''],
             primary_color: ['#4680ff'],
-
-            // Defaults
             default_currency: ['USD'],
             default_language: ['es'],
-
-            // System
             maintenance_mode: [false],
             allow_registrations: [true]
         });
@@ -46,16 +42,13 @@ export class AdminSettingsComponent implements OnInit {
         this.adminService.getSettings().subscribe({
             next: (data) => {
                 this.settings = data;
-
-                // Map array to form
-                const formVal: any = {};
-                data.forEach(s => {
-                    if (this.settingsForm.contains(s.key)) {
-                        // Convert boolean strings if needed
-                        let val: any = s.value;
-                        if (s.value === 'true') val = true;
-                        if (s.value === 'false') val = false;
-                        formVal[s.key] = val;
+                const formVal: Record<string, string | boolean> = {};
+                data.forEach((setting) => {
+                    if (this.settingsForm.contains(setting.key)) {
+                        let value: string | boolean = setting.value;
+                        if (setting.value === 'true') value = true;
+                        if (setting.value === 'false') value = false;
+                        formVal[setting.key] = value;
                     }
                 });
 
@@ -63,8 +56,8 @@ export class AdminSettingsComponent implements OnInit {
                 this.loading = false;
                 this.cdr.detectChanges();
             },
-            error: (err) => {
-                console.error(err);
+            error: (error: unknown) => {
+                console.error(error);
                 this.loading = false;
                 this.cdr.detectChanges();
             }
@@ -73,17 +66,17 @@ export class AdminSettingsComponent implements OnInit {
 
     onSubmit() {
         this.loading = true;
-        const formVal = this.settingsForm.value;
-        const updates: any[] = [];
+        const formVal = this.settingsForm.value as Record<string, unknown>;
+        const updates: SettingsUpdate[] = [];
 
-        Object.keys(formVal).forEach(key => {
-            let val = formVal[key];
-            if (val === true) val = 'true';
-            if (val === false) val = 'false';
+        Object.keys(formVal).forEach((key) => {
+            let value = formVal[key];
+            if (value === true) value = 'true';
+            if (value === false) value = 'false';
 
             updates.push({
-                key: key,
-                value: String(val),
+                key,
+                value: String(value ?? ''),
                 group: this.getGroup(key),
                 is_public: this.isPublic(key)
             });
@@ -93,12 +86,12 @@ export class AdminSettingsComponent implements OnInit {
             next: () => {
                 this.loading = false;
                 this.cdr.detectChanges();
-                Swal.fire('Guardado', 'Configuración actualizada', 'success');
+                Swal.fire('Guardado', 'Configuracion actualizada', 'success');
             },
-            error: (err) => {
+            error: () => {
                 this.loading = false;
                 this.cdr.detectChanges();
-                Swal.fire('Error', 'No se pudo guardar la configuración', 'error');
+                Swal.fire('Error', 'No se pudo guardar la configuracion', 'error');
             }
         });
     }

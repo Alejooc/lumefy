@@ -1,14 +1,12 @@
 import { CommonModule } from '@angular/common';
 import Swal from 'sweetalert2';
-import { Component, OnInit, inject, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { AdminService } from 'src/app/modules/admin/admin.service'; // Use AdminService
+import { AdminService, BroadcastConfig, SystemHealth } from 'src/app/modules/admin/admin.service'; // Use AdminService
 import { AuthService } from 'src/app/core/services/auth.service';
-import { PermissionService } from 'src/app/core/services/permission.service';
 import { NgApexchartsModule } from 'ng-apexcharts';
 import {
-  ChartComponent,
   ApexNonAxisChartSeries,
   ApexPlotOptions,
   ApexChart,
@@ -34,18 +32,17 @@ export type ChartOptions = {
 })
 export class SystemHealthComponent implements OnInit {
   private adminService = inject(AdminService);
-  private permissionService = inject(PermissionService);
   private authService = inject(AuthService);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef); // Injected
 
   loading = false;
   errorMessage = '';
-  healthData: any = null;
+  healthData: SystemHealth | null = null;
   maintenanceEnabled = false;
 
   // Broadcast
-  broadcastMessage = { message: '', type: 'info', is_active: false };
+  broadcastMessage: BroadcastConfig = { message: '', type: 'info', is_active: false };
 
   // Chart Options
   cpuChartOptions: Partial<ChartOptions>;
@@ -104,10 +101,12 @@ export class SystemHealthComponent implements OnInit {
     });
   }
 
-  toggleMaintenance(event: any) {
-    const isChecked = event.target.checked;
+  toggleMaintenance(event: Event) {
+    const target = event.target as HTMLInputElement;
+    if (!target) return;
+    const isChecked = target.checked;
     // Revert Checkbox state immediately to wait for confirmation
-    event.target.checked = !isChecked;
+    target.checked = !isChecked;
 
     // Ask for confirmation
     const action = isChecked ? 'ACTIVAR' : 'DESACTIVAR';
@@ -132,7 +131,7 @@ export class SystemHealthComponent implements OnInit {
             this.maintenanceEnabled = res.enabled;
             this.loading = false;
             // Update Checkbox visually
-            event.target.checked = res.enabled;
+            target.checked = res.enabled;
             this.cdr.detectChanges(); // Detect changes
 
             Swal.fire(
@@ -168,10 +167,14 @@ export class SystemHealthComponent implements OnInit {
     });
   }
 
-  updateCharts(data: any) {
-    this.cpuChartOptions.series = [data.cpu.percent];
-    this.memoryChartOptions.series = [data.memory.percent];
-    this.diskChartOptions.series = [data.disk.percent];
+  updateCharts(data: SystemHealth) {
+    const cpu = data.cpu?.percent ?? 0;
+    const memory = data.memory?.percent ?? 0;
+    const disk = data.disk?.percent ?? 0;
+
+    this.cpuChartOptions.series = [cpu];
+    this.memoryChartOptions.series = [memory];
+    this.diskChartOptions.series = [disk];
   }
 
   initCharts() {

@@ -1,54 +1,53 @@
 <div class="row">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <h5>Mi Perfil</h5>
-            </div>
-            <div class="card-body">
-                <div class="row align-items-center" *ngIf="user$ | async as user">
-                    <div class="col-md-3 text-center">
-                        <img src="assets/images/user/avatar-2.jpg" alt="User-Profile-Image"
-                            class="img-fluid rounded-circle" style="width: 150px;">
-                        <div class="mt-3">
-                            <span class="badge bg-primary">{{ user.role?.name }}</span>
-                        </div>
-                    </div>
-                    <div class="col-md-9">
-                        <h4 class="mb-1">{{ user.full_name }}</h4>
-                        <p class="text-muted mb-3">{{ user.email }}</p>
-
-                        <hr>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="fw-bold">Empresa:</label>
-                                <div class="text-muted">{{ user.company?.name || 'N/A' }}</div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="fw-bold">Sucursal:</label>
-                                <div class="text-muted">{{ user.branch_id || 'N/A' }}</div>
-                                <!-- Todo: resolve branch name -->
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="fw-bold">Estado:</label>
-                                <span class="badge" [ngClass]="user.is_active ? 'bg-success' : 'bg-danger'">
-                                    {{ user.is_active ? 'Activo' : 'Inactivo' }}
-                                </span>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="fw-bold">ID:</label>
-                                <div class="text-muted"><small>{{ user.id }}</small></div>
-                            </div>
-                        </div>
-
-                        <div class="mt-4">
-                            <button class="btn btn-primary" [routerLink]="['/profile/edit']">
-                                <i class="feather icon-edit"></i> Editar Perfil
-                            </button>
-                        </div>
-                    </div>
+  <div class="col-md-12">
+    <div class="card">
+      <div class="card-header">
+        <h5>Mi Perfil</h5>
+      </div>
+      <div class="card-body">
+        @if (user$ | async; as user) {
+          <div class="row align-items-center">
+            <div class="col-md-3 text-center">
+              <img src="assets/images/user/avatar-2.jpg" alt="User-Profile-Image"
+                class="img-fluid rounded-circle" style="width: 150px;">
+                <div class="mt-3">
+                  <span class="badge bg-primary">{{ user.role?.name }}</span>
                 </div>
-            </div>
+              </div>
+              <div class="col-md-9">
+                <h4 class="mb-1">{{ user.full_name }}</h4>
+                <p class="text-muted mb-3">{{ user.email }}</p>
+                <hr>
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label class="fw-bold">Empresa:</label>
+                      <div class="text-muted">{{ user.company?.name || 'N/A' }}</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label class="fw-bold">Sucursal:</label>
+                      <div class="text-muted">{{ user.branch_id || 'N/A' }}</div>
+                      <!-- Todo: resolve branch name -->
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label class="fw-bold">Estado:</label>
+                      <span class="badge" [ngClass]="user.is_active ? 'bg-success' : 'bg-danger'">
+                        {{ user.is_active ? 'Activo' : 'Inactivo' }}
+                      </span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label class="fw-bold">ID:</label>
+                      <div class="text-muted"><small>{{ user.id }}</small></div>
+                    </div>
+                  </div>
+                  <div class="mt-4">
+                    <button class="btn btn-primary" [routerLink]="['/profile/edit']">
+                      <i class="feather icon-edit"></i> Editar Perfil
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
         </div>
+      </div>
     </div>
-</div>

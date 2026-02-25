@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -9,7 +9,7 @@ import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.ser
 @Component({
   selector: 'app-app-admin-catalog',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './app-admin-catalog.component.html',
   styleUrl: './app-admin-catalog.component.scss'
 })

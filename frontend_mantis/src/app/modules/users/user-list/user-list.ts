@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { UserService } from '../user.service';
 import { User } from '../user.model';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
@@ -11,16 +11,14 @@ import { PermissionService } from '../../../core/services/permission.service';
   standalone: false
 })
 export class UserListComponent implements OnInit {
+  private userService = inject(UserService);
+  private swal = inject(SweetAlertService);
+  private permissionService = inject(PermissionService);
+  private cd = inject(ChangeDetectorRef);
+
   users: User[] = [];
   isLoading = false;
   canManageRoles = false;
-
-  constructor(
-    private userService: UserService,
-    private swal: SweetAlertService,
-    private permissionService: PermissionService,
-    private cd: ChangeDetectorRef
-  ) { }
 
   ngOnInit(): void {
     this.canManageRoles = this.permissionService.hasPermission('manage_company');

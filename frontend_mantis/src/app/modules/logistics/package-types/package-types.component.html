@@ -1,95 +1,102 @@
 <div class="row mb-3">
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
-            <i class="ti ti-box me-2"></i>Tipos de Empaque
-        </h5>
-        <button class="btn btn-primary" (click)="openModal(formModal)">
-            <i class="ti ti-plus me-1"></i>Nuevo Tipo
-        </button>
-    </div>
+  <div class="col-12 d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">
+      <i class="ti ti-box me-2"></i>Tipos de Empaque
+    </h5>
+    <button class="btn btn-primary" (click)="openModal(formModal)">
+      <i class="ti ti-plus me-1"></i>Nuevo Tipo
+    </button>
+  </div>
 </div>
 
-<div class="row" *ngIf="!loading">
-    <div class="col-md-4 col-sm-6 mb-3" *ngFor="let type of packageTypes">
+@if (!loading) {
+  <div class="row">
+    @for (type of packageTypes; track type) {
+      <div class="col-md-4 col-sm-6 mb-3">
         <div class="card package-card h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h6 class="mb-0 fw-bold">
-                        <i class="ti ti-package me-1 text-primary"></i>{{ type.name }}
-                    </h6>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary btn-sm" (click)="openModal(formModal, type)"
-                            title="Editar">
-                            <i class="ti ti-pencil"></i>
-                        </button>
-                        <button class="btn btn-outline-danger btn-sm" (click)="deleteType(type)" title="Eliminar">
-                            <i class="ti ti-trash"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="package-dimensions">
-                    <div class="dim-row">
-                        <i class="ti ti-dimensions me-1"></i>
-                        <span>{{ getDimensions(type) }}</span>
-                    </div>
-                    <div class="dim-row">
-                        <i class="ti ti-weight me-1"></i>
-                        <span>Peso máx: <strong>{{ type.max_weight }} kg</strong></span>
-                    </div>
-                </div>
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h6 class="mb-0 fw-bold">
+                <i class="ti ti-package me-1 text-primary"></i>{{ type.name }}
+              </h6>
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary btn-sm" (click)="openModal(formModal, type)"
+                  title="Editar">
+                  <i class="ti ti-pencil"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-sm" (click)="deleteType(type)" title="Eliminar">
+                  <i class="ti ti-trash"></i>
+                </button>
+              </div>
             </div>
+            <div class="package-dimensions">
+              <div class="dim-row">
+                <i class="ti ti-dimensions me-1"></i>
+                <span>{{ getDimensions(type) }}</span>
+              </div>
+              <div class="dim-row">
+                <i class="ti ti-weight me-1"></i>
+                <span>Peso máx: <strong>{{ type.max_weight }} kg</strong></span>
+              </div>
+            </div>
+          </div>
         </div>
-    </div>
-
-    <div class="col-12 text-center py-5" *ngIf="packageTypes.length === 0">
+      </div>
+    }
+    @if (packageTypes.length === 0) {
+      <div class="col-12 text-center py-5">
         <i class="ti ti-box-off" style="font-size: 3rem; opacity: 0.3;"></i>
         <p class="text-muted mt-2">No hay tipos de empaque creados</p>
         <button class="btn btn-primary" (click)="openModal(formModal)">
-            <i class="ti ti-plus me-1"></i>Crear el primero
+          <i class="ti ti-plus me-1"></i>Crear el primero
         </button>
-    </div>
-</div>
+      </div>
+    }
+  </div>
+}
 
-<div *ngIf="loading" class="text-center py-5">
+@if (loading) {
+  <div class="text-center py-5">
     <div class="spinner-border text-primary" role="status"></div>
     <p class="mt-2 text-muted">Cargando...</p>
-</div>
+  </div>
+}
 
 <!-- Modal Form -->
 <ng-template #formModal let-modal>
-    <div class="modal-header">
-        <h5 class="modal-title">{{ editMode ? 'Editar' : 'Nuevo' }} Tipo de Empaque</h5>
-        <button type="button" class="btn-close" (click)="modal.dismiss()"></button>
-    </div>
-    <div class="modal-body">
-        <div class="mb-3">
-            <label class="form-label">Nombre *</label>
-            <input type="text" class="form-control" [(ngModel)]="form.name"
-                placeholder="Ej: Caja Grande, Bolsa Pequeña...">
+  <div class="modal-header">
+    <h5 class="modal-title">{{ editMode ? 'Editar' : 'Nuevo' }} Tipo de Empaque</h5>
+    <button type="button" class="btn-close" (click)="modal.dismiss()"></button>
+  </div>
+  <div class="modal-body">
+    <div class="mb-3">
+      <label class="form-label">Nombre *</label>
+      <input type="text" class="form-control" [(ngModel)]="form.name"
+        placeholder="Ej: Caja Grande, Bolsa Pequeña...">
+      </div>
+      <div class="row">
+        <div class="col-4 mb-3">
+          <label class="form-label">Ancho (cm)</label>
+          <input type="number" class="form-control" [(ngModel)]="form.width" min="0">
         </div>
-        <div class="row">
-            <div class="col-4 mb-3">
-                <label class="form-label">Ancho (cm)</label>
-                <input type="number" class="form-control" [(ngModel)]="form.width" min="0">
-            </div>
-            <div class="col-4 mb-3">
-                <label class="form-label">Alto (cm)</label>
-                <input type="number" class="form-control" [(ngModel)]="form.height" min="0">
-            </div>
-            <div class="col-4 mb-3">
-                <label class="form-label">Largo (cm)</label>
-                <input type="number" class="form-control" [(ngModel)]="form.length" min="0">
-            </div>
+        <div class="col-4 mb-3">
+          <label class="form-label">Alto (cm)</label>
+          <input type="number" class="form-control" [(ngModel)]="form.height" min="0">
         </div>
-        <div class="mb-3">
-            <label class="form-label">Peso Máximo (kg)</label>
-            <input type="number" class="form-control" [(ngModel)]="form.max_weight" min="0" step="0.1">
+        <div class="col-4 mb-3">
+          <label class="form-label">Largo (cm)</label>
+          <input type="number" class="form-control" [(ngModel)]="form.length" min="0">
         </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Peso Máximo (kg)</label>
+        <input type="number" class="form-control" [(ngModel)]="form.max_weight" min="0" step="0.1">
+      </div>
     </div>
     <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="modal.dismiss()">Cancelar</button>
-        <button type="button" class="btn btn-primary" (click)="save()">
-            <i class="ti ti-check me-1"></i>{{ editMode ? 'Guardar' : 'Crear' }}
-        </button>
+      <button type="button" class="btn btn-secondary" (click)="modal.dismiss()">Cancelar</button>
+      <button type="button" class="btn btn-primary" (click)="save()">
+        <i class="ti ti-check me-1"></i>{{ editMode ? 'Guardar' : 'Crear' }}
+      </button>
     </div>
-</ng-template>
+  </ng-template>

@@ -4,6 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { AuditService, AuditLog } from '../../../core/services/audit.service';
 import { ApiService } from '../../../core/services/api.service';
 
+interface AuditUserOption {
+    id: string;
+    full_name: string;
+    email: string;
+}
+
 @Component({
     selector: 'app-audit-list',
     standalone: true,
@@ -27,7 +33,7 @@ export class AuditListComponent implements OnInit {
     dateTo = '';
 
     // Users for dropdown
-    users: any[] = [];
+    users: AuditUserOption[] = [];
 
     // Known action types
     actionTypes = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'EXPORT', 'STATUS_CHANGE'];
@@ -41,7 +47,7 @@ export class AuditListComponent implements OnInit {
     }
 
     loadUsers() {
-        this.apiService.get<any[]>('/users').subscribe({
+        this.apiService.get<AuditUserOption[]>('/users').subscribe({
             next: (data) => {
                 this.users = data;
                 this.cdr.detectChanges();
@@ -52,7 +58,7 @@ export class AuditListComponent implements OnInit {
 
     loadLogs() {
         this.isLoading = true;
-        const filters: any = {};
+        const filters: { user_id?: string; action?: string; entity_type?: string; date_from?: string; date_to?: string } = {};
         if (this.filterAction) filters.action = this.filterAction;
         if (this.filterEntityType) filters.entity_type = this.filterEntityType;
         if (this.filterUserId) filters.user_id = this.filterUserId;

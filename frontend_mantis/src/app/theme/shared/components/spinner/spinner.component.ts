@@ -13,6 +13,8 @@ import { Spinkit } from './spinkits';
   encapsulation: ViewEncapsulation.None
 })
 export class SpinnerComponent implements OnDestroy {
+  private cdRef = inject(ChangeDetectorRef);
+
   private router = inject(Router);
   private document = inject<Document>(DOCUMENT);
 
@@ -23,7 +25,7 @@ export class SpinnerComponent implements OnDestroy {
   spinner = input(Spinkit.skLine);
 
   // Constructor
-  constructor(private cdRef: ChangeDetectorRef) {
+  constructor() {
     this.router.events.subscribe(
       (event) => {
         if (event instanceof NavigationStart) {

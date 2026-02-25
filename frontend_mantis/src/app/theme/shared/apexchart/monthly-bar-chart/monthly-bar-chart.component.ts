@@ -1,5 +1,5 @@
 // angular import
-import { Component, OnInit, viewChild, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, viewChild, Input, OnChanges, SimpleChanges } from '@angular/core';
 
 // project import
 import { ChartData } from 'src/app/core/services/dashboard.service';
@@ -14,7 +14,7 @@ import { NgApexchartsModule, ChartComponent, ApexOptions } from 'ng-apexcharts';
   templateUrl: './monthly-bar-chart.component.html',
   styleUrl: './monthly-bar-chart.component.scss'
 })
-export class MonthlyBarChartComponent implements OnInit, OnChanges {
+export class MonthlyBarChartComponent implements OnChanges {
   // public props
   chart = viewChild.required<ChartComponent>('chart');
   chartOptions!: Partial<ApexOptions>;
@@ -70,9 +70,6 @@ export class MonthlyBarChartComponent implements OnInit, OnChanges {
     };
   }
 
-  ngOnInit() {
-  }
-
   ngOnChanges(changes: SimpleChanges) {
     if (changes['chartData'] && this.chartData) {
       this.updateChart();
@@ -94,6 +91,7 @@ export class MonthlyBarChartComponent implements OnInit, OnChanges {
 
   // public method
   toggleActive(value: string) {
+    void value;
     // Disabled for now as we rely on input data
   }
 }

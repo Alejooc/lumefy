@@ -1,49 +1,48 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { TourService, TourStep } from '../../../../core/services/tour.service';
 
 @Component({
     selector: 'app-tour-overlay',
     standalone: true,
-    imports: [CommonModule],
+    imports: [],
     template: `
-        <!-- Backdrop -->
-        <div class="tour-backdrop" *ngIf="isActive" (click)="service.skipTour()"></div>
+        @if (isActive) {
+          <div class="tour-backdrop" (click)="service.skipTour()"></div>
+        }
 
-        <!-- Tooltip -->
-        <div class="tour-tooltip" *ngIf="isActive && currentStep"
+        @if (isActive && currentStep) {
+          <div class="tour-tooltip"
             [style.top.px]="tooltipTop" [style.left.px]="tooltipLeft"
             [class]="'tour-tooltip tour-pos-' + currentStep.position">
-
             <div class="tour-tooltip-arrow"></div>
-
             <div class="tour-tooltip-header">
-                <span class="tour-step-count">{{ stepIndex + 1 }} / {{ totalSteps }}</span>
-                <button class="tour-close-btn" (click)="service.skipTour()">×</button>
+              <span class="tour-step-count">{{ stepIndex + 1 }} / {{ totalSteps }}</span>
+              <button class="tour-close-btn" (click)="service.skipTour()">&times;</button>
             </div>
-
             <h6 class="tour-tooltip-title">{{ currentStep.title }}</h6>
             <p class="tour-tooltip-content">{{ currentStep.content }}</p>
-
             <div class="tour-tooltip-footer">
-                <button class="btn btn-sm btn-outline-secondary" (click)="service.skipTour()">Omitir</button>
-                <div>
-                    <button class="btn btn-sm btn-outline-primary me-1" (click)="service.prevStep()"
-                        *ngIf="stepIndex > 0">← Anterior</button>
-                    <button class="btn btn-sm btn-primary" (click)="service.nextStep()">
-                        {{ stepIndex === totalSteps - 1 ? '¡Listo!' : 'Siguiente →' }}
-                    </button>
-                </div>
+              <button class="btn btn-sm btn-outline-secondary" (click)="service.skipTour()">Omitir</button>
+              <div>
+                @if (stepIndex > 0) {
+                  <button class="btn btn-sm btn-outline-primary me-1" (click)="service.prevStep()">Anterior</button>
+                }
+                <button class="btn btn-sm btn-primary" (click)="service.nextStep()">
+                  {{ stepIndex === totalSteps - 1 ? 'Listo' : 'Siguiente' }}
+                </button>
+              </div>
             </div>
-        </div>
+          </div>
+        }
 
-        <!-- Highlight ring -->
-        <div class="tour-highlight" *ngIf="isActive"
+        @if (isActive) {
+          <div class="tour-highlight"
             [style.top.px]="highlightTop" [style.left.px]="highlightLeft"
             [style.width.px]="highlightWidth" [style.height.px]="highlightHeight">
-        </div>
-    `,
+          </div>
+        }
+        `,
     styles: [`
         .tour-backdrop {
             position: fixed;
@@ -59,7 +58,7 @@ import { TourService, TourStep } from '../../../../core/services/tour.service';
             border: 3px solid #4680ff;
             border-radius: 8px;
             box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-            pointer-events: auto; /* Block clicks on target */
+            pointer-events: auto;
             background: transparent;
             cursor: default;
             transition: all 0.3s ease;
@@ -67,7 +66,7 @@ import { TourService, TourStep } from '../../../../core/services/tour.service';
 
         .tour-tooltip {
             position: fixed;
-            z-index: 10002; /* Ensure above highlight */
+            z-index: 10002;
             background: #fff;
             border-radius: 12px;
             padding: 16px;
@@ -122,6 +121,9 @@ import { TourService, TourStep } from '../../../../core/services/tour.service';
     `]
 })
 export class TourOverlayComponent implements OnInit, OnDestroy {
+    service = inject(TourService);
+    private cdr = inject(ChangeDetectorRef);
+
     isActive = false;
     currentStep: TourStep | null = null;
     stepIndex = 0;
@@ -136,40 +138,30 @@ export class TourOverlayComponent implements OnInit, OnDestroy {
 
     private subs: Subscription[] = [];
 
-    constructor(
-        public service: TourService,
-        private cdr: ChangeDetectorRef
-    ) { }
-
     ngOnInit(): void {
-        // We remove the overflow:hidden lock to allow scrollIntoView to work
-        // document.body.classList.add('tour-active'); 
-
-        // Listen to global scroll/resize to keep highlight pinned
         window.addEventListener('scroll', this.updatePosition, true);
         window.addEventListener('resize', this.updatePosition, true);
 
         this.subs.push(
-            this.service.isActive$.subscribe(active => {
+            this.service.isActive$.subscribe((active) => {
                 this.isActive = active;
                 this.cdr.detectChanges();
             }),
-            this.service.currentStep$.subscribe(step => {
+            this.service.currentStep$.subscribe((step) => {
                 this.currentStep = step;
                 if (step) {
-                    // Slight delay to allow scrollIntoView to start/finish
                     setTimeout(() => this.positionTooltip(step), 100);
                     setTimeout(() => this.positionTooltip(step), 300);
                     setTimeout(() => this.positionTooltip(step), 500);
                 }
                 this.cdr.detectChanges();
             }),
-            this.service.stepIndex$.subscribe(i => {
-                this.stepIndex = i;
+            this.service.stepIndex$.subscribe((index) => {
+                this.stepIndex = index;
                 this.cdr.detectChanges();
             }),
-            this.service.totalSteps$.subscribe(t => {
-                this.totalSteps = t;
+            this.service.totalSteps$.subscribe((total) => {
+                this.totalSteps = total;
                 this.cdr.detectChanges();
             })
         );
@@ -178,7 +170,7 @@ export class TourOverlayComponent implements OnInit, OnDestroy {
     ngOnDestroy(): void {
         window.removeEventListener('scroll', this.updatePosition, true);
         window.removeEventListener('resize', this.updatePosition, true);
-        this.subs.forEach(s => s.unsubscribe());
+        this.subs.forEach((subscription) => subscription.unsubscribe());
     }
 
     private updatePosition = () => {
@@ -194,13 +186,11 @@ export class TourOverlayComponent implements OnInit, OnDestroy {
         const rect = el.getBoundingClientRect();
         const padding = 8;
 
-        // Highlight
         this.highlightTop = rect.top - padding;
         this.highlightLeft = rect.left - padding;
         this.highlightWidth = rect.width + padding * 2;
         this.highlightHeight = rect.height + padding * 2;
 
-        // Tooltip positioning
         const tooltipWidth = 340;
         const gap = 16;
 
@@ -223,7 +213,6 @@ export class TourOverlayComponent implements OnInit, OnDestroy {
                 break;
         }
 
-        // Clamp to viewport
         this.tooltipLeft = Math.max(16, Math.min(this.tooltipLeft, window.innerWidth - tooltipWidth - 16));
         this.tooltipTop = Math.max(16, this.tooltipTop);
 

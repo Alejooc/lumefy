@@ -1,54 +1,58 @@
 <div class="row">
-    <div class="col-sm-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>Sucursales</h5>
-                <a [routerLink]="['/branches/create']" class="btn btn-primary btn-sm">
-                    <i class="feather icon-plus"></i> Nueva Sucursal
-                </a>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Dirección</th>
-                                <th>Teléfono</th>
-                                <th>Es Almacén</th>
-                                <th>Permite POS</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let branch of branches">
-                                <td>{{ branch.name }}</td>
-                                <td>{{ branch.address }}</td>
-                                <td>{{ branch.phone }}</td>
-                                <td>
-                                    <span class="badge" [ngClass]="branch.is_warehouse ? 'bg-success' : 'bg-secondary'">
-                                        {{ branch.is_warehouse ? 'Sí' : 'No' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="badge" [ngClass]="branch.allow_pos ? 'bg-success' : 'bg-secondary'">
-                                        {{ branch.allow_pos ? 'Sí' : 'No' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <a [routerLink]="['/branches/edit', branch.id]"
-                                        class="btn btn-icon btn-outline-warning btn-sm me-2">
-                                        <i class="feather icon-edit"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            <tr *ngIf="branches.length === 0 && !isLoading">
-                                <td colspan="6" class="text-center">No se encontraron sucursales</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>Sucursales</h5>
+        <a [routerLink]="['/branches/create']" class="btn btn-primary btn-sm">
+          <i class="feather icon-plus"></i> Nueva Sucursal
+        </a>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Dirección</th>
+                <th>Teléfono</th>
+                <th>Es Almacén</th>
+                <th>Permite POS</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (branch of branches; track branch) {
+                <tr>
+                  <td>{{ branch.name }}</td>
+                  <td>{{ branch.address }}</td>
+                  <td>{{ branch.phone }}</td>
+                  <td>
+                    <span class="badge" [ngClass]="branch.is_warehouse ? 'bg-success' : 'bg-secondary'">
+                      {{ branch.is_warehouse ? 'Sí' : 'No' }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge" [ngClass]="branch.allow_pos ? 'bg-success' : 'bg-secondary'">
+                      {{ branch.allow_pos ? 'Sí' : 'No' }}
+                    </span>
+                  </td>
+                  <td>
+                    <a [routerLink]="['/branches/edit', branch.id]"
+                      class="btn btn-icon btn-outline-warning btn-sm me-2">
+                      <i class="feather icon-edit"></i>
+                    </a>
+                  </td>
+                </tr>
+              }
+              @if (branches.length === 0 && !isLoading) {
+                <tr>
+                  <td colspan="6" class="text-center">No se encontraron sucursales</td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
+      </div>
     </div>
+  </div>
 </div>

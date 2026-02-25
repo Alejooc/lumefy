@@ -1,15 +1,20 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, OnInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { AppCatalogItem, AppMarketplaceService, InstalledApp } from 'src/app/core/services/app-marketplace.service';
 import { AuthService } from 'src/app/core/services/auth.service';
+import {
+  AppCatalogItem,
+  AppInstallRequest,
+  AppMarketplaceService,
+  InstalledApp
+} from 'src/app/core/services/app-marketplace.service';
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
 
 @Component({
   selector: 'app-app-store',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './app-store.component.html',
   styleUrl: './app-store.component.scss'
 })
@@ -73,7 +78,29 @@ export class AppStoreComponent implements OnInit {
     this.router.navigate(['/apps/installed', slug]);
   }
 
-  installWithSimulation(slug: string): void {
+  async install(slug: string): Promise<void> {
+    const app = this.catalog.find((item) => item.slug === slug);
+    if (!app) return;
+
+    const requestedScopes = app.requested_scopes || [];
+    const scopeText = requestedScopes.length > 0 ? requestedScopes.join(', ') : 'Sin scopes especiales';
+    const confirmResult = await this.swal.confirm(
+      `Instalar ${app.name}`,
+      `La app solicita estos permisos: ${scopeText}`
+    );
+
+    if (!confirmResult?.isConfirmed) {
+      return;
+    }
+
+    const payload: AppInstallRequest = {
+      granted_scopes: requestedScopes,
+      target_version: app.version
+    };
+    this.installWithSimulation(slug, payload);
+  }
+
+  installWithSimulation(slug: string, payload: AppInstallRequest): void {
     if (this.installingSlug) return;
     this.installingSlug = slug;
     this.installProgress[slug] = 0;
@@ -82,7 +109,7 @@ export class AppStoreComponent implements OnInit {
       const current = this.installProgress[slug] || 0;
       if (current >= 90) {
         clearInterval(timer);
-        this.appService.install(slug).subscribe({
+        this.appService.install(slug, payload).subscribe({
           next: () => {
             this.installProgress[slug] = 100;
             setTimeout(() => {
@@ -117,5 +144,11 @@ export class AppStoreComponent implements OnInit {
         this.swal.error('Error', err?.error?.detail || 'No se pudo desactivar la app.');
       }
     });
+  }
+
+  pricingLabel(app: AppCatalogItem): string {
+    if (app.pricing_model === 'included') return 'Incluida en plan';
+    if (app.monthly_price <= 0) return 'Gratis';
+    return `$${app.monthly_price}/mes`;
   }
 }

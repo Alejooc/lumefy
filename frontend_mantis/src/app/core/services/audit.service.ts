@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -10,7 +10,7 @@ export interface AuditLog {
     action: string;
     entity_type: string;
     entity_id: string;
-    details: any;
+    details: Record<string, unknown> | null;
     created_at: string;
     user?: {
         full_name: string;
@@ -22,9 +22,9 @@ export interface AuditLog {
     providedIn: 'root'
 })
 export class AuditService {
-    private apiUrl = `${environment.apiUrl}/audit`;
+    private http = inject(HttpClient);
 
-    constructor(private http: HttpClient) { }
+    private apiUrl = `${environment.apiUrl}/audit`;
 
     getAuditLogs(
         page: number = 1,

@@ -14,54 +14,57 @@
     <div class="col-sm-12">
       <div class="card">
         <div class="card-body">
-          <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+          @if (errorMessage) {
+            <div class="alert alert-danger">{{ errorMessage }}</div>
+          }
 
-          <div *ngIf="!errorMessage && healthData" class="row text-center">
-            <!-- CPU -->
-            <div class="col-md-4">
-              <h6 class="text-muted text-uppercase">CPU Usage</h6>
-              <apx-chart [series]="cpuChartOptions.series!" [chart]="cpuChartOptions.chart!"
-                [plotOptions]="cpuChartOptions.plotOptions!" [labels]="cpuChartOptions.labels!"
+          @if (!errorMessage && healthData) {
+            <div class="row text-center">
+              <!-- CPU -->
+              <div class="col-md-4">
+                <h6 class="text-muted text-uppercase">CPU Usage</h6>
+                <apx-chart [series]="cpuChartOptions.series!" [chart]="cpuChartOptions.chart!"
+                  [plotOptions]="cpuChartOptions.plotOptions!" [labels]="cpuChartOptions.labels!"
                 [fill]="{ colors: ['#775DD0'] }" [stroke]="cpuChartOptions.stroke!"></apx-chart>
-              <div class="mt-2 text-muted small">Cores: {{ healthData.cpu.count }}</div>
-            </div>
-
-            <!-- RAM -->
-            <div class="col-md-4">
-              <h6 class="text-muted text-uppercase">Memory RAM</h6>
-              <apx-chart [series]="memoryChartOptions.series!" [chart]="memoryChartOptions.chart!"
-                [plotOptions]="memoryChartOptions.plotOptions!" [labels]="memoryChartOptions.labels!"
+                <div class="mt-2 text-muted small">Cores: {{ healthData.cpu.count }}</div>
+              </div>
+              <!-- RAM -->
+              <div class="col-md-4">
+                <h6 class="text-muted text-uppercase">Memory RAM</h6>
+                <apx-chart [series]="memoryChartOptions.series!" [chart]="memoryChartOptions.chart!"
+                  [plotOptions]="memoryChartOptions.plotOptions!" [labels]="memoryChartOptions.labels!"
                 [fill]="{ colors: ['#00E396'] }" [stroke]="memoryChartOptions.stroke!"></apx-chart>
-              <div class="mt-2 text-muted small">
-                {{ (healthData.memory.used / 1024 / 1024 / 1024) | number:'1.1-1' }} GB /
-                {{ (healthData.memory.total / 1024 / 1024 / 1024) | number:'1.1-1' }} GB
+                <div class="mt-2 text-muted small">
+                  {{ (healthData.memory.used / 1024 / 1024 / 1024) | number:'1.1-1' }} GB /
+                  {{ (healthData.memory.total / 1024 / 1024 / 1024) | number:'1.1-1' }} GB
+                </div>
               </div>
-            </div>
-
-            <!-- DISK -->
-            <div class="col-md-4">
-              <h6 class="text-muted text-uppercase">Disk Storage</h6>
-              <apx-chart [series]="diskChartOptions.series!" [chart]="diskChartOptions.chart!"
-                [plotOptions]="diskChartOptions.plotOptions!" [labels]="diskChartOptions.labels!"
+              <!-- DISK -->
+              <div class="col-md-4">
+                <h6 class="text-muted text-uppercase">Disk Storage</h6>
+                <apx-chart [series]="diskChartOptions.series!" [chart]="diskChartOptions.chart!"
+                  [plotOptions]="diskChartOptions.plotOptions!" [labels]="diskChartOptions.labels!"
                 [fill]="{ colors: ['#FEB019'] }" [stroke]="diskChartOptions.stroke!"></apx-chart>
-              <div class="mt-2 text-muted small">
-                Free: {{ (healthData.disk.free / 1024 / 1024 / 1024) | number:'1.1-1' }} GB
+                <div class="mt-2 text-muted small">
+                  Free: {{ (healthData.disk.free / 1024 / 1024 / 1024) | number:'1.1-1' }} GB
+                </div>
               </div>
-            </div>
-
-            <div class="col-12 mt-4 pt-3 border-top">
-              <div class="d-flex justify-content-center align-items-center gap-4">
-                <div class="text-center">
-                  <h3 class="mb-0 fw-bold">{{ getUptimeString(healthData.uptime_seconds) }}</h3>
-                  <small class="text-muted">System Uptime</small>
+              <div class="col-12 mt-4 pt-3 border-top">
+                <div class="d-flex justify-content-center align-items-center gap-4">
+                  <div class="text-center">
+                    <h3 class="mb-0 fw-bold">{{ getUptimeString(healthData.uptime_seconds) }}</h3>
+                    <small class="text-muted">System Uptime</small>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          }
 
-          <div *ngIf="loading && !healthData" class="d-flex justify-content-center py-5">
-            <div class="spinner-border text-primary" role="status"></div>
-          </div>
+          @if (loading && !healthData) {
+            <div class="d-flex justify-content-center py-5">
+              <div class="spinner-border text-primary" role="status"></div>
+            </div>
+          }
         </div>
       </div>
     </div>
@@ -84,46 +87,46 @@
             <div class="form-check form-switch custom-switch-v1">
               <input type="checkbox" class="form-check-input input-danger" id="maintenanceSwitch"
                 [checked]="maintenanceEnabled" (change)="toggleMaintenance($event)" style="transform: scale(1.5);">
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Broadcast System Card -->
-  <div class="col-sm-12 mt-4">
-    <div class="card bg-c-blue order-card">
-      <div class="card-header border-0 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-white"><i class="feather icon-volume-2 me-2"></i> Anuncio Global</h5>
-        <div class="form-check form-switch custom-switch-v1">
-          <input type="checkbox" class="form-check-input input-light" id="broadcastSwitch"
-            [(ngModel)]="broadcastMessage.is_active" style="transform: scale(1.5);">
+    <!-- Broadcast System Card -->
+    <div class="col-sm-12 mt-4">
+      <div class="card bg-c-blue order-card">
+        <div class="card-header border-0 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 text-white"><i class="feather icon-volume-2 me-2"></i> Anuncio Global</h5>
+          <div class="form-check form-switch custom-switch-v1">
+            <input type="checkbox" class="form-check-input input-light" id="broadcastSwitch"
+              [(ngModel)]="broadcastMessage.is_active" style="transform: scale(1.5);">
+            </div>
+          </div>
+          <div class="card-body bg-white rounded-bottom">
+            <div class="row g-3 align-items-center">
+              <div class="col-md-2">
+                <label class="form-label fw-bold">Tipo de Alerta</label>
+                <select class="form-select" [(ngModel)]="broadcastMessage.type">
+                  <option value="info">Info (Azul)</option>
+                  <option value="warning">Warning (Amarillo)</option>
+                  <option value="danger">Danger (Rojo)</option>
+                  <option value="success">Success (Verde)</option>
+                </select>
+              </div>
+              <div class="col-md-8">
+                <label class="form-label fw-bold">Mensaje</label>
+                <input type="text" class="form-control" [(ngModel)]="broadcastMessage.message"
+                  placeholder="Ej: Mantenimiento programado a las 22:00">
+                </div>
+                <div class="col-md-2 pt-4">
+                  <button class="btn btn-primary w-100" (click)="saveBroadcast()" [disabled]="loading">
+                    <i class="feather icon-save me-1"></i> Guardar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="card-body bg-white rounded-bottom">
-        <div class="row g-3 align-items-center">
-          <div class="col-md-2">
-            <label class="form-label fw-bold">Tipo de Alerta</label>
-            <select class="form-select" [(ngModel)]="broadcastMessage.type">
-              <option value="info">Info (Azul)</option>
-              <option value="warning">Warning (Amarillo)</option>
-              <option value="danger">Danger (Rojo)</option>
-              <option value="success">Success (Verde)</option>
-            </select>
-          </div>
-          <div class="col-md-8">
-            <label class="form-label fw-bold">Mensaje</label>
-            <input type="text" class="form-control" [(ngModel)]="broadcastMessage.message"
-              placeholder="Ej: Mantenimiento programado a las 22:00">
-          </div>
-          <div class="col-md-2 pt-4">
-            <button class="btn btn-primary w-100" (click)="saveBroadcast()" [disabled]="loading">
-              <i class="feather icon-save me-1"></i> Guardar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>

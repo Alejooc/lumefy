@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpRequest, HttpHandler, HttpEvent, HttpInterceptor, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -6,9 +6,10 @@ import { AuthService } from './auth.service';
 
 @Injectable()
 export class JwtInterceptor implements HttpInterceptor {
-  constructor(private authService: AuthService) {}
+  private authService = inject(AuthService);
 
-  intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+
+  intercept(request: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     // Add auth header with jwt if user is logged in and request is to api url
     // We assume all requests via ApiService are to API URL
     const token = localStorage.getItem('access_token');
@@ -30,7 +31,7 @@ export class JwtInterceptor implements HttpInterceptor {
                 // Auto logout if 401 response returned from api
                 this.authService.logout();
             }
-            return throwError(error);
+            return throwError(() => error);
         })
     );
   }

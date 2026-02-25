@@ -55,7 +55,7 @@ export class SalesViewComponent implements OnInit {
                     this.loadPackages(id);
                 }
             },
-            error: (err) => {
+            error: () => {
                 this.loading = false;
                 this.cdr.detectChanges();
                 Swal.fire('Error', 'No se pudo cargar la venta', 'error');

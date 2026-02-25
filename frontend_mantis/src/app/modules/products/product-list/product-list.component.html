@@ -1,116 +1,140 @@
 <div class="row">
-    <div class="col-sm-12">
-        <app-card [cardTitle]="'Productos'">
-            <ng-template #headerOptionsTemplate>
-                <div class="d-flex flex-wrap gap-2 justify-content-end">
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-success" (click)="exportData('excel')" title="Exportar Excel">
-                            <i class="feather icon-file"></i> Excel
-                        </button>
-                        <button class="btn btn-outline-success" (click)="exportData('csv')" title="Exportar CSV">
-                            <i class="feather icon-file-text"></i> CSV
-                        </button>
-                    </div>
-                    <button class="btn btn-outline-primary" routerLink="/products/import">
-                        <i class="feather icon-upload"></i> Importar
-                    </button>
-                    <button class="btn btn-primary" routerLink="/products/create">
-                        <i class="feather icon-plus"></i> Nuevo Producto
-                    </button>
-                </div>
-            </ng-template>
+  <div class="col-sm-12">
+    <app-card [cardTitle]="'Productos'">
+      <ng-template #headerOptionsTemplate>
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-success" (click)="exportData('excel')" title="Exportar Excel">
+              <i class="feather icon-file"></i> Excel
+            </button>
+            <button class="btn btn-outline-success" (click)="exportData('csv')" title="Exportar CSV">
+              <i class="feather icon-file-text"></i> CSV
+            </button>
+          </div>
+          <button class="btn btn-outline-primary" routerLink="/products/import">
+            <i class="feather icon-upload"></i> Importar
+          </button>
+          <button class="btn btn-primary" routerLink="/products/create">
+            <i class="feather icon-plus"></i> Nuevo Producto
+          </button>
+        </div>
+      </ng-template>
 
-            <!-- Search Bar -->
-            <div class="row mb-3">
-                <div class="col-md-4">
-                    <div class="input-group">
-                        <input type="text" class="form-control" [(ngModel)]="searchQuery"
-                            placeholder="Buscar por nombre, SKU o código..." (keyup.enter)="onSearch()">
-                        <button class="btn btn-outline-secondary" (click)="onSearch()">🔍</button>
-                    </div>
-                </div>
+      <!-- Search Bar -->
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <div class="input-group">
+            <input type="text" class="form-control" [(ngModel)]="searchQuery"
+              placeholder="Buscar por nombre, SKU o código..." (keyup.enter)="onSearch()">
+              <button class="btn btn-outline-secondary" (click)="onSearch()">🔍</button>
             </div>
+          </div>
+        </div>
 
-            <!-- Loading Skeleton -->
-            <div *ngIf="isLoading">
-                <app-skeleton type="table" [rowCount]="5" [colCount]="8"></app-skeleton>
-            </div>
+        <!-- Loading Skeleton -->
+        @if (isLoading) {
+          <div>
+            <app-skeleton type="table" [rowCount]="5" [colCount]="8"></app-skeleton>
+          </div>
+        }
 
-            <!-- Table -->
-            <div class="table-responsive" *ngIf="!isLoading && products.length > 0">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Producto</th>
-                            <th>SKU</th>
-                            <th>Tipo</th>
-                            <th>Categoría</th>
-                            <th>Marca</th>
-                            <th>Precio</th>
-                            <th>Costo</th>
-                            <th class="text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr *ngFor="let product of products; trackBy: trackByFn">
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <img *ngIf="product.image_url" [src]="product.image_url" class="rounded me-2"
-                                        style="width: 36px; height: 36px; object-fit: cover;" alt=""
-                                        (error)="product.image_url = ''">
-                                    <div>
-                                        <div class="fw-bold">{{ product.name }}</div>
-                                        <small class="text-muted" *ngIf="product.internal_reference">
-                                            Ref: {{ product.internal_reference }}
-                                        </small>
-                                        <small class="text-muted" *ngIf="product.variants?.length > 0">
-                                            | {{ product.variants.length }} variante(s)
-                                        </small>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                <code *ngIf="product.sku">{{ product.sku }}</code>
-                                <span *ngIf="!product.sku" class="text-muted">—</span>
-                            </td>
-                            <td>
-                                <span [ngClass]="getTypeBadgeClass(product.product_type)">
-                                    {{ getTypeLabel(product.product_type) }}
-                                </span>
-                            </td>
-                            <td>{{ product.category?.name || '—' }}</td>
-                            <td>{{ product.brand?.name || '—' }}</td>
-                            <td class="fw-bold">{{ currencySymbol }} {{ product.price | number:'1.2-2' }}</td>
-                            <td>{{ currencySymbol }} {{ product.cost | number:'1.2-2' }}</td>
-                            <td class="text-center">
-                                <a [routerLink]="['/products/edit', product.id]"
-                                    class="btn btn-icon btn-outline-primary btn-sm me-1" title="Editar">
-                                    <i class="feather icon-edit"></i>
-                                </a>
-                                <button (click)="deleteProduct(product.id)"
-                                    class="btn btn-icon btn-outline-danger btn-sm" [disabled]="isLoading"
-                                    title="Eliminar">
-                                    <i class="feather icon-trash-2"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <!-- Table -->
+        @if (!isLoading && products.length > 0) {
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>SKU</th>
+                  <th>Tipo</th>
+                  <th>Categoría</th>
+                  <th>Marca</th>
+                  <th>Precio</th>
+                  <th>Costo</th>
+                  <th class="text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (product of products; track trackByFn($index, product)) {
+                  <tr>
+                    <td>
+                      <div class="d-flex align-items-center">
+                        @if (product.image_url) {
+                          <img [src]="product.image_url" class="rounded me-2"
+                            style="width: 36px; height: 36px; object-fit: cover;" alt=""
+                            (error)="product.image_url = ''">
+                        }
+                        <div>
+                          <div class="fw-bold">{{ product.name }}</div>
+                          @if (product.internal_reference) {
+                            <small class="text-muted">
+                              Ref: {{ product.internal_reference }}
+                            </small>
+                          }
+                          @if (product.variants?.length > 0) {
+                            <small class="text-muted">
+                              | {{ product.variants.length }} variante(s)
+                            </small>
+                          }
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      @if (product.sku) {
+                        <code>{{ product.sku }}</code>
+                      }
+                      @if (!product.sku) {
+                        <span class="text-muted">—</span>
+                      }
+                    </td>
+                    <td>
+                      <span [ngClass]="getTypeBadgeClass(product.product_type)">
+                        {{ getTypeLabel(product.product_type) }}
+                      </span>
+                    </td>
+                    <td>{{ product.category?.name || '—' }}</td>
+                    <td>{{ product.brand?.name || '—' }}</td>
+                    <td class="fw-bold">{{ currencySymbol }} {{ product.price | number:'1.2-2' }}</td>
+                    <td>{{ currencySymbol }} {{ product.cost | number:'1.2-2' }}</td>
+                    <td class="text-center">
+                      <a [routerLink]="['/products/edit', product.id]"
+                        class="btn btn-icon btn-outline-primary btn-sm me-1" title="Editar">
+                        <i class="feather icon-edit"></i>
+                      </a>
+                      <button (click)="deleteProduct(product.id)"
+                        class="btn btn-icon btn-outline-danger btn-sm" [disabled]="isLoading"
+                        title="Eliminar">
+                        <i class="feather icon-trash-2"></i>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
 
-            <div class="text-center py-5 border rounded bg-light-subtle" *ngIf="!isLoading && products.length === 0">
-                <h6 class="mb-2">Aun no tienes productos cargados</h6>
-                <p class="text-muted mb-3" *ngIf="!searchQuery">Empieza creando tu primer producto para activar
-                    inventario y ventas.</p>
-                <p class="text-muted mb-3" *ngIf="searchQuery">No hubo coincidencias para <strong>"{{ searchQuery
-                        }}"</strong>. Prueba con otro termino.</p>
-                <div class="d-flex justify-content-center gap-2 flex-wrap">
-                    <a routerLink="/products/create" class="btn btn-primary btn-sm">Crear primer producto</a>
-                    <a routerLink="/products/import" class="btn btn-outline-primary btn-sm">Importar catalogo</a>
-                    <a routerLink="/sales/first-sale-wizard" class="btn btn-outline-secondary btn-sm"
-                        *ngIf="canAccessWizard">Ir al Wizard MVP</a>
-                </div>
+        @if (!isLoading && products.length === 0) {
+          <div class="text-center py-5 border rounded bg-light-subtle">
+            <h6 class="mb-2">Aun no tienes productos cargados</h6>
+            @if (!searchQuery) {
+              <p class="text-muted mb-3">Empieza creando tu primer producto para activar
+              inventario y ventas.</p>
+            }
+            @if (searchQuery) {
+              <p class="text-muted mb-3">No hubo coincidencias para <strong>"{{ searchQuery
+              }}"</strong>. Prueba con otro termino.</p>
+            }
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+              <a routerLink="/products/create" class="btn btn-primary btn-sm">Crear primer producto</a>
+              <a routerLink="/products/import" class="btn btn-outline-primary btn-sm">Importar catalogo</a>
+              @if (canAccessWizard) {
+                <a routerLink="/sales/first-sale-wizard" class="btn btn-outline-secondary btn-sm"
+                >Ir al Wizard MVP</a>
+              }
             </div>
-        </app-card>
+          </div>
+        }
+      </app-card>
     </div>
-</div>
+  </div>

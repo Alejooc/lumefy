@@ -5,6 +5,21 @@ import { ApiService } from '../../../core/services/api.service';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { Supplier } from '../../../core/services/supplier.service';
+
+interface SupplierStatement {
+    current_balance: number;
+    entries: SupplierStatementEntry[];
+}
+
+interface SupplierStatementEntry {
+    created_at: string;
+    type: 'CHARGE' | 'PAYMENT' | string;
+    description: string;
+    reference_id?: string | null;
+    amount: number;
+    balance_after: number;
+}
 
 @Component({
     selector: 'app-supplier-view',
@@ -15,8 +30,8 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class SupplierViewComponent implements OnInit {
     supplierId: string | null = null;
-    supplier: any;
-    statement: any;
+    supplier: (Supplier & { current_balance?: number }) | null = null;
+    statement: SupplierStatement | null = null;
     isLoading = true;
     isLoadingStatement = false;
     isSubmittingPayment = false;
@@ -44,7 +59,7 @@ export class SupplierViewComponent implements OnInit {
     }
 
     ngOnInit(): void {
-        this.auth.currentCompany.subscribe((company: any) => {
+        this.auth.currentCompany.subscribe((company) => {
             if (company && company.currency_symbol) {
                 this.currencySymbol = company.currency_symbol;
                 this.cdr.detectChanges();
@@ -63,9 +78,9 @@ export class SupplierViewComponent implements OnInit {
     }
 
     loadSupplier() {
-        this.api.get<any>(`/suppliers`).subscribe({
+        this.api.get<Supplier[]>(`/suppliers`).subscribe({
             next: (data) => {
-                this.supplier = data.find((s: any) => s.id === this.supplierId);
+                this.supplier = data.find((s: Supplier) => s.id === this.supplierId) || null;
                 this.isLoading = false;
                 this.cdr.detectChanges();
             },
@@ -78,7 +93,7 @@ export class SupplierViewComponent implements OnInit {
 
     loadStatement() {
         this.isLoadingStatement = true;
-        this.api.get<any>(`/suppliers/${this.supplierId}/statement`).subscribe({
+        this.api.get<SupplierStatement>(`/suppliers/${this.supplierId}/statement`).subscribe({
             next: (data) => {
                 this.statement = data;
                 this.isLoadingStatement = false;
@@ -128,7 +143,7 @@ export class SupplierViewComponent implements OnInit {
                 this.loadSupplier();
                 this.loadStatement();
             },
-            error: (err) => {
+            error: (err: { error?: { detail?: string } }) => {
                 this.isSubmittingPayment = false;
                 this.cdr.detectChanges();
                 this.sweetAlert.error('Error', err.error?.detail || 'No se pudo registrar el abono.');

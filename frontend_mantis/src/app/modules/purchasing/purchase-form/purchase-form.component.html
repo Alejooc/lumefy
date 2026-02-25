@@ -1,170 +1,185 @@
 <div class="row">
-    <div class="col-sm-12">
-        <div class="card">
-            <div class="card-header">
-                <h5>New Purchase Order</h5>
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-header">
+        <h5>New Purchase Order</h5>
+      </div>
+      <div class="card-body">
+        @if (loading) {
+          <div class="d-flex justify-content-center align-items-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="sr-only">Loading...</span>
             </div>
-            <div class="card-body">
-                <div *ngIf="loading" class="d-flex justify-content-center align-items-center py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="sr-only">Loading...</span>
-                    </div>
+          </div>
+        }
+        @if (!loading) {
+          <form [formGroup]="purchaseForm" (ngSubmit)="onSubmit()">
+            @if (error) {
+              <div class="alert alert-danger">{{ error }}</div>
+            }
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label class="form-label">Proveedor</label>
+                <select class="form-select" formControlName="supplier_id"
+                  [class.is-invalid]="purchaseForm.get('supplier_id')?.invalid && purchaseForm.get('supplier_id')?.touched">
+                  <option value="">Seleccionar Proveedor</option>
+                  @for (s of suppliers; track s) {
+                    <option [value]="s.id">{{ s.name }}</option>
+                  }
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Sucursal (Destino)</label>
+                <select class="form-select" formControlName="branch_id"
+                  [class.is-invalid]="purchaseForm.get('branch_id')?.invalid && purchaseForm.get('branch_id')?.touched">
+                  <option value="">Seleccionar Sucursal</option>
+                  @for (b of branches; track b) {
+                    <option [value]="b.id">{{ b.name }}</option>
+                  }
+                </select>
+                @if (purchaseForm.get('branch_id')?.invalid && purchaseForm.get('branch_id')?.touched) {
+                  <div
+                    class="invalid-feedback">
+                    La sucursal es requerida
+                  </div>
+                }
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <label class="form-label">Lista de Precios</label>
+                <select class="form-select" formControlName="price_list_id">
+                  <option value="">Ninguna (Costo Manual)</option>
+                  @for (pl of priceLists; track pl) {
+                    <option [value]="pl.id">{{ pl.name }}</option>
+                  }
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Fecha del Pedido</label>
+                <input type="date" class="form-control" formControlName="order_date">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Fecha Esperada</label>
+                <input type="date" class="form-control" formControlName="expected_date">
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <label class="form-label">Método de Pago</label>
+                <select class="form-select" formControlName="payment_method">
+                  <option value="CASH">Efectivo</option>
+                  <option value="CREDIT">Crédito (Cuenta por Pagar)</option>
+                  <option value="CARD">Tarjeta</option>
+                  <option value="BANK_TRANSFER">Transferencia</option>
+                </select>
+              </div>
+              <div class="col-md-8">
+                <label class="form-label">N° de Factura / Referencia Proveedor</label>
+                <input type="text" class="form-control" formControlName="reference_number"
+                  placeholder="Ej. FAC-12345">
                 </div>
-                <form [formGroup]="purchaseForm" (ngSubmit)="onSubmit()" *ngIf="!loading">
-
-                    <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Proveedor</label>
-                            <select class="form-select" formControlName="supplier_id"
-                                [class.is-invalid]="purchaseForm.get('supplier_id')?.invalid && purchaseForm.get('supplier_id')?.touched">
-                                <option value="">Seleccionar Proveedor</option>
-                                <option *ngFor="let s of suppliers" [value]="s.id">{{ s.name }}</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Sucursal (Destino)</label>
-                            <select class="form-select" formControlName="branch_id"
-                                [class.is-invalid]="purchaseForm.get('branch_id')?.invalid && purchaseForm.get('branch_id')?.touched">
-                                <option value="">Seleccionar Sucursal</option>
-                                <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
-                            </select>
-                            <div *ngIf="purchaseForm.get('branch_id')?.invalid && purchaseForm.get('branch_id')?.touched"
-                                class="invalid-feedback">
-                                La sucursal es requerida
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Lista de Precios</label>
-                            <select class="form-select" formControlName="price_list_id">
-                                <option value="">Ninguna (Costo Manual)</option>
-                                <option *ngFor="let pl of priceLists" [value]="pl.id">{{ pl.name }}</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Fecha del Pedido</label>
-                            <input type="date" class="form-control" formControlName="order_date">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Fecha Esperada</label>
-                            <input type="date" class="form-control" formControlName="expected_date">
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Método de Pago</label>
-                            <select class="form-select" formControlName="payment_method">
-                                <option value="CASH">Efectivo</option>
-                                <option value="CREDIT">Crédito (Cuenta por Pagar)</option>
-                                <option value="CARD">Tarjeta</option>
-                                <option value="BANK_TRANSFER">Transferencia</option>
-                            </select>
-                        </div>
-                        <div class="col-md-8">
-                            <label class="form-label">N° de Factura / Referencia Proveedor</label>
-                            <input type="text" class="form-control" formControlName="reference_number"
-                                placeholder="Ej. FAC-12345">
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Notas</label>
-                        <textarea class="form-control" formControlName="notes" rows="2"></textarea>
-                    </div>
-                    <hr>
-
-                    <!-- Products Section Header -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6>Productos</h6>
-                        <button type="button" class="btn btn-primary btn-sm" (click)="addItem()">
-                            <i class="feather icon-plus"></i> Agregar Producto
-                        </button>
-                    </div>
-
-                    <!-- Items Table -->
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 40%">Producto</th>
-                                    <th style="width: 15%">Cantidad</th>
-                                    <th style="width: 15%">Costo Unit.</th>
-                                    <th style="width: 15%">Descuento</th>
-                                    <th style="width: 10%">Subtotal</th>
-                                    <th style="width: 5%">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody formArrayName="items">
-                                <tr *ngFor="let item of items.controls; let i = index" [formGroupName]="i">
-                                    <td>
-                                        <!-- In-Row Product Search -->
-                                        <ng-select [items]="searchableItems" bindLabel="display"
-                                            placeholder="Buscar producto..." formControlName="selected_item"
-                                            appendTo="body" (change)="onProductSelect($event, i)" [clearable]="true">
-                                            <ng-template ng-option-tmp let-item="item">
-                                                <div class="d-flex justify-content-between">
-                                                    <span>{{item.display}}</span>
-                                                    <small class="text-muted"
-                                                        *ngIf="item.type === 'VARIANT'">Variante</small>
-                                                </div>
-                                            </ng-template>
-                                        </ng-select>
-                                        <!-- Hidden Inputs/Display -->
-                                        <small class="text-muted d-block mt-1"
-                                            *ngIf="item.get('product_name')?.value && item.get('selected_item')?.value">
-                                            {{ item.get('product_name')?.value }}
-                                        </small>
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control form-control-sm"
-                                            formControlName="quantity" min="1">
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control form-control-sm"
-                                            formControlName="unit_cost" min="0">
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control form-control-sm"
-                                            formControlName="discount" min="0" placeholder="0">
-                                    </td>
-                                    <td class="text-end fw-bold">
-                                        {{ item.get('subtotal')?.value | number:'1.2-2' }}
-                                    </td>
-                                    <td class="text-end">
-                                        <button type="button" class="btn btn-outline-danger btn-sm"
-                                            (click)="removeItem(i)">
-                                            <i class="feather icon-trash-2"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Notas</label>
+                <textarea class="form-control" formControlName="notes" rows="2"></textarea>
+              </div>
+              <hr>
+                <!-- Products Section Header -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h6>Productos</h6>
+                  <button type="button" class="btn btn-primary btn-sm" (click)="addItem()">
+                    <i class="feather icon-plus"></i> Agregar Producto
+                  </button>
+                </div>
+                <!-- Items Table -->
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th style="width: 40%">Producto</th>
+                        <th style="width: 15%">Cantidad</th>
+                        <th style="width: 15%">Costo Unit.</th>
+                        <th style="width: 15%">Descuento</th>
+                        <th style="width: 10%">Subtotal</th>
+                        <th style="width: 5%">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody formArrayName="items">
+                      @for (item of items.controls; track item; let i = $index) {
+                        <tr [formGroupName]="i">
+                          <td>
+                            <!-- In-Row Product Search -->
+                            <ng-select [items]="searchableItems" bindLabel="display"
+                              placeholder="Buscar producto..." formControlName="selected_item"
+                              appendTo="body" (change)="onProductSelect($event, i)" [clearable]="true">
+                              <ng-template ng-option-tmp let-item="item">
+                                <div class="d-flex justify-content-between">
+                                  <span>{{item.display}}</span>
+                                  @if (item.type === 'VARIANT') {
+                                    <small class="text-muted"
+                                    >Variante</small>
+                                  }
+                                </div>
+                              </ng-template>
+                            </ng-select>
+                            <!-- Hidden Inputs/Display -->
+                            @if (item.get('product_name')?.value && item.get('selected_item')?.value) {
+                              <small class="text-muted d-block mt-1"
+                                >
+                                {{ item.get('product_name')?.value }}
+                              </small>
+                            }
+                          </td>
+                          <td>
+                            <input type="number" class="form-control form-control-sm"
+                              formControlName="quantity" min="1">
+                            </td>
+                            <td>
+                              <input type="number" class="form-control form-control-sm"
+                                formControlName="unit_cost" min="0">
+                              </td>
+                              <td>
+                                <input type="number" class="form-control form-control-sm"
+                                  formControlName="discount" min="0" placeholder="0">
+                                </td>
+                                <td class="text-end fw-bold">
+                                  {{ item.get('subtotal')?.value | number:'1.2-2' }}
+                                </td>
+                                <td class="text-end">
+                                  <button type="button" class="btn btn-outline-danger btn-sm"
+                                    (click)="removeItem(i)">
+                                    <i class="feather icon-trash-2"></i>
+                                  </button>
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
                         </table>
-                    </div>
-
-                    <div class="alert alert-secondary text-center py-4" *ngIf="items.controls.length === 0">
-                        <i class="feather icon-shopping-cart fs-3 d-block mb-2 text-muted"></i>
-                        No hay productos en la orden. Presiona "Agregar Producto".
-                    </div>
-
-                    <div class="d-flex justify-content-end align-items-center mt-3 p-3 bg-light rounded">
+                      </div>
+                      @if (items.controls.length === 0) {
+                        <div class="alert alert-secondary text-center py-4">
+                          <i class="feather icon-shopping-cart fs-3 d-block mb-2 text-muted"></i>
+                          No hay productos en la orden. Presiona "Agregar Producto".
+                        </div>
+                      }
+                      <div class="d-flex justify-content-end align-items-center mt-3 p-3 bg-light rounded">
                         <h4 class="mb-0">Total: <span class="text-primary">{{ totalAmount | currency }}</span></h4>
-                    </div>
-
-                    <div class="d-flex justify-content-end mt-4">
+                      </div>
+                      <div class="d-flex justify-content-end mt-4">
                         <button type="button" class="btn btn-secondary me-2"
-                            [routerLink]="['/purchasing/orders']">Cancel</button>
+                        [routerLink]="['/purchasing/orders']">Cancel</button>
                         <button type="submit" class="btn btn-primary"
-                            [disabled]="loading || purchaseForm.invalid || items.length === 0">
-                            <span *ngIf="loading" class="spinner-border spinner-border-sm me-1"></span>
-                            Create Draft
+                          [disabled]="loading || purchaseForm.invalid || items.length === 0">
+                          @if (loading) {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                          }
+                          Create Draft
                         </button>
-                    </div>
-                </form>
+                      </div>
+                    </form>
+                  }
+                </div>
+              </div>
             </div>
-        </div>
-    </div>
-</div>
+          </div>

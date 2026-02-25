@@ -1,10 +1,10 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { InventoryService } from '../inventory.service';
-import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { SharedModule } from '../../../theme/shared/shared.module';
+import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
+import { InventoryService, StockTake, StockTakeItem } from '../inventory.service';
 
 @Component({
     selector: 'app-stock-take-form',
@@ -14,24 +14,20 @@ import { SharedModule } from '../../../theme/shared/shared.module';
     imports: [CommonModule, FormsModule, SharedModule]
 })
 export class StockTakeFormComponent implements OnInit {
-    stockTake: any = null;
+    private route = inject(ActivatedRoute);
+    private router = inject(Router);
+    private inventoryService = inject(InventoryService);
+    private swal = inject(SweetAlertService);
+    private cdr = inject(ChangeDetectorRef);
+
+    stockTake: StockTake | null = null;
     isLoading = true;
     isSaving = false;
     searchTerm = '';
 
-    constructor(
-        private route: ActivatedRoute,
-        private router: Router,
-        private inventoryService: InventoryService,
-        private swal: SweetAlertService,
-        private cdr: ChangeDetectorRef
-    ) { }
-
     ngOnInit(): void {
         const id = this.route.snapshot.paramMap.get('id');
-        if (id) {
-            this.loadStockTake(id);
-        }
+        if (id) this.loadStockTake(id);
     }
 
     loadStockTake(id: string) {
@@ -49,11 +45,11 @@ export class StockTakeFormComponent implements OnInit {
         });
     }
 
-    get filteredItems(): any[] {
+    get filteredItems(): StockTakeItem[] {
         if (!this.stockTake?.items) return [];
         if (!this.searchTerm) return this.stockTake.items;
         const term = this.searchTerm.toLowerCase();
-        return this.stockTake.items.filter((item: any) => {
+        return this.stockTake.items.filter((item) => {
             const name = item.product?.name?.toLowerCase() || '';
             const sku = item.product?.sku?.toLowerCase() || '';
             return name.includes(term) || sku.includes(term);
@@ -65,11 +61,11 @@ export class StockTakeFormComponent implements OnInit {
     }
 
     get countedItems(): number {
-        return this.stockTake?.items?.filter((i: any) => i.counted_qty !== null && i.counted_qty !== undefined).length || 0;
+        return this.stockTake?.items?.filter((item) => item.counted_qty !== null && item.counted_qty !== undefined).length || 0;
     }
 
     get itemsWithDifference(): number {
-        return this.stockTake?.items?.filter((i: any) => i.difference !== 0 && i.counted_qty !== null).length || 0;
+        return this.stockTake?.items?.filter((item) => item.difference !== 0 && item.counted_qty !== null).length || 0;
     }
 
     get isInProgress(): boolean {
@@ -81,10 +77,10 @@ export class StockTakeFormComponent implements OnInit {
         this.isSaving = true;
 
         const items = this.stockTake.items
-            .filter((i: any) => i.counted_qty !== null && i.counted_qty !== undefined)
-            .map((i: any) => ({
-                id: i.id,
-                counted_qty: Number(i.counted_qty)
+            .filter((item) => item.counted_qty !== null && item.counted_qty !== undefined)
+            .map((item) => ({
+                id: item.id,
+                counted_qty: Number(item.counted_qty)
             }));
 
         this.inventoryService.updateStockTakeCounts(this.stockTake.id, items).subscribe({
@@ -94,7 +90,7 @@ export class StockTakeFormComponent implements OnInit {
                 this.swal.success('Guardado', 'Conteos actualizados correctamente');
                 this.cdr.detectChanges();
             },
-            error: (err) => {
+            error: (err: { error?: { detail?: string } }) => {
                 this.isSaving = false;
                 this.swal.error('Error', err?.error?.detail || 'Error al guardar');
             }
@@ -102,11 +98,14 @@ export class StockTakeFormComponent implements OnInit {
     }
 
     applyAdjustments() {
-        this.swal.confirm(
-            '¿Aplicar Ajustes?',
-            'Esto generará movimientos de ajuste (ADJ) automáticos para todas las diferencias. Esta acción no se puede deshacer.'
-        ).then((result: any) => {
-            if (result.isConfirmed) {
+        if (!this.stockTake) return;
+        this.swal
+            .confirm(
+                'Aplicar ajustes',
+                'Esto generara movimientos de ajuste (ADJ) para todas las diferencias. Esta accion no se puede deshacer.'
+            )
+            .then((result) => {
+                if (!result.isConfirmed || !this.stockTake) return;
                 this.isSaving = true;
                 this.inventoryService.applyStockTake(this.stockTake.id).subscribe({
                     next: (data) => {
@@ -115,35 +114,31 @@ export class StockTakeFormComponent implements OnInit {
                         this.swal.success('Aplicado', 'Los ajustes de inventario han sido aplicados exitosamente');
                         this.cdr.detectChanges();
                     },
-                    error: (err) => {
+                    error: (err: { error?: { detail?: string } }) => {
                         this.isSaving = false;
                         this.swal.error('Error', err?.error?.detail || 'Error al aplicar');
                     }
                 });
-            }
-        });
+            });
     }
 
     cancelTake() {
-        this.swal.confirm(
-            '¿Cancelar Toma?',
-            'Esto cancelará la toma de inventario sin aplicar cambios.'
-        ).then((result: any) => {
-            if (result.isConfirmed) {
-                this.inventoryService.cancelStockTake(this.stockTake.id).subscribe({
-                    next: () => {
-                        this.swal.success('Cancelada', 'Toma de inventario cancelada');
-                        this.router.navigate(['/inventory/stock-take']);
-                    },
-                    error: (err) => {
-                        this.swal.error('Error', err?.error?.detail || 'Error al cancelar');
-                    }
-                });
-            }
+        if (!this.stockTake) return;
+        this.swal.confirm('Cancelar toma', 'Esto cancelara la toma de inventario sin aplicar cambios.').then((result) => {
+            if (!result.isConfirmed || !this.stockTake) return;
+            this.inventoryService.cancelStockTake(this.stockTake.id).subscribe({
+                next: () => {
+                    this.swal.success('Cancelada', 'Toma de inventario cancelada');
+                    this.router.navigate(['/inventory/stock-take']);
+                },
+                error: (err: { error?: { detail?: string } }) => {
+                    this.swal.error('Error', err?.error?.detail || 'Error al cancelar');
+                }
+            });
         });
     }
 
-    onCountedChange(item: any) {
+    onCountedChange(item: StockTakeItem) {
         if (item.counted_qty !== null && item.counted_qty !== undefined) {
             item.difference = Number(item.counted_qty) - item.system_qty;
         } else {

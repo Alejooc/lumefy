@@ -1,7 +1,7 @@
-import { Component, OnInit, inject, ChangeDetectorRef, ViewEncapsulation, ElementRef, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, ViewEncapsulation, ElementRef, ViewChild, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
-import { LandingService, LandingConfig } from 'src/app/core/services/landing.service';
+import { LandingService, LandingConfig, Plan } from 'src/app/core/services/landing.service';
 
 @Component({
   selector: 'app-landing-page',
@@ -11,7 +11,7 @@ import { LandingService, LandingConfig } from 'src/app/core/services/landing.ser
   styleUrl: './landing-page.scss',
   encapsulation: ViewEncapsulation.None // Critical for global overrides/dark theme
 })
-export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
+export class LandingPage implements OnInit, OnDestroy {
   private landingService = inject(LandingService);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
@@ -119,10 +119,6 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     }
   ];
 
-  ngAfterViewInit() {
-    // We defer observer setup to ngOnInit data load to ensure sentinel exists
-  }
-
   setupObserver() {
     if (!this.scrollSentinel) return;
 
@@ -173,7 +169,7 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  getPlanButtonText(plan: any): string {
+  getPlanButtonText(plan: Plan): string {
     if (plan.button_text) return plan.button_text;
 
     // Fallback defaults
@@ -183,14 +179,14 @@ export class LandingPage implements OnInit, AfterViewInit, OnDestroy {
     return 'Seleccionar Plan';
   }
 
-  getPlanFeatures(plan: any): string[] {
+  getPlanFeatures(plan: Plan): string[] {
     if (!plan.features) return [];
     if (Array.isArray(plan.features)) {
-      return plan.features;
+      return plan.features.filter((feature): feature is string => typeof feature === 'string');
     }
     if (typeof plan.features === 'object') {
-      // If it's a dict like { "Feature": true, "Other": false }, return keys where value is true
-      return Object.keys(plan.features).filter(key => plan.features[key] === true || plan.features[key] === 'true');
+      const featureMap = plan.features as Record<string, unknown>;
+      return Object.keys(featureMap).filter((key) => featureMap[key] === true || featureMap[key] === 'true');
     }
     return [];
   }

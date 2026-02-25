@@ -11,29 +11,37 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let role of roles">
-              <td>
-                <div class="fw-bold">{{ role.name }}</div>
-                <small class="text-muted" *ngIf="isAdminRole(role)">Acceso administrativo completo</small>
-              </td>
-              <td>{{ role.description || '-' }}</td>
-              <td class="text-end">
-                <button class="btn btn-icon btn-outline-primary btn-sm me-1" (click)="startEdit(role)">
-                  <i class="feather icon-edit"></i>
-                </button>
-                <button class="btn btn-icon btn-outline-danger btn-sm" (click)="deleteRole(role)" [disabled]="isAdminRole(role)">
-                  <i class="feather icon-trash-2"></i>
-                </button>
-              </td>
-            </tr>
-            <tr *ngIf="roles.length === 0 && !loading">
-              <td colspan="3" class="text-center text-muted py-4">No hay roles disponibles.</td>
-            </tr>
-            <tr *ngIf="loading">
-              <td colspan="3" class="text-center py-4">
-                <div class="spinner-border text-primary" role="status"></div>
-              </td>
-            </tr>
+            @for (role of roles; track role) {
+              <tr>
+                <td>
+                  <div class="fw-bold">{{ role.name }}</div>
+                  @if (isAdminRole(role)) {
+                    <small class="text-muted">Acceso administrativo completo</small>
+                  }
+                </td>
+                <td>{{ role.description || '-' }}</td>
+                <td class="text-end">
+                  <button class="btn btn-icon btn-outline-primary btn-sm me-1" (click)="startEdit(role)">
+                    <i class="feather icon-edit"></i>
+                  </button>
+                  <button class="btn btn-icon btn-outline-danger btn-sm" (click)="deleteRole(role)" [disabled]="isAdminRole(role)">
+                    <i class="feather icon-trash-2"></i>
+                  </button>
+                </td>
+              </tr>
+            }
+            @if (roles.length === 0 && !loading) {
+              <tr>
+                <td colspan="3" class="text-center text-muted py-4">No hay roles disponibles.</td>
+              </tr>
+            }
+            @if (loading) {
+              <tr>
+                <td colspan="3" class="text-center py-4">
+                  <div class="spinner-border text-primary" role="status"></div>
+                </td>
+              </tr>
+            }
           </tbody>
         </table>
       </div>
@@ -62,13 +70,17 @@
           </div>
 
           <div formGroupName="permissions">
-            <div class="permission-group" *ngFor="let group of groupedPermissions">
-              <h6>{{ group.group }}</h6>
-              <div class="form-check" *ngFor="let perm of group.items">
-                <input class="form-check-input" type="checkbox" [formControlName]="perm.key" [id]="perm.key" />
-                <label class="form-check-label" [for]="perm.key">{{ perm.label }}</label>
+            @for (group of groupedPermissions; track group) {
+              <div class="permission-group">
+                <h6>{{ group.group }}</h6>
+                @for (perm of group.items; track perm) {
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" [formControlName]="perm.key" [id]="perm.key" />
+                    <label class="form-check-label" [for]="perm.key">{{ perm.label }}</label>
+                  </div>
+                }
               </div>
-            </div>
+            }
           </div>
         </div>
 

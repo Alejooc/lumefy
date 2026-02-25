@@ -1,45 +1,59 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 @Component({
     selector: 'app-skeleton',
     standalone: true,
-    imports: [CommonModule],
+    imports: [],
     template: `
         <!-- Table skeleton -->
-        <div *ngIf="type === 'table'" class="skeleton-table">
-            <div class="skeleton-row header" *ngFor="let col of cols">
+        @if (type === 'table') {
+          <div class="skeleton-table">
+            @for (col of cols; track col) {
+              <div class="skeleton-row header">
                 <div class="skeleton-cell skeleton-pulse" [style.width.%]="getRandomWidth()"></div>
-            </div>
-            <div class="skeleton-table-row" *ngFor="let row of rows">
-                <div class="skeleton-cell skeleton-pulse" *ngFor="let col of cols"
-                    [style.width.%]="getRandomWidth()"></div>
-            </div>
-        </div>
-
+              </div>
+            }
+            @for (row of rows; track row) {
+              <div class="skeleton-table-row">
+                @for (col of cols; track col) {
+                  <div class="skeleton-cell skeleton-pulse"
+                  [style.width.%]="getRandomWidth()"></div>
+                }
+              </div>
+            }
+          </div>
+        }
+        
         <!-- Card skeleton -->
-        <div *ngIf="type === 'card'" class="skeleton-card">
+        @if (type === 'card') {
+          <div class="skeleton-card">
             <div class="skeleton-card-header">
-                <div class="skeleton-pulse" style="width: 40%; height: 20px;"></div>
+              <div class="skeleton-pulse" style="width: 40%; height: 20px;"></div>
             </div>
             <div class="skeleton-card-body">
-                <div class="skeleton-pulse mb-2" style="width: 80%; height: 14px;"></div>
-                <div class="skeleton-pulse mb-2" style="width: 60%; height: 14px;"></div>
-                <div class="skeleton-pulse" style="width: 70%; height: 14px;"></div>
+              <div class="skeleton-pulse mb-2" style="width: 80%; height: 14px;"></div>
+              <div class="skeleton-pulse mb-2" style="width: 60%; height: 14px;"></div>
+              <div class="skeleton-pulse" style="width: 70%; height: 14px;"></div>
             </div>
-        </div>
-
+          </div>
+        }
+        
         <!-- List skeleton -->
-        <div *ngIf="type === 'list'" class="skeleton-list">
-            <div class="skeleton-list-item" *ngFor="let row of rows">
+        @if (type === 'list') {
+          <div class="skeleton-list">
+            @for (row of rows; track row) {
+              <div class="skeleton-list-item">
                 <div class="skeleton-avatar skeleton-pulse"></div>
                 <div class="skeleton-content">
-                    <div class="skeleton-pulse mb-1" style="width: 60%; height: 14px;"></div>
-                    <div class="skeleton-pulse" style="width: 40%; height: 12px;"></div>
+                  <div class="skeleton-pulse mb-1" style="width: 60%; height: 14px;"></div>
+                  <div class="skeleton-pulse" style="width: 40%; height: 12px;"></div>
                 </div>
-            </div>
-        </div>
-    `,
+              </div>
+            }
+          </div>
+        }
+        `,
     styles: [`
         .skeleton-pulse {
             background: linear-gradient(90deg, #e9ecef 25%, #f8f9fa 50%, #e9ecef 75%);

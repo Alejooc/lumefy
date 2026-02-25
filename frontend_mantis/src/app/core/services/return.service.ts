@@ -48,9 +48,9 @@ export class ReturnService {
     private basePath = '/returns';
 
     getReturns(saleId?: string, status?: string): Observable<ReturnOrder[]> {
-        let params: any = {};
-        if (saleId) params.sale_id = saleId;
-        if (status) params.status = status;
+        const params: Record<string, string> = {};
+        if (saleId) params['sale_id'] = saleId;
+        if (status) params['status'] = status;
         const queryStr = Object.entries(params).map(([k, v]) => `${k}=${v}`).join('&');
         const path = queryStr ? `${this.basePath}?${queryStr}` : this.basePath;
         return this.api.get<ReturnOrder[]>(path);

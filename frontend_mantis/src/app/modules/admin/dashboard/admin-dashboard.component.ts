@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { AdminService, AdminStats } from '../admin.service';
 import { SharedModule } from '../../../theme/shared/shared.module';
 import { CardComponent } from '../../../theme/shared/components/card/card.component';
@@ -9,18 +9,28 @@ import { SalesReportChartComponent } from '../../../theme/shared/apexchart/sales
 import { IconService, IconDirective } from '@ant-design/icons-angular';
 import { FallOutline, GiftOutline, MessageOutline, RiseOutline, SettingOutline, DeploymentUnitOutline, UserOutline, DollarOutline, CrownOutline } from '@ant-design/icons-angular/icons';
 
+interface AdminDashboardCard {
+    title: string;
+    amount: string;
+    background: string;
+    border: string;
+    icon: string;
+    percentage: string;
+    color: string;
+    number: string;
+}
+
 @Component({
     selector: 'app-admin-dashboard',
     standalone: true,
     imports: [
-        CommonModule,
-        SharedModule,
-        CardComponent,
-        MonthlyBarChartComponent,
-        IncomeOverviewChartComponent,
-        SalesReportChartComponent,
-        IconDirective
-    ],
+    SharedModule,
+    CardComponent,
+    MonthlyBarChartComponent,
+    IncomeOverviewChartComponent,
+    SalesReportChartComponent,
+    IconDirective
+],
     templateUrl: './admin-dashboard.component.html',
     styleUrls: ['./admin-dashboard.component.scss']
 })
@@ -29,7 +39,7 @@ export class AdminDashboardComponent implements OnInit {
     loading = true;
 
     // UI Data for Cards
-    AnalyticEcommerce: any[] = [];
+    AnalyticEcommerce: AdminDashboardCard[] = [];
 
     // Mock Transaction Data (Placeholder until we have Audit Log details here)
     transaction = [
@@ -82,7 +92,7 @@ export class AdminDashboardComponent implements OnInit {
         });
     }
 
-    planChartOptions: any;
+    planChartOptions: Record<string, unknown>;
 
     updatePlanChart() {
         if (!this.stats) return;

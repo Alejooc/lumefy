@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { LandingService, LandingConfig } from 'src/app/core/services/landing.service';
 import Swal from 'sweetalert2';
@@ -7,7 +7,7 @@ import Swal from 'sweetalert2';
 @Component({
   selector: 'app-landing-cms',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './landing-cms.html',
   styleUrl: './landing-cms.scss',
 })

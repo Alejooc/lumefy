@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { AdminService } from 'src/app/modules/admin/admin.service';
+import { AdminService, DatabaseStat } from 'src/app/modules/admin/admin.service';
 
 @Component({
     selector: 'app-database-stats',
@@ -15,7 +15,7 @@ export class DatabaseStatsComponent implements OnInit {
     private adminService = inject(AdminService);
     private cdr = inject(ChangeDetectorRef); // Injected
 
-    stats: any[] = [];
+    stats: DatabaseStat[] = [];
     loading = false;
     totalDatabaseSize = 0;
 
@@ -29,22 +29,20 @@ export class DatabaseStatsComponent implements OnInit {
             next: (data) => {
                 this.stats = data;
                 this.loading = false;
-                // Calculate total size for percentage context if needed, 
-                // usually top table is the reference for bars
-                this.totalDatabaseSize = data.reduce((acc, curr) => acc + curr.total_size_bytes, 0);
-                this.cdr.detectChanges(); // Detect changes
+                this.totalDatabaseSize = data.reduce((acc, curr) => acc + (curr.total_size_bytes || 0), 0);
+                this.cdr.detectChanges();
             },
-            error: (err) => {
-                console.error(err);
+            error: (error: unknown) => {
+                console.error(error);
                 this.loading = false;
-                this.cdr.detectChanges(); // Detect changes
+                this.cdr.detectChanges();
             }
         });
     }
 
     maxSizeBytes(): number {
         if (this.stats.length === 0) return 0;
-        return Math.max(...this.stats.map(s => s.total_size_bytes));
+        return Math.max(...this.stats.map((s) => s.total_size_bytes || 0));
     }
 
     getPercent(bytes: number): number {

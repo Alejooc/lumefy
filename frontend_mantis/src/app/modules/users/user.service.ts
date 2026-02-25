@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
 import { Observable } from 'rxjs';
 import { User, Role } from './user.model';
@@ -7,10 +7,10 @@ import { User, Role } from './user.model';
     providedIn: 'root'
 })
 export class UserService {
+    private api = inject(ApiService);
 
-    constructor(private api: ApiService) { }
 
-    getUsers(params: any = {}): Observable<User[]> {
+    getUsers(params: Record<string, string> = {}): Observable<User[]> {
         return this.api.get<User[]>('/users', params);
     }
 
@@ -46,7 +46,7 @@ export class UserService {
         return this.api.delete<Role>(`/roles/${id}`);
     }
 
-    sendRecoveryEmail(id: string): Observable<any> {
-        return this.api.post<any>(`/users/${id}/recovery-email`, {});
+    sendRecoveryEmail(id: string): Observable<unknown> {
+        return this.api.post<unknown>(`/users/${id}/recovery-email`, {});
     }
 }

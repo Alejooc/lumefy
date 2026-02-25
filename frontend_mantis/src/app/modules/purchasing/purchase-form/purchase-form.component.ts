@@ -4,11 +4,33 @@ import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, FormsModule, Va
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { PurchaseService } from '../../../core/services/purchase.service';
 import { SupplierService, Supplier } from '../../../core/services/supplier.service';
-import { ProductService, Product } from '../../../core/services/product.service';
+import { ProductService, Product, ProductVariant } from '../../../core/services/product.service';
 import { PriceListService, PriceList, PriceListItem } from '../../../core/services/pricelist.service';
 import { BranchService, Branch } from '../../../core/services/branch.service';
 import { NgSelectModule } from '@ng-select/ng-select';
 import Swal from 'sweetalert2';
+
+interface SearchablePurchaseItem {
+    unique_key: string;
+    id: string;
+    name: string;
+    sku?: string;
+    type: 'PRODUCT' | 'VARIANT';
+    product: Product;
+    variant: ProductVariant | null;
+    display: string;
+}
+
+interface PurchaseFormItemValue {
+    selected_item: SearchablePurchaseItem | null;
+    product_id: string;
+    product_name: string;
+    variant_id: string | null;
+    quantity: number;
+    unit_cost: number;
+    discount: number;
+    subtotal: number;
+}
 
 @Component({
     selector: 'app-purchase-form',
@@ -21,8 +43,8 @@ export class PurchaseFormComponent implements OnInit {
     purchaseForm: FormGroup;
     suppliers: Supplier[] = [];
     products: Product[] = [];
-    searchableItems: any[] = []; // Unified list of products and variants
-    selectedSearchItem: any = null; // Bound to ng-select
+    searchableItems: SearchablePurchaseItem[] = []; // Unified list of products and variants
+    selectedSearchItem: SearchablePurchaseItem | null = null; // Bound to ng-select
 
     currentPriceList: PriceList | null = null;
     loading = false;
@@ -166,13 +188,14 @@ export class PurchaseFormComponent implements OnInit {
 
         // Compute subtotal on changes
         itemGroup.valueChanges.subscribe(val => {
+            void val;
             this.updateSubtotal(itemGroup);
         });
 
         this.items.push(itemGroup);
     }
 
-    onProductSelect(item: any, index: number) {
+    onProductSelect(item: SearchablePurchaseItem, index: number) {
         if (!item) return;
 
         // We are updating an existing row at 'index'
@@ -193,12 +216,12 @@ export class PurchaseFormComponent implements OnInit {
         }
     }
 
-    promptVariantSelection(product: any, row: FormGroup) {
+    promptVariantSelection(product: Product, row: FormGroup) {
         // We need to temporarily clear the selection if they cancel? 
         // Or just let them re-select.
 
-        const options = {};
-        product.variants.forEach((v: any) => {
+        const options: Record<string, string> = {};
+        (product.variants || []).forEach((v: ProductVariant) => {
             options[v.id] = v.name;
         });
 
@@ -209,9 +232,9 @@ export class PurchaseFormComponent implements OnInit {
             inputOptions: options,
             inputPlaceholder: 'Elige una opción',
             showCancelButton: true
-        }).then((result: any) => {
+        }).then((result) => {
             if (result.isConfirmed && result.value) {
-                const selectedVariant = product.variants.find((v: any) => v.id === result.value);
+                const selectedVariant = (product.variants || []).find((v: ProductVariant) => v.id === result.value);
                 this.updateRowWithItem(row, product, selectedVariant);
             } else {
                 // If cancelled, maybe reset the selection?
@@ -224,7 +247,7 @@ export class PurchaseFormComponent implements OnInit {
         });
     }
 
-    updateRowWithItem(row: FormGroup, product: any, variant: any = null) {
+    updateRowWithItem(row: FormGroup, product: Product, variant: ProductVariant | null = null) {
         const cost = this.getCost(product);
         // If variant has extra cost, add it? 
         // Variant should have cost_extra.
@@ -261,7 +284,7 @@ export class PurchaseFormComponent implements OnInit {
         group.get('subtotal')?.setValue(sub, { emitEvent: false });
     }
 
-    getCost(product: any): number {
+    getCost(product: Product): number {
         // Simple logic: lookup by pricelist or use product default cost
         let cost = product.cost || 0;
         if (this.currentPriceList) {
@@ -352,9 +375,10 @@ export class PurchaseFormComponent implements OnInit {
         // but likely we can send prompt text in notes for now.
 
         let notesKey = formVal.notes || '';
-        const variantNotes = formVal.items
-            .filter((i: any) => i.variant_id)
-            .map((i: any) => `- ${i.quantity}x ${i.product_name}`)
+        const formItems = formVal.items as PurchaseFormItemValue[];
+        const variantNotes = formItems
+            .filter((i: PurchaseFormItemValue) => i.variant_id)
+            .map((i: PurchaseFormItemValue) => `- ${i.quantity}x ${i.product_name}`)
             .join('\n');
 
         if (variantNotes) {
@@ -371,7 +395,7 @@ export class PurchaseFormComponent implements OnInit {
             supplier_id: formVal.supplier_id || null, // Although required
             price_list_id: formVal.price_list_id || null,
             payment_method: formVal.payment_method || 'CASH',
-            items: formVal.items.map((i: any) => ({
+            items: formItems.map((i: PurchaseFormItemValue) => ({
                 product_id: i.product_id,
                 variant_id: i.variant_id || null, // Include variant_id
                 quantity: i.quantity,

@@ -1,100 +1,102 @@
 <div class="row">
-    <div class="col-sm-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>Plantillas de Notificaciones</h5>
-                <button class="btn btn-primary btn-sm" (click)="createTemplate(editModal)">
-                    <i class="feather icon-plus"></i> Nueva Plantilla
-                </button>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Código</th>
-                                <th>Tipo</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let t of templates">
-                                <td>{{ t.name }}</td>
-                                <td><span class="badge bg-light-primary text-primary">{{ t.code }}</span></td>
-                                <td>
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>Plantillas de Notificaciones</h5>
+        <button class="btn btn-primary btn-sm" (click)="createTemplate(editModal)">
+          <i class="feather icon-plus"></i> Nueva Plantilla
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Código</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (t of templates; track t) {
+                <tr>
+                  <td>{{ t.name }}</td>
+                  <td><span class="badge bg-light-primary text-primary">{{ t.code }}</span></td>
+                  <td>
                                     <span class="badge" [ngClass]="{
                                     'bg-light-info text-info': t.type === 'info',
                                     'bg-light-success text-success': t.type === 'success',
                                     'bg-light-warning text-warning': t.type === 'warning',
                                     'bg-light-danger text-danger': t.type === 'danger'
                                 }">{{ t.type | uppercase }}</span>
-                                </td>
-                                <td>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" [checked]="t.is_active"
-                                            (change)="toggleActive(t)">
-                                    </div>
-                                </td>
-                                <td>
-                                    <button class="btn btn-sm btn-icon btn-outline-primary"
-                                        (click)="editTemplate(t, editModal)">
-                                        <i class="feather icon-edit"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                  </td>
+                  <td>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" [checked]="t.is_active"
+                        (change)="toggleActive(t)">
+                      </div>
+                    </td>
+                    <td>
+                      <button class="btn btn-sm btn-icon btn-outline-primary"
+                        (click)="editTemplate(t, editModal)">
+                        <i class="feather icon-edit"></i>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         </div>
+      </div>
     </div>
-</div>
+  </div>
 
-<ng-template #editModal let-modal>
+  <ng-template #editModal let-modal>
     <div class="modal-header">
-        <h4 class="modal-title">{{ selectedTemplate.id ? 'Editar' : 'Crear' }} Plantilla: {{ selectedTemplate.code }}
-        </h4>
-        <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss()"></button>
+      <h4 class="modal-title">{{ selectedTemplate.id ? 'Editar' : 'Crear' }} Plantilla: {{ selectedTemplate.code }}
+      </h4>
+      <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss()"></button>
     </div>
     <div class="modal-body">
-        <form>
-            <div class="mb-3">
-                <label class="form-label">Nombre</label>
-                <input type="text" class="form-control" [(ngModel)]="selectedTemplate.name" name="name" required>
+      <form>
+        <div class="mb-3">
+          <label class="form-label">Nombre</label>
+          <input type="text" class="form-control" [(ngModel)]="selectedTemplate.name" name="name" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Código (Único)</label>
+          <input type="text" class="form-control" [(ngModel)]="selectedTemplate.code" name="code"
+            [disabled]="selectedTemplate.id" required>
+            <small class="text-muted">Ej: NEW_SALE. Usado por el sistema para identificar el evento.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Título (Soporta variables como &#123;order_id&#125;)</label>
+            <input type="text" class="form-control" [(ngModel)]="selectedTemplate.title_template" name="title"
+              required>
             </div>
             <div class="mb-3">
-                <label class="form-label">Código (Único)</label>
-                <input type="text" class="form-control" [(ngModel)]="selectedTemplate.code" name="code"
-                    [disabled]="selectedTemplate.id" required>
-                <small class="text-muted">Ej: NEW_SALE. Usado por el sistema para identificar el evento.</small>
+              <label class="form-label">Mensaje (Cuerpo)</label>
+              <textarea class="form-control" rows="4" [(ngModel)]="selectedTemplate.body_template" name="body"
+              required></textarea>
+              <small class="text-muted">Variables disponibles dependen del trigger (ej. &#123;user_name&#125;,
+              &#123;amount&#125;)</small>
             </div>
             <div class="mb-3">
-                <label class="form-label">Título (Soporta variables como &#123;order_id&#125;)</label>
-                <input type="text" class="form-control" [(ngModel)]="selectedTemplate.title_template" name="title"
-                    required>
+              <label class="form-label">Tipo de Notificación</label>
+              <select class="form-select" [(ngModel)]="selectedTemplate.type" name="type">
+                <option value="info">Info</option>
+                <option value="success">Success</option>
+                <option value="warning">Warning</option>
+                <option value="danger">Danger</option>
+              </select>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Mensaje (Cuerpo)</label>
-                <textarea class="form-control" rows="4" [(ngModel)]="selectedTemplate.body_template" name="body"
-                    required></textarea>
-                <small class="text-muted">Variables disponibles dependen del trigger (ej. &#123;user_name&#125;,
-                    &#123;amount&#125;)</small>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Tipo de Notificación</label>
-                <select class="form-select" [(ngModel)]="selectedTemplate.type" name="type">
-                    <option value="info">Info</option>
-                    <option value="success">Success</option>
-                    <option value="warning">Warning</option>
-                    <option value="danger">Danger</option>
-                </select>
-            </div>
-        </form>
-    </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="modal.dismiss()">Cancelar</button>
-        <button type="button" class="btn btn-primary" (click)="saveTemplate()">Guardar Cambios</button>
-    </div>
-</ng-template>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="modal.dismiss()">Cancelar</button>
+          <button type="button" class="btn btn-primary" (click)="saveTemplate()">Guardar Cambios</button>
+        </div>
+      </ng-template>

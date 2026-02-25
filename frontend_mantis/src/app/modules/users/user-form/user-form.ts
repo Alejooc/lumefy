@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from '../user.service';
@@ -12,19 +12,19 @@ import { Role } from '../user.model';
   standalone: false
 })
 export class UserFormComponent implements OnInit {
+  private fb = inject(FormBuilder);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private userService = inject(UserService);
+  private swal = inject(SweetAlertService);
+
   userForm: FormGroup;
   isEditMode = false;
   userId: string | null = null;
   roles: Role[] = [];
   isLoading = false;
 
-  constructor(
-    private fb: FormBuilder,
-    private route: ActivatedRoute,
-    private router: Router,
-    private userService: UserService,
-    private swal: SweetAlertService
-  ) {
+  constructor() {
     this.userForm = this.fb.group({
       full_name: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],

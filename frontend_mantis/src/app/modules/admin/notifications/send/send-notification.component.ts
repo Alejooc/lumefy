@@ -1,22 +1,20 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { SharedModule } from 'src/app/theme/shared/shared.module';
-import { AdminService } from '../../admin.service';
-import Swal from 'sweetalert2';
 import { FormsModule } from '@angular/forms';
+import Swal from 'sweetalert2';
+import { SharedModule } from 'src/app/theme/shared/shared.module';
+import { AdminService, AdminUser, ManualNotificationPayload } from '../../admin.service';
 
 @Component({
     selector: 'app-send-notification',
     standalone: true,
-    imports: [CommonModule, SharedModule, FormsModule],
+    imports: [SharedModule, FormsModule],
     templateUrl: './send-notification.component.html'
 })
 export class SendNotificationComponent implements OnInit {
     private adminService = inject(AdminService);
 
     loading = false;
-
-    notification = {
+    notification: ManualNotificationPayload = {
         target_all: false,
         user_id: null,
         title: '',
@@ -24,22 +22,21 @@ export class SendNotificationComponent implements OnInit {
         type: 'info',
         link: ''
     };
-
-    users: any[] = [];
+    users: AdminUser[] = [];
 
     ngOnInit() {
         this.loadUsers();
     }
 
     loadUsers() {
-        this.adminService.getUsers().subscribe(res => {
+        this.adminService.getUsers().subscribe((res) => {
             this.users = res;
         });
     }
 
     send() {
         if (!this.notification.title || !this.notification.message) {
-            Swal.fire('Error', 'Título y Mensaje son requeridos', 'warning');
+            Swal.fire('Error', 'Titulo y mensaje son requeridos', 'warning');
             return;
         }
 
@@ -53,7 +50,6 @@ export class SendNotificationComponent implements OnInit {
             next: (res) => {
                 this.loading = false;
                 Swal.fire('Enviado', res.message, 'success');
-                // Reset form
                 this.notification = {
                     target_all: false,
                     user_id: null,
@@ -63,9 +59,9 @@ export class SendNotificationComponent implements OnInit {
                     link: ''
                 };
             },
-            error: (err) => {
+            error: () => {
                 this.loading = false;
-                Swal.fire('Error', 'No se pudo enviar la notificación', 'error');
+                Swal.fire('Error', 'No se pudo enviar la notificacion', 'error');
             }
         });
     }

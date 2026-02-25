@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
+import { SaleItem } from 'src/app/core/services/sale.service';
 
 export interface PackageType {
     id: string;
@@ -32,7 +33,7 @@ export interface SalePackageItem {
     package_id: string;
     sale_item_id: string;
     quantity: number;
-    sale_item?: any;
+    sale_item?: SaleItem;
 }
 
 export interface CreatePackageRequest {
@@ -67,8 +68,8 @@ export class LogisticsService {
         return this.api.put<PackageType>(`${this.basePath}/package-types/${id}`, data);
     }
 
-    deletePackageType(id: string): Observable<any> {
-        return this.api.delete<any>(`${this.basePath}/package-types/${id}`);
+    deletePackageType(id: string): Observable<unknown> {
+        return this.api.delete<unknown>(`${this.basePath}/package-types/${id}`);
     }
 
     // --- Picking ---

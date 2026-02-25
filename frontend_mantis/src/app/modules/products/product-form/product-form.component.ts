@@ -9,6 +9,25 @@ import Swal from 'sweetalert2';
 
 interface Brand { id: string; name: string; }
 interface UnitOfMeasure { id: string; name: string; abbreviation?: string; }
+interface ProductImageInput { image_url: string; order: number; }
+interface ProductVariantInput {
+    id?: string | null;
+    name: string;
+    sku?: string;
+    barcode?: string;
+    price_extra?: number;
+    cost_extra?: number;
+    weight?: number | null;
+}
+interface ProductDetailResponse {
+    id: string;
+    variants?: ProductVariantInput[];
+    images?: ProductImageInput[];
+    [key: string]: unknown;
+}
+interface ProductSaveResponse {
+    id: string;
+}
 
 @Component({
     selector: 'app-product-form',
@@ -23,7 +42,7 @@ export class ProductFormComponent implements OnInit {
     productId: string | null = null;
     isLoading = false;
     activeTab = 'general';
-    images: { image_url: string; order: number }[] = [];
+    images: ProductImageInput[] = [];
     isUploading = false;
 
     categories: Category[] = [];
@@ -119,7 +138,7 @@ export class ProductFormComponent implements OnInit {
 
     loadProduct(id: string) {
         this.isLoading = true;
-        this.api.get<any>(`/products/${id}`).subscribe({
+        this.api.get<ProductDetailResponse>(`/products/${id}`).subscribe({
             next: (data) => {
                 // Patch main form (exclude variants and images)
                 const { variants, images, ...productData } = data;
@@ -127,7 +146,7 @@ export class ProductFormComponent implements OnInit {
 
                 // Load images
                 if (images) {
-                    this.images = images.map((img: any) => ({
+                    this.images = images.map((img: ProductImageInput) => ({
                         image_url: img.image_url,
                         order: img.order
                     }));
@@ -135,7 +154,7 @@ export class ProductFormComponent implements OnInit {
 
                 // Load existing variants
                 if (variants && variants.length > 0) {
-                    variants.forEach((v: any) => {
+                    variants.forEach((v: ProductVariantInput) => {
                         this.variants.push(this.fb.group({
                             id: [v.id],
                             name: [v.name, Validators.required],
@@ -181,7 +200,7 @@ export class ProductFormComponent implements OnInit {
                     this.variants.removeAt(index);
                     this.cdr.detectChanges();
                 },
-                error: (err: any) => Swal.fire('Error', 'No se pudo eliminar la variante', 'error')
+                error: () => Swal.fire('Error', 'No se pudo eliminar la variante', 'error')
             });
         } else {
             this.variants.removeAt(index);
@@ -201,7 +220,10 @@ export class ProductFormComponent implements OnInit {
         }
 
         this.isLoading = true;
-        const formData = { ...this.form.getRawValue() };
+        const formData = {
+            ...(this.form.getRawValue() as Record<string, unknown> & { variants?: ProductVariantInput[] }),
+            images: this.images
+        };
 
         // Sanitize empty strings to null for UUID fields
         ['category_id', 'brand_id', 'unit_of_measure_id', 'purchase_uom_id'].forEach(f => {
@@ -214,14 +236,12 @@ export class ProductFormComponent implements OnInit {
 
         // Add images to payload
         // We need to send 'images' property which backend expects
-        (formData as any).images = this.images;
-
         const request = this.isEditMode
             ? this.api.put(`/products/${this.productId}`, formData)
             : this.api.post('/products', formData);
 
         request.subscribe({
-            next: (product: any) => {
+            next: (product: ProductSaveResponse) => {
                 const productId = product.id || this.productId;
 
                 // Save new variants (only for edit mode or after create)
@@ -247,8 +267,8 @@ export class ProductFormComponent implements OnInit {
         });
     }
 
-    private saveVariantsAfterCreate(productId: string, variants: any[]) {
-        const newVariants = variants.filter((v: any) => !v.id);
+    private saveVariantsAfterCreate(productId: string, variants: ProductVariantInput[]) {
+        const newVariants = variants.filter((v: ProductVariantInput) => !v.id);
         if (newVariants.length === 0) {
             Swal.fire('Éxito', 'Producto creado', 'success');
             this.router.navigate(['/products']);
@@ -256,8 +276,9 @@ export class ProductFormComponent implements OnInit {
         }
 
         let completed = 0;
-        newVariants.forEach((v: any) => {
-            const { id, ...variantData } = v;
+        newVariants.forEach((v: ProductVariantInput) => {
+            const variantData = { ...v };
+            delete variantData.id;
             this.api.post(`/products/${productId}/variants`, variantData).subscribe({
                 next: () => {
                     completed++;
@@ -272,11 +293,11 @@ export class ProductFormComponent implements OnInit {
         });
     }
 
-    private saveVariants(productId: string, variants: any[]) {
-        const newVariants = variants.filter((v: any) => !v.id);
-        const existingVariants = variants.filter((v: any) => v.id);
+    private saveVariants(productId: string, variants: ProductVariantInput[]) {
+        const newVariants = variants.filter((v: ProductVariantInput) => !v.id);
+        const existingVariants = variants.filter((v: ProductVariantInput) => v.id);
 
-        let total = newVariants.length + existingVariants.length;
+        const total = newVariants.length + existingVariants.length;
         let completed = 0;
 
         if (total === 0) {
@@ -296,8 +317,9 @@ export class ProductFormComponent implements OnInit {
         };
 
         // Create new
-        newVariants.forEach((v: any) => {
-            const { id, ...variantData } = v;
+        newVariants.forEach((v: ProductVariantInput) => {
+            const variantData = { ...v };
+            delete variantData.id;
             this.api.post(`/products/${productId}/variants`, variantData).subscribe({
                 next: checkDone,
                 error: checkDone
@@ -305,7 +327,7 @@ export class ProductFormComponent implements OnInit {
         });
 
         // Update existing
-        existingVariants.forEach((v: any) => {
+        existingVariants.forEach((v: ProductVariantInput) => {
             const { id, ...variantData } = v;
             this.api.put(`/products/${productId}/variants/${id}`, variantData).subscribe({
                 next: checkDone,
@@ -321,14 +343,14 @@ export class ProductFormComponent implements OnInit {
         return ((price - cost) / price) * 100;
     }
 
-    uploadImages(event: any) {
-        const files = event.target.files;
+    uploadImages(event: Event) {
+        const files = (event.target as HTMLInputElement).files;
         if (files && files.length > 0) {
             this.isUploading = true;
             let completed = 0;
             const total = files.length;
 
-            Array.from(files).forEach((file: any) => {
+            Array.from(files).forEach((file: File) => {
                 const formData = new FormData();
                 formData.append('file', file);
 

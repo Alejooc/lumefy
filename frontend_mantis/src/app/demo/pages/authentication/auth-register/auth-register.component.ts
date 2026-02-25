@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterModule, Router } from '@angular/router';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { AuthService, UserRegister } from 'src/app/core/services/auth.service';
 import Swal from 'sweetalert2';
@@ -8,7 +8,7 @@ import Swal from 'sweetalert2';
 @Component({
   selector: 'app-auth-register',
   standalone: true,
-  imports: [RouterModule, CommonModule, FormsModule],
+  imports: [RouterModule, FormsModule],
   templateUrl: './auth-register.component.html',
   styleUrl: './auth-register.component.scss'
 })

@@ -1,155 +1,166 @@
-<div class="row" *ngIf="!isLoading && config">
+@if (!isLoading && config) {
+  <div class="row">
     <div class="col-sm-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>Editor Landing Page</h5>
-                <button class="btn btn-primary" (click)="saveConfig()">
-                    <i class="feather icon-save me-2"></i>Guardar Cambios
-                </button>
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5>Editor Landing Page</h5>
+          <button class="btn btn-primary" (click)="saveConfig()">
+            <i class="feather icon-save me-2"></i>Guardar Cambios
+          </button>
+        </div>
+        <div class="card-body">
+          <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+              <a class="nav-link" [class.active]="activeTab === 'hero'" (click)="activeTab = 'hero'"
+              href="javascript:void(0)">Hero Section</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [class.active]="activeTab === 'features'" (click)="activeTab = 'features'"
+              href="javascript:void(0)">Características</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [class.active]="activeTab === 'clients'" (click)="activeTab = 'clients'"
+              href="javascript:void(0)">Clientes</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [class.active]="activeTab === 'settings'" (click)="activeTab = 'settings'"
+              href="javascript:void(0)">Configuración</a>
+            </li>
+          </ul>
+          <!-- HERO TAB -->
+          @if (activeTab === 'hero') {
+            <div>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Título Principal</label>
+                  <input type="text" class="form-control" [(ngModel)]="config.hero.title">
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Subtítulo</label>
+                  <textarea class="form-control" rows="3" [(ngModel)]="config.hero.subtitle"></textarea>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="form-label">Texto Botón CTA</label>
+                  <input type="text" class="form-control" [(ngModel)]="config.hero.cta_text">
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="form-label">Enlace Botón CTA</label>
+                  <input type="text" class="form-control" [(ngModel)]="config.hero.cta_link">
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label class="form-label">URL Imagen Hero</label>
+                  <input type="text" class="form-control" [(ngModel)]="config.hero.image_url">
+                </div>
+              </div>
+              <div class="alert alert-info mt-3">
+                Preview: <strong>{{ config.hero.title }}</strong> - {{ config.hero.subtitle }}
+              </div>
             </div>
-            <div class="card-body">
-                <ul class="nav nav-tabs mb-4">
-                    <li class="nav-item">
-                        <a class="nav-link" [class.active]="activeTab === 'hero'" (click)="activeTab = 'hero'"
-                            href="javascript:void(0)">Hero Section</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" [class.active]="activeTab === 'features'" (click)="activeTab = 'features'"
-                            href="javascript:void(0)">Características</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" [class.active]="activeTab === 'clients'" (click)="activeTab = 'clients'"
-                            href="javascript:void(0)">Clientes</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" [class.active]="activeTab === 'settings'" (click)="activeTab = 'settings'"
-                            href="javascript:void(0)">Configuración</a>
-                    </li>
-                </ul>
-
-                <!-- HERO TAB -->
-                <div *ngIf="activeTab === 'hero'">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Título Principal</label>
-                            <input type="text" class="form-control" [(ngModel)]="config.hero.title">
+          }
+          <!-- FEATURES TAB -->
+          @if (activeTab === 'features') {
+            <div>
+              <div class="mb-3">
+                <button class="btn btn-outline-primary btn-sm" (click)="addFeature()">
+                  <i class="feather icon-plus me-1"></i>Agregar Característica
+                </button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Icono (Feather)</th>
+                      <th>Título</th>
+                      <th>Descripción</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (feature of config.features; track feature; let i = $index) {
+                      <tr>
+                        <td><input type="text" class="form-control form-control-sm"
+                        [(ngModel)]="feature.icon"></td>
+                        <td><input type="text" class="form-control form-control-sm"
+                        [(ngModel)]="feature.title"></td>
+                        <td><input type="text" class="form-control form-control-sm"
+                        [(ngModel)]="feature.description"></td>
+                        <td>
+                          <button class="btn btn-danger btn-sm" (click)="removeFeature(i)"><i
+                          class="feather icon-trash"></i></button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+          <!-- CLIENTS TAB -->
+          @if (activeTab === 'clients') {
+            <div>
+              <div class="mb-3">
+                <button class="btn btn-outline-primary btn-sm" (click)="addClient()">
+                  <i class="feather icon-plus me-1"></i>Agregar Cliente
+                </button>
+              </div>
+              <div class="row">
+                @for (client of config.clients; track client; let i = $index) {
+                  <div class="col-md-4 mb-3">
+                    <div class="card border p-3">
+                      <div class="mb-2">
+                        <label class="form-label small">Nombre Cliente</label>
+                        <input type="text" class="form-control form-control-sm" [(ngModel)]="client.name">
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label small">URL Logo</label>
+                        <input type="text" class="form-control form-control-sm"
+                          [(ngModel)]="client.logo_url">
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Subtítulo</label>
-                            <textarea class="form-control" rows="3" [(ngModel)]="config.hero.subtitle"></textarea>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Texto Botón CTA</label>
-                            <input type="text" class="form-control" [(ngModel)]="config.hero.cta_text">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Enlace Botón CTA</label>
-                            <input type="text" class="form-control" [(ngModel)]="config.hero.cta_link">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">URL Imagen Hero</label>
-                            <input type="text" class="form-control" [(ngModel)]="config.hero.image_url">
-                        </div>
+                        <button class="btn btn-danger btn-sm w-100" (click)="removeClient(i)">Eliminar</button>
+                      </div>
                     </div>
-                    <div class="alert alert-info mt-3">
-                        Preview: <strong>{{ config.hero.title }}</strong> - {{ config.hero.subtitle }}
-                    </div>
+                  }
                 </div>
-
-                <!-- FEATURES TAB -->
-                <div *ngIf="activeTab === 'features'">
-                    <div class="mb-3">
-                        <button class="btn btn-outline-primary btn-sm" (click)="addFeature()">
-                            <i class="feather icon-plus me-1"></i>Agregar Característica
-                        </button>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Icono (Feather)</th>
-                                    <th>Título</th>
-                                    <th>Descripción</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr *ngFor="let feature of config.features; let i = index">
-                                    <td><input type="text" class="form-control form-control-sm"
-                                            [(ngModel)]="feature.icon"></td>
-                                    <td><input type="text" class="form-control form-control-sm"
-                                            [(ngModel)]="feature.title"></td>
-                                    <td><input type="text" class="form-control form-control-sm"
-                                            [(ngModel)]="feature.description"></td>
-                                    <td>
-                                        <button class="btn btn-danger btn-sm" (click)="removeFeature(i)"><i
-                                                class="feather icon-trash"></i></button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+              </div>
+            }
+            <!-- SETTINGS TAB -->
+            @if (activeTab === 'settings') {
+              <div>
+                <div class="form-check form-switch mb-3">
+                  <input class="form-check-input" type="checkbox" id="enableLanding" [(ngModel)]="config.enabled">
+                  <label class="form-check-label" for="enableLanding">Habilitar Landing Page Pública</label>
                 </div>
-
-                <!-- CLIENTS TAB -->
-                <div *ngIf="activeTab === 'clients'">
-                    <div class="mb-3">
-                        <button class="btn btn-outline-primary btn-sm" (click)="addClient()">
-                            <i class="feather icon-plus me-1"></i>Agregar Cliente
-                        </button>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-4 mb-3" *ngFor="let client of config.clients; let i = index">
-                            <div class="card border p-3">
-                                <div class="mb-2">
-                                    <label class="form-label small">Nombre Cliente</label>
-                                    <input type="text" class="form-control form-control-sm" [(ngModel)]="client.name">
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label small">URL Logo</label>
-                                    <input type="text" class="form-control form-control-sm"
-                                        [(ngModel)]="client.logo_url">
-                                </div>
-                                <button class="btn btn-danger btn-sm w-100" (click)="removeClient(i)">Eliminar</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SETTINGS TAB -->
-                <div *ngIf="activeTab === 'settings'">
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="enableLanding" [(ngModel)]="config.enabled">
-                        <label class="form-check-label" for="enableLanding">Habilitar Landing Page Pública</label>
-                    </div>
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="showPricing"
-                            [(ngModel)]="config.pricing_visible">
-                        <label class="form-check-label" for="showPricing">Mostrar Sección de Precios</label>
-                    </div>
-                    <hr>
+                <div class="form-check form-switch mb-3">
+                  <input class="form-check-input" type="checkbox" id="showPricing"
+                    [(ngModel)]="config.pricing_visible">
+                    <label class="form-check-label" for="showPricing">Mostrar Sección de Precios</label>
+                  </div>
+                  <hr>
                     <h5>Contacto</h5>
                     <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Email</label>
-                            <input type="text" class="form-control" [(ngModel)]="config.contact.email">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Teléfono</label>
-                            <input type="text" class="form-control" [(ngModel)]="config.contact.phone">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Dirección</label>
-                            <input type="text" class="form-control" [(ngModel)]="config.contact.address">
-                        </div>
+                      <div class="col-md-4 mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="text" class="form-control" [(ngModel)]="config.contact.email">
+                      </div>
+                      <div class="col-md-4 mb-3">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" class="form-control" [(ngModel)]="config.contact.phone">
+                      </div>
+                      <div class="col-md-4 mb-3">
+                        <label class="form-label">Dirección</label>
+                        <input type="text" class="form-control" [(ngModel)]="config.contact.address">
+                      </div>
                     </div>
-                </div>
-
+                  </div>
+                }
+              </div>
             </div>
+          </div>
         </div>
-    </div>
-</div>
+      }
 
-<div *ngIf="isLoading" class="d-flex justify-content-center p-5">
-    <div class="spinner-border text-primary" role="status"></div>
-</div>
+      @if (isLoading) {
+        <div class="d-flex justify-content-center p-5">
+          <div class="spinner-border text-primary" role="status"></div>
+        </div>
+      }

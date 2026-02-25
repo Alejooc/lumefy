@@ -1,9 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
-import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { SharedModule } from '../../../theme/shared/shared.module';
+import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 
 interface BoardCard {
     id: string;
@@ -27,6 +27,8 @@ interface BoardColumn {
     cards: BoardCard[];
 }
 
+type LogisticsBoardResponse = Record<string, BoardCard[]>;
+
 @Component({
     selector: 'app-logistics-board',
     templateUrl: './logistics-board.component.html',
@@ -35,6 +37,11 @@ interface BoardColumn {
     imports: [CommonModule, SharedModule]
 })
 export class LogisticsBoardComponent implements OnInit {
+    private api = inject(ApiService);
+    private swal = inject(SweetAlertService);
+    private router = inject(Router);
+    private cdr = inject(ChangeDetectorRef);
+
     columns: BoardColumn[] = [
         { key: 'CONFIRMED', label: 'Confirmados', icon: 'ti ti-clipboard-check', color: '#4680ff', nextStatus: 'PICKING', nextLabel: 'Iniciar Picking', cards: [] },
         { key: 'PICKING', label: 'En Picking', icon: 'ti ti-package', color: '#e58a00', nextStatus: 'PACKING', nextLabel: 'Listo para Empacar', cards: [] },
@@ -43,14 +50,7 @@ export class LogisticsBoardComponent implements OnInit {
     ];
     isLoading = false;
     draggedCard: BoardCard | null = null;
-    dragSourceColumn: string = '';
-
-    constructor(
-        private api: ApiService,
-        private swal: SweetAlertService,
-        private router: Router,
-        private cdr: ChangeDetectorRef
-    ) { }
+    dragSourceColumn = '';
 
     ngOnInit(): void {
         this.loadBoard();
@@ -58,10 +58,10 @@ export class LogisticsBoardComponent implements OnInit {
 
     loadBoard() {
         this.isLoading = true;
-        this.api.get<any>('/logistics/board').subscribe({
+        this.api.get<LogisticsBoardResponse>('/logistics/board').subscribe({
             next: (data) => {
-                for (const col of this.columns) {
-                    col.cards = data[col.key] || [];
+                for (const column of this.columns) {
+                    column.cards = data[column.key] || [];
                 }
                 this.isLoading = false;
                 this.cdr.detectChanges();
@@ -74,15 +74,12 @@ export class LogisticsBoardComponent implements OnInit {
     }
 
     moveCard(card: BoardCard, targetStatus: string) {
-        this.api.post<any>('/logistics/board/move', {
-            sale_id: card.id,
-            status: targetStatus
-        }).subscribe({
+        this.api.post<unknown>('/logistics/board/move', { sale_id: card.id, status: targetStatus }).subscribe({
             next: () => {
                 this.swal.success('Movido', 'Pedido movido correctamente');
                 this.loadBoard();
             },
-            error: (err) => {
+            error: (err: { error?: { detail?: string } }) => {
                 this.swal.error('Error', err?.error?.detail || 'No se pudo mover el pedido');
             }
         });
@@ -90,19 +87,18 @@ export class LogisticsBoardComponent implements OnInit {
 
     advanceCard(card: BoardCard, column: BoardColumn) {
         if (!column.nextStatus) return;
-        this.swal.confirm(
-            `¿${column.nextLabel}?`,
-            `Mover pedido #${card.short_id} a "${this.getColumnLabel(column.nextStatus)}"`
-        ).then((result: any) => {
-            if (result.isConfirmed) {
-                this.moveCard(card, column.nextStatus!);
-            }
-        });
+        this.swal
+            .confirm(column.nextLabel || 'Mover', `Mover pedido #${card.short_id} a "${this.getColumnLabel(column.nextStatus)}"`)
+            .then((result) => {
+                if (result.isConfirmed && column.nextStatus) {
+                    this.moveCard(card, column.nextStatus);
+                }
+            });
     }
 
     getColumnLabel(status: string): string {
-        const col = this.columns.find(c => c.key === status);
-        return col?.label || status;
+        const column = this.columns.find((col) => col.key === status);
+        return column?.label || status;
     }
 
     getTotalCount(): number {
@@ -113,7 +109,6 @@ export class LogisticsBoardComponent implements OnInit {
         this.router.navigate(['/sales/view', id]);
     }
 
-    // Drag & Drop
     onDragStart(event: DragEvent, card: BoardCard, columnKey: string) {
         this.draggedCard = card;
         this.dragSourceColumn = columnKey;

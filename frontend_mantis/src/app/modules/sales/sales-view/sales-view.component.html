@@ -1,214 +1,256 @@
-<div class="row" *ngIf="sale">
+@if (sale) {
+  <div class="row">
     <div class="col-sm-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>
-                    {{ sale.status === 'QUOTE' ? 'Cotización' : 'Orden de Venta' }} #{{ sale.id | slice:0:8 }}
-                    <span [ngClass]="getStatusClass(sale.status)" class="ms-2">{{ sale.status }}</span>
-                </h5>
-                <div>
-                    <button class="btn btn-secondary btn-sm me-2" [routerLink]="['/sales']">Volver</button>
-                    <!-- Actions based on status -->
-                    <button *ngIf="sale.status === 'QUOTE' || sale.status === 'DRAFT'"
-                        class="btn btn-success btn-sm me-2" (click)="updateStatus('CONFIRMED')">
-                        Confirmar Orden
-                    </button>
-                    <button *ngIf="sale.status === 'CONFIRMED'" class="btn btn-info btn-sm me-2"
-                        (click)="updateStatus('PICKING')">
-                        Iniciar Picking
-                    </button>
-                    <!-- Resume Picking -->
-                    <button *ngIf="sale.status === 'PICKING'" class="btn btn-outline-info btn-sm me-2"
-                        [routerLink]="['/logistics/picking', sale.id]">
-                        Continuar Picking
-                    </button>
-                    <button *ngIf="sale.status === 'PICKING'" class="btn btn-info btn-sm me-2"
-                        (click)="updateStatus('PACKING')">
-                        Finalizar y Empacar
-                    </button>
-                    <!-- Resume Packing -->
-                    <button *ngIf="sale.status === 'PACKING'" class="btn btn-outline-primary btn-sm me-2"
-                        [routerLink]="['/logistics/packing', sale.id]">
-                        Ver Empaque
-                    </button>
-                    <button *ngIf="sale.status === 'PACKING'" class="btn btn-primary btn-sm me-2"
-                        (click)="updateStatus('DISPATCHED')">
-                        Despachar
-                    </button>
-                    <button *ngIf="sale.status === 'DISPATCHED'" class="btn btn-success btn-sm me-2"
-                        (click)="openDeliveryModal()">
-                        <i class="ti ti-package-export me-1"></i>Confirmar Entrega
-                    </button>
-                    <button *ngIf="sale.status === 'DELIVERED'" class="btn btn-primary btn-sm me-2"
-                        (click)="completeSale()">
-                        <i class="ti ti-circle-check me-1"></i>Cerrar Venta
-                    </button>
-                    <!-- Create Return directly from the Sale -->
-                    <button *ngIf="sale.status === 'DELIVERED' || sale.status === 'COMPLETED'"
-                        class="btn btn-warning btn-sm me-2" [routerLink]="['/returns/new']"
-                        [queryParams]="{sale_id: sale.id}">
-                        <i class="ti ti-transform me-1"></i>Crear Devolución
-                    </button>
-                    <button
-                        *ngIf="sale.status !== 'CANCELLED' && sale.status !== 'COMPLETED' && sale.status !== 'DELIVERED'"
-                        class="btn btn-danger btn-sm" (click)="updateStatus('CANCELLED')">
-                        Cancelar
-                    </button>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="row mb-4">
-                    <div class="col-md-4">
-                        <h6>Cliente</h6>
-                        <p class="mb-1 text-muted">{{ sale.client?.name || 'Cliente Ocasional' }}</p>
-                        <p class="mb-1 text-muted" *ngIf="sale.client?.email">{{ sale.client?.email }}</p>
-                    </div>
-                    <div class="col-md-4">
-                        <h6>Detalles</h6>
-                        <p class="mb-1"><strong>Fecha:</strong> {{ sale.created_at | date:'medium' }}</p>
-                        <p class="mb-1"><strong>Sucursal:</strong> {{ sale.branch?.name }}</p>
-                        <p class="mb-1" *ngIf="sale.valid_until"><strong>Válido Hasta:</strong> {{ sale.valid_until |
-                            date:'shortDate' }}</p>
-                    </div>
-                    <div class="col-md-4">
-                        <h6>Envío</h6>
-                        <p class="text-muted">{{ sale.shipping_address || 'No especificada' }}</p>
-                    </div>
-                </div>
-
-                <div class="row mb-4" *ngIf="sale.notes">
-                    <div class="col-12">
-                        <h6>Notas</h6>
-                        <p class="alert alert-light">{{ sale.notes }}</p>
-                    </div>
-                </div>
-
-                <!-- Delivery Info -->
-                <div class="row mb-4" *ngIf="sale.delivered_at">
-                    <div class="col-12">
-                        <div class="alert alert-success d-flex align-items-start">
-                            <i class="ti ti-truck-delivery me-2 fs-4"></i>
-                            <div>
-                                <strong>Entrega Confirmada</strong> — {{ sale.delivered_at | date:'medium' }}
-                                <p class="mb-0 mt-1" *ngIf="sale.delivery_notes">{{ sale.delivery_notes }}</p>
-                                <a *ngIf="sale.delivery_evidence_url" [href]="sale.delivery_evidence_url"
-                                    target="_blank" class="text-decoration-underline">Ver evidencia</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mb-4" *ngIf="sale.completed_at">
-                    <div class="col-12">
-                        <div class="alert alert-primary d-flex align-items-start">
-                            <i class="ti ti-circle-check me-2 fs-4"></i>
-                            <div>
-                                <strong>Venta Cerrada</strong> — {{ sale.completed_at | date:'medium' }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Producto</th>
-                                <th class="text-center">Cant.</th>
-                                <th class="text-center" *ngIf="sale.status !== 'QUOTE' && sale.status !== 'DRAFT'">
-                                    Picked</th>
-                                <th class="text-center" *ngIf="sale.status !== 'QUOTE' && sale.status !== 'DRAFT'">
-                                    Packed</th>
-                                <th class="text-end">Precio Unit.</th>
-                                <th class="text-end">Desc.</th>
-                                <th class="text-end">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let item of sale.items">
-                                <td>
-                                    <div class="fw-bold">{{ item.product?.name }}</div>
-                                    <small class="text-muted">{{ item.product?.sku }}</small>
-                                </td>
-                                <td class="text-center">{{ item.quantity }}</td>
-
-                                <!-- Picked Column -->
-                                <td class="text-center" *ngIf="sale.status !== 'QUOTE' && sale.status !== 'DRAFT'">
-                                    <span
-                                        [ngClass]="{'text-danger fw-bold': (item.quantity_picked || 0) !== item.quantity, 'text-success': (item.quantity_picked || 0) === item.quantity}">
-                                        {{ item.quantity_picked || 0 }}
-                                    </span>
-                                </td>
-
-                                <!-- Packed Column -->
-                                <td class="text-center" *ngIf="sale.status !== 'QUOTE' && sale.status !== 'DRAFT'">
-                                    <span
-                                        [ngClass]="{'text-danger fw-bold': (packedQuantities[item.id!] || 0) !== item.quantity, 'text-success': (packedQuantities[item.id!] || 0) === item.quantity}">
-                                        {{ packedQuantities[item.id!] || 0 }}
-                                    </span>
-                                </td>
-
-                                <td class="text-end">{{ item.price | currency }}</td>
-                                <td class="text-end">{{ item.discount | currency }}</td>
-                                <td class="text-end">{{ item.total | currency }}</td>
-                            </tr>
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td [attr.colspan]="(sale.status !== 'QUOTE' && sale.status !== 'DRAFT') ? 6 : 4"
-                                    class="text-end fw-bold">Total:</td>
-                                <td class="text-end fw-bold">{{ sale.total | currency }}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5>
+            {{ sale.status === 'QUOTE' ? 'Cotización' : 'Orden de Venta' }} #{{ sale.id | slice:0:8 }}
+            <span [ngClass]="getStatusClass(sale.status)" class="ms-2">{{ sale.status }}</span>
+          </h5>
+          <div>
+            <button class="btn btn-secondary btn-sm me-2" [routerLink]="['/sales']">Volver</button>
+            <!-- Actions based on status -->
+            @if (sale.status === 'QUOTE' || sale.status === 'DRAFT') {
+              <button
+                class="btn btn-success btn-sm me-2" (click)="updateStatus('CONFIRMED')">
+                Confirmar Orden
+              </button>
+            }
+            @if (sale.status === 'CONFIRMED') {
+              <button class="btn btn-info btn-sm me-2"
+                (click)="updateStatus('PICKING')">
+                Iniciar Picking
+              </button>
+            }
+            <!-- Resume Picking -->
+            @if (sale.status === 'PICKING') {
+              <button class="btn btn-outline-info btn-sm me-2"
+                [routerLink]="['/logistics/picking', sale.id]">
+                Continuar Picking
+              </button>
+            }
+            @if (sale.status === 'PICKING') {
+              <button class="btn btn-info btn-sm me-2"
+                (click)="updateStatus('PACKING')">
+                Finalizar y Empacar
+              </button>
+            }
+            <!-- Resume Packing -->
+            @if (sale.status === 'PACKING') {
+              <button class="btn btn-outline-primary btn-sm me-2"
+                [routerLink]="['/logistics/packing', sale.id]">
+                Ver Empaque
+              </button>
+            }
+            @if (sale.status === 'PACKING') {
+              <button class="btn btn-primary btn-sm me-2"
+                (click)="updateStatus('DISPATCHED')">
+                Despachar
+              </button>
+            }
+            @if (sale.status === 'DISPATCHED') {
+              <button class="btn btn-success btn-sm me-2"
+                (click)="openDeliveryModal()">
+                <i class="ti ti-package-export me-1"></i>Confirmar Entrega
+              </button>
+            }
+            @if (sale.status === 'DELIVERED') {
+              <button class="btn btn-primary btn-sm me-2"
+                (click)="completeSale()">
+                <i class="ti ti-circle-check me-1"></i>Cerrar Venta
+              </button>
+            }
+            <!-- Create Return directly from the Sale -->
+            @if (sale.status === 'DELIVERED' || sale.status === 'COMPLETED') {
+              <button
+                class="btn btn-warning btn-sm me-2" [routerLink]="['/returns/new']"
+                [queryParams]="{sale_id: sale.id}">
+                <i class="ti ti-transform me-1"></i>Crear Devolución
+              </button>
+            }
+            @if (sale.status !== 'CANCELLED' && sale.status !== 'COMPLETED' && sale.status !== 'DELIVERED') {
+              <button
+                class="btn btn-danger btn-sm" (click)="updateStatus('CANCELLED')">
+                Cancelar
+              </button>
+            }
+          </div>
         </div>
+        <div class="card-body">
+          <div class="row mb-4">
+            <div class="col-md-4">
+              <h6>Cliente</h6>
+              <p class="mb-1 text-muted">{{ sale.client?.name || 'Cliente Ocasional' }}</p>
+              @if (sale.client?.email) {
+                <p class="mb-1 text-muted">{{ sale.client?.email }}</p>
+              }
+            </div>
+            <div class="col-md-4">
+              <h6>Detalles</h6>
+              <p class="mb-1"><strong>Fecha:</strong> {{ sale.created_at | date:'medium' }}</p>
+              <p class="mb-1"><strong>Sucursal:</strong> {{ sale.branch?.name }}</p>
+              @if (sale.valid_until) {
+                <p class="mb-1"><strong>Válido Hasta:</strong> {{ sale.valid_until |
+              date:'shortDate' }}</p>
+            }
+          </div>
+          <div class="col-md-4">
+            <h6>Envío</h6>
+            <p class="text-muted">{{ sale.shipping_address || 'No especificada' }}</p>
+          </div>
+        </div>
+        @if (sale.notes) {
+          <div class="row mb-4">
+            <div class="col-12">
+              <h6>Notas</h6>
+              <p class="alert alert-light">{{ sale.notes }}</p>
+            </div>
+          </div>
+        }
+        <!-- Delivery Info -->
+        @if (sale.delivered_at) {
+          <div class="row mb-4">
+            <div class="col-12">
+              <div class="alert alert-success d-flex align-items-start">
+                <i class="ti ti-truck-delivery me-2 fs-4"></i>
+                <div>
+                  <strong>Entrega Confirmada</strong> — {{ sale.delivered_at | date:'medium' }}
+                  @if (sale.delivery_notes) {
+                    <p class="mb-0 mt-1">{{ sale.delivery_notes }}</p>
+                  }
+                  @if (sale.delivery_evidence_url) {
+                    <a [href]="sale.delivery_evidence_url"
+                    target="_blank" class="text-decoration-underline">Ver evidencia</a>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+        @if (sale.completed_at) {
+          <div class="row mb-4">
+            <div class="col-12">
+              <div class="alert alert-primary d-flex align-items-start">
+                <i class="ti ti-circle-check me-2 fs-4"></i>
+                <div>
+                  <strong>Venta Cerrada</strong> — {{ sale.completed_at | date:'medium' }}
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+        <div class="table-responsive">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th class="text-center">Cant.</th>
+                @if (sale.status !== 'QUOTE' && sale.status !== 'DRAFT') {
+                  <th class="text-center">
+                  Picked</th>
+                }
+                @if (sale.status !== 'QUOTE' && sale.status !== 'DRAFT') {
+                  <th class="text-center">
+                  Packed</th>
+                }
+                <th class="text-end">Precio Unit.</th>
+                <th class="text-end">Desc.</th>
+                <th class="text-end">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of sale.items; track item) {
+                <tr>
+                  <td>
+                    <div class="fw-bold">{{ item.product?.name }}</div>
+                    <small class="text-muted">{{ item.product?.sku }}</small>
+                  </td>
+                  <td class="text-center">{{ item.quantity }}</td>
+                  <!-- Picked Column -->
+                  @if (sale.status !== 'QUOTE' && sale.status !== 'DRAFT') {
+                    <td class="text-center">
+                      <span
+                        [ngClass]="{'text-danger fw-bold': (item.quantity_picked || 0) !== item.quantity, 'text-success': (item.quantity_picked || 0) === item.quantity}">
+                        {{ item.quantity_picked || 0 }}
+                      </span>
+                    </td>
+                  }
+                  <!-- Packed Column -->
+                  @if (sale.status !== 'QUOTE' && sale.status !== 'DRAFT') {
+                    <td class="text-center">
+                      <span
+                        [ngClass]="{'text-danger fw-bold': (packedQuantities[item.id!] || 0) !== item.quantity, 'text-success': (packedQuantities[item.id!] || 0) === item.quantity}">
+                        {{ packedQuantities[item.id!] || 0 }}
+                      </span>
+                    </td>
+                  }
+                  <td class="text-end">{{ item.price | currency }}</td>
+                  <td class="text-end">{{ item.discount | currency }}</td>
+                  <td class="text-end">{{ item.total | currency }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <td [attr.colspan]="(sale.status !== 'QUOTE' && sale.status !== 'DRAFT') ? 6 : 4"
+                class="text-end fw-bold">Total:</td>
+                <td class="text-end fw-bold">{{ sale.total | currency }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
+}
 
-<div *ngIf="loading" class="text-center mt-5">
+@if (loading) {
+  <div class="text-center mt-5">
     <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Cargando...</span>
+      <span class="visually-hidden">Cargando...</span>
     </div>
-</div>
+  </div>
+}
 
 <!-- Delivery Confirmation Modal -->
 <div class="modal fade" id="deliveryModal" tabindex="-1" aria-hidden="true" [class.show]="showDeliveryModal"
-    [style.display]="showDeliveryModal ? 'block' : 'none'"
-    [style.background]="showDeliveryModal ? 'rgba(0,0,0,0.5)' : ''">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirmar Entrega al Cliente</h5>
-                <button type="button" class="btn-close" (click)="closeDeliveryModal()"></button>
+  [style.display]="showDeliveryModal ? 'block' : 'none'"
+  [style.background]="showDeliveryModal ? 'rgba(0,0,0,0.5)' : ''">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar Entrega al Cliente</h5>
+        <button type="button" class="btn-close" (click)="closeDeliveryModal()"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="deliveryForm">
+          <div class="mb-3">
+            <label class="form-label">Notas de Entrega (Opcional)</label>
+            <textarea class="form-control" formControlName="notes" rows="3"
+            placeholder="Ej. Entregado al portero, recibido en buenas condiciones..."></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">URL de Evidencia (Opcional)</label>
+            <input type="url" class="form-control" formControlName="evidence_url"
+              placeholder="https://link-a-foto-o-firma.com">
+              <small class="text-muted">Si tienes una foto de la entrega o firma electrónica, coloca
+              el enlace aquí.</small>
             </div>
-            <div class="modal-body">
-                <form [formGroup]="deliveryForm">
-                    <div class="mb-3">
-                        <label class="form-label">Notas de Entrega (Opcional)</label>
-                        <textarea class="form-control" formControlName="notes" rows="3"
-                            placeholder="Ej. Entregado al portero, recibido en buenas condiciones..."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">URL de Evidencia (Opcional)</label>
-                        <input type="url" class="form-control" formControlName="evidence_url"
-                            placeholder="https://link-a-foto-o-firma.com">
-                        <small class="text-muted">Si tienes una foto de la entrega o firma electrónica, coloca
-                            el enlace aquí.</small>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" (click)="closeDeliveryModal()"
-                    [disabled]="isSubmittingDelivery">Cancelar</button>
-                <button type="button" class="btn btn-success" (click)="confirmDelivery()"
-                    [disabled]="isSubmittingDelivery">
-                    <i class="feather icon-check me-1"></i>
-                    <span *ngIf="isSubmittingDelivery" class="spinner-border spinner-border-sm me-1"></span>
-                    Confirmar Entrega Final
-                </button>
-            </div>
+          </form>
         </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeDeliveryModal()"
+          [disabled]="isSubmittingDelivery">Cancelar</button>
+          <button type="button" class="btn btn-success" (click)="confirmDelivery()"
+            [disabled]="isSubmittingDelivery">
+            <i class="feather icon-check me-1"></i>
+            @if (isSubmittingDelivery) {
+              <span class="spinner-border spinner-border-sm me-1"></span>
+            }
+            Confirmar Entrega Final
+          </button>
+        </div>
+      </div>
     </div>
-</div>
+  </div>

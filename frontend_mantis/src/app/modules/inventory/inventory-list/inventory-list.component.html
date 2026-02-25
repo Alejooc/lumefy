@@ -1,77 +1,85 @@
 <div class="row">
-    <div class="col-sm-12">
-        <app-card [cardTitle]="'Inventario'">
-            <ng-template #headerOptionsTemplate>
-                <div class="d-flex flex-wrap align-items-center gap-2">
-                    <select class="form-select form-select-sm" style="width: 200px;" [(ngModel)]="selectedBranchId"
-                        (ngModelChange)="onBranchChange()">
-                        <option value="">Todas las sucursales</option>
-                        <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
-                    </select>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-success" (click)="exportData('excel')">
-                            <i class="feather icon-file"></i> Excel
-                        </button>
-                        <button class="btn btn-outline-success" (click)="exportData('csv')">
-                            <i class="feather icon-file-text"></i> CSV
-                        </button>
-                    </div>
-                    <button class="btn btn-primary btn-sm" routerLink="/inventory/movement">
-                        <i class="feather icon-plus"></i> Nuevo Movimiento
-                    </button>
-                </div>
-            </ng-template>
+  <div class="col-sm-12">
+    <app-card [cardTitle]="'Inventario'">
+      <ng-template #headerOptionsTemplate>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <select class="form-select form-select-sm" style="width: 200px;" [(ngModel)]="selectedBranchId"
+            (ngModelChange)="onBranchChange()">
+            <option value="">Todas las sucursales</option>
+            @for (b of branches; track b) {
+              <option [value]="b.id">{{ b.name }}</option>
+            }
+          </select>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-success" (click)="exportData('excel')">
+              <i class="feather icon-file"></i> Excel
+            </button>
+            <button class="btn btn-outline-success" (click)="exportData('csv')">
+              <i class="feather icon-file-text"></i> CSV
+            </button>
+          </div>
+          <button class="btn btn-primary btn-sm" routerLink="/inventory/movement">
+            <i class="feather icon-plus"></i> Nuevo Movimiento
+          </button>
+        </div>
+      </ng-template>
 
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Producto</th>
-                            <th>Sucursal</th>
-                            <th>Stock Actual</th>
-                            <th>Ubicación</th>
-                            <th>Lote</th>
-                            <th>Caducidad</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr *ngFor="let item of inventoryItems">
-                            <td>{{ item.product?.name || 'Producto #' + item.product_id }}</td>
-                            <td>{{ item.branch?.name || 'Sucursal #' + item.branch_id }}</td>
-                            <td>
-                                <span class="badge"
-                                    [ngClass]="{'bg-success': item.quantity > 10, 'bg-warning text-dark': item.quantity > 0 && item.quantity <= 10, 'bg-danger': item.quantity <= 0}">
-                                    {{ item.quantity }}
-                                </span>
-                            </td>
-                            <td>{{ item.location || '-' }}</td>
-                            <td>{{ item.batch_number || '-' }}</td>
-                            <td>{{ item.expiry_date || '-' }}</td>
-                            <td>
-                                <button class="btn btn-icon btn-outline-info btn-sm" title="Ver Movimientos (Kardex)"
-                                    [routerLink]="['/inventory/history', item.product_id]"
-                                    [queryParams]="{branchId: item.branch_id}">
-                                    <i class="feather icon-list"></i>
-                                </button>
-                            </td>
-                        </tr>
-                        <tr *ngIf="inventoryItems.length === 0 && !isLoading">
-                            <td colspan="7" class="text-center text-muted py-4">
-                                No hay registros de inventario.
-                                <br>
-                                <small>Crea un movimiento de entrada para comenzar.</small>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Sucursal</th>
+              <th>Stock Actual</th>
+              <th>Ubicación</th>
+              <th>Lote</th>
+              <th>Caducidad</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of inventoryItems; track item) {
+              <tr>
+                <td>{{ item.product?.name || 'Producto #' + item.product_id }}</td>
+                <td>{{ item.branch?.name || 'Sucursal #' + item.branch_id }}</td>
+                <td>
+                  <span class="badge"
+                    [ngClass]="{'bg-success': item.quantity > 10, 'bg-warning text-dark': item.quantity > 0 && item.quantity <= 10, 'bg-danger': item.quantity <= 0}">
+                    {{ item.quantity }}
+                  </span>
+                </td>
+                <td>{{ item.location || '-' }}</td>
+                <td>{{ item.batch_number || '-' }}</td>
+                <td>{{ item.expiry_date || '-' }}</td>
+                <td>
+                  <button class="btn btn-icon btn-outline-info btn-sm" title="Ver Movimientos (Kardex)"
+                    [routerLink]="['/inventory/history', item.product_id]"
+                    [queryParams]="{branchId: item.branch_id}">
+                    <i class="feather icon-list"></i>
+                  </button>
+                </td>
+              </tr>
+            }
+            @if (inventoryItems.length === 0 && !isLoading) {
+              <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                  No hay registros de inventario.
+                  <br>
+                    <small>Crea un movimiento de entrada para comenzar.</small>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
 
-                <div *ngIf="isLoading" class="text-center p-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Cargando...</span>
-                    </div>
-                </div>
+          @if (isLoading) {
+            <div class="text-center p-4">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+              </div>
             </div>
-        </app-card>
+          }
+        </div>
+      </app-card>
     </div>
-</div>
+  </div>

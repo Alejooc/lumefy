@@ -1,27 +1,27 @@
-import { Component, Inject, OnInit, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import {
+    ApexAxisChartSeries,
+    ApexChart,
+    ApexDataLabels,
+    ApexFill,
+    ApexLegend,
+    ApexNonAxisChartSeries,
+    ApexPlotOptions,
+    ApexResponsive,
+    ApexStroke,
+    ApexTooltip,
+    ApexXAxis,
+    ApexYAxis
+} from 'ng-apexcharts';
+import { Branch } from '../../core/services/branch.service';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 
-import {
-    ApexNonAxisChartSeries,
-    ApexResponsive,
-    ApexChart,
-    ApexPlotOptions,
-    ApexAxisChartSeries,
-    ApexXAxis,
-    ApexYAxis,
-    ApexTooltip,
-    ApexFill,
-    ApexLegend,
-    ApexStroke,
-    ApexDataLabels
-} from 'ng-apexcharts';
-
-export type ChartOptions = {
-    series: ApexNonAxisChartSeries | ApexAxisChartSeries | any;
+type ReportChartOptions = {
+    series: ApexNonAxisChartSeries | ApexAxisChartSeries;
     chart: ApexChart;
     responsive?: ApexResponsive[];
-    labels?: any;
+    labels?: string[];
     plotOptions?: ApexPlotOptions;
     xaxis?: ApexXAxis;
     yaxis?: ApexYAxis;
@@ -33,6 +33,46 @@ export type ChartOptions = {
     legend?: ApexLegend;
 };
 
+interface SalesSummaryRow {
+    date: string;
+    total: number;
+}
+
+interface TopProductRow {
+    name: string;
+    quantity: number;
+    revenue: number;
+}
+
+interface InventoryValueSummary {
+    total_items: number;
+    total_value: number;
+    low_stock_items: number;
+}
+
+interface FinancialSummary {
+    revenue: number;
+    cost: number;
+    profit: number;
+    margin: number;
+}
+
+interface InventoryTurnoverRow {
+    product_name: string;
+    stock: number;
+    sold_quantity: number;
+    turnover_rate: number;
+}
+
+interface SalesByCategoryRow {
+    category_name: string;
+    revenue: number;
+}
+
+interface BranchListResponse {
+    items?: Branch[];
+}
+
 @Component({
     selector: 'app-reports',
     templateUrl: './reports.component.html',
@@ -40,43 +80,42 @@ export type ChartOptions = {
     standalone: false
 })
 export class ReportsComponent implements OnInit {
+    private api = inject(ApiService);
+    private auth = inject(AuthService);
+    private cdr = inject(ChangeDetectorRef);
 
-    // Filters
-    filterDays: string = "30";
-    filterStartDate: string = "";
-    filterEndDate: string = "";
-    filterBranchId: string = "";
+    filterDays = '30';
+    filterStartDate = '';
+    filterEndDate = '';
+    filterBranchId = '';
 
-    branches: any[] = [];
-    activeTab: string = "general"; // general, finanzas, inventario
+    branches: Branch[] = [];
+    activeTab = 'general';
 
-    // Charts
-    salesChartOptions: Partial<ChartOptions>;
-    topProductsChartOptions: Partial<ChartOptions>;
-    categoryChartOptions: Partial<ChartOptions>;
+    salesChartOptions: Partial<ReportChartOptions>;
+    topProductsChartOptions: Partial<ReportChartOptions>;
+    categoryChartOptions: Partial<ReportChartOptions>;
 
-    // Data
-    salesSummary: any[] = [];
-    topProducts: any[] = [];
-    inventoryValue: any = { total_items: 0, total_value: 0, low_stock_items: 0 };
-    financialSummary: any = { revenue: 0, cost: 0, profit: 0, margin: 0 };
-    inventoryTurnover: any[] = [];
-    salesByCategory: any[] = [];
+    salesSummary: SalesSummaryRow[] = [];
+    topProducts: TopProductRow[] = [];
+    inventoryValue: InventoryValueSummary = { total_items: 0, total_value: 0, low_stock_items: 0 };
+    financialSummary: FinancialSummary = { revenue: 0, cost: 0, profit: 0, margin: 0 };
+    inventoryTurnover: InventoryTurnoverRow[] = [];
+    salesByCategory: SalesByCategoryRow[] = [];
 
     isLoading = false;
     currencySymbol = '$';
 
-    constructor(
-        @Inject(ApiService) private api: ApiService,
-        @Inject(AuthService) private auth: AuthService,
-        private cdr: ChangeDetectorRef
-    ) {
+    constructor() {
+        this.salesChartOptions = {};
+        this.topProductsChartOptions = {};
+        this.categoryChartOptions = {};
         this.initCharts();
     }
 
     ngOnInit(): void {
-        this.auth.currentCompany.subscribe(company => {
-            if (company && company.currency_symbol) {
+        this.auth.currentCompany.subscribe((company) => {
+            if (company?.currency_symbol) {
                 this.currencySymbol = company.currency_symbol;
             }
             this.cdr.detectChanges();
@@ -88,38 +127,38 @@ export class ReportsComponent implements OnInit {
 
     initCharts() {
         this.salesChartOptions = {
-            series: [{ name: "Ingresos", data: [] }],
-            chart: { type: "area", height: 350 },
+            series: [{ name: 'Ingresos', data: [] }],
+            chart: { type: 'area', height: 350 },
             dataLabels: { enabled: false },
-            stroke: { curve: "smooth", width: 2 },
+            stroke: { curve: 'smooth', width: 2 },
             xaxis: { categories: [] },
-            yaxis: { title: { text: "Ingresos" } },
-            fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.7, opacityTo: 0.9, stops: [0, 90, 100] } },
-            tooltip: { y: { formatter: (val) => this.currencySymbol + " " + parseFloat(val as unknown as string).toFixed(2) } },
+            yaxis: { title: { text: 'Ingresos' } },
+            fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.7, opacityTo: 0.9, stops: [0, 90, 100] } },
+            tooltip: { y: { formatter: (value: number) => `${this.currencySymbol} ${Number(value).toFixed(2)}` } },
             colors: ['#0d6efd']
         };
 
         this.topProductsChartOptions = {
             series: [],
-            chart: { type: "donut", height: 350 },
+            chart: { type: 'donut', height: 350 },
             labels: [],
-            responsive: [{ breakpoint: 480, options: { chart: { width: 200 }, legend: { position: "bottom" } } }]
+            responsive: [{ breakpoint: 480, options: { chart: { width: 200 }, legend: { position: 'bottom' } } }]
         };
 
         this.categoryChartOptions = {
             series: [],
-            chart: { type: "pie", height: 350 },
+            chart: { type: 'pie', height: 350 },
             labels: [],
-            responsive: [{ breakpoint: 480, options: { chart: { width: 200 }, legend: { position: "bottom" } } }]
+            responsive: [{ breakpoint: 480, options: { chart: { width: 200 }, legend: { position: 'bottom' } } }]
         };
     }
 
     loadBranches() {
-        this.api.get<any>('/branches?limit=100').subscribe({
+        this.api.get<BranchListResponse>('/branches?limit=100').subscribe({
             next: (data) => {
                 this.branches = data.items || [];
             },
-            error: () => { }
+            error: () => undefined
         });
     }
 
@@ -128,15 +167,15 @@ export class ReportsComponent implements OnInit {
     }
 
     clearDateFilters() {
-        this.filterStartDate = "";
-        this.filterEndDate = "";
-        if (this.filterDays === "custom") {
-            this.filterDays = "30";
+        this.filterStartDate = '';
+        this.filterEndDate = '';
+        if (this.filterDays === 'custom') {
+            this.filterDays = '30';
         }
         this.loadData();
     }
 
-    getQueryParams() {
+    getQueryParams(): string {
         let params = `?days=${this.filterDays !== 'custom' ? this.filterDays : 30}`;
         if (this.filterDays === 'custom') {
             if (this.filterStartDate) params += `&start_date=${this.filterStartDate}T00:00:00Z`;
@@ -157,62 +196,76 @@ export class ReportsComponent implements OnInit {
         const totalRequests = 6;
 
         const checkCompleted = () => {
-            requestsCompleted++;
+            requestsCompleted += 1;
             if (requestsCompleted >= totalRequests) {
                 this.isLoading = false;
                 this.cdr.detectChanges();
             }
         };
 
-        // 1. Sales Summary
-        this.api.get<any[]>(`/reports/sales-summary${params}`).subscribe(data => {
-            this.salesSummary = data;
-            this.salesChartOptions = {
-                ...this.salesChartOptions,
-                series: [{ name: "Ingresos", data: data.map(x => x.total.toFixed(2)) }],
-                xaxis: { categories: data.map(x => x.date) }
-            };
-            checkCompleted();
+        this.api.get<SalesSummaryRow[]>(`/reports/sales-summary${params}`).subscribe({
+            next: (data) => {
+                this.salesSummary = data;
+                this.salesChartOptions = {
+                    ...this.salesChartOptions,
+                    series: [{ name: 'Ingresos', data: data.map((row) => row.total) }],
+                    xaxis: { categories: data.map((row) => row.date) }
+                };
+                checkCompleted();
+            },
+            error: () => checkCompleted()
         });
 
-        // 2. Top Products
-        this.api.get<any[]>(`/reports/top-products${params}&limit=5`).subscribe(data => {
-            this.topProducts = data;
-            this.topProductsChartOptions = {
-                ...this.topProductsChartOptions,
-                series: data.map(x => x.quantity),
-                labels: data.map(x => x.name)
-            };
-            checkCompleted();
+        this.api.get<TopProductRow[]>(`/reports/top-products${params}&limit=5`).subscribe({
+            next: (data) => {
+                this.topProducts = data;
+                this.topProductsChartOptions = {
+                    ...this.topProductsChartOptions,
+                    series: data.map((row) => row.quantity),
+                    labels: data.map((row) => row.name)
+                };
+                checkCompleted();
+            },
+            error: () => checkCompleted()
         });
 
-        // 3. Inventory Value (Only uses branch filter, not dates usually, but we pass params)
-        this.api.get<any>(`/reports/inventory-value${this.filterBranchId ? '?branch_id=' + this.filterBranchId : ''}`).subscribe(data => {
-            this.inventoryValue = data;
-            checkCompleted();
+        this.api
+            .get<InventoryValueSummary>(`/reports/inventory-value${this.filterBranchId ? '?branch_id=' + this.filterBranchId : ''}`)
+            .subscribe({
+                next: (data) => {
+                    this.inventoryValue = data;
+                    checkCompleted();
+                },
+                error: () => checkCompleted()
+            });
+
+        this.api.get<FinancialSummary>(`/reports/financial-summary${params}`).subscribe({
+            next: (data) => {
+                this.financialSummary = data;
+                checkCompleted();
+            },
+            error: () => checkCompleted()
         });
 
-        // 4. Financial Summary
-        this.api.get<any>(`/reports/financial-summary${params}`).subscribe(data => {
-            this.financialSummary = data;
-            checkCompleted();
+        this.api.get<InventoryTurnoverRow[]>(`/reports/inventory-turnover${params}&limit=10&sort_by=highest`).subscribe({
+            next: (data) => {
+                this.inventoryTurnover = data;
+                checkCompleted();
+            },
+            error: () => checkCompleted()
         });
 
-        // 5. Inventory Turnover
-        this.api.get<any[]>(`/reports/inventory-turnover${params}&limit=10&sort_by=highest`).subscribe(data => {
-            this.inventoryTurnover = data;
-            checkCompleted();
-        });
-
-        // 6. Sales By Category
-        this.api.get<any[]>(`/reports/sales-by-category${params}`).subscribe(data => {
-            this.salesByCategory = data;
-            this.categoryChartOptions = {
-                ...this.categoryChartOptions,
-                series: data.map(x => x.revenue),
-                labels: data.map(x => x.category_name)
-            };
-            checkCompleted();
+        this.api.get<SalesByCategoryRow[]>(`/reports/sales-by-category${params}`).subscribe({
+            next: (data) => {
+                this.salesByCategory = data;
+                this.categoryChartOptions = {
+                    ...this.categoryChartOptions,
+                    series: data.map((row) => row.revenue),
+                    labels: data.map((row) => row.category_name)
+                };
+                checkCompleted();
+            },
+            error: () => checkCompleted()
         });
     }
 
@@ -222,37 +275,36 @@ export class ReportsComponent implements OnInit {
 
     exportToCSV(type: string) {
         let columns: string[] = [];
-        let rows: any[] = [];
+        let rows: Array<Array<string | number>> = [];
         let filename = '';
 
         if (type === 'top-products') {
             columns = ['Producto', 'Cantidad Vendida', 'Ingresos'];
-            rows = this.topProducts.map(p => [p.name, p.quantity, p.revenue]);
+            rows = this.topProducts.map((item) => [item.name, item.quantity, item.revenue]);
             filename = 'top_productos';
         } else if (type === 'inventory-turnover') {
-            columns = ['Producto', 'Stock Actual', 'Cantidad Vendida', 'Tasa de Rotación'];
-            rows = this.inventoryTurnover.map(p => [p.product_name, p.stock, p.sold_quantity, p.turnover_rate.toFixed(2)]);
+            columns = ['Producto', 'Stock Actual', 'Cantidad Vendida', 'Tasa de Rotacion'];
+            rows = this.inventoryTurnover.map((item) => [item.product_name, item.stock, item.sold_quantity, item.turnover_rate.toFixed(2)]);
             filename = 'rotacion_inventario';
         } else if (type === 'sales-by-category') {
-            columns = ['Categoría', 'Ingresos'];
-            rows = this.salesByCategory.map(c => [c.category_name, c.revenue]);
+            columns = ['Categoria', 'Ingresos'];
+            rows = this.salesByCategory.map((item) => [item.category_name, item.revenue]);
             filename = 'ventas_categorias';
         }
 
         if (columns.length === 0) return;
 
-        let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += columns.join(",") + "\n";
-
-        rows.forEach(row => {
-            csvContent += row.join(",") + "\n";
+        let csvContent = 'data:text/csv;charset=utf-8,';
+        csvContent += columns.join(',') + '\n';
+        rows.forEach((row) => {
+            csvContent += row.join(',') + '\n';
         });
 
         const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link); // Required for FF
+        const link = document.createElement('a');
+        link.setAttribute('href', encodedUri);
+        link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }

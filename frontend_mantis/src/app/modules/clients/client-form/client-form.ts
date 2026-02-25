@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ClientService } from '../client.service';
@@ -11,18 +11,18 @@ import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.se
   standalone: false
 })
 export class ClientFormComponent implements OnInit {
+  private fb = inject(FormBuilder);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private clientService = inject(ClientService);
+  private swal = inject(SweetAlertService);
+
   form: FormGroup;
   isEdit = false;
   id: string | null = null;
   isLoading = false;
 
-  constructor(
-    private fb: FormBuilder,
-    private route: ActivatedRoute,
-    private router: Router,
-    private clientService: ClientService,
-    private swal: SweetAlertService
-  ) {
+  constructor() {
     this.form = this.fb.group({
       name: ['', Validators.required],
       tax_id: [''],

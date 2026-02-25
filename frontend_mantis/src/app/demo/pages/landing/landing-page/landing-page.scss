@@ -1,3 +1,5 @@
+@use 'sass:color';
+
 // Variables - Strict Professional Palette
 $primary: #6366f1; // Indigo 500
 $primary-hover: #4f46e5; // Indigo 600
@@ -283,7 +285,7 @@ p {
 // Badge
 .badge.bg-primary {
     background: rgba($primary, 0.1) !important;
-    color: lighten($primary, 10%) !important;
+    color: color.adjust($primary, $lightness: 10%) !important;
     border: 1px solid rgba($primary, 0.2) !important;
 }
 
@@ -303,7 +305,7 @@ p {
 
     &:hover {
         transform: rotateX(0) rotateY(0);
-        border-color: lighten($border-color, 10%);
+        border-color: color.adjust($border-color, $lightness: 10%);
     }
 
     .mockup-header {
@@ -523,7 +525,7 @@ p {
 .faq-section {
     padding: 100px 0;
     // slightly lighter than dark bg for distinct section
-    background: lighten($dark-bg, 2%);
+    background: color.adjust($dark-bg, $lightness: 2%);
 
     .accordion-item {
         background-color: transparent;
@@ -564,7 +566,7 @@ p {
             }
 
             &:hover {
-                color: lighten($primary, 10%);
+                color: color.adjust($primary, $lightness: 10%);
             }
         }
 
@@ -708,8 +710,3 @@ p {
     padding: 0;
 }
 
-// Force cursor on toggler
-.navbar-toggler {
-    cursor: pointer !important;
-    z-index: 1060; // Ensure clickable above backdrop
-}

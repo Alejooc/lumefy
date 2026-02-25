@@ -1,6 +1,6 @@
 // angular import
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 // project import
 
@@ -8,7 +8,7 @@ import { CardComponent } from 'src/app/theme/shared/components/card/card.compone
 
 @Component({
   selector: 'app-sample-page',
-  imports: [CommonModule, CardComponent],
+  imports: [CardComponent],
   templateUrl: './sample-page.component.html',
   styleUrls: ['./sample-page.component.scss']
 })

@@ -1,296 +1,323 @@
 <div class="row mb-4">
-    <div class="col-sm-12">
-        <div class="card">
-            <div class="card-body">
-                <div class="row align-items-end">
-                    <div class="col-md-3 mb-3 mb-md-0">
-                        <label class="form-label">Periodo</label>
-                        <select class="form-select" [(ngModel)]="filterDays" (change)="applyFilters()">
-                            <option value="7">Últimos 7 días</option>
-                            <option value="30">Últimos 30 días</option>
-                            <option value="90">Últimos 3 meses</option>
-                            <option value="365">Último año</option>
-                            <option value="custom">Personalizado</option>
-                        </select>
-                    </div>
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-body">
+        <div class="row align-items-end">
+          <div class="col-md-3 mb-3 mb-md-0">
+            <label class="form-label">Periodo</label>
+            <select class="form-select" [(ngModel)]="filterDays" (change)="applyFilters()">
+              <option value="7">Últimos 7 días</option>
+              <option value="30">Últimos 30 días</option>
+              <option value="90">Últimos 3 meses</option>
+              <option value="365">Último año</option>
+              <option value="custom">Personalizado</option>
+            </select>
+          </div>
 
-                    <div class="col-md-2 mb-3 mb-md-0" *ngIf="filterDays === 'custom'">
-                        <label class="form-label">Desde</label>
-                        <input type="date" class="form-control" [(ngModel)]="filterStartDate">
-                    </div>
-
-                    <div class="col-md-2 mb-3 mb-md-0" *ngIf="filterDays === 'custom'">
-                        <label class="form-label">Hasta</label>
-                        <input type="date" class="form-control" [(ngModel)]="filterEndDate">
-                    </div>
-
-                    <div class="col-md-3 mb-3 mb-md-0">
-                        <label class="form-label">Sucursal</label>
-                        <select class="form-select" [(ngModel)]="filterBranchId" (change)="applyFilters()">
-                            <option value="">Todas las sucursales</option>
-                            <option *ngFor="let branch of branches" [value]="branch.id">{{ branch.name }}</option>
-                        </select>
-                    </div>
-
-                    <div class="col-md-2">
-                        <button class="btn btn-primary w-100" (click)="applyFilters()" [disabled]="isLoading">
-                            <i class="ti ti-filter me-1"></i> {{ isLoading ? 'Cargando...' : 'Aplicar' }}
-                        </button>
-                    </div>
-
-                    <div class="col-md-1 d-flex justify-content-end" *ngIf="filterDays === 'custom'">
-                        <button class="btn btn-link text-danger p-0" (click)="clearDateFilters()"
-                            title="Limpiar fechas">
-                            <i class="ti ti-calendar-cancel fa-2x"></i>
-                        </button>
-                    </div>
-                </div>
+          @if (filterDays === 'custom') {
+            <div class="col-md-2 mb-3 mb-md-0">
+              <label class="form-label">Desde</label>
+              <input type="date" class="form-control" [(ngModel)]="filterStartDate">
             </div>
+          }
+
+          @if (filterDays === 'custom') {
+            <div class="col-md-2 mb-3 mb-md-0">
+              <label class="form-label">Hasta</label>
+              <input type="date" class="form-control" [(ngModel)]="filterEndDate">
+            </div>
+          }
+
+          <div class="col-md-3 mb-3 mb-md-0">
+            <label class="form-label">Sucursal</label>
+            <select class="form-select" [(ngModel)]="filterBranchId" (change)="applyFilters()">
+              <option value="">Todas las sucursales</option>
+              @for (branch of branches; track branch) {
+                <option [value]="branch.id">{{ branch.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="col-md-2">
+            <button class="btn btn-primary w-100" (click)="applyFilters()" [disabled]="isLoading">
+              <i class="ti ti-filter me-1"></i> {{ isLoading ? 'Cargando...' : 'Aplicar' }}
+            </button>
+          </div>
+
+          @if (filterDays === 'custom') {
+            <div class="col-md-1 d-flex justify-content-end">
+              <button class="btn btn-link text-danger p-0" (click)="clearDateFilters()"
+                title="Limpiar fechas">
+                <i class="ti ti-calendar-cancel fa-2x"></i>
+              </button>
+            </div>
+          }
         </div>
+      </div>
     </div>
+  </div>
 </div>
 
 <ul class="nav nav-pills mb-4">
-    <li class="nav-item">
-        <a class="nav-link cursor-pointer" [class.active]="activeTab === 'general'" (click)="setTab('general')">
-            <i class="ti ti-layout-dashboard me-2"></i>Resumen General
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link cursor-pointer" [class.active]="activeTab === 'finanzas'" (click)="setTab('finanzas')">
-            <i class="ti ti-businessplan me-2"></i>Finanzas
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link cursor-pointer" [class.active]="activeTab === 'inventario'" (click)="setTab('inventario')">
-            <i class="ti ti-packages me-2"></i>Inventario y Rotación
-        </a>
-    </li>
+  <li class="nav-item">
+    <a class="nav-link cursor-pointer" [class.active]="activeTab === 'general'" (click)="setTab('general')">
+      <i class="ti ti-layout-dashboard me-2"></i>Resumen General
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link cursor-pointer" [class.active]="activeTab === 'finanzas'" (click)="setTab('finanzas')">
+      <i class="ti ti-businessplan me-2"></i>Finanzas
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link cursor-pointer" [class.active]="activeTab === 'inventario'" (click)="setTab('inventario')">
+      <i class="ti ti-packages me-2"></i>Inventario y Rotación
+    </a>
+  </li>
 </ul>
 
 <!-- Loading -->
-<div *ngIf="isLoading" class="text-center p-5">
+@if (isLoading) {
+  <div class="text-center p-5">
     <div class="spinner-border text-primary" role="status"></div>
     <p class="mt-2">Procesando reportes...</p>
-</div>
+  </div>
+}
 
-<div *ngIf="!isLoading">
-
+@if (!isLoading) {
+  <div>
     <!-- GENERAL TAB -->
-    <div *ngIf="activeTab === 'general'">
+    @if (activeTab === 'general') {
+      <div>
         <div class="row">
-            <!-- Sales Chart -->
-            <div class="col-md-8">
-                <app-card [cardTitle]="'Evolución de Ingresos'" [showHeader]="true">
-                    <apx-chart [series]="salesChartOptions.series" [chart]="salesChartOptions.chart"
-                        [xaxis]="salesChartOptions.xaxis" [plotOptions]="salesChartOptions.plotOptions"
-                        [fill]="salesChartOptions.fill" [stroke]="salesChartOptions.stroke"
-                        [tooltip]="salesChartOptions.tooltip" [colors]="salesChartOptions.colors"
-                        [dataLabels]="salesChartOptions.dataLabels"></apx-chart>
-                </app-card>
-            </div>
-
-            <!-- Category Chart -->
-            <div class="col-md-4">
-                <app-card [cardTitle]="'Ventas por Categoría'" [showHeader]="true">
-                    <div class="d-flex justify-content-center">
-                        <apx-chart *ngIf="categoryChartOptions.series.length > 0" [series]="categoryChartOptions.series"
-                            [chart]="categoryChartOptions.chart" [labels]="categoryChartOptions.labels"
-                            [responsive]="categoryChartOptions.responsive"></apx-chart>
-                        <p *ngIf="categoryChartOptions.series.length === 0" class="text-muted mt-5">No hay datos
-                            suficientes</p>
-                    </div>
-                </app-card>
-            </div>
+          <!-- Sales Chart -->
+          <div class="col-md-8">
+            <app-card [cardTitle]="'Evolución de Ingresos'" [showHeader]="true">
+              <apx-chart [series]="salesChartOptions.series" [chart]="salesChartOptions.chart"
+                [xaxis]="salesChartOptions.xaxis" [plotOptions]="salesChartOptions.plotOptions"
+                [fill]="salesChartOptions.fill" [stroke]="salesChartOptions.stroke"
+                [tooltip]="salesChartOptions.tooltip" [colors]="salesChartOptions.colors"
+              [dataLabels]="salesChartOptions.dataLabels"></apx-chart>
+            </app-card>
+          </div>
+          <!-- Category Chart -->
+          <div class="col-md-4">
+            <app-card [cardTitle]="'Ventas por Categoría'" [showHeader]="true">
+              <div class="d-flex justify-content-center">
+                @if (categoryChartOptions.series.length > 0) {
+                  <apx-chart [series]="categoryChartOptions.series"
+                    [chart]="categoryChartOptions.chart" [labels]="categoryChartOptions.labels"
+                  [responsive]="categoryChartOptions.responsive"></apx-chart>
+                }
+                @if (categoryChartOptions.series.length === 0) {
+                  <p class="text-muted mt-5">No hay datos
+                  suficientes</p>
+                }
+              </div>
+            </app-card>
+          </div>
         </div>
-
         <div class="row mt-3">
-            <!-- Top Products -->
-            <div class="col-md-8">
-                <app-card [cardTitle]="'Top Productos Vendidos'" [showHeader]="true">
-                    <div class="d-flex justify-content-end mb-2">
-                        <button class="btn btn-sm btn-outline-secondary" (click)="exportToCSV('top-products')">
-                            <i class="ti ti-download me-1"></i> Exportar CSV
-                        </button>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Producto</th>
-                                    <th class="text-end">Cantidad</th>
-                                    <th class="text-end">Ingresos</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr *ngFor="let product of topProducts">
-                                    <td>{{ product.name }}</td>
-                                    <td class="text-end fw-bold">{{ product.quantity }}</td>
-                                    <td class="text-end">{{ currencySymbol }} {{ product.revenue | number:'1.2-2' }}
-                                    </td>
-                                </tr>
-                                <tr *ngIf="topProducts.length === 0">
-                                    <td colspan="3" class="text-center text-muted">No hay datos de ventas recientes.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </app-card>
-            </div>
-
-            <!-- Top Products Chart -->
-            <div class="col-md-4">
-                <app-card [cardTitle]="'Distribución Top Ventas'" [showHeader]="true">
-                    <div class="d-flex justify-content-center">
-                        <apx-chart *ngIf="topProductsChartOptions.series.length > 0"
-                            [series]="topProductsChartOptions.series" [chart]="topProductsChartOptions.chart"
-                            [labels]="topProductsChartOptions.labels"
-                            [responsive]="topProductsChartOptions.responsive"></apx-chart>
-                        <p *ngIf="topProductsChartOptions.series.length === 0" class="text-muted mt-5">No hay datos
-                            suficientes</p>
-                    </div>
-                </app-card>
-            </div>
+          <!-- Top Products -->
+          <div class="col-md-8">
+            <app-card [cardTitle]="'Top Productos Vendidos'" [showHeader]="true">
+              <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-sm btn-outline-secondary" (click)="exportToCSV('top-products')">
+                  <i class="ti ti-download me-1"></i> Exportar CSV
+                </button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th class="text-end">Cantidad</th>
+                      <th class="text-end">Ingresos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (product of topProducts; track product) {
+                      <tr>
+                        <td>{{ product.name }}</td>
+                        <td class="text-end fw-bold">{{ product.quantity }}</td>
+                        <td class="text-end">{{ currencySymbol }} {{ product.revenue | number:'1.2-2' }}
+                        </td>
+                      </tr>
+                    }
+                    @if (topProducts.length === 0) {
+                      <tr>
+                        <td colspan="3" class="text-center text-muted">No hay datos de ventas recientes.
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </app-card>
+          </div>
+          <!-- Top Products Chart -->
+          <div class="col-md-4">
+            <app-card [cardTitle]="'Distribución Top Ventas'" [showHeader]="true">
+              <div class="d-flex justify-content-center">
+                @if (topProductsChartOptions.series.length > 0) {
+                  <apx-chart
+                    [series]="topProductsChartOptions.series" [chart]="topProductsChartOptions.chart"
+                    [labels]="topProductsChartOptions.labels"
+                  [responsive]="topProductsChartOptions.responsive"></apx-chart>
+                }
+                @if (topProductsChartOptions.series.length === 0) {
+                  <p class="text-muted mt-5">No hay datos
+                  suficientes</p>
+                }
+              </div>
+            </app-card>
+          </div>
         </div>
-    </div>
-
+      </div>
+    }
     <!-- FINANZAS TAB -->
-    <div *ngIf="activeTab === 'finanzas'">
+    @if (activeTab === 'finanzas') {
+      <div>
         <div class="row">
-            <div class="col-md-3">
-                <div class="card bg-primary text-white text-center">
-                    <div class="card-body">
-                        <h5>Ingresos Brutos</h5>
-                        <h2 class="text-white fw-bold">{{ currencySymbol }} {{ financialSummary.revenue | number:'1.2-2'
-                            }}</h2>
-                    </div>
-                </div>
+          <div class="col-md-3">
+            <div class="card bg-primary text-white text-center">
+              <div class="card-body">
+                <h5>Ingresos Brutos</h5>
+                <h2 class="text-white fw-bold">{{ currencySymbol }} {{ financialSummary.revenue | number:'1.2-2'
+                }}</h2>
+              </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-danger text-white text-center">
-                    <div class="card-body">
-                        <h5>Costos de Producto</h5>
-                        <h2 class="text-white fw-bold">{{ currencySymbol }} {{ financialSummary.cost | number:'1.2-2' }}
-                        </h2>
-                    </div>
-                </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card bg-danger text-white text-center">
+              <div class="card-body">
+                <h5>Costos de Producto</h5>
+                <h2 class="text-white fw-bold">{{ currencySymbol }} {{ financialSummary.cost | number:'1.2-2' }}
+                </h2>
+              </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-success text-white text-center">
-                    <div class="card-body">
-                        <h5>Beneficio Bruto</h5>
-                        <h2 class="text-white fw-bold">{{ currencySymbol }} {{ financialSummary.profit | number:'1.2-2'
-                            }}</h2>
-                    </div>
-                </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card bg-success text-white text-center">
+              <div class="card-body">
+                <h5>Beneficio Bruto</h5>
+                <h2 class="text-white fw-bold">{{ currencySymbol }} {{ financialSummary.profit | number:'1.2-2'
+                }}</h2>
+              </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-info text-white text-center">
-                    <div class="card-body">
-                        <h5>Margen de Rentabilidad</h5>
-                        <h2 class="text-white fw-bold">{{ financialSummary.margin | number:'1.1-2' }}%</h2>
-                    </div>
-                </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card bg-info text-white text-center">
+              <div class="card-body">
+                <h5>Margen de Rentabilidad</h5>
+                <h2 class="text-white fw-bold">{{ financialSummary.margin | number:'1.1-2' }}%</h2>
+              </div>
             </div>
+          </div>
         </div>
-
         <div class="row mt-3">
-            <div class="col-md-12">
-                <app-card [cardTitle]="'Ingresos por Categoría (Detalle)'" [showHeader]="true">
-                    <div class="d-flex justify-content-end mb-2">
-                        <button class="btn btn-sm btn-outline-secondary" (click)="exportToCSV('sales-by-category')">
-                            <i class="ti ti-download me-1"></i> Exportar CSV
-                        </button>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Categoría</th>
-                                    <th class="text-end">Ingresos Totales</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr *ngFor="let cat of salesByCategory">
-                                    <td>{{ cat.category_name }}</td>
-                                    <td class="text-end fw-bold text-success">{{ currencySymbol }} {{ cat.revenue |
-                                        number:'1.2-2' }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </app-card>
-            </div>
+          <div class="col-md-12">
+            <app-card [cardTitle]="'Ingresos por Categoría (Detalle)'" [showHeader]="true">
+              <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-sm btn-outline-secondary" (click)="exportToCSV('sales-by-category')">
+                  <i class="ti ti-download me-1"></i> Exportar CSV
+                </button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Categoría</th>
+                      <th class="text-end">Ingresos Totales</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (cat of salesByCategory; track cat) {
+                      <tr>
+                        <td>{{ cat.category_name }}</td>
+                        <td class="text-end fw-bold text-success">{{ currencySymbol }} {{ cat.revenue |
+                        number:'1.2-2' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </app-card>
+          </div>
         </div>
-    </div>
-
+      </div>
+    }
     <!-- INVENTARIO TAB -->
-    <div *ngIf="activeTab === 'inventario'">
+    @if (activeTab === 'inventario') {
+      <div>
         <div class="row">
-            <div class="col-md-4">
-                <app-card [cardTitle]="'Valor en Inventario'" [showHeader]="true">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h3 class="fw-bolder mb-1">{{ currencySymbol }} {{ inventoryValue.total_value |
-                                number:'1.2-2' }}
-                            </h3>
-                            <div class="text-success fw-bold small">Costo Total</div>
-                        </div>
-                        <div class="feature-icon bg-light-primary text-primary">
-                            <i class="feather icon-package fa-2x"></i>
-                        </div>
-                    </div>
-                    <hr>
-                    <div class="row text-center">
-                        <div class="col-6 border-end">
-                            <h5 class="mb-0">{{ inventoryValue.total_items }}</h5>
-                            <small class="text-muted">Items Totales</small>
-                        </div>
-                        <div class="col-6">
-                            <h5 class="mb-0 text-danger">{{ inventoryValue.low_stock_items }}</h5>
-                            <small class="text-danger">Stock Bajo</small>
-                        </div>
-                    </div>
-                </app-card>
+          <div class="col-md-4">
+            <app-card [cardTitle]="'Valor en Inventario'" [showHeader]="true">
+              <div class="d-flex align-items-center justify-content-between">
+                <div>
+                  <h3 class="fw-bolder mb-1">{{ currencySymbol }} {{ inventoryValue.total_value |
+                    number:'1.2-2' }}
+                  </h3>
+                  <div class="text-success fw-bold small">Costo Total</div>
+                </div>
+                <div class="feature-icon bg-light-primary text-primary">
+                  <i class="feather icon-package fa-2x"></i>
+                </div>
+              </div>
+              <hr>
+                <div class="row text-center">
+                  <div class="col-6 border-end">
+                    <h5 class="mb-0">{{ inventoryValue.total_items }}</h5>
+                    <small class="text-muted">Items Totales</small>
+                  </div>
+                  <div class="col-6">
+                    <h5 class="mb-0 text-danger">{{ inventoryValue.low_stock_items }}</h5>
+                    <small class="text-danger">Stock Bajo</small>
+                  </div>
+                </div>
+              </app-card>
             </div>
             <div class="col-md-8">
-                <app-card [cardTitle]="'Análisis de Rotación de Inventario'" [showHeader]="true">
-                    <div class="d-flex justify-content-between mb-3">
-                        <p class="text-muted mb-0">Demuestra la relación entre lo que tienes en stock y lo que has
-                            vendido en este periodo.</p>
-                        <button class="btn btn-sm btn-outline-secondary" (click)="exportToCSV('inventory-turnover')">
-                            <i class="ti ti-download me-1"></i> Exportar CSV
-                        </button>
-                    </div>
-                    <div class="table-responsive" style="max-height: 350px;">
-                        <table class="table table-hover table-sm">
-                            <thead class="table-light sticky-top">
-                                <tr>
-                                    <th>Producto</th>
-                                    <th class="text-end">Stock Actual</th>
-                                    <th class="text-end">Vendidos</th>
-                                    <th class="text-end">Rotación</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr *ngFor="let item of inventoryTurnover">
-                                    <td>{{ item.product_name }}</td>
-                                    <td class="text-end" [ngClass]="{'text-danger fw-bold': item.stock <= 0}">{{
-                                        item.stock }}</td>
-                                    <td class="text-end text-success fw-bold">{{ item.sold_quantity }}</td>
-                                    <td class="text-end">
-                                        <span class="badge"
-                                            [ngClass]="item.turnover_rate > 1 ? 'bg-success' : (item.turnover_rate > 0.5 ? 'bg-warning' : 'bg-danger')">
-                                            {{ item.turnover_rate | number:'1.1-2' }}x
-                                        </span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </app-card>
+              <app-card [cardTitle]="'Análisis de Rotación de Inventario'" [showHeader]="true">
+                <div class="d-flex justify-content-between mb-3">
+                  <p class="text-muted mb-0">Demuestra la relación entre lo que tienes en stock y lo que has
+                  vendido en este periodo.</p>
+                  <button class="btn btn-sm btn-outline-secondary" (click)="exportToCSV('inventory-turnover')">
+                    <i class="ti ti-download me-1"></i> Exportar CSV
+                  </button>
+                </div>
+                <div class="table-responsive" style="max-height: 350px;">
+                  <table class="table table-hover table-sm">
+                    <thead class="table-light sticky-top">
+                      <tr>
+                        <th>Producto</th>
+                        <th class="text-end">Stock Actual</th>
+                        <th class="text-end">Vendidos</th>
+                        <th class="text-end">Rotación</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (item of inventoryTurnover; track item) {
+                        <tr>
+                          <td>{{ item.product_name }}</td>
+                          <td class="text-end" [ngClass]="{'text-danger fw-bold': item.stock <= 0}">{{
+                          item.stock }}</td>
+                          <td class="text-end text-success fw-bold">{{ item.sold_quantity }}</td>
+                          <td class="text-end">
+                            <span class="badge"
+                              [ngClass]="item.turnover_rate > 1 ? 'bg-success' : (item.turnover_rate > 0.5 ? 'bg-warning' : 'bg-danger')">
+                              {{ item.turnover_rate | number:'1.1-2' }}x
+                            </span>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </app-card>
             </div>
+          </div>
         </div>
+      }
     </div>
-</div>
+  }

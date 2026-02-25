@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -60,16 +60,16 @@ export interface DashboardHealth {
     providedIn: 'root'
 })
 export class DashboardService {
+    private http = inject(HttpClient);
+
     private apiUrl = `${environment.apiUrl}/dashboard`;
 
-    constructor(private http: HttpClient) { }
-
     getStats(filters?: { date_from?: string; date_to?: string; branch_id?: string }): Observable<DashboardStats> {
-        let params: any = {};
+        const params: Record<string, string> = {};
         if (filters) {
-            if (filters.date_from) params.date_from = filters.date_from;
-            if (filters.date_to) params.date_to = filters.date_to;
-            if (filters.branch_id) params.branch_id = filters.branch_id;
+            if (filters.date_from) params['date_from'] = filters.date_from;
+            if (filters.date_to) params['date_to'] = filters.date_to;
+            if (filters.branch_id) params['branch_id'] = filters.branch_id;
         }
         const queryString = new URLSearchParams(params).toString();
         const url = queryString ? `${this.apiUrl}?${queryString}` : this.apiUrl;

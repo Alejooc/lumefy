@@ -4,7 +4,9 @@
     <a href="javascript:" class="pc-head-link dropdown-toggle arrow-none me-0 bg-gray-200" data-bs-toggle="dropdown"
       ngbDropdownToggle>
       <i antIcon type="bell" theme="outline"></i>
-      <span class="badge bg-danger pc-h-badge" *ngIf="unreadCount > 0">{{ unreadCount }}</span>
+      @if (unreadCount > 0) {
+        <span class="badge bg-danger pc-h-badge">{{ unreadCount }}</span>
+      }
     </a>
     <div class="dropdown-menu dropdown-notification dropdown-menu-end pc-h-dropdown" ngbDropdownMenu>
       <div class="dropdown-header d-flex align-items-center justify-content-between">
@@ -18,33 +20,37 @@
         <div class="dropdown-header p-0 text-wrap header-notification-scroll">
           <div class="list-group list-group-flush w-100">
 
-            <div *ngIf="notifications.length === 0" class="text-center py-4 text-muted">
-              <i antIcon type="smile" theme="outline" class="f-24 mb-2"></i>
-              <p class="m-0">No tienes notificaciones nuevas</p>
-            </div>
+            @if (notifications.length === 0) {
+              <div class="text-center py-4 text-muted">
+                <i antIcon type="smile" theme="outline" class="f-24 mb-2"></i>
+                <p class="m-0">No tienes notificaciones nuevas</p>
+              </div>
+            }
 
-            <a class="list-group-item list-group-item-action" *ngFor="let notification of notifications"
-              (click)="markAsRead(notification.id)" [routerLink]="notification.link">
-              <div class="d-flex">
-                <div class="flex-shrink-0">
+            @for (notification of notifications; track notification) {
+              <a class="list-group-item list-group-item-action"
+                (click)="markAsRead(notification.id)" [routerLink]="notification.link">
+                <div class="d-flex">
+                  <div class="flex-shrink-0">
                   <div class="user-avatar" [ngClass]="{
                       'bg-light-primary': notification.type === 'info',
                       'bg-light-success': notification.type === 'success',
                       'bg-light-warning': notification.type === 'warning',
                       'bg-light-danger': notification.type === 'danger'
                   }">
-                    <i class="d-flex" antIcon theme="outline"
+                      <i class="d-flex" antIcon theme="outline"
                       [type]="notification.type === 'danger' ? 'warning' : 'info-circle'"></i>
+                    </div>
+                  </div>
+                  <div class="flex-grow-1 ms-3">
+                    <span class="float-end text-muted f-12">{{ notification.created_at | date:'shortTime' }}</span>
+                    <p class="text-body mb-0"><b>{{ notification.title }}</b></p>
+                    <p class="text-muted mb-0 text-truncate" style="max-width: 200px;">{{ notification.message }}</p>
+                    <span class="text-muted f-12">{{ notification.created_at | date:'dd MMM' }}</span>
                   </div>
                 </div>
-                <div class="flex-grow-1 ms-3">
-                  <span class="float-end text-muted f-12">{{ notification.created_at | date:'shortTime' }}</span>
-                  <p class="text-body mb-0"><b>{{ notification.title }}</b></p>
-                  <p class="text-muted mb-0 text-truncate" style="max-width: 200px;">{{ notification.message }}</p>
-                  <span class="text-muted f-12">{{ notification.created_at | date:'dd MMM' }}</span>
-                </div>
-              </div>
-            </a>
+              </a>
+            }
           </div>
         </div>
       </ng-scrollbar>
@@ -70,7 +76,7 @@
             <span>{{ (currentUser$ | async)?.role?.name }}</span>
           </div>
           <a href="javascript:" class="bg-transparent" (click)="onLogout()"><i class="text-danger d-flex f-20" antIcon
-              theme="outline" type="logout"></i></a>
+          theme="outline" type="logout"></i></a>
         </div>
       </div>
       <ul ngbNav #nav="ngbNav" class="nav drp-tabs nav-fill nav-tabs">
@@ -81,13 +87,13 @@
           </a>
           <ng-template ngbNavContent>
             @for (task of profile; track task) {
-            <div>
-              <a href="javascript:" class="dropdown-item" (click)="task.title === 'Salir' ? onLogout() : null"
-                [routerLink]="task.route ? [task.route] : null">
-                <i class="text-muted" antIcon theme="outline" type="{{ task.icon }}"></i>
-                <span>{{ task.title }}</span>
-              </a>
-            </div>
+              <div>
+                <a href="javascript:" class="dropdown-item" (click)="task.title === 'Salir' ? onLogout() : null"
+                  [routerLink]="task.route ? [task.route] : null">
+                  <i class="text-muted" antIcon theme="outline" type="{{ task.icon }}"></i>
+                  <span>{{ task.title }}</span>
+                </a>
+              </div>
             }
           </ng-template>
         </li>
@@ -98,12 +104,12 @@
           </a>
           <ng-template ngbNavContent>
             @for (task of setting; track task) {
-            <div>
-              <a href="javascript:" class="dropdown-item">
-                <i class="text-muted" antIcon theme="outline" type="{{ task.icon }}"></i>
-                <span>{{ task.title }}</span>
-              </a>
-            </div>
+              <div>
+                <a href="javascript:" class="dropdown-item">
+                  <i class="text-muted" antIcon theme="outline" type="{{ task.icon }}"></i>
+                  <span>{{ task.title }}</span>
+                </a>
+              </div>
             }
           </ng-template>
         </li>

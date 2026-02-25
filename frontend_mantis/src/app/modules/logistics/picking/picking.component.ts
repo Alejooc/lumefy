@@ -1,9 +1,9 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
-import { SaleService, Sale } from '../../../core/services/sale.service';
+import { Sale, SaleItem, SaleService } from '../../../core/services/sale.service';
 import { LogisticsService } from '../logistics.service';
 
 @Component({
@@ -25,20 +25,19 @@ export class PickingComponent implements OnInit {
 
     ngOnInit() {
         this.saleId = this.route.snapshot.paramMap.get('id');
-        if (this.saleId) {
-            this.loadSale();
-        }
+        if (this.saleId) this.loadSale();
     }
 
     loadSale() {
+        if (!this.saleId) return;
         this.loading = true;
-        this.saleService.getSale(this.saleId!).subscribe({
+        this.saleService.getSale(this.saleId).subscribe({
             next: (data) => {
                 this.sale = data;
                 this.loading = false;
                 this.cdr.detectChanges();
             },
-            error: (err) => {
+            error: () => {
                 this.loading = false;
                 this.cdr.detectChanges();
                 Swal.fire('Error', 'No se pudo cargar la venta', 'error');
@@ -46,59 +45,57 @@ export class PickingComponent implements OnInit {
         });
     }
 
-    updatePickedQuantity(item: any, quantity: number) {
+    updatePickedQuantity(item: SaleItem, quantity: number) {
         if (quantity < 0) return;
         if (quantity > item.quantity) {
-            Swal.fire('Error', 'No puedes pickear más de lo ordenado', 'warning');
+            Swal.fire('Error', 'No puedes pickear mas de lo ordenado', 'warning');
             return;
         }
 
-        this.logisticsService.updatePickingItem({
-            sale_item_id: item.id,
-            quantity_picked: quantity
-        }).subscribe({
-            next: () => {
-                item.quantity_picked = quantity;
-                this.cdr.detectChanges();
-                // Optional: Toast notification
-            },
-            error: (err) => {
-                Swal.fire('Error', 'No se pudo actualizar', 'error');
-                this.cdr.detectChanges();
-            }
-        });
+        this.logisticsService
+            .updatePickingItem({
+                sale_item_id: item.id || '',
+                quantity_picked: quantity
+            })
+            .subscribe({
+                next: () => {
+                    item.quantity_picked = quantity;
+                    this.cdr.detectChanges();
+                },
+                error: () => {
+                    Swal.fire('Error', 'No se pudo actualizar', 'error');
+                    this.cdr.detectChanges();
+                }
+            });
     }
 
     finishPicking() {
-        // Validate all items picked?
-        const allPicked = this.sale?.items.every((i: any) => i.quantity_picked >= i.quantity);
-
-        let message = '¿Finalizar Picking y pasar a Empaque?';
-        if (!allPicked) {
-            message = 'Hay ítems pendientes de pickear. ¿Deseas continuar igual?';
-        }
+        if (!this.saleId || !this.sale) return;
+        const allPicked = this.sale.items?.every((item: SaleItem) => (item.quantity_picked || 0) >= item.quantity);
+        const message = allPicked
+            ? 'Marcar picking como finalizado y pasar a empaque?'
+            : 'Hay items pendientes de pickear. Deseas continuar igual?';
 
         Swal.fire({
             title: 'Confirmar Picking',
             text: message,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Sí, finalizar'
+            confirmButtonText: 'Si, finalizar'
         }).then((result) => {
-            if (result.isConfirmed) {
-                this.saleService.updateStatus(this.saleId!, 'PACKING').subscribe({
-                    next: () => {
-                        this.cdr.detectChanges();
-                        Swal.fire('Éxito', 'Picking finalizado', 'success').then(() => {
-                            this.router.navigate(['/logistics/packing', this.saleId]);
-                        });
-                    },
-                    error: (err) => {
-                        this.cdr.detectChanges();
-                        Swal.fire('Error', 'No se pudo actualizar estado', 'error');
-                    }
-                });
-            }
+            if (!result.isConfirmed) return;
+            this.saleService.updateStatus(this.saleId as string, 'PACKING').subscribe({
+                next: () => {
+                    this.cdr.detectChanges();
+                    Swal.fire('Exito', 'Picking finalizado', 'success').then(() => {
+                        this.router.navigate(['/logistics/packing', this.saleId]);
+                    });
+                },
+                error: () => {
+                    this.cdr.detectChanges();
+                    Swal.fire('Error', 'No se pudo actualizar estado', 'error');
+                }
+            });
         });
     }
 }

@@ -1,9 +1,15 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
 import Swal from 'sweetalert2';
+
+interface Company {
+    id: string;
+    name: string;
+    valid_until?: string;
+}
 
 @Component({
     selector: 'app-company-form',
@@ -57,9 +63,9 @@ export class CompanyFormComponent implements OnInit {
 
     loadCompany(id: string) {
         this.loading = true;
-        this.api.get<any>(`/admin/companies`).subscribe({
-            next: (companies: any[]) => {
-                const company = companies.find((c: any) => c.id === id);
+        this.api.get<Company[]>(`/admin/companies`).subscribe({
+            next: (companies: Company[]) => {
+                const company = companies.find((c: Company) => c.id === id);
                 if (company) {
                     if (company.valid_until) {
                         company.valid_until = company.valid_until.split('T')[0]; // Format YYYY-MM-DD for input[date]
@@ -68,9 +74,9 @@ export class CompanyFormComponent implements OnInit {
                 }
                 this.loading = false;
             },
-            error: (err) => {
+            error: (error: unknown) => {
                 this.loading = false;
-                console.error(err);
+                console.error(error);
             }
         });
     }
@@ -83,20 +89,23 @@ export class CompanyFormComponent implements OnInit {
 
         if (this.isEditMode && this.companyId) {
             // Remove admin fields from update payload
-            const { admin_name, admin_email, admin_password, ...updateData } = data;
+            const updateData = { ...data };
+            delete updateData.admin_name;
+            delete updateData.admin_email;
+            delete updateData.admin_password;
             this.api.put(`/admin/companies/${this.companyId}`, updateData).subscribe({
                 next: () => {
                     Swal.fire('Actualizado', 'Empresa actualizada correctamente', 'success');
                     this.router.navigate(['/admin/companies']);
                 },
-                error: (err) => {
+                error: () => {
                     this.loading = false;
                     Swal.fire('Error', 'No se pudo actualizar', 'error');
                 }
             });
         } else {
             this.api.post('/admin/companies', data).subscribe({
-                next: (res: any) => {
+                next: () => {
                     Swal.fire({
                         icon: 'success',
                         title: '¡Empresa Creada!',

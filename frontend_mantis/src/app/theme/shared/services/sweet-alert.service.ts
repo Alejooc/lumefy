@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import Swal from 'sweetalert2';
+import { SweetAlertOptions, SweetAlertResult } from 'sweetalert2';
 
 @Injectable({
     providedIn: 'root'
@@ -23,7 +24,7 @@ export class SweetAlertService {
         });
     }
 
-    confirm(title: string, text: string): Promise<any> {
+    confirm(title: string, text: string): Promise<SweetAlertResult> {
         return Swal.fire({
             title: title,
             text: text,
@@ -73,7 +74,7 @@ export class SweetAlertService {
         });
     }
 
-    input(options: any): Promise<any> {
+    input(options: SweetAlertOptions): Promise<SweetAlertResult> {
         return Swal.fire(options);
     }
 

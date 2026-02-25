@@ -65,8 +65,8 @@ export class NotificationService {
         );
     }
 
-    markAllAsRead(): Observable<any> {
-        return this.http.put(`${this.apiUrl}/read-all`, {}).pipe(
+    markAllAsRead(): Observable<unknown> {
+        return this.http.put<unknown>(`${this.apiUrl}/read-all`, {}).pipe(
             tap(() => {
                 this.unreadCountSubject.next(0);
             })

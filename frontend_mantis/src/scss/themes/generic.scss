@@ -1,3 +1,5 @@
+@use 'sass:map';
+
 /**  =====================
       Generic-class css start
 ========================== **/
@@ -173,10 +175,10 @@ $more-colors: (
   $i: 100;
   @while $i<=900 {
     .bg-#{$name}-#{$i} {
-      background: map-get($value, $i);
+      background: map.get($value, $i);
     }
     .text-#{$name}-#{$i} {
-      color: map-get($value, $i);
+      color: map.get($value, $i);
     }
     $i: $i + 100;
   }

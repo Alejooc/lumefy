@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -27,6 +27,8 @@ export interface Product {
     min_stock: number;
     category_id?: string;
     brand_id?: string;
+    category?: { id?: string; name: string };
+    brand?: { id?: string; name: string };
     unit_of_measure_id?: string;
     purchase_uom_id?: string;
     images: ProductImage[];
@@ -47,9 +49,9 @@ export interface ProductVariant {
     providedIn: 'root'
 })
 export class ProductService {
-    private apiUrl = `${environment.apiUrl}/products`;
+    private http = inject(HttpClient);
 
-    constructor(private http: HttpClient) { }
+    private apiUrl = `${environment.apiUrl}/products`;
 
     getProducts(): Observable<Product[]> {
         return this.http.get<Product[]>(this.apiUrl);

@@ -1,8 +1,7 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { BranchService, Branch } from '../../../core/services/branch.service';
-import Swal from 'sweetalert2';
+import { Branch, BranchService } from '../../../core/services/branch.service';
 
 @Component({
     selector: 'app-branch-list',
@@ -13,6 +12,7 @@ import Swal from 'sweetalert2';
 export class BranchListComponent implements OnInit {
     private branchService = inject(BranchService);
     private cdr = inject(ChangeDetectorRef);
+
     branches: Branch[] = [];
     isLoading = false;
 
@@ -28,32 +28,11 @@ export class BranchListComponent implements OnInit {
                 this.isLoading = false;
                 this.cdr.detectChanges();
             },
-            error: (err) => {
-                console.error('Error loading branches', err);
+            error: (error: unknown) => {
+                console.error('Error loading branches', error);
                 this.isLoading = false;
                 this.cdr.detectChanges();
             }
-        });
-    }
-
-    deleteBranch(id: string) {
-        Swal.fire({
-            title: '¿Estás seguro?',
-            text: "No podrás revertir esto",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, borrar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            /* 
-             * Ideally we would call delete on service, but service might miss delete method. 
-             * I will need to check if service has delete. Yes, I saw it only has getBranches.
-             * I will assume I need to add CRUD to service or just use ApiService directly here or update service later.
-             * For speed, I'll update service first or inject ApiService. Let's use ApiService directly for delete to be fast, 
-             * but better to update service. I'll update service in next step.
-             */
         });
     }
 }

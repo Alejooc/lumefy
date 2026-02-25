@@ -1,5 +1,5 @@
 // angular import
-import { Component, OnInit, viewChild, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, viewChild, Input, OnChanges, SimpleChanges } from '@angular/core';
 
 // project import
 import { ChartData } from 'src/app/core/services/dashboard.service';
@@ -15,7 +15,7 @@ import { CardComponent } from 'src/app/theme/shared/components/card/card.compone
   templateUrl: './income-overview-chart.component.html',
   styleUrl: './income-overview-chart.component.scss'
 })
-export class IncomeOverviewChartComponent implements OnInit, OnChanges {
+export class IncomeOverviewChartComponent implements OnChanges {
   // public props
   chart = viewChild.required<ChartComponent>('chart');
   chartOptions!: Partial<ApexOptions>;
@@ -72,9 +72,6 @@ export class IncomeOverviewChartComponent implements OnInit, OnChanges {
         theme: 'light'
       }
     };
-  }
-
-  ngOnInit() {
   }
 
   ngOnChanges(changes: SimpleChanges) {

@@ -1,65 +1,73 @@
 <div class="row">
-    <div class="col-sm-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>Gestión Global de Usuarios</h5>
-                <div class="row g-2">
-                    <div class="col-auto">
-                        <input type="text" class="form-control form-control-sm" [(ngModel)]="searchTerm"
-                            (keyup.enter)="loadUsers()" placeholder="Buscar por nombre o email...">
-                    </div>
-                    <div class="col-auto">
-                        <button class="btn btn-primary btn-sm" (click)="loadUsers()">
-                            <i class="feather icon-search"></i>
-                        </button>
-                    </div>
-                </div>
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>Gestión Global de Usuarios</h5>
+        <div class="row g-2">
+          <div class="col-auto">
+            <input type="text" class="form-control form-control-sm" [(ngModel)]="searchTerm"
+              (keyup.enter)="loadUsers()" placeholder="Buscar por nombre o email...">
             </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Email</th>
-                                <th>Rol</th>
-                                <th>Estado</th>
-                                <th>Empresa</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let user of users">
-                                <td>{{ user.full_name }}</td>
-                                <td>{{ user.email }}</td>
-                                <td>{{ user.role?.name || 'N/A' }}</td>
-                                <td>
-                                    <span class="badge" [ngClass]="user.is_active ? 'bg-success' : 'bg-danger'">
-                                        {{ user.is_active ? 'Activo' : 'Inactivo' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span *ngIf="user.is_superuser" class="badge bg-purple text-white">Super
-                                        Admin</span>
-                                    <span *ngIf="!user.is_superuser && user.company">{{ user.company.name }}</span>
-                                    <span *ngIf="!user.is_superuser && !user.company" class="text-muted">Sin
-                                        Empresa</span>
-                                </td>
-                                <td>
-                                    <button class="btn btn-icon btn-outline-warning me-2" (click)="impersonate(user)"
-                                        title="Iniciar sesión como este usuario">
-                                        <i class="feather icon-user-check"></i>
-                                    </button>
-                                    <button class="btn btn-icon btn-outline-primary" (click)="sendRecoveryEmail(user)"
-                                        title="Enviar Correo de Recuperación">
-                                        <i class="feather icon-lock"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="col-auto">
+              <button class="btn btn-primary btn-sm" (click)="loadUsers()">
+                <i class="feather icon-search"></i>
+              </button>
             </div>
+          </div>
         </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Email</th>
+                  <th>Rol</th>
+                  <th>Estado</th>
+                  <th>Empresa</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (user of users; track user) {
+                  <tr>
+                    <td>{{ user.full_name }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.role?.name || 'N/A' }}</td>
+                    <td>
+                      <span class="badge" [ngClass]="user.is_active ? 'bg-success' : 'bg-danger'">
+                        {{ user.is_active ? 'Activo' : 'Inactivo' }}
+                      </span>
+                    </td>
+                    <td>
+                      @if (user.is_superuser) {
+                        <span class="badge bg-purple text-white">Super
+                        Admin</span>
+                      }
+                      @if (!user.is_superuser && user.company) {
+                        <span>{{ user.company.name }}</span>
+                      }
+                      @if (!user.is_superuser && !user.company) {
+                        <span class="text-muted">Sin
+                        Empresa</span>
+                      }
+                    </td>
+                    <td>
+                      <button class="btn btn-icon btn-outline-warning me-2" (click)="impersonate(user)"
+                        title="Iniciar sesión como este usuario">
+                        <i class="feather icon-user-check"></i>
+                      </button>
+                      <button class="btn btn-icon btn-outline-primary" (click)="sendRecoveryEmail(user)"
+                        title="Enviar Correo de Recuperación">
+                        <i class="feather icon-lock"></i>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
-</div>
+  </div>

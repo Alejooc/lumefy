@@ -1,12 +1,12 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { RouterModule } from '@angular/router';
 import { SupplierService, Supplier } from '../../../core/services/supplier.service';
 
 @Component({
     selector: 'app-supplier-list',
     standalone: true,
-    imports: [CommonModule, RouterModule],
+    imports: [RouterModule],
     templateUrl: './supplier-list.component.html',
     styleUrls: ['./supplier-list.component.scss']
 })

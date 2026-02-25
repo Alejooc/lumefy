@@ -1,0 +1,1602 @@
+
+> mantis-free-angular-admin-template@5.3.0 build
+> ng build
+
+node.exe : - Generating browser application bundles (phase: setup)...
+En línea: 1 Carácter: 1
++ & "C:\nvm4w\nodejs/node.exe" "C:\nvm4w\nodejs/node_modules/npm/bin/np ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (- Generating br...hase: setup)...:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[32mv[39m Browser application bundle generation complete.
+[32mv[39m Browser application bundle generation complete.
+[1m[33m
+./src/app/demo/pages/authentication/auth-login/auth-login.component.scss?ngResource - Warning: Module Warning (from 
+./node_modules/sass-loader/dist/cjs.js):
+Deprecation Warning on line 0, column 8 of 
+file:///C:/angular/lumefy/frontend_mantis/src/app/demo/pages/authentication/auth-login/auth-login.component.scss:0:8:
+Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+0 | @import '../../../../../scss/settings/color-variables.scss';
+
+
+src\app\demo\pages\authentication\auth-login\auth-login.component.scss 1:9  root stylesheet
+
+
+./src/app/demo/pages/authentication/auth-register/auth-register.component.scss?ngResource - Warning: Module Warning 
+(from ./node_modules/sass-loader/dist/cjs.js):
+Deprecation Warning on line 0, column 8 of file:///C:/angular/lumefy/frontend_mantis/src/app/demo/pages/authentication/
+auth-register/auth-register.component.scss:0:8:
+Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+0 | @import '../../../../../scss/settings/color-variables.scss';
+
+
+src\app\demo\pages\authentication\auth-register\auth-register.component.scss 1:9  root stylesheet
+
+
+./src/app/demo/pages/landing/landing-page/landing-page.scss?ngResource - Warning: Module Warning (from 
+./node_modules/sass-loader/dist/cjs.js):
+Deprecation Warning on line 285, column 11 of 
+file:///C:/angular/lumefy/frontend_mantis/src/app/demo/pages/landing/landing-page/landing-page.scss:285:11:
+Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.
+Use color.adjust instead.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+285 |     color: lighten($primary, 10%) !important;
+
+
+src\app\demo\pages\landing\landing-page\landing-page.scss 286:12  root stylesheet
+
+
+./src/app/demo/pages/landing/landing-page/landing-page.scss?ngResource - Warning: Module Warning (from 
+./node_modules/sass-loader/dist/cjs.js):
+Deprecation Warning on line 285, column 11 of 
+file:///C:/angular/lumefy/frontend_mantis/src/app/demo/pages/landing/landing-page/landing-page.scss:285:11:
+lighten() is deprecated. Suggestions:
+
+color.scale($color, $lightness: 30%)
+color.adjust($color, $lightness: 10%)
+
+More info: https://sass-lang.com/d/color-functions
+
+285 |     color: lighten($primary, 10%) !important;
+
+
+src\app\demo\pages\landing\landing-page\landing-page.scss 286:12  root stylesheet
+
+
+./src/app/demo/pages/landing/landing-page/landing-page.scss?ngResource - Warning: Module Warning (from 
+./node_modules/sass-loader/dist/cjs.js):
+Deprecation Warning on line 305, column 22 of 
+file:///C:/angular/lumefy/frontend_mantis/src/app/demo/pages/landing/landing-page/landing-page.scss:305:22:
+Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.
+Use color.adjust instead.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+305 |         border-color: lighten($border-color, 10%);
+
+
+src\app\demo\pages\landing\landing-page\landing-page.scss 306:23  root stylesheet
+
+
+./src/app/demo/pages/landing/landing-page/landing-page.scss?ngResource - Warning: Module Warning (from 
+./node_modules/sass-loader/dist/cjs.js):
+Deprecation Warning on line 305, column 22 of 
+file:///C:/angular/lumefy/frontend_mantis/src/app/demo/pages/landing/landing-page/landing-page.scss:305:22:
+lighten() is deprecated. Suggestions:
+
+color.scale($color, $lightness: 13.6363636364%)
+color.adjust($color, $lightness: 10%)
+
+More info: https://sass-lang.com/d/color-functions
+
+305 |         border-color: lighten($border-color, 10%);
+
+
+src\app\demo\pages\landing\landing-page\landing-page.scss 306:23  root stylesheet
+
+
+./src/app/demo/pages/landing/landing-page/landing-page.scss?ngResource - Warning: Module Warning (from 
+./node_modules/sass-loader/dist/cjs.js):
+Deprecation Warning on line 525, column 16 of 
+file:///C:/angular/lumefy/frontend_mantis/src/app/demo/pages/landing/landing-page/landing-page.scss:525:16:
+Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.
+Use color.adjust instead.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+525 |     background: lighten($dark-bg, 2%);
+
+
+src\app\demo\pages\landing\landing-page\landing-page.scss 526:17  root stylesheet
+
+
+./src/app/demo/pages/landing/landing-page/landing-page.scss?ngResource - Warning: Module Warning (from 
+./node_modules/sass-loader/dist/cjs.js):
+Deprecation Warning on line 525, column 16 of 
+file:///C:/angular/lumefy/frontend_mantis/src/app/demo/pages/landing/landing-page/landing-page.scss:525:16:
+lighten() is deprecated. Suggestions:
+
+color.scale($color, $lightness: 2.2516556291%)
+color.adjust($color, $lightness: 2%)
+
+More info: https://sass-lang.com/d/color-functions
+
+525 |     background: lighten($dark-bg, 2%);
+
+
+src\app\demo\pages\landing\landing-page\landing-page.scss 526:17  root stylesheet
+
+
+./src/app/demo/pages/landing/landing-page/landing-page.scss?ngResource - Warning: Module Warning (from 
+./node_modules/sass-loader/dist/cjs.js):
+Deprecation Warning on line 566, column 23 of 
+file:///C:/angular/lumefy/frontend_mantis/src/app/demo/pages/landing/landing-page/landing-page.scss:566:23:
+Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.
+Use color.adjust instead.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+566 |                 color: lighten($primary, 10%);
+
+
+src\app\demo\pages\landing\landing-page\landing-page.scss 567:24  root stylesheet
+
+
+./src/app/demo/pages/landing/landing-page/landing-page.scss?ngResource - Warning: Module Warning (from 
+./node_modules/sass-loader/dist/cjs.js):
+Deprecation Warning on line 566, column 23 of 
+file:///C:/angular/lumefy/frontend_mantis/src/app/demo/pages/landing/landing-page/landing-page.scss:566:23:
+lighten() is deprecated. Suggestions:
+
+color.scale($color, $lightness: 30%)
+color.adjust($color, $lightness: 10%)
+
+More info: https://sass-lang.com/d/color-functions
+
+566 |                 color: lighten($primary, 10%);
+
+
+src\app\demo\pages\landing\landing-page\landing-page.scss 567:24  root stylesheet
+
+
+Warning: C:/angular/lumefy/frontend_mantis/src/app/demo/pages/landing/landing-page/landing-page.scss exceeded maximum 
+budget. Budget 10.00 kB was not met by 335 bytes with a total of 10.34 kB.
+
+[39m[22m
+[1m[31m
+Error: [96msrc/app/core/services/app-marketplace.service.ts[0m:[93m209[0m:[93m65[0m - [91merror[0m[90m 
+TS2345: [0mArgument of type 'AppInstallRequest' is not assignable to parameter of type 'FormData | Record<string, 
+unknown>'.
+  Type 'AppInstallRequest' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'AppInstallRequest'.
+
+[7m209[0m     return this.api.post<InstalledApp>(`/apps/install/${slug}`, payload);
+[7m   [0m [91m                                                                ~~~~~~~[0m
+
+
+Error: [96msrc/app/core/services/auth.service.ts[0m:[93m124[0m:[93m62[0m - [91merror[0m[90m TS2345: 
+[0mArgument of type 'UserRegister' is not assignable to parameter of type 'FormData | Record<string, unknown>'.
+  Type 'UserRegister' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'UserRegister'.
+
+[7m124[0m         return this.api.post<AuthTokenResponse>('/register', user).pipe(
+[7m   [0m [91m                                                             ~~~~[0m
+
+
+Error: [96msrc/app/core/services/dashboard.service.ts[0m:[93m70[0m:[93m43[0m - [91merror[0m[90m TS4111: 
+[0mProperty 'date_from' comes from an index signature, so it must be accessed with ['date_from'].
+
+[7m70[0m             if (filters.date_from) params.date_from = filters.date_from;
+[7m  [0m [91m                                          ~~~~~~~~~[0m
+
+
+Error: [96msrc/app/core/services/dashboard.service.ts[0m:[93m71[0m:[93m41[0m - [91merror[0m[90m TS4111: 
+[0mProperty 'date_to' comes from an index signature, so it must be accessed with ['date_to'].
+
+[7m71[0m             if (filters.date_to) params.date_to = filters.date_to;
+[7m  [0m [91m                                        ~~~~~~~[0m
+
+
+Error: [96msrc/app/core/services/dashboard.service.ts[0m:[93m72[0m:[93m43[0m - [91merror[0m[90m TS4111: 
+[0mProperty 'branch_id' comes from an index signature, so it must be accessed with ['branch_id'].
+
+[7m72[0m             if (filters.branch_id) params.branch_id = filters.branch_id;
+[7m  [0m [91m                                          ~~~~~~~~~[0m
+
+
+Error: [96msrc/app/core/services/return.service.ts[0m:[93m52[0m:[93m28[0m - [91merror[0m[90m TS4111: 
+[0mProperty 'sale_id' comes from an index signature, so it must be accessed with ['sale_id'].
+
+[7m52[0m         if (saleId) params.sale_id = saleId;
+[7m  [0m [91m                           ~~~~~~~[0m
+
+
+Error: [96msrc/app/core/services/return.service.ts[0m:[93m53[0m:[93m28[0m - [91merror[0m[90m TS4111: 
+[0mProperty 'status' comes from an index signature, so it must be accessed with ['status'].
+
+[7m53[0m         if (status) params.status = status;
+[7m  [0m [91m                           ~~~~~~[0m
+
+
+Error: [96msrc/app/core/services/return.service.ts[0m:[93m64[0m:[93m58[0m - [91merror[0m[90m TS2345: 
+[0mArgument of type 'ReturnOrderCreate' is not assignable to parameter of type 'FormData | Record<string, unknown>'.
+  Type 'ReturnOrderCreate' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'ReturnOrderCreate'.
+
+[7m64[0m         return this.api.post<ReturnOrder>(this.basePath, data);
+[7m  [0m [91m                                                         ~~~~[0m
+
+
+Error: [96msrc/app/core/services/sale.service.ts[0m:[93m78[0m:[93m28[0m - [91merror[0m[90m TS4111: 
+[0mProperty 'status' comes from an index signature, so it must be accessed with ['status'].
+
+[7m78[0m         if (status) params.status = status;
+[7m  [0m [91m                           ~~~~~~[0m
+
+
+Error: [96msrc/app/core/services/sale.service.ts[0m:[93m79[0m:[93m30[0m - [91merror[0m[90m TS4111: 
+[0mProperty 'client_id' comes from an index signature, so it must be accessed with ['client_id'].
+
+[7m79[0m         if (clientId) params.client_id = clientId;
+[7m  [0m [91m                             ~~~~~~~~~[0m
+
+
+Error: [96msrc/app/demo/pages/landing/landing-page/landing-page.ts[0m:[93m173[0m:[93m14[0m - [91merror[0m[90m 
+TS2339: [0mProperty 'button_text' does not exist on type 'Plan'.
+
+[7m173[0m     if (plan.button_text) return plan.button_text;
+[7m   [0m [91m             ~~~~~~~~~~~[0m
+
+
+Error: [96msrc/app/demo/pages/landing/landing-page/landing-page.ts[0m:[93m173[0m:[93m39[0m - [91merror[0m[90m 
+TS2339: [0mProperty 'button_text' does not exist on type 'Plan'.
+
+[7m173[0m     if (plan.button_text) return plan.button_text;
+[7m   [0m [91m                                      ~~~~~~~~~~~[0m
+
+
+Error: [96msrc/app/demo/pages/landing/landing-page/landing-page.ts[0m:[93m185[0m:[93m7[0m - [91merror[0m[90m 
+TS2322: [0mType 'unknown[]' is not assignable to type 'string[]'.
+  Type 'unknown' is not assignable to type 'string'.
+
+[7m185[0m       return plan.features;
+[7m   [0m [91m      ~~~~~~[0m
+
+
+Error: [96msrc/app/modules/admin/company-list/company-list.component.html[0m:[93m28[0m:[93m43[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'logo_url' does not exist on type 'Company'.
+
+[7m28[0m                       <img [src]="company.logo_url || 'assets/images/user/avatar-2.jpg'" width="30"
+[7m  [0m [91m                                          ~~~~~~~~[0m
+
+  [96msrc/app/modules/admin/company-list/company-list.component.ts[0m:[93m17[0m:[93m18[0m
+    [7m17[0m     templateUrl: './company-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component CompanyListComponent.
+
+
+Error: [96msrc/app/modules/admin/company-list/company-list.component.html[0m:[93m32[0m:[93m64[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'tax_id' does not exist on type 'Company'.
+
+[7m32[0m                           <small class="text-muted">{{ company.tax_id }}</small>
+[7m  [0m [91m                                                               ~~~~~~[0m
+
+  [96msrc/app/modules/admin/company-list/company-list.component.ts[0m:[93m17[0m:[93m18[0m
+    [7m17[0m     templateUrl: './company-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component CompanyListComponent.
+
+
+Error: [96msrc/app/modules/admin/company-list/company-list.component.html[0m:[93m38[0m:[93m59[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'plan' does not exist on type 'Company'.
+
+[7m38[0m                         [ngClass]="{'bg-primary': company.plan === 'PRO', 'bg-warning text-dark': 
+company.plan === 'ENTERPRISE', 'bg-secondary': company.plan === 'FREE'}">
+[7m  [0m [91m                                                          ~~~~[0m
+
+  [96msrc/app/modules/admin/company-list/company-list.component.ts[0m:[93m17[0m:[93m18[0m
+    [7m17[0m     templateUrl: './company-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component CompanyListComponent.
+
+
+Error: [96msrc/app/modules/admin/company-list/company-list.component.html[0m:[93m38[0m:[93m107[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'plan' does not exist on type 'Company'.
+
+[7m38[0m                         [ngClass]="{'bg-primary': company.plan === 'PRO', 'bg-warning text-dark': 
+company.plan === 'ENTERPRISE', 'bg-secondary': company.plan === 'FREE'}">
+[7m  [0m [91m                                                                                                       
+   ~~~~[0m
+
+  [96msrc/app/modules/admin/company-list/company-list.component.ts[0m:[93m17[0m:[93m18[0m
+    [7m17[0m     templateUrl: './company-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component CompanyListComponent.
+
+
+Error: [96msrc/app/modules/admin/company-list/company-list.component.html[0m:[93m38[0m:[93m154[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'plan' does not exist on type 'Company'.
+
+[7m38[0m                         [ngClass]="{'bg-primary': company.plan === 'PRO', 'bg-warning text-dark': 
+company.plan === 'ENTERPRISE', 'bg-secondary': company.plan === 'FREE'}">
+[7m  [0m [91m                                                                                                       
+                                                  ~~~~[0m
+
+  [96msrc/app/modules/admin/company-list/company-list.component.ts[0m:[93m17[0m:[93m18[0m
+    [7m17[0m     templateUrl: './company-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component CompanyListComponent.
+
+
+Error: [96msrc/app/modules/admin/company-list/company-list.component.html[0m:[93m39[0m:[93m36[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'plan' does not exist on type 'Company'.
+
+[7m39[0m                         {{ company.plan }}
+[7m  [0m [91m                                   ~~~~[0m
+
+  [96msrc/app/modules/admin/company-list/company-list.component.ts[0m:[93m17[0m:[93m18[0m
+    [7m17[0m     templateUrl: './company-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component CompanyListComponent.
+
+
+Error: [96msrc/app/modules/admin/company-list/company-list.component.html[0m:[93m43[0m:[93m62[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'is_active' does not exist on type 'Company'.
+
+[7m43[0m                       <span class="badge" [ngClass]="company.is_active ? 'bg-success' : 'bg-danger'">
+[7m  [0m [91m                                                             ~~~~~~~~~[0m
+
+  [96msrc/app/modules/admin/company-list/company-list.component.ts[0m:[93m17[0m:[93m18[0m
+    [7m17[0m     templateUrl: './company-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component CompanyListComponent.
+
+
+Error: [96msrc/app/modules/admin/company-list/company-list.component.html[0m:[93m44[0m:[93m36[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'is_active' does not exist on type 'Company'.
+
+[7m44[0m                         {{ company.is_active ? 'Activo' : 'Suspendido' }}
+[7m  [0m [91m                                   ~~~~~~~~~[0m
+
+  [96msrc/app/modules/admin/company-list/company-list.component.ts[0m:[93m17[0m:[93m18[0m
+    [7m17[0m     templateUrl: './company-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component CompanyListComponent.
+
+
+Error: [96msrc/app/modules/admin/company-list/company-list.component.html[0m:[93m48[0m:[93m36[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'email' does not exist on type 'Company'.
+
+[7m48[0m                     <td>{{ company.email }}</td>
+[7m  [0m [91m                                   ~~~~~[0m
+
+  [96msrc/app/modules/admin/company-list/company-list.component.ts[0m:[93m17[0m:[93m18[0m
+    [7m17[0m     templateUrl: './company-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component CompanyListComponent.
+
+
+Error: [96msrc/app/modules/admin/plan-form/plan-form.component.ts[0m:[93m75[0m:[93m47[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'users' comes from an index signature, so it must be accessed with ['users'].
+
+[7m75[0m                     limit_users: plan.limits?.users || 0,
+[7m  [0m [91m                                              ~~~~~[0m
+
+
+Error: [96msrc/app/modules/admin/plan-form/plan-form.component.ts[0m:[93m76[0m:[93m49[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'storage' comes from an index signature, so it must be accessed with ['storage'].
+
+[7m76[0m                     limit_storage: plan.limits?.storage || 0,
+[7m  [0m [91m                                                ~~~~~~~[0m
+
+
+Error: [96msrc/app/modules/admin/plan-form/plan-form.component.ts[0m:[93m77[0m:[93m50[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'branches' comes from an index signature, so it must be accessed with ['branches'].
+
+[7m77[0m                     limit_branches: plan.limits?.branches || 1
+[7m  [0m [91m                                                 ~~~~~~~~[0m
+
+
+Error: [96msrc/app/modules/admin/user-list/admin-user-list.component.html[0m:[93m36[0m:[93m33[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'role' does not exist on type 'AdminUser'.
+
+[7m36[0m                     <td>{{ user.role?.name || 'N/A' }}</td>
+[7m  [0m [91m                                ~~~~[0m
+
+  [96msrc/app/modules/admin/user-list/admin-user-list.component.ts[0m:[93m15[0m:[93m18[0m
+    [7m15[0m     templateUrl: './admin-user-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component AdminUserListComponent.
+
+
+Error: [96msrc/app/modules/admin/user-list/admin-user-list.component.html[0m:[93m43[0m:[93m33[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'is_superuser' does not exist on type 'AdminUser'.
+
+[7m43[0m                       @if (user.is_superuser) {
+[7m  [0m [91m                                ~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/admin/user-list/admin-user-list.component.ts[0m:[93m15[0m:[93m18[0m
+    [7m15[0m     templateUrl: './admin-user-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component AdminUserListComponent.
+
+
+Error: [96msrc/app/modules/admin/user-list/admin-user-list.component.html[0m:[93m47[0m:[93m34[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'is_superuser' does not exist on type 'AdminUser'.
+
+[7m47[0m                       @if (!user.is_superuser && user.company) {
+[7m  [0m [91m                                 ~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/admin/user-list/admin-user-list.component.ts[0m:[93m15[0m:[93m18[0m
+    [7m15[0m     templateUrl: './admin-user-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component AdminUserListComponent.
+
+
+Error: [96msrc/app/modules/admin/user-list/admin-user-list.component.html[0m:[93m47[0m:[93m55[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'company' does not exist on type 'AdminUser'.
+
+[7m47[0m                       @if (!user.is_superuser && user.company) {
+[7m  [0m [91m                                                      ~~~~~~~[0m
+
+  [96msrc/app/modules/admin/user-list/admin-user-list.component.ts[0m:[93m15[0m:[93m18[0m
+    [7m15[0m     templateUrl: './admin-user-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component AdminUserListComponent.
+
+
+Error: [96msrc/app/modules/admin/user-list/admin-user-list.component.html[0m:[93m48[0m:[93m39[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'company' does not exist on type 'AdminUser'.
+
+[7m48[0m                         <span>{{ user.company.name }}</span>
+[7m  [0m [91m                                      ~~~~~~~[0m
+
+  [96msrc/app/modules/admin/user-list/admin-user-list.component.ts[0m:[93m15[0m:[93m18[0m
+    [7m15[0m     templateUrl: './admin-user-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component AdminUserListComponent.
+
+
+Error: [96msrc/app/modules/admin/user-list/admin-user-list.component.html[0m:[93m50[0m:[93m34[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'is_superuser' does not exist on type 'AdminUser'.
+
+[7m50[0m                       @if (!user.is_superuser && !user.company) {
+[7m  [0m [91m                                 ~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/admin/user-list/admin-user-list.component.ts[0m:[93m15[0m:[93m18[0m
+    [7m15[0m     templateUrl: './admin-user-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component AdminUserListComponent.
+
+
+Error: [96msrc/app/modules/admin/user-list/admin-user-list.component.html[0m:[93m50[0m:[93m56[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'company' does not exist on type 'AdminUser'.
+
+[7m50[0m                       @if (!user.is_superuser && !user.company) {
+[7m  [0m [91m                                                       ~~~~~~~[0m
+
+  [96msrc/app/modules/admin/user-list/admin-user-list.component.ts[0m:[93m15[0m:[93m18[0m
+    [7m15[0m     templateUrl: './admin-user-list.component.html'
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component AdminUserListComponent.
+
+
+Error: [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m90[0m:[93m15[0m - [91merror[0m[90m 
+TS2322: [0mType 'unknown' is not assignable to type 'string'.
+
+[7m90[0m               title: prop.title || key,
+[7m  [0m [91m              ~~~~~[0m
+
+  [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m18[0m:[93m3[0m
+    [7m18[0m   title: string;
+    [7m  [0m [96m  ~~~~~[0m
+    The expected type comes from property 'title' which is declared here on type 'SchemaField'
+
+
+Error: [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m90[0m:[93m27[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'title' comes from an index signature, so it must be accessed with ['title'].
+
+[7m90[0m               title: prop.title || key,
+[7m  [0m [91m                          ~~~~~[0m
+
+
+Error: [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m91[0m:[93m15[0m - [91merror[0m[90m 
+TS2322: [0mType 'unknown' is not assignable to type 'string'.
+
+[7m91[0m               type: prop.type || 'string',
+[7m  [0m [91m              ~~~~[0m
+
+  [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m19[0m:[93m3[0m
+    [7m19[0m   type: string;
+    [7m  [0m [96m  ~~~~[0m
+    The expected type comes from property 'type' which is declared here on type 'SchemaField'
+
+
+Error: [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m91[0m:[93m26[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'type' comes from an index signature, so it must be accessed with ['type'].
+
+[7m91[0m               type: prop.type || 'string',
+[7m  [0m [91m                         ~~~~[0m
+
+
+Error: [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m92[0m:[93m15[0m - [91merror[0m[90m 
+TS2740: [0mType '{}' is missing the following properties from type 'string[]': length, pop, push, concat, and 29 more.
+
+[7m92[0m               enum: prop.enum,
+[7m  [0m [91m              ~~~~[0m
+
+  [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m20[0m:[93m3[0m
+    [7m20[0m   enum?: string[];
+    [7m  [0m [96m  ~~~~[0m
+    The expected type comes from property 'enum' which is declared here on type 'SchemaField'
+
+
+Error: [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m92[0m:[93m26[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'enum' comes from an index signature, so it must be accessed with ['enum'].
+
+[7m92[0m               enum: prop.enum,
+[7m  [0m [91m                         ~~~~[0m
+
+
+Error: [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m93[0m:[93m15[0m - [91merror[0m[90m 
+TS2322: [0mType 'unknown' is not assignable to type 'string'.
+
+[7m93[0m               description: prop.description
+[7m  [0m [91m              ~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m21[0m:[93m3[0m
+    [7m21[0m   description?: string;
+    [7m  [0m [96m  ~~~~~~~~~~~[0m
+    The expected type comes from property 'description' which is declared here on type 'SchemaField'
+
+
+Error: [96msrc/app/modules/apps/app-installed-detail.component.ts[0m:[93m93[0m:[93m33[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'description' comes from an index signature, so it must be accessed with ['description'].
+
+[7m93[0m               description: prop.description
+[7m  [0m [91m                                ~~~~~~~~~~~[0m
+
+
+Error: [96msrc/app/modules/brands/brand-list.component.ts[0m:[93m118[0m:[93m57[0m - [91merror[0m[90m TS2345: 
+[0mArgument of type 'Brand' is not assignable to parameter of type 'FormData | Record<string, unknown>'.
+  Type 'Brand' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'Brand'.
+
+[7m118[0m             ? this.api.put(`/brands/${this.editingId}`, this.newBrand)
+[7m   [0m [91m                                                        ~~~~~~~~~~~~~[0m
+
+
+Error: [96msrc/app/modules/brands/brand-list.component.ts[0m:[93m119[0m:[93m40[0m - [91merror[0m[90m TS2345: 
+[0mArgument of type 'Brand' is not assignable to parameter of type 'FormData | Record<string, unknown>'.
+  Type 'Brand' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'Brand'.
+
+[7m119[0m             : this.api.post('/brands', this.newBrand);
+[7m   [0m [91m                                       ~~~~~~~~~~~~~[0m
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m28[0m:[93m65[0m - 
+[91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(value: string | number, digitsInfo?: string, locale?: string): string', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number'.
+  Overload 2 of 3, '(value: null, digitsInfo?: string, locale?: string): null', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'null'.
+  Overload 3 of 3, '(value: string | number, digitsInfo?: string, locale?: string): string', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number'.
+
+[7m28[0m             <h2 class="text-white mb-0">{{ currencySymbol }} {{ stats?.total_sales | number:'1.2-2' }}</h2>
+[7m  [0m [91m                                                                ~~~~~~~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m28[0m:[93m72[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'total_sales' comes from an index signature, so it must be accessed with 
+['total_sales'].
+
+[7m28[0m             <h2 class="text-white mb-0">{{ currencySymbol }} {{ stats?.total_sales | number:'1.2-2' }}</h2>
+[7m  [0m [91m                                                                       ~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m29[0m:[93m49[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'order_count' comes from an index signature, so it must be accessed with 
+['order_count'].
+
+[7m29[0m             <small class="opacity-75">{{ stats?.order_count }} pedidos realizados</small>
+[7m  [0m [91m                                                ~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m117[0m:[93m62[0m - 
+[91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(value: string | number, digitsInfo?: string, locale?: string): string', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number'.
+  Overload 2 of 3, '(value: null, digitsInfo?: string, locale?: string): null', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'null'.
+  Overload 3 of 3, '(value: string | number, digitsInfo?: string, locale?: string): string', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number'.
+
+[7m117[0m                     <h4 class="mb-0">{{ currencySymbol }} {{ stats?.average_order_value | number:'1.2-2' }}
+[7m   [0m [91m                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m117[0m:[93m69[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'average_order_value' comes from an index signature, so it must be accessed 
+with ['average_order_value'].
+
+[7m117[0m                     <h4 class="mb-0">{{ currencySymbol }} {{ stats?.average_order_value | number:'1.2-2' }}
+[7m   [0m [91m                                                                    ~~~~~~~~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m122[0m:[93m48[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'last_sale_at' comes from an index signature, so it must be accessed with 
+['last_sale_at'].
+
+[7m122[0m                     <h4 class="mb-0">{{ stats?.last_sale_at ? (stats.last_sale_at | date:'shortDate') :
+[7m   [0m [91m                                               ~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m122[0m:[93m70[0m - 
+[91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(value: string | number | Date, format?: string, timezone?: string, locale?: string): string', 
+gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number | Date'.
+  Overload 2 of 3, '(value: null, format?: string, timezone?: string, locale?: string): null', gave the following 
+error.
+    Argument of type 'unknown' is not assignable to parameter of type 'null'.
+  Overload 3 of 3, '(value: string | number | Date, format?: string, timezone?: string, locale?: string): string', 
+gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number | Date'.
+
+[7m122[0m                     <h4 class="mb-0">{{ stats?.last_sale_at ? (stats.last_sale_at | date:'shortDate') :
+[7m   [0m [91m                                                                     ~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m122[0m:[93m70[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'last_sale_at' comes from an index signature, so it must be accessed with 
+['last_sale_at'].
+
+[7m122[0m                     <h4 class="mb-0">{{ stats?.last_sale_at ? (stats.last_sale_at | date:'shortDate') :
+[7m   [0m [91m                                                                     ~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m183[0m:[93m71[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'category' comes from an index signature, so it must be accessed with 
+['category'].
+
+[7m183[0m                                         'ti-phone text-primary': item.category === 'CALL',
+[7m   [0m [91m                                                                      ~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m184[0m:[93m67[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'category' comes from an index signature, so it must be accessed with 
+['category'].
+
+[7m184[0m                                         'ti-mail text-info': item.category === 'EMAIL',
+[7m   [0m [91m                                                                  ~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m185[0m:[93m71[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'category' comes from an index signature, so it must be accessed with 
+['category'].
+
+[7m185[0m                                         'ti-users text-warning': item.category === 'MEETING',
+[7m   [0m [91m                                                                      ~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m186[0m:[93m72[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'category' comes from an index signature, so it must be accessed with 
+['category'].
+
+[7m186[0m                                         'ti-note text-secondary': item.category === 'NOTE' || 
+item.category === 'SYSTEM',
+[7m   [0m [91m                                                                       ~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m186[0m:[93m100[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'category' comes from an index signature, so it must be accessed with 
+['category'].
+
+[7m186[0m                                         'ti-note text-secondary': item.category === 'NOTE' || 
+item.category === 'SYSTEM',
+[7m   [0m [91m                                                                                                   
+~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m187[0m:[93m74[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'category' comes from an index signature, so it must be accessed with 
+['category'].
+
+[7m187[0m                                         'ti-receipt-2 text-danger': item.category === 'CHARGE' || 
+item.category === 'SALE',
+[7m   [0m [91m                                                                         ~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m187[0m:[93m104[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'category' comes from an index signature, so it must be accessed with 
+['category'].
+
+[7m187[0m                                         'ti-receipt-2 text-danger': item.category === 'CHARGE' || 
+item.category === 'SALE',
+[7m   [0m [91m                                                                                                      
+ ~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m188[0m:[93m70[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'category' comes from an index signature, so it must be accessed with 
+['category'].
+
+[7m188[0m                                         'ti-cash text-success': item.category === 'PAYMENT' || 
+item.category === 'REFUND'
+[7m   [0m [91m                                                                     ~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m188[0m:[93m101[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'category' comes from an index signature, so it must be accessed with 
+['category'].
+
+[7m188[0m                                         'ti-cash text-success': item.category === 'PAYMENT' || 
+item.category === 'REFUND'
+[7m   [0m [91m                                                                                                    
+~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m192[0m:[93m60[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'category' comes from an index signature, so it must be accessed with 
+['category'].
+
+[7m192[0m                           <h6 class="mb-1 fw-bold">{{ item.category }}</h6>
+[7m   [0m [91m                                                           ~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m193[0m:[93m61[0m - 
+[91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(value: string | number | Date, format?: string, timezone?: string, locale?: string): string', 
+gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number | Date'.
+  Overload 2 of 3, '(value: null, format?: string, timezone?: string, locale?: string): null', gave the following 
+error.
+    Argument of type 'unknown' is not assignable to parameter of type 'null'.
+  Overload 3 of 3, '(value: string | number | Date, format?: string, timezone?: string, locale?: string): string', 
+gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number | Date'.
+
+[7m193[0m                           <small class="text-muted">{{ item.created_at | date:'short' }}</small>
+[7m   [0m [91m                                                            ~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m193[0m:[93m61[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'created_at' comes from an index signature, so it must be accessed with 
+['created_at'].
+
+[7m193[0m                           <small class="text-muted">{{ item.created_at | date:'short' }}</small>
+[7m   [0m [91m                                                            ~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m195[0m:[93m64[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'content' comes from an index signature, so it must be accessed with 
+['content'].
+
+[7m195[0m                         <p class="mb-0 text-secondary">{{ item.content }}</p>
+[7m   [0m [91m                                                               ~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m196[0m:[93m35[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'amount' comes from an index signature, so it must be accessed with 
+['amount'].
+
+[7m196[0m                         @if (item.amount) {
+[7m   [0m [91m                                  ~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m198[0m:[93m40[0m - 
+[91merror[0m[90m TS2365: [0mOperator '>' cannot be applied to types 'unknown' and 'number'.
+
+[7m198[0m                             [ngClass]="item.amount > 0 ? 'text-danger' : 'text-success'">
+[7m   [0m [91m                                       ~~~~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m198[0m:[93m45[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'amount' comes from an index signature, so it must be accessed with 
+['amount'].
+
+[7m198[0m                             [ngClass]="item.amount > 0 ? 'text-danger' : 'text-success'">
+[7m   [0m [91m                                            ~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m199[0m:[93m58[0m - 
+[91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(value: string | number, digitsInfo?: string, locale?: string): string', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number'.
+  Overload 2 of 3, '(value: null, digitsInfo?: string, locale?: string): null', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'null'.
+  Overload 3 of 3, '(value: string | number, digitsInfo?: string, locale?: string): string', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number'.
+
+[7m199[0m                             {{ currencySymbol }} {{ item.amount | number:'1.2-2' }}
+[7m   [0m [91m                                                         ~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m199[0m:[93m58[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'amount' comes from an index signature, so it must be accessed with 
+['amount'].
+
+[7m199[0m                             {{ currencySymbol }} {{ item.amount | number:'1.2-2' }}
+[7m   [0m [91m                                                         ~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m243[0m:[93m46[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'id' comes from an index signature, so it must be accessed with ['id'].
+
+[7m243[0m                         <td><strong>#{{ sale.id.substring(0,8) }}</strong></td>
+[7m   [0m [91m                                             ~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m243[0m:[93m49[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'substring' does not exist on type 'unknown'.
+
+[7m243[0m                         <td><strong>#{{ sale.id.substring(0,8) }}</strong></td>
+[7m   [0m [91m                                                ~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m244[0m:[93m37[0m - 
+[91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(value: string | number | Date, format?: string, timezone?: string, locale?: string): string', 
+gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number | Date'.
+  Overload 2 of 3, '(value: null, format?: string, timezone?: string, locale?: string): null', gave the following 
+error.
+    Argument of type 'unknown' is not assignable to parameter of type 'null'.
+  Overload 3 of 3, '(value: string | number | Date, format?: string, timezone?: string, locale?: string): string', 
+gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number | Date'.
+
+[7m244[0m                         <td>{{ sale.created_at | date:'short' }}</td>
+[7m   [0m [91m                                    ~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m244[0m:[93m37[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'created_at' comes from an index signature, so it must be accessed with 
+['created_at'].
+
+[7m244[0m                         <td>{{ sale.created_at | date:'short' }}</td>
+[7m   [0m [91m                                    ~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m245[0m:[93m37[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'branch_id' comes from an index signature, so it must be accessed with 
+['branch_id'].
+
+[7m245[0m                         <td>{{ sale.branch_id }}</td>
+[7m   [0m [91m                                    ~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m246[0m:[93m37[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'items' comes from an index signature, so it must be accessed with ['items'].
+
+[7m246[0m                         <td>{{ sale.items?.length || 0 }}</td>
+[7m   [0m [91m                                    ~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m246[0m:[93m44[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'length' does not exist on type 'unknown'.
+
+[7m246[0m                         <td>{{ sale.items?.length || 0 }}</td>
+[7m   [0m [91m                                           ~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m248[0m:[93m85[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'status' comes from an index signature, so it must be accessed with 
+['status'].
+
+[7m248[0m                           <span class="badge bg-light-primary text-primary">{{ sale.status }}</span>
+[7m   [0m [91m                                                                                    ~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m250[0m:[93m83[0m - 
+[91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(value: string | number, digitsInfo?: string, locale?: string): string', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number'.
+  Overload 2 of 3, '(value: null, digitsInfo?: string, locale?: string): null', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'null'.
+  Overload 3 of 3, '(value: string | number, digitsInfo?: string, locale?: string): string', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number'.
+
+[7m250[0m                         <td class="text-end fw-bold">{{ currencySymbol }} {{ sale.total | number:'1.2-2' 
+}}</td>
+[7m   [0m [91m                                                                                  ~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m250[0m:[93m83[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'total' comes from an index signature, so it must be accessed with ['total'].
+
+[7m250[0m                         <td class="text-end fw-bold">{{ currencySymbol }} {{ sale.total | number:'1.2-2' 
+}}</td>
+[7m   [0m [91m                                                                                  ~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m253[0m:[93m64[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'id' comes from an index signature, so it must be accessed with ['id'].
+
+[7m253[0m                             [routerLink]="['/sales/view', sale.id]">
+[7m   [0m [91m                                                               ~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m296[0m:[93m36[0m - 
+[91merror[0m[90m TS2488: [0mType 'unknown' must have a '[Symbol.iterator]()' method that returns an iterator.
+
+[7m296[0m                     @for (entry of statement?.entries; track entry) {
+[7m   [0m [91m                                   ~~~~~~~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client-view/client-view.component.html[0m:[93m296[0m:[93m47[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'entries' comes from an index signature, so it must be accessed with 
+['entries'].
+
+[7m296[0m                     @for (entry of statement?.entries; track entry) {
+[7m   [0m [91m                                              ~~~~~~~[0m
+
+  [96msrc/app/modules/clients/client-view/client-view.component.ts[0m:[93m16[0m:[93m18[0m
+    [7m16[0m     templateUrl: './client-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ClientViewComponent.
+
+
+Error: [96msrc/app/modules/clients/client.service.ts[0m:[93m80[0m:[93m74[0m - [91merror[0m[90m TS2345: 
+[0mArgument of type 'ClientPaymentPayload' is not assignable to parameter of type 'FormData | Record<string, 
+unknown>'.
+  Type 'ClientPaymentPayload' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'ClientPaymentPayload'.
+
+[7m80[0m         return this.api.post<ClientStatement>(`/clients/${id}/payments`, payment);
+[7m  [0m [91m                                                                         ~~~~~~~[0m
+
+
+Error: [96msrc/app/modules/inventory/inventory.service.ts[0m:[93m81[0m:[93m72[0m - [91merror[0m[90m TS2345: 
+[0mArgument of type 'InventoryMovement' is not assignable to parameter of type 'FormData | Record<string, unknown>'.
+  Type 'InventoryMovement' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'InventoryMovement'.
+
+[7m81[0m         return this.api.post<InventoryMovement>('/inventory/movement', movement);
+[7m  [0m [91m                                                                       ~~~~~~~~[0m
+
+
+Error: [96msrc/app/modules/logistics/logistics.service.ts[0m:[93m77[0m:[93m79[0m - [91merror[0m[90m TS2345: 
+[0mArgument of type 'PickingUpdate' is not assignable to parameter of type 'FormData | Record<string, unknown>'.
+  Type 'PickingUpdate' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'PickingUpdate'.
+
+[7m77[0m         return this.api.post<boolean>(`${this.basePath}/picking/update-item`, data);
+[7m  [0m [91m                                                                              ~~~~[0m
+
+
+Error: [96msrc/app/modules/logistics/logistics.service.ts[0m:[93m86[0m:[93m72[0m - [91merror[0m[90m TS2345: 
+[0mArgument of type 'CreatePackageRequest' is not assignable to parameter of type 'FormData | Record<string, 
+unknown>'.
+  Type 'CreatePackageRequest' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'CreatePackageRequest'.
+
+[7m86[0m         return this.api.post<SalePackage>(`${this.basePath}/packages`, data);
+[7m  [0m [91m                                                                       ~~~~[0m
+
+
+Error: [96msrc/app/modules/products/product-list/product-list.component.html[0m:[93m95[0m:[93m36[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'category' does not exist on type 'Product'.
+
+[7m95[0m                     <td>{{ product.category?.name || '—' }}</td>
+[7m  [0m [91m                                   ~~~~~~~~[0m
+
+  [96msrc/app/modules/products/product-list/product-list.component.ts[0m:[93m12[0m:[93m18[0m
+    [7m12[0m     templateUrl: './product-list.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ProductListComponent.
+
+
+Error: [96msrc/app/modules/products/product-list/product-list.component.html[0m:[93m96[0m:[93m36[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'brand' does not exist on type 'Product'.
+
+[7m96[0m                     <td>{{ product.brand?.name || '—' }}</td>
+[7m  [0m [91m                                   ~~~~~[0m
+
+  [96msrc/app/modules/products/product-list/product-list.component.ts[0m:[93m12[0m:[93m18[0m
+    [7m12[0m     templateUrl: './product-list.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component ProductListComponent.
+
+
+Error: [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.html[0m:[93m24[0m:[93m25[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'credit_limit' does not exist on type 'Supplier & { current_balance?: number; 
+}'.
+
+[7m24[0m           @if (supplier.credit_limit > 0) {
+[7m  [0m [91m                        ~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.ts[0m:[93m19[0m:[93m18[0m
+    [7m19[0m     templateUrl: './supplier-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SupplierViewComponent.
+
+
+Error: [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.html[0m:[93m26[0m:[93m25[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'credit_limit' does not exist on type 'Supplier & { current_balance?: number; 
+}'.
+
+[7m26[0m             {{ supplier.credit_limit | number:'1.2-2' }}</small>
+[7m  [0m [91m                        ~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.ts[0m:[93m19[0m:[93m18[0m
+    [7m19[0m     templateUrl: './supplier-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SupplierViewComponent.
+
+
+Error: [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.html[0m:[93m99[0m:[93m32[0m - 
+[91merror[0m[90m TS2488: [0mType 'unknown' must have a '[Symbol.iterator]()' method that returns an iterator.
+
+[7m99[0m                 @for (entry of statement?.entries; track entry) {
+[7m  [0m [91m                               ~~~~~~~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.ts[0m:[93m19[0m:[93m18[0m
+    [7m19[0m     templateUrl: './supplier-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SupplierViewComponent.
+
+
+Error: [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.html[0m:[93m99[0m:[93m43[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'entries' comes from an index signature, so it must be accessed with 
+['entries'].
+
+[7m99[0m                 @for (entry of statement?.entries; track entry) {
+[7m  [0m [91m                                          ~~~~~~~[0m
+
+  [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.ts[0m:[93m19[0m:[93m18[0m
+    [7m19[0m     templateUrl: './supplier-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SupplierViewComponent.
+
+
+Error: [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.html[0m:[93m126[0m:[93m34[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'entries' comes from an index signature, so it must be accessed with 
+['entries'].
+
+[7m126[0m                 @if (!statement?.entries || statement.entries.length === 0) {
+[7m   [0m [91m                                 ~~~~~~~[0m
+
+  [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.ts[0m:[93m19[0m:[93m18[0m
+    [7m19[0m     templateUrl: './supplier-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SupplierViewComponent.
+
+
+Error: [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.html[0m:[93m126[0m:[93m55[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'entries' comes from an index signature, so it must be accessed with 
+['entries'].
+
+[7m126[0m                 @if (!statement?.entries || statement.entries.length === 0) {
+[7m   [0m [91m                                                      ~~~~~~~[0m
+
+  [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.ts[0m:[93m19[0m:[93m18[0m
+    [7m19[0m     templateUrl: './supplier-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SupplierViewComponent.
+
+
+Error: [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.html[0m:[93m126[0m:[93m63[0m - 
+[91merror[0m[90m TS2339: [0mProperty 'length' does not exist on type 'unknown'.
+
+[7m126[0m                 @if (!statement?.entries || statement.entries.length === 0) {
+[7m   [0m [91m                                                              ~~~~~~[0m
+
+  [96msrc/app/modules/purchasing/supplier-view/supplier-view.component.ts[0m:[93m19[0m:[93m18[0m
+    [7m19[0m     templateUrl: './supplier-view.component.html',
+    [7m  [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SupplierViewComponent.
+
+
+Error: [96msrc/app/modules/sales/sales-form/sales-form.component.ts[0m:[93m210[0m:[93m15[0m - 
+[91merror[0m[90m TS2322: [0mType '{ branch_id: any; status: any; payment_method: any; notes: any; 
+shipping_address: any; valid_until: any; client_id: any; items: any; payments: undefined[]; }' is not assignable to 
+type 'SalePayload & { payments: unknown[]; }'.
+  Type '{ branch_id: any; status: any; payment_method: any; notes: any; shipping_address: any; valid_until: any; 
+client_id: any; items: any; payments: undefined[]; }' is missing the following properties from type 'SalePayload': 
+subtotal, tax, discount, shipping_cost, total
+
+[7m210[0m         const payload: SalePayload & { payments: unknown[] } = {
+[7m   [0m [91m              ~~~~~~~[0m
+
+
+Error: [96msrc/app/modules/settings/database-stats/database-stats.component.html[0m:[93m25[0m:[93m62[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'table_name' comes from an index signature, so it must be accessed with 
+['table_name'].
+
+[7m25[0m                     <span class="fw-bold text-dark">{{ table.table_name }}</span>
+[7m  [0m [91m                                                             ~~~~~~~~~~[0m
+
+  [96msrc/app/modules/settings/database-stats/database-stats.component.ts[0m:[93m9[0m:[93m18[0m
+    [7m9[0m     templateUrl: './database-stats.component.html',
+    [7m [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component DatabaseStatsComponent.
+
+
+Error: [96msrc/app/modules/settings/database-stats/database-stats.component.html[0m:[93m27[0m:[93m49[0m - 
+[91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(value: string | number, digitsInfo?: string, locale?: string): string', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number'.
+  Overload 2 of 3, '(value: null, digitsInfo?: string, locale?: string): null', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'null'.
+  Overload 3 of 3, '(value: string | number, digitsInfo?: string, locale?: string): string', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'string | number'.
+
+[7m27[0m                   <td class="text-end">{{ table.row_count | number }}</td>
+[7m  [0m [91m                                                ~~~~~~~~~[0m
+
+  [96msrc/app/modules/settings/database-stats/database-stats.component.ts[0m:[93m9[0m:[93m18[0m
+    [7m9[0m     templateUrl: './database-stats.component.html',
+    [7m [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component DatabaseStatsComponent.
+
+
+Error: [96msrc/app/modules/settings/database-stats/database-stats.component.html[0m:[93m27[0m:[93m49[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'row_count' comes from an index signature, so it must be accessed with 
+['row_count'].
+
+[7m27[0m                   <td class="text-end">{{ table.row_count | number }}</td>
+[7m  [0m [91m                                                ~~~~~~~~~[0m
+
+  [96msrc/app/modules/settings/database-stats/database-stats.component.ts[0m:[93m9[0m:[93m18[0m
+    [7m9[0m     templateUrl: './database-stats.component.html',
+    [7m [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component DatabaseStatsComponent.
+
+
+Error: [96msrc/app/modules/settings/database-stats/database-stats.component.html[0m:[93m28[0m:[93m49[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'total_size' comes from an index signature, so it must be accessed with 
+['total_size'].
+
+[7m28[0m                   <td class="text-end">{{ table.total_size }}</td>
+[7m  [0m [91m                                                ~~~~~~~~~~[0m
+
+  [96msrc/app/modules/settings/database-stats/database-stats.component.ts[0m:[93m9[0m:[93m18[0m
+    [7m9[0m     templateUrl: './database-stats.component.html',
+    [7m [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component DatabaseStatsComponent.
+
+
+Error: [96msrc/app/modules/settings/database-stats/database-stats.component.html[0m:[93m32[0m:[93m59[0m - 
+[91merror[0m[90m TS2345: [0mArgument of type 'unknown' is not assignable to parameter of type 'number'.
+
+[7m32[0m                         [style.width.%]="getPercent(table.total_size_bytes)" aria-valuenow="25"
+[7m  [0m [91m                                                          ~~~~~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/settings/database-stats/database-stats.component.ts[0m:[93m9[0m:[93m18[0m
+    [7m9[0m     templateUrl: './database-stats.component.html',
+    [7m [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component DatabaseStatsComponent.
+
+
+Error: [96msrc/app/modules/settings/database-stats/database-stats.component.html[0m:[93m32[0m:[93m59[0m - 
+[91merror[0m[90m TS4111: [0mProperty 'total_size_bytes' comes from an index signature, so it must be accessed with 
+['total_size_bytes'].
+
+[7m32[0m                         [style.width.%]="getPercent(table.total_size_bytes)" aria-valuenow="25"
+[7m  [0m [91m                                                          ~~~~~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/settings/database-stats/database-stats.component.ts[0m:[93m9[0m:[93m18[0m
+    [7m9[0m     templateUrl: './database-stats.component.html',
+    [7m [0m [96m                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component DatabaseStatsComponent.
+
+
+Error: [96msrc/app/modules/settings/system-health.component.html[0m:[93m29[0m:[93m73[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'cpu' comes from an index signature, so it must be accessed with ['cpu'].
+
+[7m29[0m                 <div class="mt-2 text-muted small">Cores: {{ healthData.cpu.count }}</div>
+[7m  [0m [91m                                                                        ~~~[0m
+
+  [96msrc/app/modules/settings/system-health.component.ts[0m:[93m30[0m:[93m16[0m
+    [7m30[0m   templateUrl: './system-health.component.html',
+    [7m  [0m [96m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SystemHealthComponent.
+
+
+Error: [96msrc/app/modules/settings/system-health.component.html[0m:[93m29[0m:[93m77[0m - [91merror[0m[90m 
+TS2339: [0mProperty 'count' does not exist on type 'unknown'.
+
+[7m29[0m                 <div class="mt-2 text-muted small">Cores: {{ healthData.cpu.count }}</div>
+[7m  [0m [91m                                                                            ~~~~~[0m
+
+  [96msrc/app/modules/settings/system-health.component.ts[0m:[93m30[0m:[93m16[0m
+    [7m30[0m   templateUrl: './system-health.component.html',
+    [7m  [0m [96m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SystemHealthComponent.
+
+
+Error: [96msrc/app/modules/settings/system-health.component.html[0m:[93m38[0m:[93m34[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'memory' comes from an index signature, so it must be accessed with ['memory'].
+
+[7m38[0m                   {{ (healthData.memory.used / 1024 / 1024 / 1024) | number:'1.1-1' }} GB /
+[7m  [0m [91m                                 ~~~~~~[0m
+
+  [96msrc/app/modules/settings/system-health.component.ts[0m:[93m30[0m:[93m16[0m
+    [7m30[0m   templateUrl: './system-health.component.html',
+    [7m  [0m [96m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SystemHealthComponent.
+
+
+Error: [96msrc/app/modules/settings/system-health.component.html[0m:[93m38[0m:[93m41[0m - [91merror[0m[90m 
+TS2339: [0mProperty 'used' does not exist on type 'unknown'.
+
+[7m38[0m                   {{ (healthData.memory.used / 1024 / 1024 / 1024) | number:'1.1-1' }} GB /
+[7m  [0m [91m                                        ~~~~[0m
+
+  [96msrc/app/modules/settings/system-health.component.ts[0m:[93m30[0m:[93m16[0m
+    [7m30[0m   templateUrl: './system-health.component.html',
+    [7m  [0m [96m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SystemHealthComponent.
+
+
+Error: [96msrc/app/modules/settings/system-health.component.html[0m:[93m39[0m:[93m34[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'memory' comes from an index signature, so it must be accessed with ['memory'].
+
+[7m39[0m                   {{ (healthData.memory.total / 1024 / 1024 / 1024) | number:'1.1-1' }} GB
+[7m  [0m [91m                                 ~~~~~~[0m
+
+  [96msrc/app/modules/settings/system-health.component.ts[0m:[93m30[0m:[93m16[0m
+    [7m30[0m   templateUrl: './system-health.component.html',
+    [7m  [0m [96m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SystemHealthComponent.
+
+
+Error: [96msrc/app/modules/settings/system-health.component.html[0m:[93m39[0m:[93m41[0m - [91merror[0m[90m 
+TS2339: [0mProperty 'total' does not exist on type 'unknown'.
+
+[7m39[0m                   {{ (healthData.memory.total / 1024 / 1024 / 1024) | number:'1.1-1' }} GB
+[7m  [0m [91m                                        ~~~~~[0m
+
+  [96msrc/app/modules/settings/system-health.component.ts[0m:[93m30[0m:[93m16[0m
+    [7m30[0m   templateUrl: './system-health.component.html',
+    [7m  [0m [96m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SystemHealthComponent.
+
+
+Error: [96msrc/app/modules/settings/system-health.component.html[0m:[93m49[0m:[93m40[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'disk' comes from an index signature, so it must be accessed with ['disk'].
+
+[7m49[0m                   Free: {{ (healthData.disk.free / 1024 / 1024 / 1024) | number:'1.1-1' }} GB
+[7m  [0m [91m                                       ~~~~[0m
+
+  [96msrc/app/modules/settings/system-health.component.ts[0m:[93m30[0m:[93m16[0m
+    [7m30[0m   templateUrl: './system-health.component.html',
+    [7m  [0m [96m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SystemHealthComponent.
+
+
+Error: [96msrc/app/modules/settings/system-health.component.html[0m:[93m49[0m:[93m45[0m - [91merror[0m[90m 
+TS2339: [0mProperty 'free' does not exist on type 'unknown'.
+
+[7m49[0m                   Free: {{ (healthData.disk.free / 1024 / 1024 / 1024) | number:'1.1-1' }} GB
+[7m  [0m [91m                                            ~~~~[0m
+
+  [96msrc/app/modules/settings/system-health.component.ts[0m:[93m30[0m:[93m16[0m
+    [7m30[0m   templateUrl: './system-health.component.html',
+    [7m  [0m [96m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SystemHealthComponent.
+
+
+Error: [96msrc/app/modules/settings/system-health.component.html[0m:[93m55[0m:[93m76[0m - [91merror[0m[90m 
+TS2345: [0mArgument of type 'unknown' is not assignable to parameter of type 'number'.
+
+[7m55[0m                     <h3 class="mb-0 fw-bold">{{ getUptimeString(healthData.uptime_seconds) }}</h3>
+[7m  [0m [91m                                                                           ~~~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/settings/system-health.component.ts[0m:[93m30[0m:[93m16[0m
+    [7m30[0m   templateUrl: './system-health.component.html',
+    [7m  [0m [96m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SystemHealthComponent.
+
+
+Error: [96msrc/app/modules/settings/system-health.component.html[0m:[93m55[0m:[93m76[0m - [91merror[0m[90m 
+TS4111: [0mProperty 'uptime_seconds' comes from an index signature, so it must be accessed with ['uptime_seconds'].
+
+[7m55[0m                     <h3 class="mb-0 fw-bold">{{ getUptimeString(healthData.uptime_seconds) }}</h3>
+[7m  [0m [91m                                                                           ~~~~~~~~~~~~~~[0m
+
+  [96msrc/app/modules/settings/system-health.component.ts[0m:[93m30[0m:[93m16[0m
+    [7m30[0m   templateUrl: './system-health.component.html',
+    [7m  [0m [96m               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    Error occurs in the template of component SystemHealthComponent.
+
+
+Error: [96msrc/app/modules/units-of-measure/uom-list.component.ts[0m:[93m118[0m:[93m67[0m - [91merror[0m[90m 
+TS2345: [0mArgument of type 'UnitOfMeasure' is not assignable to parameter of type 'FormData | Record<string, 
+unknown>'.
+  Type 'UnitOfMeasure' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'UnitOfMeasure'.
+
+[7m118[0m             ? this.api.put(`/units-of-measure/${this.editingId}`, this.newUom)
+[7m   [0m [91m                                                                  ~~~~~~~~~~~[0m
+
+
+Error: [96msrc/app/modules/units-of-measure/uom-list.component.ts[0m:[93m119[0m:[93m50[0m - [91merror[0m[90m 
+TS2345: [0mArgument of type 'UnitOfMeasure' is not assignable to parameter of type 'FormData | Record<string, 
+unknown>'.
+  Type 'UnitOfMeasure' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'UnitOfMeasure'.
+
+[7m119[0m             : this.api.post('/units-of-measure', this.newUom);
+[7m   [0m [91m                                                 ~~~~~~~~~~~[0m
+
+
+Error: [96msrc/app/modules/users/user.service.ts[0m:[93m14[0m:[93m47[0m - [91merror[0m[90m TS2345: 
+[0mArgument of type 'Record<string, string>' is not assignable to parameter of type 'HttpParams'.
+  Type 'Record<string, string>' is missing the following properties from type 'HttpParams': map, encoder, updates, 
+cloneFrom, and 10 more.
+
+[7m14[0m         return this.api.get<User[]>('/users', params);
+[7m  [0m [91m                                              ~~~~~~[0m
+
+
+Error: [96msrc/app/theme/shared/components/tour-overlay/tour-overlay.component.ts[0m:[93m12[0m:[93m14[0m - 
+[91merror[0m[90m TS2551: [0mProperty 'isActive' does not exist on type 'TourOverlayComponent'. Did you mean 
+'isActi'?
+
+[7m12[0m         @if (isActive) {
+[7m  [0m [91m             ~~~~~~~~[0m
+
+
+
+Error: [96msrc/app/theme/shared/components/tour-overlay/tour-overlay.component.ts[0m:[93m17[0m:[93m14[0m - 
+[91merror[0m[90m TS2551: [0mProperty 'isActive' does not exist on type 'TourOverlayComponent'. Did you mean 
+'isActi'?
+
+[7m17[0m         @if (isActive && currentStep) {
+[7m  [0m [91m             ~~~~~~~~[0m
+
+
+
+Error: [96msrc/app/theme/shared/components/tour-overlay/tour-overlay.component.ts[0m:[93m44[0m:[93m14[0m - 
+[91merror[0m[90m TS2551: [0mProperty 'isActive' does not exist on type 'TourOverlayComponent'. Did you mean 
+'isActi'?
+
+[7m44[0m         @if (isActive) {
+[7m  [0m [91m             ~~~~~~~~[0m
+
+
+
+Error: [96msrc/app/theme/shared/components/tour-overlay/tour-overlay.component.ts[0m:[93m128[0m:[93m14[0m - 
+[91merror[0m[90m TS2420: [0mClass 'TourOverlayComponent' incorrectly implements interface 'OnInit'.
+  Property 'ngOnInit' is missing in type 'TourOverlayComponent' but required in type 'OnInit'.
+
+[7m128[0m export class TourOverlayComponent implements OnInit, OnDestroy {
+[7m   [0m [91m             ~~~~~~~~~~~~~~~~~~~~[0m
+
+  [96mnode_modules/@angular/core/types/core.d.ts[0m:[93m711[0m:[93m5[0m
+    [7m711[0m     ngOnInit(): void;
+    [7m   [0m [96m    ~~~~~~~~~~~~~~~~~[0m
+    'ngOnInit' is declared here.
+
+
+Error: [96msrc/app/theme/shared/components/tour-overlay/tour-overlay.component.ts[0m:[93m156[0m:[93m22[0m - 
+[91merror[0m[90m TS2551: [0mProperty 'isActive' does not exist on type 'TourOverlayComponent'. Did you mean 
+'isActi'?
+
+[7m156[0m                 this.isActive = active;
+[7m   [0m [91m                     ~~~~~~~~[0m
+
+  [96msrc/app/theme/shared/components/tour-overlay/tour-overlay.component.ts[0m:[93m129[0m:[93m5[0m
+    [7m129[0m     isActi
+    [7m   [0m [96m    ~~~~~~[0m
+    'isActi' is declared here.
+
+
+Error: [96msrc/app/theme/shared/components/tour-overlay/tour-overlay.component.ts[0m:[93m187[0m:[93m18[0m - 
+[91merror[0m[90m TS2551: [0mProperty 'isActive' does not exist on type 'TourOverlayComponent'. Did you mean 
+'isActi'?
+
+[7m187[0m         if (this.isActive && this.currentStep) {
+[7m   [0m [91m                 ~~~~~~~~[0m
+
+  [96msrc/app/theme/shared/components/tour-overlay/tour-overlay.component.ts[0m:[93m129[0m:[93m5[0m
+    [7m129[0m     isActi
+    [7m   [0m [96m    ~~~~~~[0m
+    'isActi' is declared here.
+
+
+[39m[22m
+

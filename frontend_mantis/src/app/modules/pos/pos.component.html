@@ -1,285 +1,400 @@
 <!-- ===================== MAIN POS VIEW ===================== -->
-<ng-container *ngIf="!showReceipt">
-
-    <!-- Mobile tabs (only visible ≤768px) -->
-    <div class="pos-mobile-tabs">
-        <button [class.active]="mobileTab === 'products'" (click)="mobileTab = 'products'">
-            <i class="feather icon-grid me-1"></i> Productos
-        </button>
-        <button [class.active]="mobileTab === 'cart'" (click)="mobileTab = 'cart'">
-            <i class="feather icon-shopping-cart me-1"></i> Carrito
-            <span class="badge bg-primary ms-1" *ngIf="cart.length > 0">{{ cart.length }}</span>
-        </button>
-    </div>
-
-    <div class="pos-layout">
-
-        <!-- ========== LEFT: Products ========== -->
-        <div class="pos-products-panel" [class.mobile-hidden]="mobileTab !== 'products'">
-            <div class="pos-card">
-
-                <!-- Header: search + branch -->
-                <div class="pos-card-header">
-                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <button class="btn btn-sm btn-outline-secondary" routerLink="/dashboard/default"
-                            title="Volver al Sistema" style="width:36px; height:36px; padding:0; flex-shrink:0;">
-                            <i class="feather icon-home"></i>
-                        </button>
-
-                        <div class="input-group" style="flex: 1; min-width: 150px;">
-                            <span class="input-group-text bg-light border-0"><i class="feather icon-search"></i></span>
-                            <input type="text" class="form-control bg-light border-0 ps-0"
-                                placeholder="Buscar o escanear código..." [(ngModel)]="searchQuery"
-                                (input)="filterProducts()" #searchInput>
-                        </div>
-
-                        <select class="form-select form-select-sm" [(ngModel)]="currentBranchId"
-                            (change)="onBranchChange()" style="flex: 0 0 auto; max-width: 200px;">
-                            <option value="">Seleccionar Sucursal</option>
-                            <option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Category chips -->
-                <div class="pos-category-chips" *ngIf="categories.length > 0">
-                    <button class="chip" [class.active]="selectedCategory === ''" (click)="selectCategory('')">
-                        <i class="feather icon-grid me-1" style="font-size:11px"></i> Todos
-                    </button>
-                    <button class="chip" *ngFor="let cat of categories" [class.active]="selectedCategory === cat"
-                        (click)="selectCategory(cat)">
-                        {{ cat }}
-                    </button>
-                </div>
-
-                <!-- Products grid -->
-                <div class="pos-card-body p-2">
-                    <div class="row g-2 m-0">
-
-                        <div class="col-6 col-sm-4 col-lg-3 col-xl-2" *ngFor="let p of filteredProducts">
-                            <div class="product-card" [class.out-of-stock]="p.stock <= 0" (click)="addToCart(p)">
-
-                                <!-- Image or placeholder -->
-                                <img *ngIf="p.image_url" [src]="p.image_url" [alt]="p.name" class="product-img"
-                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-                                <div *ngIf="!p.image_url" class="product-img-placeholder">
-                                    <i class="feather icon-box"></i>
-                                </div>
-
-                                <div class="p-2">
-                                    <div class="text-truncate fw-semibold small" [title]="p.name">{{ p.name }}</div>
-                                    <div class="d-flex justify-content-between align-items-center mt-1">
-                                        <span class="badge"
-                                            [ngClass]="p.stock > 0 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'"
-                                            style="font-size:10px">
-                                            {{ p.stock | number: '1.0-0' }}
-                                        </span>
-                                        <strong class="text-primary small">{{ p.price | currency }}</strong>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Empty state -->
-                        <div class="col-12 text-center py-5" *ngIf="filteredProducts.length === 0">
-                            <i class="feather icon-box text-muted" style="font-size: 3rem;"></i>
-                            <h6 class="text-muted mt-3">
-                                {{ currentBranchId ? 'No hay productos que coincidan' : 'Selecciona una sucursal
-                                primero' }}
-                            </h6>
-                        </div>
-
-                    </div>
-                </div>
+@if (!showReceipt) {
+  <!-- Mobile tabs (only visible ≤768px) -->
+  <div class="pos-mobile-tabs">
+    <button [class.active]="mobileTab === 'products'" (click)="mobileTab = 'products'">
+      <i class="feather icon-grid me-1"></i> Productos
+    </button>
+    <button [class.active]="mobileTab === 'cart'" (click)="mobileTab = 'cart'">
+      <i class="feather icon-shopping-cart me-1"></i> Carrito
+      @if (cart.length > 0) {
+        <span class="badge bg-primary ms-1">{{ cart.length }}</span>
+      }
+    </button>
+  </div>
+  <div class="pos-layout">
+    <!-- ========== LEFT: Products ========== -->
+    <div class="pos-products-panel" [class.mobile-hidden]="mobileTab !== 'products'">
+      <div class="pos-card">
+        <!-- Header: search + branch -->
+        <div class="pos-card-header">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button class="btn btn-sm btn-outline-secondary" routerLink="/dashboard/default"
+              title="Volver al Sistema" style="width:36px; height:36px; padding:0; flex-shrink:0;">
+              <i class="feather icon-home"></i>
+            </button>
+            <div class="input-group" style="flex: 1; min-width: 150px;">
+              <span class="input-group-text bg-light border-0"><i class="feather icon-search"></i></span>
+              <input type="text" class="form-control bg-light border-0 ps-0"
+                placeholder="Buscar o escanear código..." [(ngModel)]="searchQuery"
+                (input)="filterProducts()" #searchInput>
+              </div>
+              <select class="form-select form-select-sm" [(ngModel)]="currentBranchId"
+                (change)="onBranchChange()" style="flex: 0 0 auto; max-width: 200px;">
+                <option value="">Seleccionar Sucursal</option>
+                @for (b of branches; track b) {
+                  <option [value]="b.id">{{ b.name }}</option>
+                }
+              </select>
+              @if (posConfig.show_sessions_manager) {
+                <button class="btn btn-sm btn-outline-primary" (click)="openSessionsManager()" title="Gestionar cajas">
+                  <i class="feather icon-layers me-1"></i>Cajas
+                </button>
+              }
+              @if (currentSession) {
+                <button class="btn btn-sm btn-outline-danger" (click)="closeCashSession()" title="Cerrar caja">
+                  <i class="feather icon-lock me-1"></i>Cerrar caja
+                </button>
+              }
+              @if (!currentSession) {
+                <button class="btn btn-sm btn-outline-success" (click)="openCashSession()" title="Abrir caja">
+                  <i class="feather icon-unlock me-1"></i>Abrir caja
+                </button>
+              }
             </div>
-        </div>
-
-        <!-- ========== RIGHT: Cart ========== -->
-        <div class="pos-cart-panel" [class.mobile-hidden]="mobileTab !== 'cart'">
-            <div class="pos-card">
-
-                <!-- Client selector -->
-                <div class="pos-card-header">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="avatar bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center"
-                            style="width:36px; height:36px; flex-shrink:0;">
-                            <i class="feather icon-user"></i>
-                        </div>
-                        <select class="form-select form-select-sm border-0 bg-light fw-semibold"
-                            [(ngModel)]="selectedClientId" style="flex:1;">
-                            <option value="">Consumidor Final</option>
-                            <option *ngFor="let c of clients" [value]="c.id">{{ c.name }}</option>
-                        </select>
-                        <button class="btn btn-sm btn-light text-danger" style="flex-shrink:0;" (click)="clearCart()"
-                            *ngIf="cart.length > 0" title="Vaciar carrito">
-                            <i class="feather icon-trash-2"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Cart items -->
-                <div class="pos-card-body">
-                    <div class="cart-items-list" *ngIf="cart.length > 0">
-                        <div class="cart-item" *ngFor="let item of cart">
-                            <div class="d-flex justify-content-between align-items-start mb-1">
-                                <div style="min-width: 0; flex: 1;">
-                                    <div class="fw-semibold small text-truncate">{{ item._tempProduct?.name }}</div>
-                                    <small class="text-muted">{{ item.price | currency }} c/u</small>
-                                </div>
-                                <button class="btn btn-sm text-danger p-0 ms-1" style="flex-shrink:0;"
-                                    (click)="removeItem(item)">
-                                    <i class="feather icon-x"></i>
-                                </button>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="input-group input-group-sm" style="width: 105px;">
-                                    <button class="btn btn-outline-secondary" type="button"
-                                        (click)="updateQuantity(item, -1)">−</button>
-                                    <input type="text" class="form-control text-center px-0" [value]="item.quantity"
-                                        readonly>
-                                    <button class="btn btn-outline-secondary" type="button"
-                                        (click)="updateQuantity(item, 1)">+</button>
-                                </div>
-                                <strong class="text-primary">{{ (item.price * item.quantity) | currency }}</strong>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Empty cart -->
-                    <div class="text-center py-5" *ngIf="cart.length === 0">
-                        <i class="feather icon-shopping-cart text-muted" style="font-size: 3rem; opacity:.4"></i>
-                        <h6 class="text-muted mt-3">El carrito está vacío</h6>
-                        <p class="text-muted small mb-0">Selecciona productos</p>
-                    </div>
-                </div>
-
-                <!-- Totals + pay button -->
-                <div class="pos-card-footer">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span class="text-muted small">Subtotal</span>
-                        <span class="small">{{ subtotal | currency }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-2 text-success" *ngIf="totalDiscount > 0">
-                        <span class="small">Descuento</span>
-                        <span class="small">-{{ totalDiscount | currency }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="fw-bold">Total</span>
-                        <h3 class="mb-0 text-primary fw-bold">{{ total | currency }}</h3>
-                    </div>
-                    <button class="btn btn-primary w-100 d-flex justify-content-between align-items-center"
-                        style="padding: 12px 16px; font-size: 1rem;" [disabled]="cart.length === 0"
-                        (click)="openCheckout()">
-                        <span><i class="feather icon-zap me-2"></i>Cobrar</span>
-                        <strong>{{ total | currency }}</strong>
-                    </button>
-                </div>
-
+          </div>
+          @if (currentBranchId && currentSession) {
+            <div class="px-3 py-2 border-bottom bg-light">
+              <small class="text-muted me-3">Caja abierta: {{ currentSession.opened_at | date:'shortTime' }}</small>
+              <small class="text-muted me-3">Inicial: {{ currentSession.opening_amount | currency }}</small>
+              <small class="fw-semibold text-primary">Esperado: {{ currentSession.expected_amount | currency }}</small>
             </div>
+          }
+          @if (currentBranchId && !currentSession) {
+            <div class="px-3 py-2 border-bottom bg-warning-subtle text-warning-emphasis">
+              <small><i class="feather icon-alert-triangle me-1"></i>Caja cerrada. Abre caja para vender.</small>
+            </div>
+          }
+          <!-- Category chips -->
+          @if (categories.length > 0) {
+            <div class="pos-category-chips">
+              <button class="chip" [class.active]="selectedCategory === ''" (click)="selectCategory('')">
+                <i class="feather icon-grid me-1" style="font-size:11px"></i> Todos
+              </button>
+              @for (cat of categories; track cat) {
+                <button class="chip" [class.active]="selectedCategory === cat"
+                  (click)="selectCategory(cat)">
+                  {{ cat }}
+                </button>
+              }
+            </div>
+          }
+          <!-- Products grid -->
+          <div class="pos-card-body p-2">
+            <div class="row g-2 m-0">
+              @for (p of filteredProducts; track p) {
+                <div class="col-6 col-sm-4 col-lg-3 col-xl-2">
+                  <div class="product-card" [class.out-of-stock]="p.stock <= 0" (click)="addToCart(p)">
+                    <!-- Image or placeholder -->
+                    @if (p.image_url) {
+                      <img [src]="p.image_url" [alt]="p.name" class="product-img"
+                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                    }
+                    @if (!p.image_url) {
+                      <div class="product-img-placeholder">
+                        <i class="feather icon-box"></i>
+                      </div>
+                    }
+                    <div class="p-2">
+                      <div class="text-truncate fw-semibold small" [title]="p.name">{{ p.name }}</div>
+                      <div class="d-flex justify-content-between align-items-center mt-1">
+                        <span class="badge"
+                          [ngClass]="p.stock > 0 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'"
+                          style="font-size:10px">
+                          {{ p.stock | number: '1.0-0' }}
+                        </span>
+                        <strong class="text-primary small">{{ p.price | currency }}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+              <!-- Empty state -->
+              @if (filteredProducts.length === 0) {
+                <div class="col-12 text-center py-5">
+                  <i class="feather icon-box text-muted" style="font-size: 3rem;"></i>
+                  <h6 class="text-muted mt-3">
+                    {{ currentBranchId ? 'No hay productos que coincidan' : 'Selecciona una sucursal
+                    primero' }}
+                  </h6>
+                </div>
+              }
+            </div>
+          </div>
         </div>
+      </div>
+      <!-- ========== RIGHT: Cart ========== -->
+      <div class="pos-cart-panel" [class.mobile-hidden]="mobileTab !== 'cart'">
+        <div class="pos-card">
+          <!-- Client selector -->
+          <div class="pos-card-header">
+            <div class="d-flex align-items-center gap-2">
+              <div class="avatar bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center"
+                style="width:36px; height:36px; flex-shrink:0;">
+                <i class="feather icon-user"></i>
+              </div>
+              <select class="form-select form-select-sm border-0 bg-light fw-semibold"
+                [(ngModel)]="selectedClientId" style="flex:1;">
+                <option value="">Consumidor Final</option>
+                @for (c of clients; track c) {
+                  <option [value]="c.id">{{ c.name }}</option>
+                }
+              </select>
+              @if (cart.length > 0) {
+                <button class="btn btn-sm btn-light text-danger" style="flex-shrink:0;" (click)="clearCart()"
+                  title="Vaciar carrito">
+                  <i class="feather icon-trash-2"></i>
+                </button>
+              }
+            </div>
+          </div>
+          <!-- Cart items -->
+          <div class="pos-card-body">
+            @if (cart.length > 0) {
+              <div class="cart-items-list">
+                @for (item of cart; track item) {
+                  <div class="cart-item">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                      <div style="min-width: 0; flex: 1;">
+                        <div class="fw-semibold small text-truncate">{{ item._tempProduct?.name }}</div>
+                        <small class="text-muted">{{ item.price | currency }} c/u</small>
+                      </div>
+                      <button class="btn btn-sm text-danger p-0 ms-1" style="flex-shrink:0;"
+                        (click)="removeItem(item)">
+                        <i class="feather icon-x"></i>
+                      </button>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div class="input-group input-group-sm" style="width: 105px;">
+                        <button class="btn btn-outline-secondary" type="button"
+                        (click)="updateQuantity(item, -1)">−</button>
+                        <input type="text" class="form-control text-center px-0" [value]="item.quantity"
+                          readonly>
+                          <button class="btn btn-outline-secondary" type="button"
+                          (click)="updateQuantity(item, 1)">+</button>
+                        </div>
+                        <strong class="text-primary">{{ (item.price * item.quantity) | currency }}</strong>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+              <!-- Empty cart -->
+              @if (cart.length === 0) {
+                <div class="text-center py-5">
+                  <i class="feather icon-shopping-cart text-muted" style="font-size: 3rem; opacity:.4"></i>
+                  <h6 class="text-muted mt-3">El carrito está vacío</h6>
+                  <p class="text-muted small mb-0">Selecciona productos</p>
+                </div>
+              }
+            </div>
+            <!-- Totals + pay button -->
+            <div class="pos-card-footer">
+              <div class="d-flex justify-content-between mb-1">
+                <span class="text-muted small">Subtotal</span>
+                <span class="small">{{ subtotal | currency }}</span>
+              </div>
+              @if (totalDiscount > 0) {
+                <div class="d-flex justify-content-between mb-2 text-success">
+                  <span class="small">Descuento</span>
+                  <span class="small">-{{ totalDiscount | currency }}</span>
+                </div>
+              }
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="fw-bold">Total</span>
+                <h3 class="mb-0 text-primary fw-bold">{{ total | currency }}</h3>
+              </div>
+              <button class="btn btn-primary w-100 d-flex justify-content-between align-items-center"
+                style="padding: 12px 16px; font-size: 1rem;" [disabled]="cart.length === 0"
+                (click)="openCheckout()">
+                <span><i class="feather icon-zap me-2"></i>Cobrar</span>
+                <strong>{{ total | currency }}</strong>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
 
-    </div>
-</ng-container>
+    <!-- ===================== CASH SESSIONS MODAL ===================== -->
+    @if (posConfig.show_sessions_manager) {
+      <div class="modal fade" tabindex="-1" aria-hidden="true" [class.show]="showSessionsModal"
+        [style.display]="showSessionsModal ? 'block' : 'none'"
+        [style.background]="showSessionsModal ? 'rgba(0,0,0,0.5)' : ''">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+          <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header">
+              <h5 class="modal-title">Cajas POS</h5>
+              <button type="button" class="btn-close" (click)="closeSessionsManager()"></button>
+            </div>
+            <div class="modal-body">
+              <div class="d-flex align-items-center gap-2 mb-3">
+                <button class="btn btn-sm" [class.btn-primary]="sessionsFilter === 'OPEN'" [class.btn-outline-primary]="sessionsFilter !== 'OPEN'" (click)="onSessionFilterChange('OPEN')">Abiertas</button>
+                <button class="btn btn-sm" [class.btn-primary]="sessionsFilter === 'CLOSED'" [class.btn-outline-primary]="sessionsFilter !== 'CLOSED'" (click)="onSessionFilterChange('CLOSED')">Cerradas</button>
+                <button class="btn btn-sm" [class.btn-primary]="sessionsFilter === ''" [class.btn-outline-primary]="sessionsFilter !== ''" (click)="onSessionFilterChange('')">Todas</button>
+                <button class="btn btn-sm btn-outline-secondary ms-auto" (click)="loadSessions()">
+                  <i class="feather icon-refresh-cw me-1"></i>Actualizar
+                </button>
+              </div>
+              @if (loadingSessions) {
+                <div class="text-center py-4 text-muted">Cargando cajas...</div>
+              }
+              @if (!loadingSessions && sessions.length === 0) {
+                <div class="text-center py-4 text-muted">No hay cajas para este filtro.</div>
+              }
+              @if (!loadingSessions && sessions.length > 0) {
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead>
+                      <tr>
+                        <th>Sucursal</th>
+                        <th>Cajero</th>
+                        <th>Estado</th>
+                        <th>Apertura</th>
+                        <th>Ventas</th>
+                        <th>Tx</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (s of sessions; track s.id) {
+                        <tr>
+                          <td>{{ s.branch_name || '-' }}</td>
+                          <td>{{ s.user_name || '-' }}</td>
+                          <td>
+                            <span class="badge" [ngClass]="s.status === 'OPEN' ? 'bg-success' : 'bg-secondary'">{{ s.status }}</span>
+                          </td>
+                          <td>{{ s.opened_at | date:'short' }}</td>
+                          <td>{{ s.total_sales | currency }}</td>
+                          <td>{{ s.transactions_count }}</td>
+                          <td class="text-end">
+                            <button class="btn btn-sm btn-outline-info me-1" (click)="viewSessionStats(s)">Ver</button>
+                            <button class="btn btn-sm btn-outline-primary" [disabled]="s.status !== 'OPEN'" (click)="enterSession(s)">Entrar</button>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    }
 
 
-<!-- ===================== CHECKOUT MODAL ===================== -->
-<div class="modal fade" tabindex="-1" aria-hidden="true" [class.show]="showCheckoutModal"
-    [style.display]="showCheckoutModal ? 'block' : 'none'"
-    [style.background]="showCheckoutModal ? 'rgba(0,0,0,0.5)' : ''">
-    <div class="modal-dialog modal-dialog-centered">
+    <!-- ===================== CHECKOUT MODAL ===================== -->
+    <div class="modal fade" tabindex="-1" aria-hidden="true" [class.show]="showCheckoutModal"
+      [style.display]="showCheckoutModal ? 'block' : 'none'"
+      [style.background]="showCheckoutModal ? 'rgba(0,0,0,0.5)' : ''">
+      <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-primary text-white border-0">
-                <h5 class="modal-title text-white">Completar Pago</h5>
-                <button type="button" class="btn-close btn-close-white" (click)="closeCheckout()"></button>
+          <div class="modal-header bg-primary text-white border-0">
+            <h5 class="modal-title text-white">Completar Pago</h5>
+            <button type="button" class="btn-close btn-close-white" (click)="closeCheckout()"></button>
+          </div>
+          <div class="modal-body p-4 bg-light">
+            <div class="text-center mb-4">
+              <h6 class="text-muted mb-1">Monto a Cobrar</h6>
+              <h1 class="display-5 text-primary fw-bold mb-0">{{ total | currency }}</h1>
             </div>
-            <div class="modal-body p-4 bg-light">
-                <div class="text-center mb-4">
-                    <h6 class="text-muted mb-1">Monto a Cobrar</h6>
-                    <h1 class="display-5 text-primary fw-bold mb-0">{{ total | currency }}</h1>
-                </div>
 
-                <div class="mb-4">
-                    <label class="form-label fw-bold">Método de Pago</label>
-                    <div class="row g-2">
-                        <div class="col-4">
-                            <input type="radio" class="btn-check" name="paymethod" id="cash" autocomplete="off"
-                                [(ngModel)]="paymentMethod" value="CASH">
-                            <label class="btn btn-outline-success w-100 fw-bold" for="cash"><i
-                                    class="feather icon-dollar-sign d-block fs-3 mb-1"></i>Efectivo</label>
-                        </div>
-                        <div class="col-4">
-                            <input type="radio" class="btn-check" name="paymethod" id="card" autocomplete="off"
-                                [(ngModel)]="paymentMethod" value="CARD">
-                            <label class="btn btn-outline-info w-100 fw-bold" for="card"><i
-                                    class="feather icon-credit-card d-block fs-3 mb-1"></i>Tarjeta</label>
-                        </div>
-                        <div class="col-4">
-                            <input type="radio" class="btn-check" name="paymethod" id="credit" autocomplete="off"
-                                [(ngModel)]="paymentMethod" value="CREDIT">
-                            <label class="btn btn-outline-warning w-100 fw-bold" for="credit"><i
-                                    class="feather icon-clock d-block fs-3 mb-1"></i>Crédito</label>
-                        </div>
+            <div class="mb-4">
+              <label class="form-label fw-bold">Método de Pago</label>
+              <div class="row g-2">
+                <div class="col-4">
+                  <input type="radio" class="btn-check" name="paymethod" id="cash" autocomplete="off"
+                    [(ngModel)]="paymentMethod" value="CASH">
+                    <label class="btn btn-outline-success w-100 fw-bold" for="cash"><i
+                    class="feather icon-dollar-sign d-block fs-3 mb-1"></i>Efectivo</label>
+                  </div>
+                  <div class="col-4">
+                    <input type="radio" class="btn-check" name="paymethod" id="card" autocomplete="off"
+                      [(ngModel)]="paymentMethod" value="CARD">
+                      <label class="btn btn-outline-info w-100 fw-bold" for="card"><i
+                      class="feather icon-credit-card d-block fs-3 mb-1"></i>Tarjeta</label>
                     </div>
-                </div>
+                    <div class="col-4">
+                      <input type="radio" class="btn-check" name="paymethod" id="credit" autocomplete="off"
+                        [(ngModel)]="paymentMethod" value="CREDIT">
+                        <label class="btn btn-outline-warning w-100 fw-bold" for="credit"><i
+                        class="feather icon-clock d-block fs-3 mb-1"></i>Crédito</label>
+                      </div>
+                    </div>
+                  </div>
 
-                <div *ngIf="paymentMethod === 'CASH'">
-                    <label class="form-label fw-bold">Efectivo Recibido</label>
-                    <div class="input-group input-group-lg mb-3">
+                  @if (paymentMethod === 'CASH') {
+                    <div>
+                      <label class="form-label fw-bold">Efectivo Recibido</label>
+                      <div class="input-group input-group-lg mb-3">
                         <span class="input-group-text">$</span>
                         <input type="number" class="form-control text-end fw-bold fs-4" [(ngModel)]="amountPaid"
-                            (input)="calculateChange()">
-                    </div>
-                    <div class="d-flex justify-content-between gap-2 mb-3">
-                        <button class="btn btn-light border flex-fill" (click)="setExactAmount()">Exacto</button>
-                        <button class="btn btn-light border flex-fill" (click)="quickAmount(20)">$20</button>
-                        <button class="btn btn-light border flex-fill" (click)="quickAmount(50)">$50</button>
-                        <button class="btn btn-light border flex-fill" (click)="quickAmount(100)">$100</button>
-                    </div>
-                    <div class="card bg-success-subtle border-0" *ngIf="changeAmount > 0">
-                        <div class="card-body d-flex justify-content-between align-items-center py-2">
-                            <h6 class="text-success mb-0">Cambio:</h6>
-                            <h4 class="text-success mb-0 fw-bold">{{ changeAmount | currency }}</h4>
+                          (input)="calculateChange()">
                         </div>
-                    </div>
-                    <div class="card bg-danger-subtle border-0" *ngIf="changeAmount < 0 && amountPaid !== null">
-                        <div class="card-body p-2 text-center">
-                            <small class="text-danger fw-bold">Faltan {{ (changeAmount * -1) | currency }}</small>
+                        <div class="d-flex justify-content-between gap-2 mb-3">
+                          <button class="btn btn-light border flex-fill" (click)="setExactAmount()">Exacto</button>
+                          <button class="btn btn-light border flex-fill" (click)="quickAmount(20)">$20</button>
+                          <button class="btn btn-light border flex-fill" (click)="quickAmount(50)">$50</button>
+                          <button class="btn btn-light border flex-fill" (click)="quickAmount(100)">$100</button>
                         </div>
-                    </div>
+                        @if (changeAmount > 0) {
+                          <div class="card bg-success-subtle border-0">
+                            <div class="card-body d-flex justify-content-between align-items-center py-2">
+                              <h6 class="text-success mb-0">Cambio:</h6>
+                              <h4 class="text-success mb-0 fw-bold">{{ changeAmount | currency }}</h4>
+                            </div>
+                          </div>
+                        }
+                        @if (changeAmount < 0 && amountPaid !== null) {
+                          <div class="card bg-danger-subtle border-0">
+                            <div class="card-body p-2 text-center">
+                              <small class="text-danger fw-bold">Faltan {{ (changeAmount * -1) | currency }}</small>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    }
+
+                    @if (paymentMethod === 'CREDIT' && selectedClientId === '') {
+                      <div>
+                        <div class="alert alert-warning mb-0">
+                          <i class="feather icon-alert-triangle me-2"></i>
+                          Selecciona un cliente para ventas a crédito.
+                        </div>
+                      </div>
+                    }
+                  </div>
+                  <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" (click)="closeCheckout()">Cancelar</button>
+                    <button type="button" class="btn btn-primary btn-lg"
+                      [disabled]="(paymentMethod !== 'CREDIT' && (amountPaid === null || amountPaid < total)) || (paymentMethod === 'CREDIT' && selectedClientId === '')"
+                      (click)="processPayment()">
+                      Confirmar Pago
+                    </button>
+                  </div>
                 </div>
+              </div>
+            </div>
 
-                <div *ngIf="paymentMethod === 'CREDIT' && selectedClientId === ''">
-                    <div class="alert alert-warning mb-0">
-                        <i class="feather icon-alert-triangle me-2"></i>
-                        Selecciona un cliente para ventas a crédito.
-                    </div>
+
+            <!-- ===================== RECEIPT VIEW ===================== -->
+            @if (showReceipt) {
+              <div class="receipt-container">
+                <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+                  <h4 class="text-success mb-0"><i class="feather icon-check-circle me-2"></i>Pago Exitoso</h4>
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-outline-danger" (click)="voidLastSale()">
+                      <i class="feather icon-x-circle me-1"></i>Anular venta
+                    </button>
+                    <button class="btn btn-outline-secondary" (click)="closeReceipt()">Nueva Venta</button>
+                    <button class="btn btn-primary" (click)="printReceipt()">
+                      <i class="feather icon-printer me-1"></i>Imprimir
+                    </button>
+                  </div>
                 </div>
-            </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-light" (click)="closeCheckout()">Cancelar</button>
-                <button type="button" class="btn btn-primary btn-lg"
-                    [disabled]="(paymentMethod !== 'CREDIT' && (amountPaid === null || amountPaid < total)) || (paymentMethod === 'CREDIT' && selectedClientId === '')"
-                    (click)="processPayment()">
-                    Confirmar Pago
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-<!-- ===================== RECEIPT VIEW ===================== -->
-<div class="receipt-container" *ngIf="showReceipt">
-    <div class="d-flex justify-content-between align-items-center mb-3 no-print">
-        <h4 class="text-success mb-0"><i class="feather icon-check-circle me-2"></i>Pago Exitoso</h4>
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-secondary" (click)="closeReceipt()">Nueva Venta</button>
-            <button class="btn btn-primary" (click)="printReceipt()">
-                <i class="feather icon-printer me-1"></i>Imprimir
-            </button>
-        </div>
-    </div>
-    <div class="ticket-wrapper mx-auto bg-white shadow-sm">
-        <app-receipt-ticket [sale]="lastSale" [company]="currentUser?.company"></app-receipt-ticket>
-    </div>
-</div>
+                <div class="ticket-wrapper mx-auto bg-white shadow-sm">
+                  <app-receipt-ticket [sale]="lastSale" [company]="currentUser?.company"></app-receipt-ticket>
+                </div>
+              </div>
+            }

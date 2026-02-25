@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { InventoryService, InventoryItem } from '../inventory.service';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { ApiService } from '../../../core/services/api.service';
 import { ExportService } from '../../../core/services/export.service';
+import { Branch } from 'src/app/core/services/branch.service';
 
 @Component({
     selector: 'app-inventory-list',
@@ -11,18 +12,16 @@ import { ExportService } from '../../../core/services/export.service';
     styleUrls: ['./inventory-list.component.scss']
 })
 export class InventoryListComponent implements OnInit {
+    private inventoryService = inject(InventoryService);
+    private api = inject(ApiService);
+    private cdr = inject(ChangeDetectorRef);
+    private swal = inject(SweetAlertService);
+    private exportService = inject(ExportService);
+
     inventoryItems: InventoryItem[] = [];
-    branches: any[] = [];
+    branches: Branch[] = [];
     selectedBranchId: string = '';
     isLoading = false;
-
-    constructor(
-        private inventoryService: InventoryService,
-        private api: ApiService,
-        private cdr: ChangeDetectorRef,
-        private swal: SweetAlertService,
-        private exportService: ExportService
-    ) { }
 
     ngOnInit(): void {
         this.loadBranches();
@@ -30,12 +29,12 @@ export class InventoryListComponent implements OnInit {
     }
 
     loadBranches() {
-        this.api.get<any[]>('/branches').subscribe({
+        this.api.get<Branch[]>('/branches').subscribe({
             next: (data) => {
                 this.branches = data;
                 this.cdr.detectChanges();
             },
-            error: (err) => console.error('Error loading branches', err)
+            error: (error: unknown) => console.error('Error loading branches', error)
         });
     }
 

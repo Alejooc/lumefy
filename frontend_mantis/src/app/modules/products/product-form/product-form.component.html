@@ -1,343 +1,360 @@
 <div class="row">
-    <div class="col-sm-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>{{ isEditMode ? 'Editar Producto' : 'Nuevo Producto' }}</h5>
-                <button type="button" class="btn btn-secondary btn-sm" routerLink="/products">← Volver</button>
-            </div>
-            <div class="card-body">
-                <form [formGroup]="form" (ngSubmit)="onSubmit()">
+  <div class="col-sm-12">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5>{{ isEditMode ? 'Editar Producto' : 'Nuevo Producto' }}</h5>
+        <button type="button" class="btn btn-secondary btn-sm" routerLink="/products">← Volver</button>
+      </div>
+      <div class="card-body">
+        <form [formGroup]="form" (ngSubmit)="onSubmit()">
 
-                    <!-- Tabs -->
-                    <ul class="nav nav-tabs mb-4">
-                        <li class="nav-item">
-                            <a class="nav-link" [class.active]="activeTab === 'general'" (click)="setTab('general')"
-                                style="cursor:pointer;">
-                                📦 General
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" [class.active]="activeTab === 'inventory'" (click)="setTab('inventory')"
-                                style="cursor:pointer;">
-                                📊 Inventario y Precios
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" [class.active]="activeTab === 'variants'" (click)="setTab('variants')"
-                                style="cursor:pointer;">
-                                🔀 Variantes
-                                <span class="badge bg-primary ms-1" *ngIf="variants.length > 0">{{ variants.length
-                                    }}</span>
-                            </a>
-                        </li>
-                    </ul>
+          <!-- Tabs -->
+          <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+              <a class="nav-link" [class.active]="activeTab === 'general'" (click)="setTab('general')"
+                style="cursor:pointer;">
+                📦 General
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [class.active]="activeTab === 'inventory'" (click)="setTab('inventory')"
+                style="cursor:pointer;">
+                📊 Inventario y Precios
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [class.active]="activeTab === 'variants'" (click)="setTab('variants')"
+                style="cursor:pointer;">
+                🔀 Variantes
+                @if (variants.length > 0) {
+                  <span class="badge bg-primary ms-1">{{ variants.length
+                  }}</span>
+                }
+              </a>
+            </li>
+          </ul>
 
-                    <!-- ═══════ TAB: GENERAL ═══════ -->
-                    <div *ngIf="activeTab === 'general'">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <div class="row mb-3">
-                                    <div class="col-md-8">
-                                        <label class="form-label">Nombre <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" formControlName="name"
-                                            placeholder="Nombre del producto">
-                                        <div class="text-danger small mt-1"
-                                            *ngIf="form.get('name')?.invalid && form.get('name')?.touched">
-                                            El nombre es requerido
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">Tipo</label>
-                                        <select class="form-select" formControlName="product_type">
-                                            <option *ngFor="let t of productTypes" [value]="t.value">{{ t.label }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label">SKU</label>
-                                        <input type="text" class="form-control" formControlName="sku"
-                                            placeholder="Código SKU">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">Código de Barras</label>
-                                        <input type="text" class="form-control" formControlName="barcode"
-                                            placeholder="EAN / UPC">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">Referencia Interna</label>
-                                        <input type="text" class="form-control" formControlName="internal_reference"
-                                            placeholder="Ref. interna">
-                                    </div>
-                                </div>
-
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label">Categoría</label>
-                                        <ng-select [items]="categories" bindLabel="name" bindValue="id"
-                                            formControlName="category_id" placeholder="Seleccionar categoría"
-                                            [clearable]="true" notFoundText="Sin categorías">
-                                        </ng-select>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Marca</label>
-                                        <ng-select [items]="brands" bindLabel="name" bindValue="id"
-                                            formControlName="brand_id" placeholder="Seleccionar marca"
-                                            [clearable]="true" notFoundText="Sin marcas">
-                                        </ng-select>
-                                    </div>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label class="form-label">Descripción</label>
-                                    <textarea class="form-control" formControlName="description" rows="3"
-                                        placeholder="Descripción del producto..."></textarea>
-                                </div>
-                            </div>
-
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label">Imágenes del Producto</label>
-                                    <div class="d-grid gap-2">
-                                        <input type="file" #fileInput class="d-none" multiple accept="image/*"
-                                            (change)="uploadImages($event)">
-                                        <button type="button" class="btn btn-outline-primary"
-                                            (click)="fileInput.click()" [disabled]="isUploading">
-                                            <span *ngIf="isUploading"
-                                                class="spinner-border spinner-border-sm me-1"></span>
-                                            {{ isUploading ? 'Subiendo...' : '📷 Subir Imágenes' }}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Gallery Grid -->
-                                <div class="row g-2 mb-3" *ngIf="images.length > 0">
-                                    <div class="col-6" *ngFor="let img of images; let i = index">
-                                        <div class="border rounded p-1 bg-white position-relative gallery-item">
-                                            <img [src]="img.image_url" class="img-fluid w-100 rounded"
-                                                style="height: 120px; object-fit: cover;">
-
-                                            <div class="gallery-actions">
-                                                <button type="button" class="btn btn-danger btn-sm p-1"
-                                                    (click)="removeImage(i)" title="Eliminar">
-                                                    <i class="feather icon-trash-2"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-primary btn-sm p-1 ms-1"
-                                                    *ngIf="i !== 0" (click)="setAsMain(i)"
-                                                    title="Establecer como principal">
-                                                    <i class="feather icon-star"></i>
-                                                </button>
-                                            </div>
-
-                                            <div *ngIf="i === 0"
-                                                class="position-absolute bottom-0 start-0 bg-primary text-white px-2 py-0 small rounded-end mb-1 shadow-sm">
-                                                Principal
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div *ngIf="images.length === 0"
-                                    class="text-center text-muted border rounded p-4 mb-3 bg-light">
-                                    <p class="mb-0">Sin imágenes</p>
-                                    <small>Sube imágenes para mostrar en el catálogo</small>
-                                </div>
-
-                                <div class="mt-3">
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" id="saleOk"
-                                            formControlName="sale_ok">
-                                        <label class="form-check-label" for="saleOk">Se puede vender</label>
-                                    </div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="purchaseOk"
-                                            formControlName="purchase_ok">
-                                        <label class="form-check-label" for="purchaseOk">Se puede comprar</label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+          <!-- ═══════ TAB: GENERAL ═══════ -->
+          @if (activeTab === 'general') {
+            <div>
+              <div class="row">
+                <div class="col-md-8">
+                  <div class="row mb-3">
+                    <div class="col-md-8">
+                      <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                      <input type="text" class="form-control" formControlName="name"
+                        placeholder="Nombre del producto">
+                        @if (form.get('name')?.invalid && form.get('name')?.touched) {
+                          <div class="text-danger small mt-1"
+                            >
+                            El nombre es requerido
+                          </div>
+                        }
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" formControlName="product_type">
+                          @for (t of productTypes; track t) {
+                            <option [value]="t.value">{{ t.label }}
+                            </option>
+                          }
+                        </select>
+                      </div>
                     </div>
+                    <div class="row mb-3">
+                      <div class="col-md-4">
+                        <label class="form-label">SKU</label>
+                        <input type="text" class="form-control" formControlName="sku"
+                          placeholder="Código SKU">
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label">Código de Barras</label>
+                          <input type="text" class="form-control" formControlName="barcode"
+                            placeholder="EAN / UPC">
+                          </div>
+                          <div class="col-md-4">
+                            <label class="form-label">Referencia Interna</label>
+                            <input type="text" class="form-control" formControlName="internal_reference"
+                              placeholder="Ref. interna">
+                            </div>
+                          </div>
+                          <div class="row mb-3">
+                            <div class="col-md-6">
+                              <label class="form-label">Categoría</label>
+                              <ng-select [items]="categories" bindLabel="name" bindValue="id"
+                                formControlName="category_id" placeholder="Seleccionar categoría"
+                                [clearable]="true" notFoundText="Sin categorías">
+                              </ng-select>
+                            </div>
+                            <div class="col-md-6">
+                              <label class="form-label">Marca</label>
+                              <ng-select [items]="brands" bindLabel="name" bindValue="id"
+                                formControlName="brand_id" placeholder="Seleccionar marca"
+                                [clearable]="true" notFoundText="Sin marcas">
+                              </ng-select>
+                            </div>
+                          </div>
+                          <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <textarea class="form-control" formControlName="description" rows="3"
+                            placeholder="Descripción del producto..."></textarea>
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <div class="mb-3">
+                            <label class="form-label">Imágenes del Producto</label>
+                            <div class="d-grid gap-2">
+                              <input type="file" #fileInput class="d-none" multiple accept="image/*"
+                                (change)="uploadImages($event)">
+                                <button type="button" class="btn btn-outline-primary"
+                                  (click)="fileInput.click()" [disabled]="isUploading">
+                                  @if (isUploading) {
+                                    <span
+                                    class="spinner-border spinner-border-sm me-1"></span>
+                                  }
+                                  {{ isUploading ? 'Subiendo...' : '📷 Subir Imágenes' }}
+                                </button>
+                              </div>
+                            </div>
+                            <!-- Gallery Grid -->
+                            @if (images.length > 0) {
+                              <div class="row g-2 mb-3">
+                                @for (img of images; track img; let i = $index) {
+                                  <div class="col-6">
+                                    <div class="border rounded p-1 bg-white position-relative gallery-item">
+                                      <img [src]="img.image_url" class="img-fluid w-100 rounded"
+                                        style="height: 120px; object-fit: cover;">
+                                        <div class="gallery-actions">
+                                          <button type="button" class="btn btn-danger btn-sm p-1"
+                                            (click)="removeImage(i)" title="Eliminar">
+                                            <i class="feather icon-trash-2"></i>
+                                          </button>
+                                          @if (i !== 0) {
+                                            <button type="button" class="btn btn-primary btn-sm p-1 ms-1"
+                                              (click)="setAsMain(i)"
+                                              title="Establecer como principal">
+                                              <i class="feather icon-star"></i>
+                                            </button>
+                                          }
+                                        </div>
+                                        @if (i === 0) {
+                                          <div
+                                            class="position-absolute bottom-0 start-0 bg-primary text-white px-2 py-0 small rounded-end mb-1 shadow-sm">
+                                            Principal
+                                          </div>
+                                        }
+                                      </div>
+                                    </div>
+                                  }
+                                </div>
+                              }
+                              @if (images.length === 0) {
+                                <div
+                                  class="text-center text-muted border rounded p-4 mb-3 bg-light">
+                                  <p class="mb-0">Sin imágenes</p>
+                                  <small>Sube imágenes para mostrar en el catálogo</small>
+                                </div>
+                              }
+                              <div class="mt-3">
+                                <div class="form-check form-switch mb-2">
+                                  <input class="form-check-input" type="checkbox" id="saleOk"
+                                    formControlName="sale_ok">
+                                    <label class="form-check-label" for="saleOk">Se puede vender</label>
+                                  </div>
+                                  <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="purchaseOk"
+                                      formControlName="purchase_ok">
+                                      <label class="form-check-label" for="purchaseOk">Se puede comprar</label>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          }
 
-                    <!-- ═══════ TAB: INVENTARIO Y PRECIOS ═══════ -->
-                    <div *ngIf="activeTab === 'inventory'">
-                        <h6 class="mb-3">💰 Precios</h6>
-                        <div class="row mb-4">
-                            <div class="col-md-3">
-                                <label class="form-label">Precio de Venta <span class="text-danger">*</span></label>
-                                <div class="input-group">
+                          <!-- ═══════ TAB: INVENTARIO Y PRECIOS ═══════ -->
+                          @if (activeTab === 'inventory') {
+                            <div>
+                              <h6 class="mb-3">💰 Precios</h6>
+                              <div class="row mb-4">
+                                <div class="col-md-3">
+                                  <label class="form-label">Precio de Venta <span class="text-danger">*</span></label>
+                                  <div class="input-group">
                                     <span class="input-group-text">$</span>
                                     <input type="number" class="form-control" formControlName="price" min="0"
+                                      step="0.01">
+                                    </div>
+                                  </div>
+                                  <div class="col-md-3">
+                                    <label class="form-label">Costo</label>
+                                    <div class="input-group">
+                                      <span class="input-group-text">$</span>
+                                      <input type="number" class="form-control" formControlName="cost" min="0"
                                         step="0.01">
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Costo</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">$</span>
-                                    <input type="number" class="form-control" formControlName="cost" min="0"
-                                        step="0.01">
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Impuesto (%)</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" formControlName="tax_rate" min="0"
-                                        max="100" step="0.01">
-                                    <span class="input-group-text">%</span>
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Margen</label>
-                                <div class="form-control bg-light text-center fw-bold"
-                                    [class.text-success]="getMargin() > 0" [class.text-danger]="getMargin() < 0">
-                                    {{ getMargin() | number:'1.1-1' }}%
-                                </div>
-                            </div>
-                        </div>
-
-                        <hr>
-
-                        <h6 class="mb-3">📏 Medidas y Peso</h6>
-                        <div class="row mb-4">
-                            <div class="col-md-3">
-                                <label class="form-label">Peso (kg)</label>
-                                <input type="number" class="form-control" formControlName="weight" min="0" step="0.01"
-                                    placeholder="0.00">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Volumen (L)</label>
-                                <input type="number" class="form-control" formControlName="volume" min="0" step="0.01"
-                                    placeholder="0.00">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Unidad de Medida</label>
-                                <ng-select [items]="units" bindLabel="name" bindValue="id"
-                                    formControlName="unit_of_measure_id" placeholder="Seleccionar" [clearable]="true"
-                                    notFoundText="Sin unidades">
-                                    <ng-template ng-option-tmp let-item="item">
-                                        {{ item.name }} <small class="text-muted">({{ item.abbreviation }})</small>
-                                    </ng-template>
-                                </ng-select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">UdM de Compra</label>
-                                <ng-select [items]="units" bindLabel="name" bindValue="id"
-                                    formControlName="purchase_uom_id" placeholder="Seleccionar" [clearable]="true"
-                                    notFoundText="Sin unidades">
-                                    <ng-template ng-option-tmp let-item="item">
-                                        {{ item.name }} <small class="text-muted">({{ item.abbreviation }})</small>
-                                    </ng-template>
-                                </ng-select>
-                            </div>
-                        </div>
-
-                        <hr>
-
-                        <h6 class="mb-3">📦 Control de Inventario</h6>
-                        <div class="row mb-3">
-                            <div class="col-md-3">
-                                <div class="form-check form-switch pt-2">
-                                    <input class="form-check-input" type="checkbox" id="trackInventory"
-                                        formControlName="track_inventory">
-                                    <label class="form-check-label" for="trackInventory">Controlar inventario</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Stock Mínimo</label>
-                                <input type="number" class="form-control" formControlName="min_stock" min="0">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ═══════ TAB: VARIANTES ═══════ -->
-                    <div *ngIf="activeTab === 'variants'">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <h6 class="mb-0">Variantes del Producto</h6>
-                                <small class="text-muted">Agrega variaciones como talla, color, presentación,
-                                    etc.</small>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-primary" (click)="addVariant()">
-                                + Agregar Variante
-                            </button>
-                        </div>
-
-                        <div class="table-responsive" *ngIf="variants.length > 0">
-                            <table class="table table-sm align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 25%;">Nombre</th>
-                                        <th style="width: 15%;">SKU</th>
-                                        <th style="width: 15%;">Código Barras</th>
-                                        <th style="width: 13%;">Precio Extra</th>
-                                        <th style="width: 13%;">Costo Extra</th>
-                                        <th style="width: 12%;">Peso (kg)</th>
-                                        <th style="width: 7%;" class="text-center">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody formArrayName="variants">
-                                    <tr *ngFor="let v of variants.controls; let i = index" [formGroupName]="i">
-                                        <td>
-                                            <input type="text" class="form-control form-control-sm"
-                                                formControlName="name" placeholder="Ej: Rojo / XL">
-                                        </td>
-                                        <td>
-                                            <input type="text" class="form-control form-control-sm"
-                                                formControlName="sku" placeholder="SKU variante">
-                                        </td>
-                                        <td>
-                                            <input type="text" class="form-control form-control-sm"
-                                                formControlName="barcode" placeholder="Barcode">
-                                        </td>
-                                        <td>
-                                            <div class="input-group input-group-sm">
-                                                <span class="input-group-text">+$</span>
-                                                <input type="number" class="form-control" formControlName="price_extra"
-                                                    step="0.01">
+                                      </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                      <label class="form-label">Impuesto (%)</label>
+                                      <div class="input-group">
+                                        <input type="number" class="form-control" formControlName="tax_rate" min="0"
+                                          max="100" step="0.01">
+                                          <span class="input-group-text">%</span>
+                                        </div>
+                                      </div>
+                                      <div class="col-md-2">
+                                        <label class="form-label">Margen</label>
+                                        <div class="form-control bg-light text-center fw-bold"
+                                          [class.text-success]="getMargin() > 0" [class.text-danger]="getMargin() < 0">
+                                          {{ getMargin() | number:'1.1-1' }}%
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <hr>
+                                      <h6 class="mb-3">📏 Medidas y Peso</h6>
+                                      <div class="row mb-4">
+                                        <div class="col-md-3">
+                                          <label class="form-label">Peso (kg)</label>
+                                          <input type="number" class="form-control" formControlName="weight" min="0" step="0.01"
+                                            placeholder="0.00">
+                                          </div>
+                                          <div class="col-md-3">
+                                            <label class="form-label">Volumen (L)</label>
+                                            <input type="number" class="form-control" formControlName="volume" min="0" step="0.01"
+                                              placeholder="0.00">
                                             </div>
-                                        </td>
-                                        <td>
-                                            <div class="input-group input-group-sm">
-                                                <span class="input-group-text">+$</span>
-                                                <input type="number" class="form-control" formControlName="cost_extra"
-                                                    step="0.01">
+                                            <div class="col-md-3">
+                                              <label class="form-label">Unidad de Medida</label>
+                                              <ng-select [items]="units" bindLabel="name" bindValue="id"
+                                                formControlName="unit_of_measure_id" placeholder="Seleccionar" [clearable]="true"
+                                                notFoundText="Sin unidades">
+                                                <ng-template ng-option-tmp let-item="item">
+                                                  {{ item.name }} <small class="text-muted">({{ item.abbreviation }})</small>
+                                                </ng-template>
+                                              </ng-select>
                                             </div>
-                                        </td>
-                                        <td>
-                                            <input type="number" class="form-control form-control-sm"
-                                                formControlName="weight" step="0.01" placeholder="kg">
-                                        </td>
-                                        <td class="text-center">
-                                            <button type="button" class="btn btn-outline-danger btn-sm"
-                                                (click)="removeVariant(i)" title="Eliminar">
-                                                ✕
-                                            </button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                                            <div class="col-md-3">
+                                              <label class="form-label">UdM de Compra</label>
+                                              <ng-select [items]="units" bindLabel="name" bindValue="id"
+                                                formControlName="purchase_uom_id" placeholder="Seleccionar" [clearable]="true"
+                                                notFoundText="Sin unidades">
+                                                <ng-template ng-option-tmp let-item="item">
+                                                  {{ item.name }} <small class="text-muted">({{ item.abbreviation }})</small>
+                                                </ng-template>
+                                              </ng-select>
+                                            </div>
+                                          </div>
+                                          <hr>
+                                            <h6 class="mb-3">📦 Control de Inventario</h6>
+                                            <div class="row mb-3">
+                                              <div class="col-md-3">
+                                                <div class="form-check form-switch pt-2">
+                                                  <input class="form-check-input" type="checkbox" id="trackInventory"
+                                                    formControlName="track_inventory">
+                                                    <label class="form-check-label" for="trackInventory">Controlar inventario</label>
+                                                  </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                  <label class="form-label">Stock Mínimo</label>
+                                                  <input type="number" class="form-control" formControlName="min_stock" min="0">
+                                                </div>
+                                              </div>
+                                            </div>
+                                          }
 
-                        <div *ngIf="variants.length === 0" class="text-center text-muted py-4 border rounded">
-                            <p class="mb-1">🔀 Este producto no tiene variantes.</p>
-                            <p class="small">Agrega variantes si tu producto tiene diferentes tallas, colores,
-                                presentaciones, etc.</p>
-                        </div>
-                    </div>
+                                          <!-- ═══════ TAB: VARIANTES ═══════ -->
+                                          @if (activeTab === 'variants') {
+                                            <div>
+                                              <div class="d-flex justify-content-between align-items-center mb-3">
+                                                <div>
+                                                  <h6 class="mb-0">Variantes del Producto</h6>
+                                                  <small class="text-muted">Agrega variaciones como talla, color, presentación,
+                                                  etc.</small>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-primary" (click)="addVariant()">
+                                                  + Agregar Variante
+                                                </button>
+                                              </div>
+                                              @if (variants.length > 0) {
+                                                <div class="table-responsive">
+                                                  <table class="table table-sm align-middle">
+                                                    <thead class="table-light">
+                                                      <tr>
+                                                        <th style="width: 25%;">Nombre</th>
+                                                        <th style="width: 15%;">SKU</th>
+                                                        <th style="width: 15%;">Código Barras</th>
+                                                        <th style="width: 13%;">Precio Extra</th>
+                                                        <th style="width: 13%;">Costo Extra</th>
+                                                        <th style="width: 12%;">Peso (kg)</th>
+                                                        <th style="width: 7%;" class="text-center">Acción</th>
+                                                      </tr>
+                                                    </thead>
+                                                    <tbody formArrayName="variants">
+                                                      @for (v of variants.controls; track v; let i = $index) {
+                                                        <tr [formGroupName]="i">
+                                                          <td>
+                                                            <input type="text" class="form-control form-control-sm"
+                                                              formControlName="name" placeholder="Ej: Rojo / XL">
+                                                            </td>
+                                                            <td>
+                                                              <input type="text" class="form-control form-control-sm"
+                                                                formControlName="sku" placeholder="SKU variante">
+                                                              </td>
+                                                              <td>
+                                                                <input type="text" class="form-control form-control-sm"
+                                                                  formControlName="barcode" placeholder="Barcode">
+                                                                </td>
+                                                                <td>
+                                                                  <div class="input-group input-group-sm">
+                                                                    <span class="input-group-text">+$</span>
+                                                                    <input type="number" class="form-control" formControlName="price_extra"
+                                                                      step="0.01">
+                                                                    </div>
+                                                                  </td>
+                                                                  <td>
+                                                                    <div class="input-group input-group-sm">
+                                                                      <span class="input-group-text">+$</span>
+                                                                      <input type="number" class="form-control" formControlName="cost_extra"
+                                                                        step="0.01">
+                                                                      </div>
+                                                                    </td>
+                                                                    <td>
+                                                                      <input type="number" class="form-control form-control-sm"
+                                                                        formControlName="weight" step="0.01" placeholder="kg">
+                                                                      </td>
+                                                                      <td class="text-center">
+                                                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                                          (click)="removeVariant(i)" title="Eliminar">
+                                                                          ✕
+                                                                        </button>
+                                                                      </td>
+                                                                    </tr>
+                                                                  }
+                                                                </tbody>
+                                                              </table>
+                                                            </div>
+                                                          }
+                                                          @if (variants.length === 0) {
+                                                            <div class="text-center text-muted py-4 border rounded">
+                                                              <p class="mb-1">🔀 Este producto no tiene variantes.</p>
+                                                              <p class="small">Agrega variantes si tu producto tiene diferentes tallas, colores,
+                                                              presentaciones, etc.</p>
+                                                            </div>
+                                                          }
+                                                        </div>
+                                                      }
 
-                    <!-- Actions -->
-                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-                        <button type="button" class="btn btn-secondary" routerLink="/products">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isLoading">
-                            <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-1"></span>
-                            {{ isLoading ? 'Guardando...' : (isEditMode ? 'Actualizar Producto' : 'Crear Producto') }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
+                                                      <!-- Actions -->
+                                                      <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                                                        <button type="button" class="btn btn-secondary" routerLink="/products">Cancelar</button>
+                                                        <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isLoading">
+                                                          @if (isLoading) {
+                                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                                          }
+                                                          {{ isLoading ? 'Guardando...' : (isEditMode ? 'Actualizar Producto' : 'Crear Producto') }}
+                                                        </button>
+                                                      </div>
+                                                    </form>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>

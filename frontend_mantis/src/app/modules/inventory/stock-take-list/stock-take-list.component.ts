@@ -1,10 +1,11 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
-import { InventoryService } from '../inventory.service';
-import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
+import { Branch } from '../../../core/services/branch.service';
 import { SharedModule } from '../../../theme/shared/shared.module';
+import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
+import { InventoryService, StockTake } from '../inventory.service';
 
 @Component({
     selector: 'app-stock-take-list',
@@ -14,18 +15,16 @@ import { SharedModule } from '../../../theme/shared/shared.module';
     imports: [CommonModule, SharedModule]
 })
 export class StockTakeListComponent implements OnInit {
-    stockTakes: any[] = [];
-    branches: any[] = [];
-    selectedBranch: string = '';
-    isLoading = false;
+    private api = inject(ApiService);
+    private inventoryService = inject(InventoryService);
+    private swal = inject(SweetAlertService);
+    private router = inject(Router);
+    private cdr = inject(ChangeDetectorRef);
 
-    constructor(
-        private api: ApiService,
-        private inventoryService: InventoryService,
-        private swal: SweetAlertService,
-        private router: Router,
-        private cdr: ChangeDetectorRef
-    ) { }
+    stockTakes: StockTake[] = [];
+    branches: Branch[] = [];
+    selectedBranch = '';
+    isLoading = false;
 
     ngOnInit(): void {
         this.loadStockTakes();
@@ -40,12 +39,14 @@ export class StockTakeListComponent implements OnInit {
                 this.isLoading = false;
                 this.cdr.detectChanges();
             },
-            error: () => this.isLoading = false
+            error: () => {
+                this.isLoading = false;
+            }
         });
     }
 
     loadBranches() {
-        this.api.get<any[]>('/branches').subscribe({
+        this.api.get<Branch[]>('/branches').subscribe({
             next: (data) => {
                 this.branches = data;
                 if (data.length === 1) {
@@ -66,7 +67,7 @@ export class StockTakeListComponent implements OnInit {
                 this.swal.success('Creada', 'Toma de inventario iniciada');
                 this.router.navigate(['/inventory/stock-take', result.id]);
             },
-            error: (err) => {
+            error: (err: { error?: { detail?: string } }) => {
                 this.swal.error('Error', err?.error?.detail || 'No se pudo crear la toma');
             }
         });
@@ -77,7 +78,7 @@ export class StockTakeListComponent implements OnInit {
     }
 
     getStatusLabel(status: string): string {
-        const labels: any = {
+        const labels: Record<string, string> = {
             IN_PROGRESS: 'En Progreso',
             COMPLETED: 'Completada',
             CANCELLED: 'Cancelada'
@@ -86,7 +87,7 @@ export class StockTakeListComponent implements OnInit {
     }
 
     getStatusClass(status: string): string {
-        const classes: any = {
+        const classes: Record<string, string> = {
             IN_PROGRESS: 'bg-warning',
             COMPLETED: 'bg-success',
             CANCELLED: 'bg-danger'

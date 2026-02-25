@@ -12,7 +12,7 @@ export interface Client {
 
     // CRM Fields
     status: string;
-    tags?: Record<string, any>;
+    tags?: Record<string, unknown>;
     credit_limit: number;
     current_balance: number;
     last_interaction_at?: string;

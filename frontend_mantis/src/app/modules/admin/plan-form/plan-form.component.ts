@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormArray, FormsModule } from '@angular/forms';
+
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { PlanService } from '../plan.service';
 import { SharedModule } from '../../../theme/shared/shared.module';
@@ -9,7 +9,7 @@ import Swal from 'sweetalert2';
 @Component({
     selector: 'app-plan-form',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, RouterModule, SharedModule, FormsModule], // SharedModule likely exports CardComponent etc.
+    imports: [ReactiveFormsModule, RouterModule, SharedModule, FormsModule], // SharedModule likely exports CardComponent etc.
     templateUrl: './plan-form.component.html'
 })
 export class PlanFormComponent implements OnInit {

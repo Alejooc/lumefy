@@ -76,8 +76,8 @@ export class ReturnFormComponent implements OnInit {
         return this.formItems.some(i => i.selected && i.quantity > 0);
     }
 
-    selectAll(event: any) {
-        const checked = event.target.checked;
+    selectAll(event: Event) {
+        const checked = (event.target as HTMLInputElement).checked;
         this.formItems.forEach(i => {
             i.selected = checked;
             if (checked) i.quantity = i.maxQuantity;

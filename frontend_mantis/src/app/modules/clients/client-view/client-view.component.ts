@@ -1,9 +1,16 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { ClientService } from '../client.service';
+import {
+    ClientSaleItem,
+    ClientService,
+    ClientStatement,
+    ClientStats,
+    ClientTimelineEntry
+} from '../client.service';
+import { Client } from '../client.model';
 
 @Component({
     selector: 'app-client-view',
@@ -12,12 +19,20 @@ import { ClientService } from '../client.service';
     standalone: false
 })
 export class ClientViewComponent implements OnInit {
-    clientId: string;
-    client: any;
-    statement: any;
-    stats: any;
-    timeline: any[] = [];
-    sales: any[] = [];
+    private route = inject(ActivatedRoute);
+    private router = inject(Router);
+    private clientService = inject(ClientService);
+    private fb = inject(FormBuilder);
+    private sweetAlert = inject(SweetAlertService);
+    private auth = inject(AuthService);
+    private cdr = inject(ChangeDetectorRef);
+
+    clientId = '';
+    client: Client | null = null;
+    statement: ClientStatement | null = null;
+    stats: ClientStats | null = null;
+    timeline: ClientTimelineEntry[] = [];
+    sales: ClientSaleItem[] = [];
 
     isLoading = true;
     isLoadingStatement = false;
@@ -34,15 +49,7 @@ export class ClientViewComponent implements OnInit {
     paymentForm: FormGroup;
     showPaymentModal = false;
 
-    constructor(
-        private route: ActivatedRoute,
-        private router: Router,
-        private clientService: ClientService,
-        private fb: FormBuilder,
-        private sweetAlert: SweetAlertService,
-        private auth: AuthService,
-        private cdr: ChangeDetectorRef
-    ) {
+    constructor() {
         this.paymentForm = this.fb.group({
             amount: [null, [Validators.required, Validators.min(0.01)]],
             reference_id: [''],
@@ -63,8 +70,9 @@ export class ClientViewComponent implements OnInit {
             }
         });
 
-        this.clientId = this.route.snapshot.paramMap.get('id');
-        if (this.clientId) {
+        const routeClientId = this.route.snapshot.paramMap.get('id');
+        if (routeClientId) {
+            this.clientId = routeClientId;
             this.loadAll();
         } else {
             this.router.navigate(['/clients']);
@@ -158,7 +166,7 @@ export class ClientViewComponent implements OnInit {
         if (this.paymentForm.invalid) return;
 
         this.isSubmittingPayment = true;
-        const paymentData = this.paymentForm.value;
+        const paymentData = this.paymentForm.value as { amount: number; reference_id?: string; description: string };
 
         this.clientService.registerPayment(this.clientId, paymentData).subscribe({
             next: () => {

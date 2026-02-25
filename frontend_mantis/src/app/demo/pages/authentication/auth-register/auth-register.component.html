@@ -16,79 +16,81 @@
                 <label class="form-label" for="firstName">Nombre*</label>
                 <input type="text" class="form-control" id="firstName" placeholder="Nombre"
                   [(ngModel)]="userData.first_name" />
+                </div>
               </div>
-            </div>
-            <div class="col-md-6">
+              <div class="col-md-6">
+                <div class="form-group mb-3">
+                  <label class="form-label" for="lastName">Apellido*</label>
+                  <input type="text" class="form-control" id="lastName" placeholder="Apellido"
+                    [(ngModel)]="userData.last_name" />
+                  </div>
+                </div>
+              </div>
               <div class="form-group mb-3">
-                <label class="form-label" for="lastName">Apellido*</label>
-                <input type="text" class="form-control" id="lastName" placeholder="Apellido"
-                  [(ngModel)]="userData.last_name" />
-              </div>
+                <label class="form-label" for="company">Nombre de Empresa*</label>
+                <input type="text" class="form-control" id="company" placeholder="Mi Empresa S.A.S"
+                  [(ngModel)]="userData.company_name" />
+                </div>
+                <div class="form-group mb-3">
+                  <label class="form-label" for="emailAddress">Correo Electrónico*</label>
+                  <input type="email" class="form-control" id="emailAddress" placeholder="correo@ejemplo.com"
+                    [(ngModel)]="userData.email" />
+                  </div>
+                  <div class="form-group mb-3">
+                    <label class="form-label" for="password">Contraseña*</label>
+                    <input type="password" class="form-control" id="password" placeholder="Contraseña segura"
+                      [(ngModel)]="userData.password" />
+                    </div>
+                    <p class="mt-4 text-sm text-muted">
+                      Al registrarte, aceptas nuestros
+                      <a href="javascript:" class="text-primary">Términos de Servicio</a>
+                      y
+                      <a href="javascript:" class="text-primary">Política de Privacidad</a>
+                    </p>
+                    <div class="d-grid mt-3">
+                      <button type="button" class="btn btn-primary" (click)="register()" [disabled]="isLoading">
+                        @if (isLoading) {
+                          <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Crear Cuenta
+                      </button>
+                    </div>
+                    <div class="saprator mt-3">
+                      <span>O regístrate con</span>
+                    </div>
+                    <div class="row">
+                      @for (item of SignUpOptions; track item) {
+                        <div class="col-4">
+                          <div class="d-grid">
+                            <button type="button" class="btn mt-2 btn-light-primary bg-light text-muted">
+                              <img src="{{ item.image }}" alt="google img" />
+                              <span class="d-none d-sm-inline-block">{{ item.name }}</span>
+                            </button>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </div>
+                <div class="auth-footer row">
+                  <!-- <div class=""> -->
+                  <div class="col my-1">
+                    <p class="m-0">
+                      Copyright ©
+                      <a href="https://codedthemes.com/" target="_blank">CodedThemes</a>
+                    </p>
+                  </div>
+                  <div class="col-auto my-1">
+                    <ul class="list-inline footer-link mb-0">
+                      <li class="list-inline-item"><a href="https://codedthemes.com/" target="_blank">Home</a></li>
+                      <li class="list-inline-item"><a href="https://codedthemes.com/privacy-policy/" target="_blank">Privacy
+                      Policy</a></li>
+                      <li class="list-inline-item"><a href="https://codedthemes.support-hub.io/" target="_blank">Contact us</a>
+                    </li>
+                  </ul>
+                </div>
+              <!-- </div> -->
             </div>
-          </div>
-          <div class="form-group mb-3">
-            <label class="form-label" for="company">Nombre de Empresa*</label>
-            <input type="text" class="form-control" id="company" placeholder="Mi Empresa S.A.S"
-              [(ngModel)]="userData.company_name" />
-          </div>
-          <div class="form-group mb-3">
-            <label class="form-label" for="emailAddress">Correo Electrónico*</label>
-            <input type="email" class="form-control" id="emailAddress" placeholder="correo@ejemplo.com"
-              [(ngModel)]="userData.email" />
-          </div>
-          <div class="form-group mb-3">
-            <label class="form-label" for="password">Contraseña*</label>
-            <input type="password" class="form-control" id="password" placeholder="Contraseña segura"
-              [(ngModel)]="userData.password" />
-          </div>
-          <p class="mt-4 text-sm text-muted">
-            Al registrarte, aceptas nuestros
-            <a href="javascript:" class="text-primary">Términos de Servicio</a>
-            y
-            <a href="javascript:" class="text-primary">Política de Privacidad</a>
-          </p>
-          <div class="d-grid mt-3">
-            <button type="button" class="btn btn-primary" (click)="register()" [disabled]="isLoading">
-              <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-1"></span>
-              Crear Cuenta
-            </button>
-          </div>
-          <div class="saprator mt-3">
-            <span>O regístrate con</span>
-          </div>
-          <div class="row">
-            @for (item of SignUpOptions; track item) {
-            <div class="col-4">
-              <div class="d-grid">
-                <button type="button" class="btn mt-2 btn-light-primary bg-light text-muted">
-                  <img src="{{ item.image }}" alt="google img" />
-                  <span class="d-none d-sm-inline-block">{{ item.name }}</span>
-                </button>
-              </div>
-            </div>
-            }
           </div>
         </div>
       </div>
-      <div class="auth-footer row">
-        <!-- <div class=""> -->
-        <div class="col my-1">
-          <p class="m-0">
-            Copyright ©
-            <a href="https://codedthemes.com/" target="_blank">CodedThemes</a>
-          </p>
-        </div>
-        <div class="col-auto my-1">
-          <ul class="list-inline footer-link mb-0">
-            <li class="list-inline-item"><a href="https://codedthemes.com/" target="_blank">Home</a></li>
-            <li class="list-inline-item"><a href="https://codedthemes.com/privacy-policy/" target="_blank">Privacy
-                Policy</a></li>
-            <li class="list-inline-item"><a href="https://codedthemes.support-hub.io/" target="_blank">Contact us</a>
-            </li>
-          </ul>
-        </div>
-        <!-- </div> -->
-      </div>
-    </div>
-  </div>
-</div>

@@ -1,5 +1,5 @@
 // angular import
-import { Component, viewChild, Input, OnChanges, SimpleChanges, OnInit } from '@angular/core';
+import { Component, viewChild, Input, OnChanges, SimpleChanges } from '@angular/core';
 
 // project import
 import { ChartData } from 'src/app/core/services/dashboard.service';
@@ -14,7 +14,7 @@ import { NgApexchartsModule, ChartComponent, ApexOptions } from 'ng-apexcharts';
   templateUrl: './sales-report-chart.component.html',
   styleUrl: './sales-report-chart.component.scss'
 })
-export class SalesReportChartComponent implements OnInit, OnChanges {
+export class SalesReportChartComponent implements OnChanges {
   chart = viewChild.required<ChartComponent>('chart');
   chartOptions!: Partial<ApexOptions>;
   @Input() chartData: ChartData | null = null;
@@ -75,9 +75,6 @@ export class SalesReportChartComponent implements OnInit, OnChanges {
         borderColor: '#f5f5f5'
       }
     };
-  }
-
-  ngOnInit() {
   }
 
   ngOnChanges(changes: SimpleChanges) {

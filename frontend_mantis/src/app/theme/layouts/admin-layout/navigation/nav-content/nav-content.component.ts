@@ -1,6 +1,6 @@
 // Angular import
 import { Component, OnInit, inject, output } from '@angular/core';
-import { CommonModule, Location, LocationStrategy } from '@angular/common';
+import { Location, LocationStrategy } from '@angular/common';
 import { RouterModule } from '@angular/router';
 
 // project import
@@ -44,11 +44,12 @@ import {
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { PermissionService } from '../../../../../core/services/permission.service';
 import { AuthService } from '../../../../../core/services/auth.service';
-import { AppMarketplaceService } from 'src/app/core/services/app-marketplace.service';
+import { AppMarketplaceService, InstalledApp } from 'src/app/core/services/app-marketplace.service';
+import { APP_NAVIGATION_RULES, getVisibleNavIds } from 'src/app/core/apps/app-registry';
 
 @Component({
   selector: 'app-nav-content',
-  imports: [CommonModule, RouterModule, NavGroupComponent, NgScrollbarModule],
+  imports: [RouterModule, NavGroupComponent, NgScrollbarModule],
   templateUrl: './nav-content.component.html',
   styleUrls: ['./nav-content.component.scss']
 })
@@ -175,7 +176,10 @@ export class NavContentComponent implements OnInit {
     });
   }
 
-  private attachInstalledApps(items: NavigationItem[], installed: { slug: string; name: string; is_enabled: boolean }[]): NavigationItem[] {
+  private attachInstalledApps(items: NavigationItem[], installed: InstalledApp[]): NavigationItem[] {
+    const visibleAppNavIds = getVisibleNavIds(installed);
+    const allAppNavIds = new Set(APP_NAVIGATION_RULES.flatMap((rule) => rule.navIds));
+
     return items.map((item) => {
       if (item.id === 'apps-platform') {
         const children = [...(item.children || [])];
@@ -210,14 +214,14 @@ export class NavContentComponent implements OnInit {
         return { ...item, children };
       }
       if (item.children) {
-        let filteredChildren = this.attachInstalledApps(item.children, installed);
-
-        // Hide POS if the module is not installed
-        const hasPosApp = installed.some(app => app.slug === 'pos_module' && app.is_enabled);
-        if (!hasPosApp) {
-          filteredChildren = filteredChildren.filter(child => child.id !== 'pos');
-        }
-
+        const filteredChildren = this.attachInstalledApps(item.children, installed).filter((child) => {
+          const matchingRule = visibleAppNavIds.has(child.id);
+          const isAppBoundNavItem = allAppNavIds.has(child.id);
+          if (isAppBoundNavItem) {
+            return matchingRule;
+          }
+          return true;
+        });
         return { ...item, children: filteredChildren };
       }
       return item;
@@ -251,7 +255,7 @@ export class NavContentComponent implements OnInit {
       }
 
       // Process children
-      let newItem = { ...item };
+      const newItem = { ...item };
       if (newItem.children) {
         newItem.children = this.filterNavigation(newItem.children);
         if (

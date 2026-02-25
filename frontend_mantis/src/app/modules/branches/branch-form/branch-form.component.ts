@@ -1,14 +1,23 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
 import Swal from 'sweetalert2';
 
+interface BranchFormItem {
+    id: string;
+    name: string;
+    address?: string;
+    phone?: string;
+    is_warehouse: boolean;
+    allow_pos: boolean;
+}
+
 @Component({
     selector: 'app-branch-form',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, RouterModule],
+    imports: [ReactiveFormsModule, RouterModule],
     templateUrl: './branch-form.component.html'
 })
 export class BranchFormComponent implements OnInit {
@@ -44,17 +53,17 @@ export class BranchFormComponent implements OnInit {
 
     loadBranch(id: string) {
         this.loading = true;
-        this.api.get<any>(`/branches`).subscribe({
-            next: (branches: any[]) => {
-                const branch = branches.find(b => b.id === id);
+        this.api.get<BranchFormItem[]>(`/branches`).subscribe({
+            next: (branches: BranchFormItem[]) => {
+                const branch = branches.find((b: BranchFormItem) => b.id === id);
                 if (branch) {
                     this.branchForm.patchValue(branch);
                 }
                 this.loading = false;
             },
-            error: (err) => {
+            error: (error: unknown) => {
                 this.loading = false;
-                console.error(err);
+                console.error(error);
             }
         });
     }
@@ -71,7 +80,7 @@ export class BranchFormComponent implements OnInit {
                     Swal.fire('Actualizado', 'Sucursal actualizada', 'success');
                     this.router.navigate(['/branches']);
                 },
-                error: (err) => {
+                error: () => {
                     this.loading = false;
                     Swal.fire('Error', 'No se pudo actualizar', 'error');
                 }

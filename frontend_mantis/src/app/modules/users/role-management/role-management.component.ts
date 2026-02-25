@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PermissionService } from '../../../core/services/permission.service';
@@ -19,6 +19,12 @@ type PermissionDef = {
   standalone: false
 })
 export class RoleManagementComponent implements OnInit {
+  private fb = inject(FormBuilder);
+  private userService = inject(UserService);
+  private swal = inject(SweetAlertService);
+  private permissionService = inject(PermissionService);
+  private router = inject(Router);
+
   roles: Role[] = [];
   loading = false;
   saving = false;
@@ -43,13 +49,7 @@ export class RoleManagementComponent implements OnInit {
 
   roleForm: FormGroup;
 
-  constructor(
-    private fb: FormBuilder,
-    private userService: UserService,
-    private swal: SweetAlertService,
-    private permissionService: PermissionService,
-    private router: Router
-  ) {
+  constructor() {
     this.roleForm = this.fb.group({
       name: ['', [Validators.required, Validators.maxLength(64)]],
       description: [''],
@@ -57,7 +57,7 @@ export class RoleManagementComponent implements OnInit {
         this.permissionDefs.reduce((acc, item) => {
           acc[item.key] = [false];
           return acc;
-        }, {} as Record<string, any>)
+        }, {} as Record<string, boolean[]>)
       )
     });
   }
