@@ -41,6 +41,11 @@
                   <i class="feather icon-layers me-1"></i>Cajas
                 </button>
               }
+              @if (canViewDailyClose) {
+                <button class="btn btn-sm btn-outline-dark" (click)="openDailyClose()" title="Cierre del dia">
+                  <i class="feather icon-bar-chart-2 me-1"></i>Cierre
+                </button>
+              }
               @if (currentSession) {
                 <button class="btn btn-sm btn-outline-danger" (click)="closeCashSession()" title="Cerrar caja">
                   <i class="feather icon-lock me-1"></i>Cerrar caja
@@ -216,6 +221,91 @@
       </div>
     }
 
+    <!-- ===================== DAILY CLOSE MODAL ===================== -->
+    <div class="modal fade" tabindex="-1" aria-hidden="true" [class.show]="showDailyCloseModal"
+      [style.display]="showDailyCloseModal ? 'block' : 'none'"
+      [style.background]="showDailyCloseModal ? 'rgba(0,0,0,0.5)' : ''">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+          <div class="modal-header">
+            <h5 class="modal-title">Cierre del dia</h5>
+            <button type="button" class="btn-close" (click)="closeDailyClose()"></button>
+          </div>
+          <div class="modal-body">
+            @if (dailyCloseLoading) {
+              <div class="text-center py-4 text-muted">Cargando cierre...</div>
+            }
+            @if (!dailyCloseLoading && dailyClose) {
+              <div class="row g-2 mb-3">
+                <div class="col-6 col-md-3">
+                  <div class="border rounded p-2 text-center">
+                    <small class="text-muted d-block">Ventas</small>
+                    <strong>{{ dailyClose.sales_count }}</strong>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="border rounded p-2 text-center">
+                    <small class="text-muted d-block">Neto</small>
+                    <strong>{{ dailyClose.net_sales | currency }}</strong>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="border rounded p-2 text-center">
+                    <small class="text-muted d-block">Devoluciones</small>
+                    <strong>{{ dailyClose.total_refunds | currency }}</strong>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="border rounded p-2 text-center">
+                    <small class="text-muted d-block">Cajas abiertas</small>
+                    <strong>{{ dailyClose.open_sessions_now }}</strong>
+                  </div>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                  <tbody>
+                    <tr>
+                      <th>Efectivo</th>
+                      <td class="text-end">{{ dailyClose.payments_cash | currency }}</td>
+                    </tr>
+                    <tr>
+                      <th>Tarjeta</th>
+                      <td class="text-end">{{ dailyClose.payments_card | currency }}</td>
+                    </tr>
+                    <tr>
+                      <th>Credito</th>
+                      <td class="text-end">{{ dailyClose.payments_credit | currency }}</td>
+                    </tr>
+                    <tr>
+                      <th>Esperado total caja</th>
+                      <td class="text-end">{{ dailyClose.expected_amount_total | currency }}</td>
+                    </tr>
+                    <tr>
+                      <th>Contado total caja</th>
+                      <td class="text-end">{{ dailyClose.counted_amount_total | currency }}</td>
+                    </tr>
+                    <tr>
+                      <th>Diferencia caja</th>
+                      <td class="text-end" [ngClass]="dailyClose.over_short_total < 0 ? 'text-danger fw-bold' : 'text-success fw-bold'">
+                        {{ dailyClose.over_short_total | currency }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" (click)="closeDailyClose()">Cerrar</button>
+            <button class="btn btn-primary" [disabled]="!dailyClose" (click)="exportDailyCloseCsv()">
+              <i class="feather icon-download me-1"></i>Exportar CSV
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ===================== CASH SESSIONS MODAL ===================== -->
     @if (posConfig.show_sessions_manager) {
       <div class="modal fade" tabindex="-1" aria-hidden="true" [class.show]="showSessionsModal"
@@ -232,10 +322,188 @@
                 <button class="btn btn-sm" [class.btn-primary]="sessionsFilter === 'OPEN'" [class.btn-outline-primary]="sessionsFilter !== 'OPEN'" (click)="onSessionFilterChange('OPEN')">Abiertas</button>
                 <button class="btn btn-sm" [class.btn-primary]="sessionsFilter === 'CLOSED'" [class.btn-outline-primary]="sessionsFilter !== 'CLOSED'" (click)="onSessionFilterChange('CLOSED')">Cerradas</button>
                 <button class="btn btn-sm" [class.btn-primary]="sessionsFilter === ''" [class.btn-outline-primary]="sessionsFilter !== ''" (click)="onSessionFilterChange('')">Todas</button>
-                <button class="btn btn-sm btn-outline-secondary ms-auto" (click)="loadSessions()">
+                <button class="btn btn-sm btn-outline-success ms-auto" [disabled]="loadingSessions || sessions.length === 0" (click)="exportSessionsCsv()">
+                  <i class="feather icon-download me-1"></i>Exportar CSV
+                </button>
+                <button class="btn btn-sm btn-outline-success" [disabled]="loadingSessions || closedSessions.length === 0" (click)="exportClosedSessionsCsv()">
+                  <i class="feather icon-download me-1"></i>Cerradas CSV
+                </button>
+                <button class="btn btn-sm btn-outline-success" [disabled]="loadingSessions || myOpenSessions.length === 0" (click)="exportMyOpenSessionsCsv()">
+                  <i class="feather icon-download me-1"></i>Mis abiertas CSV
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" (click)="loadSessions()">
                   <i class="feather icon-refresh-cw me-1"></i>Actualizar
                 </button>
               </div>
+              <div class="row g-2 mb-3">
+                <div class="col-12 col-md-3">
+                  <label class="form-label small mb-1">Desde</label>
+                  <input type="date" class="form-control form-control-sm" [(ngModel)]="sessionsOpenedFrom" />
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="form-label small mb-1">Hasta</label>
+                  <input type="date" class="form-control form-control-sm" [(ngModel)]="sessionsOpenedTo" />
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="form-label small mb-1">Cajero</label>
+                  <select class="form-select form-select-sm" [(ngModel)]="sessionsUserFilter">
+                    <option value="">Todos los cajeros</option>
+                    @for (u of sessionUserOptions; track u.id) {
+                      <option [value]="u.id">{{ u.name }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="col-12 col-md-2 d-flex align-items-end gap-1">
+                  <button class="btn btn-sm btn-primary w-100" (click)="applySessionsAdvancedFilters()">Aplicar</button>
+                  <button class="btn btn-sm btn-outline-secondary w-100" (click)="resetSessionsAdvancedFilters()">Limpiar</button>
+                </div>
+              </div>
+              @if (!loadingSessions) {
+                <div class="row g-2 mb-3">
+                  <div class="col-12 col-md-4">
+                    <div class="border rounded p-2 bg-light">
+                      <small class="text-muted d-block">Mis cajas abiertas</small>
+                      <strong>{{ myOpenSessions.length }}</strong>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <div class="border rounded p-2 bg-light">
+                      <small class="text-muted d-block">Abiertas en sucursal actual</small>
+                      <strong>{{ branchOpenSessions.length }}</strong>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <div class="border rounded p-2 bg-light">
+                      <small class="text-muted d-block">Total en listado</small>
+                      <strong>{{ sessions.length }}</strong>
+                    </div>
+                  </div>
+                </div>
+                <div class="row g-2 mb-3">
+                  <div class="col-12 col-md-3">
+                    <div class="border rounded p-2 bg-light">
+                      <small class="text-muted d-block">Abiertas ahora</small>
+                      <strong>{{ sessionsOpsSummary.openNow }}</strong>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <div class="border rounded p-2 bg-light">
+                      <small class="text-muted d-block">Cerradas hoy</small>
+                      <strong>{{ sessionsOpsSummary.closedToday }}</strong>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <div class="border rounded p-2 bg-light">
+                      <small class="text-muted d-block">Diferencia hoy</small>
+                      <strong [ngClass]="sessionsOpsSummary.overShortToday < 0 ? 'text-danger' : 'text-success'">{{ sessionsOpsSummary.overShortToday | currency }}</strong>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <div class="border rounded p-2 bg-light">
+                      <small class="text-muted d-block">Alertas (&ge; {{ posConfig.over_short_alert_threshold | currency }})</small>
+                      <strong [ngClass]="sessionsOpsSummary.alertCount > 0 ? 'text-danger' : ''">{{ sessionsOpsSummary.alertCount }}</strong>
+                    </div>
+                  </div>
+                </div>
+                @if (closedSessions.length > 0) {
+                  <div class="border rounded p-2 mb-3">
+                    <div class="fw-semibold mb-2">Arqueo (cajas cerradas del filtro)</div>
+                    <div class="row g-2">
+                      <div class="col-6 col-md-2">
+                        <small class="text-muted d-block">Cierres</small>
+                        <strong>{{ closedSessionsAuditSummary.count }}</strong>
+                      </div>
+                      <div class="col-6 col-md-2">
+                        <small class="text-muted d-block">Ventas</small>
+                        <strong>{{ closedSessionsAuditSummary.totalSales | currency }}</strong>
+                      </div>
+                      <div class="col-6 col-md-3">
+                        <small class="text-muted d-block">Esperado total</small>
+                        <strong>{{ closedSessionsAuditSummary.expected | currency }}</strong>
+                      </div>
+                      <div class="col-6 col-md-3">
+                        <small class="text-muted d-block">Contado total</small>
+                        <strong>{{ closedSessionsAuditSummary.counted | currency }}</strong>
+                      </div>
+                      <div class="col-12 col-md-2">
+                        <small class="text-muted d-block">Diferencia</small>
+                        <strong [ngClass]="closedSessionsAuditSummary.overShort < 0 ? 'text-danger' : 'text-success'">
+                          {{ closedSessionsAuditSummary.overShort | currency }}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                }
+                <div class="row g-3 mb-3">
+                  <div class="col-12 col-lg-6">
+                    <div class="border rounded p-2 h-100">
+                      <div class="fw-semibold mb-2">Mis cajas abiertas</div>
+                      @if (myOpenSessions.length === 0) {
+                        <div class="text-muted small">No tienes cajas abiertas.</div>
+                      }
+                      @if (myOpenSessions.length > 0) {
+                        <div class="table-responsive">
+                          <table class="table table-sm align-middle mb-0">
+                            <thead>
+                              <tr>
+                                <th>Sucursal</th>
+                                <th>Apertura</th>
+                                <th class="text-end"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              @for (s of myOpenSessions; track s.id) {
+                                <tr>
+                                  <td>{{ s.branch_name || '-' }}</td>
+                                  <td>{{ s.opened_at | date:'short' }}</td>
+                                  <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-info me-1" (click)="viewSessionStats(s)">Ver</button>
+                                    <button class="btn btn-sm btn-outline-primary me-1" (click)="enterSession(s)">Entrar</button>
+                                    <button class="btn btn-sm btn-outline-danger" (click)="closeListedSession(s)">Cerrar</button>
+                                  </td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                  <div class="col-12 col-lg-6">
+                    <div class="border rounded p-2 h-100">
+                      <div class="fw-semibold mb-2">Cajas abiertas en sucursal actual</div>
+                      @if (branchOpenSessions.length === 0) {
+                        <div class="text-muted small">No hay cajas abiertas en esta sucursal.</div>
+                      }
+                      @if (branchOpenSessions.length > 0) {
+                        <div class="table-responsive">
+                          <table class="table table-sm align-middle mb-0">
+                            <thead>
+                              <tr>
+                                <th>Cajero</th>
+                                <th>Apertura</th>
+                                <th class="text-end"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              @for (s of branchOpenSessions; track s.id) {
+                                <tr>
+                                  <td>{{ s.user_name || '-' }}</td>
+                                  <td>{{ s.opened_at | date:'short' }}</td>
+                                  <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-info me-1" (click)="viewSessionStats(s)">Ver</button>
+                                    <button class="btn btn-sm btn-outline-primary" [disabled]="!isOwnSession(s) && !posConfig.allow_enter_other_user_session" (click)="enterSession(s)">Entrar</button>
+                                  </td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
               @if (loadingSessions) {
                 <div class="text-center py-4 text-muted">Cargando cajas...</div>
               }
@@ -258,7 +526,7 @@
                     </thead>
                     <tbody>
                       @for (s of sessions; track s.id) {
-                        <tr>
+                        <tr [class.table-danger]="isOverShortAlert(s)">
                           <td>{{ s.branch_name || '-' }}</td>
                           <td>{{ s.user_name || '-' }}</td>
                           <td>
@@ -270,6 +538,9 @@
                           <td class="text-end">
                             <button class="btn btn-sm btn-outline-info me-1" (click)="viewSessionStats(s)">Ver</button>
                             <button class="btn btn-sm btn-outline-primary" [disabled]="s.status !== 'OPEN'" (click)="enterSession(s)">Entrar</button>
+                            @if (s.status === 'CLOSED' && canManageSales && posConfig.allow_reopen_closed_sessions) {
+                              <button class="btn btn-sm btn-outline-warning ms-1" (click)="reopenSession(s)">Reabrir</button>
+                            }
                           </td>
                         </tr>
                       }
@@ -384,9 +655,11 @@
                 <div class="d-flex justify-content-between align-items-center mb-3 no-print">
                   <h4 class="text-success mb-0"><i class="feather icon-check-circle me-2"></i>Pago Exitoso</h4>
                   <div class="d-flex gap-2">
-                    <button class="btn btn-outline-danger" (click)="voidLastSale()">
-                      <i class="feather icon-x-circle me-1"></i>Anular venta
-                    </button>
+                    @if (!posConfig.require_manager_for_void || canVoidSales) {
+                      <button class="btn btn-outline-danger" (click)="voidLastSale()">
+                        <i class="feather icon-x-circle me-1"></i>Anular venta
+                      </button>
+                    }
                     <button class="btn btn-outline-secondary" (click)="closeReceipt()">Nueva Venta</button>
                     <button class="btn btn-primary" (click)="printReceipt()">
                       <i class="feather icon-printer me-1"></i>Imprimir

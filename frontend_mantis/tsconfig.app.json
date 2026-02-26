@@ -15,6 +15,15 @@
     "src/**/*.ts"
   ],
   "exclude": [
-    "src/**/*.spec.ts"
+    "src/**/*.spec.ts",
+    "src/app/modules/admin/landing-cms/landing-cms-module.ts",
+    "src/app/modules/categories/category-form/category-form.ts",
+    "src/app/modules/categories/category-list/category-list.ts",
+    "src/app/modules/clients/client.ts",
+    "src/app/modules/clients/clients.ts",
+    "src/app/modules/pos/components/receipt-ticket/receipt-ticket.ts",
+    "src/app/modules/pos/pos.ts",
+    "src/app/modules/users/user.ts",
+    "src/app/modules/users/users.ts"
   ]
 }

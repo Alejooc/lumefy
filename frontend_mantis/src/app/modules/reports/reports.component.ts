@@ -69,6 +69,54 @@ interface SalesByCategoryRow {
     revenue: number;
 }
 
+interface DailyCloseSummary {
+    date: string;
+    branch_id?: string | null;
+    sales_count: number;
+    gross_sales: number;
+    payments_cash: number;
+    payments_card: number;
+    payments_credit: number;
+    returns_count: number;
+    total_refunds: number;
+    net_sales: number;
+    sessions_opened_count: number;
+    sessions_closed_count: number;
+    opening_amount_total: number;
+    expected_amount_total: number;
+    counted_amount_total: number;
+    over_short_total: number;
+    open_sessions_now: number;
+}
+
+interface PosOpsTopCashier {
+    user_id: string;
+    user_name: string;
+    sessions_closed: number;
+    sales_total: number;
+    cash_total: number;
+    card_total: number;
+    credit_total: number;
+}
+
+interface PosOperationsSummary {
+    date: string;
+    branch_id?: string | null;
+    sessions_opened: number;
+    sessions_closed: number;
+    sessions_reopened: number;
+    sessions_open_now: number;
+    expected_total: number;
+    counted_total: number;
+    over_short_total: number;
+    alert_threshold: number;
+    alert_sessions_count: number;
+    payments_cash: number;
+    payments_card: number;
+    payments_credit: number;
+    top_cashiers: PosOpsTopCashier[];
+}
+
 interface BranchListResponse {
     items?: Branch[];
 }
@@ -102,6 +150,42 @@ export class ReportsComponent implements OnInit {
     financialSummary: FinancialSummary = { revenue: 0, cost: 0, profit: 0, margin: 0 };
     inventoryTurnover: InventoryTurnoverRow[] = [];
     salesByCategory: SalesByCategoryRow[] = [];
+    dailyClose: DailyCloseSummary = {
+        date: '',
+        branch_id: null,
+        sales_count: 0,
+        gross_sales: 0,
+        payments_cash: 0,
+        payments_card: 0,
+        payments_credit: 0,
+        returns_count: 0,
+        total_refunds: 0,
+        net_sales: 0,
+        sessions_opened_count: 0,
+        sessions_closed_count: 0,
+        opening_amount_total: 0,
+        expected_amount_total: 0,
+        counted_amount_total: 0,
+        over_short_total: 0,
+        open_sessions_now: 0
+    };
+    posOperations: PosOperationsSummary = {
+        date: '',
+        branch_id: null,
+        sessions_opened: 0,
+        sessions_closed: 0,
+        sessions_reopened: 0,
+        sessions_open_now: 0,
+        expected_total: 0,
+        counted_total: 0,
+        over_short_total: 0,
+        alert_threshold: 20,
+        alert_sessions_count: 0,
+        payments_cash: 0,
+        payments_card: 0,
+        payments_credit: 0,
+        top_cashiers: []
+    };
 
     isLoading = false;
     currencySymbol = '$';
@@ -154,9 +238,13 @@ export class ReportsComponent implements OnInit {
     }
 
     loadBranches() {
-        this.api.get<BranchListResponse>('/branches?limit=100').subscribe({
+        this.api.get<BranchListResponse | Branch[]>('/branches?limit=100').subscribe({
             next: (data) => {
-                this.branches = data.items || [];
+                if (Array.isArray(data)) {
+                    this.branches = data;
+                } else {
+                    this.branches = data.items || [];
+                }
             },
             error: () => undefined
         });
@@ -187,13 +275,33 @@ export class ReportsComponent implements OnInit {
         return params;
     }
 
+    getDailyCloseParams(): string {
+        const today = new Date().toISOString().split('T')[0];
+        const target = this.filterDays === 'custom' && this.filterEndDate ? this.filterEndDate : today;
+        let params = `?target_date=${target}`;
+        if (this.filterBranchId) {
+            params += `&branch_id=${this.filterBranchId}`;
+        }
+        return params;
+    }
+
+    getPosOperationsParams(): string {
+        const today = new Date().toISOString().split('T')[0];
+        const target = this.filterDays === 'custom' && this.filterEndDate ? this.filterEndDate : today;
+        let params = `?target_date=${target}`;
+        if (this.filterBranchId) {
+            params += `&branch_id=${this.filterBranchId}`;
+        }
+        return params;
+    }
+
     loadData() {
         this.isLoading = true;
         this.cdr.detectChanges();
 
         const params = this.getQueryParams();
         let requestsCompleted = 0;
-        const totalRequests = 6;
+        const totalRequests = 8;
 
         const checkCompleted = () => {
             requestsCompleted += 1;
@@ -267,6 +375,22 @@ export class ReportsComponent implements OnInit {
             },
             error: () => checkCompleted()
         });
+
+        this.api.get<DailyCloseSummary>(`/reports/daily-close${this.getDailyCloseParams()}`).subscribe({
+            next: (data) => {
+                this.dailyClose = data;
+                checkCompleted();
+            },
+            error: () => checkCompleted()
+        });
+
+        this.api.get<PosOperationsSummary>(`/reports/pos-operations${this.getPosOperationsParams()}`).subscribe({
+            next: (data) => {
+                this.posOperations = data;
+                checkCompleted();
+            },
+            error: () => checkCompleted()
+        });
     }
 
     setTab(tab: string) {
@@ -290,6 +414,47 @@ export class ReportsComponent implements OnInit {
             columns = ['Categoria', 'Ingresos'];
             rows = this.salesByCategory.map((item) => [item.category_name, item.revenue]);
             filename = 'ventas_categorias';
+        } else if (type === 'daily-close') {
+            columns = ['Fecha', 'Sucursal', 'Ventas', 'Bruto', 'Efectivo', 'Tarjeta', 'Credito', 'Devoluciones', 'Total Devoluciones', 'Neto', 'Cajas Abiertas', 'Cajas Cerradas', 'Apertura Caja', 'Esperado', 'Contado', 'Diferencia', 'Cajas Abiertas Ahora'];
+            rows = [[
+                this.dailyClose.date,
+                this.dailyClose.branch_id || 'todas',
+                this.dailyClose.sales_count,
+                this.dailyClose.gross_sales,
+                this.dailyClose.payments_cash,
+                this.dailyClose.payments_card,
+                this.dailyClose.payments_credit,
+                this.dailyClose.returns_count,
+                this.dailyClose.total_refunds,
+                this.dailyClose.net_sales,
+                this.dailyClose.sessions_opened_count,
+                this.dailyClose.sessions_closed_count,
+                this.dailyClose.opening_amount_total,
+                this.dailyClose.expected_amount_total,
+                this.dailyClose.counted_amount_total,
+                this.dailyClose.over_short_total,
+                this.dailyClose.open_sessions_now
+            ]];
+            filename = 'cierre_diario';
+        } else if (type === 'pos-operations') {
+            columns = ['Fecha', 'Sucursal', 'Cajas Abiertas', 'Cajas Cerradas', 'Cajas Reabiertas', 'Abiertas Ahora', 'Esperado', 'Contado', 'Diferencia', 'Umbral Alerta', 'Cajas en Alerta', 'Cobro Efectivo', 'Cobro Tarjeta', 'Cobro Credito'];
+            rows = [[
+                this.posOperations.date,
+                this.posOperations.branch_id || 'todas',
+                this.posOperations.sessions_opened,
+                this.posOperations.sessions_closed,
+                this.posOperations.sessions_reopened,
+                this.posOperations.sessions_open_now,
+                this.posOperations.expected_total,
+                this.posOperations.counted_total,
+                this.posOperations.over_short_total,
+                this.posOperations.alert_threshold,
+                this.posOperations.alert_sessions_count,
+                this.posOperations.payments_cash,
+                this.posOperations.payments_card,
+                this.posOperations.payments_credit
+            ]];
+            filename = 'operacion_pos';
         }
 
         if (columns.length === 0) return;

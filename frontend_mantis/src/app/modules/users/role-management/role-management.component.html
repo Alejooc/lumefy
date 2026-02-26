@@ -18,13 +18,16 @@
                   @if (isAdminRole(role)) {
                     <small class="text-muted">Acceso administrativo completo</small>
                   }
+                  @if (isFrozenRole(role)) {
+                    <small class="text-warning d-block">Rol base MVP (congelado)</small>
+                  }
                 </td>
                 <td>{{ role.description || '-' }}</td>
                 <td class="text-end">
-                  <button class="btn btn-icon btn-outline-primary btn-sm me-1" (click)="startEdit(role)">
+                  <button class="btn btn-icon btn-outline-primary btn-sm me-1" (click)="startEdit(role)" [disabled]="isFrozenRole(role)">
                     <i class="feather icon-edit"></i>
                   </button>
-                  <button class="btn btn-icon btn-outline-danger btn-sm" (click)="deleteRole(role)" [disabled]="isAdminRole(role)">
+                  <button class="btn btn-icon btn-outline-danger btn-sm" (click)="deleteRole(role)" [disabled]="isAdminRole(role) || isFrozenRole(role)">
                     <i class="feather icon-trash-2"></i>
                   </button>
                 </td>
@@ -70,13 +73,18 @@
           </div>
 
           <div formGroupName="permissions">
-            @for (group of groupedPermissions; track group) {
+            @for (group of groupedPermissions; track group.group) {
               <div class="permission-group">
                 <h6>{{ group.group }}</h6>
-                @for (perm of group.items; track perm) {
+                @for (perm of group.items; track perm.key) {
                   <div class="form-check">
-                    <input class="form-check-input" type="checkbox" [formControlName]="perm.key" [id]="perm.key" />
-                    <label class="form-check-label" [for]="perm.key">{{ perm.label }}</label>
+                    <input class="form-check-input" type="checkbox" [formControlName]="perm.key" [id]="perm.key" (change)="onPermissionChange(perm.key)" />
+                    <label class="form-check-label" [for]="perm.key">
+                      {{ perm.label }}
+                      @if (perm.hint) {
+                        <small class="text-muted ms-1">({{ perm.hint }})</small>
+                      }
+                    </label>
                   </div>
                 }
               </div>
@@ -94,4 +102,3 @@
     </app-card>
   </div>
 </div>
-

@@ -74,6 +74,16 @@
       <i class="ti ti-packages me-2"></i>Inventario y Rotación
     </a>
   </li>
+  <li class="nav-item">
+    <a class="nav-link cursor-pointer" [class.active]="activeTab === 'cierre'" (click)="setTab('cierre')">
+      <i class="ti ti-cash-banknote me-2"></i>Cierre Diario
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link cursor-pointer" [class.active]="activeTab === 'pos-ops'" (click)="setTab('pos-ops')">
+      <i class="ti ti-register me-2"></i>Operaci&oacute;n POS
+    </a>
+  </li>
 </ul>
 
 <!-- Loading -->
@@ -237,6 +247,251 @@
                         <td>{{ cat.category_name }}</td>
                         <td class="text-end fw-bold text-success">{{ currencySymbol }} {{ cat.revenue |
                         number:'1.2-2' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </app-card>
+          </div>
+        </div>
+      </div>
+    }
+    <!-- CIERRE TAB -->
+    @if (activeTab === 'cierre') {
+      <div>
+        <div class="d-flex justify-content-end mb-3">
+          <button class="btn btn-sm btn-outline-secondary" (click)="exportToCSV('daily-close')">
+            <i class="ti ti-download me-1"></i> Exportar CSV
+          </button>
+        </div>
+        <div class="row">
+          <div class="col-md-3">
+            <div class="card bg-primary text-white text-center">
+              <div class="card-body">
+                <h6>Ventas del Dia</h6>
+                <h2 class="text-white fw-bold">{{ dailyClose.sales_count }}</h2>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card bg-success text-white text-center">
+              <div class="card-body">
+                <h6>Venta Neta</h6>
+                <h2 class="text-white fw-bold">{{ currencySymbol }} {{ dailyClose.net_sales | number:'1.2-2' }}</h2>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card bg-warning text-white text-center">
+              <div class="card-body">
+                <h6>Devoluciones</h6>
+                <h2 class="text-white fw-bold">{{ currencySymbol }} {{ dailyClose.total_refunds | number:'1.2-2' }}</h2>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card bg-info text-white text-center">
+              <div class="card-body">
+                <h6>Cajas Abiertas Ahora</h6>
+                <h2 class="text-white fw-bold">{{ dailyClose.open_sessions_now }}</h2>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row mt-3">
+          <div class="col-md-6">
+            <app-card [cardTitle]="'Cobros por Metodo'" [showHeader]="true">
+              <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                  <tbody>
+                    <tr>
+                      <th>Efectivo</th>
+                      <td class="text-end">{{ currencySymbol }} {{ dailyClose.payments_cash | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Tarjeta</th>
+                      <td class="text-end">{{ currencySymbol }} {{ dailyClose.payments_card | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Credito</th>
+                      <td class="text-end">{{ currencySymbol }} {{ dailyClose.payments_credit | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Bruto</th>
+                      <td class="text-end fw-bold">{{ currencySymbol }} {{ dailyClose.gross_sales | number:'1.2-2' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </app-card>
+          </div>
+          <div class="col-md-6">
+            <app-card [cardTitle]="'Estado de Cajas'" [showHeader]="true">
+              <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                  <tbody>
+                    <tr>
+                      <th>Cajas abiertas (hoy)</th>
+                      <td class="text-end">{{ dailyClose.sessions_opened_count }}</td>
+                    </tr>
+                    <tr>
+                      <th>Cajas cerradas (hoy)</th>
+                      <td class="text-end">{{ dailyClose.sessions_closed_count }}</td>
+                    </tr>
+                    <tr>
+                      <th>Apertura total</th>
+                      <td class="text-end">{{ currencySymbol }} {{ dailyClose.opening_amount_total | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Esperado total</th>
+                      <td class="text-end">{{ currencySymbol }} {{ dailyClose.expected_amount_total | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Contado total</th>
+                      <td class="text-end">{{ currencySymbol }} {{ dailyClose.counted_amount_total | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Diferencia total</th>
+                      <td class="text-end" [ngClass]="dailyClose.over_short_total < 0 ? 'text-danger fw-bold' : 'text-success fw-bold'">
+                        {{ currencySymbol }} {{ dailyClose.over_short_total | number:'1.2-2' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </app-card>
+          </div>
+        </div>
+      </div>
+    }
+    <!-- POS OPS TAB -->
+    @if (activeTab === 'pos-ops') {
+      <div>
+        <div class="d-flex justify-content-end mb-3">
+          <button class="btn btn-sm btn-outline-secondary" (click)="exportToCSV('pos-operations')">
+            <i class="ti ti-download me-1"></i> Exportar CSV
+          </button>
+        </div>
+        <div class="row">
+          <div class="col-md-3">
+            <div class="card bg-primary text-white text-center">
+              <div class="card-body">
+                <h6>Abiertas (hoy)</h6>
+                <h2 class="text-white fw-bold">{{ posOperations.sessions_opened }}</h2>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card bg-success text-white text-center">
+              <div class="card-body">
+                <h6>Cerradas (hoy)</h6>
+                <h2 class="text-white fw-bold">{{ posOperations.sessions_closed }}</h2>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card bg-warning text-white text-center">
+              <div class="card-body">
+                <h6>Reabiertas (hoy)</h6>
+                <h2 class="text-white fw-bold">{{ posOperations.sessions_reopened }}</h2>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card bg-danger text-white text-center">
+              <div class="card-body">
+                <h6>Alertas caja</h6>
+                <h2 class="text-white fw-bold">{{ posOperations.alert_sessions_count }}</h2>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row mt-3">
+          <div class="col-md-6">
+            <app-card [cardTitle]="'Arqueo Consolidado'" [showHeader]="true">
+              <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                  <tbody>
+                    <tr>
+                      <th>Esperado total</th>
+                      <td class="text-end">{{ currencySymbol }} {{ posOperations.expected_total | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Contado total</th>
+                      <td class="text-end">{{ currencySymbol }} {{ posOperations.counted_total | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Diferencia total</th>
+                      <td class="text-end" [ngClass]="posOperations.over_short_total < 0 ? 'text-danger fw-bold' : 'text-success fw-bold'">
+                        {{ currencySymbol }} {{ posOperations.over_short_total | number:'1.2-2' }}
+                      </td>
+                    </tr>
+                    <tr>
+                      <th>Umbral alerta</th>
+                      <td class="text-end">{{ currencySymbol }} {{ posOperations.alert_threshold | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Abiertas ahora</th>
+                      <td class="text-end">{{ posOperations.sessions_open_now }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </app-card>
+          </div>
+          <div class="col-md-6">
+            <app-card [cardTitle]="'Cobros POS del Dia'" [showHeader]="true">
+              <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                  <tbody>
+                    <tr>
+                      <th>Efectivo</th>
+                      <td class="text-end">{{ currencySymbol }} {{ posOperations.payments_cash | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Tarjeta</th>
+                      <td class="text-end">{{ currencySymbol }} {{ posOperations.payments_card | number:'1.2-2' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Credito</th>
+                      <td class="text-end">{{ currencySymbol }} {{ posOperations.payments_credit | number:'1.2-2' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </app-card>
+          </div>
+        </div>
+        <div class="row mt-3">
+          <div class="col-md-12">
+            <app-card [cardTitle]="'Top Cajeros por Venta POS'" [showHeader]="true">
+              <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                  <thead>
+                    <tr>
+                      <th>Cajero</th>
+                      <th class="text-end">Cierres</th>
+                      <th class="text-end">Efectivo</th>
+                      <th class="text-end">Tarjeta</th>
+                      <th class="text-end">Credito</th>
+                      <th class="text-end">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (item of posOperations.top_cashiers; track item.user_id) {
+                      <tr>
+                        <td>{{ item.user_name }}</td>
+                        <td class="text-end">{{ item.sessions_closed }}</td>
+                        <td class="text-end">{{ currencySymbol }} {{ item.cash_total | number:'1.2-2' }}</td>
+                        <td class="text-end">{{ currencySymbol }} {{ item.card_total | number:'1.2-2' }}</td>
+                        <td class="text-end">{{ currencySymbol }} {{ item.credit_total | number:'1.2-2' }}</td>
+                        <td class="text-end fw-bold">{{ currencySymbol }} {{ item.sales_total | number:'1.2-2' }}</td>
+                      </tr>
+                    }
+                    @if (posOperations.top_cashiers.length === 0) {
+                      <tr>
+                        <td colspan="6" class="text-center text-muted">Sin movimientos POS para este filtro.</td>
                       </tr>
                     }
                   </tbody>

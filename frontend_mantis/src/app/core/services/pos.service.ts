@@ -100,6 +100,38 @@ export interface POSSessionStats {
     card_sales_total: number;
     credit_sales_total: number;
     average_ticket: number;
+    closing_audit?: {
+        closed_at: string;
+        closed_by_user_id: string;
+        transactions_count: number;
+        opening_amount: number;
+        total_sales: number;
+        cash_sales_total: number;
+        card_sales_total: number;
+        credit_sales_total: number;
+        expected_amount: number;
+        counted_amount: number;
+        over_short: number;
+    } | null;
+    reopen_audit?: {
+        reopened_at: string;
+        reopened_by_user_id: string;
+        reason: string;
+        previous_closed_at?: string | null;
+        previous_counted_amount: number;
+        previous_expected_amount: number;
+        previous_over_short: number;
+    } | null;
+    can_reopen?: boolean;
+}
+
+export interface POSSessionListFilters {
+    branchId?: string;
+    status?: POSSessionStatus;
+    userId?: string;
+    openedFrom?: string;
+    openedTo?: string;
+    limit?: number;
 }
 
 export interface POSConfig {
@@ -108,6 +140,28 @@ export interface POSConfig {
     allow_multiple_open_sessions_per_branch: boolean;
     allow_enter_other_user_session: boolean;
     require_manager_for_void: boolean;
+    allow_reopen_closed_sessions: boolean;
+    over_short_alert_threshold: number;
+}
+
+export interface POSDailyCloseSummary {
+    date: string;
+    branch_id?: string | null;
+    sales_count: number;
+    gross_sales: number;
+    payments_cash: number;
+    payments_card: number;
+    payments_credit: number;
+    returns_count: number;
+    total_refunds: number;
+    net_sales: number;
+    sessions_opened_count: number;
+    sessions_closed_count: number;
+    opening_amount_total: number;
+    expected_amount_total: number;
+    counted_amount_total: number;
+    over_short_total: number;
+    open_sessions_now: number;
 }
 
 @Injectable({
@@ -126,14 +180,23 @@ export class PosService {
         return this.http.get<POSConfig>(`${this.apiUrl}/config`);
     }
 
+    getDailyClose(targetDate: string, branchId?: string): Observable<POSDailyCloseSummary> {
+        const params: Record<string, string> = { target_date: targetDate };
+        if (branchId) params['branch_id'] = branchId;
+        return this.http.get<POSDailyCloseSummary>(`${environment.apiUrl}/reports/daily-close`, { params });
+    }
+
     getCurrentSession(branchId: string): Observable<POSSession | null> {
         return this.http.get<POSSession | null>(`${this.apiUrl}/sessions/current`, { params: { branch_id: branchId } });
     }
 
-    listSessions(branchId?: string, status?: POSSessionStatus, limit = 50): Observable<POSSessionListItem[]> {
-        const params: Record<string, string> = { limit: String(limit) };
-        if (branchId) params['branch_id'] = branchId;
-        if (status) params['status'] = status;
+    listSessions(filters: POSSessionListFilters = {}): Observable<POSSessionListItem[]> {
+        const params: Record<string, string> = { limit: String(filters.limit ?? 50) };
+        if (filters.branchId) params['branch_id'] = filters.branchId;
+        if (filters.status) params['status'] = filters.status;
+        if (filters.userId) params['user_id'] = filters.userId;
+        if (filters.openedFrom) params['opened_from'] = filters.openedFrom;
+        if (filters.openedTo) params['opened_to'] = filters.openedTo;
         return this.http.get<POSSessionListItem[]>(`${this.apiUrl}/sessions`, { params });
     }
 
@@ -154,6 +217,10 @@ export class PosService {
             counted_amount: countedAmount,
             closing_note: closingNote
         });
+    }
+
+    reopenSession(sessionId: string, reason: string): Observable<POSSession> {
+        return this.http.post<POSSession>(`${this.apiUrl}/sessions/${sessionId}/reopen`, { reason });
     }
 
     voidSale(saleId: string, reason?: string): Observable<POSVoidResponse> {

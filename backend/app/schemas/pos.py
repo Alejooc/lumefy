@@ -51,6 +51,9 @@ class POSSessionCloseIn(BaseModel):
     counted_amount: float
     closing_note: Optional[str] = None
 
+class POSSessionReopenIn(BaseModel):
+    reason: str
+
 
 class POSSessionOut(BaseModel):
     id: UUID
@@ -107,6 +110,9 @@ class POSSessionStatsOut(BaseModel):
     card_sales_total: float = 0.0
     credit_sales_total: float = 0.0
     average_ticket: float = 0.0
+    closing_audit: Optional[dict] = None
+    reopen_audit: Optional[dict] = None
+    can_reopen: bool = False
 
 
 class POSVoidIn(BaseModel):
@@ -126,3 +132,5 @@ class POSConfigOut(BaseModel):
     allow_multiple_open_sessions_per_branch: bool = True
     allow_enter_other_user_session: bool = False
     require_manager_for_void: bool = True
+    allow_reopen_closed_sessions: bool = True
+    over_short_alert_threshold: float = 20.0

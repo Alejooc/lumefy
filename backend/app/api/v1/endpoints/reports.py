@@ -1,5 +1,5 @@
 from typing import Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from sqlalchemy import select, func, desc, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, Query
@@ -10,10 +10,12 @@ from app.core.database import get_db
 from app.core import auth
 from app.models.user import User
 from app.core.permissions import PermissionChecker
-from app.models.sale import Sale, SaleItem
+from app.models.sale import Sale, SaleItem, Payment
 from app.models.inventory import Inventory
 from app.models.product import Product
 from app.models.category import Category
+from app.models.return_order import ReturnOrder, ReturnStatus
+from app.models.pos_session import POSSession, POSSessionStatus
 
 router = APIRouter()
 
@@ -48,6 +50,70 @@ class SalesByCategory(BaseModel):
     category_name: str
     revenue: float
 
+class DailyCloseSummary(BaseModel):
+    date: str
+    branch_id: Optional[str] = None
+    sales_count: int
+    gross_sales: float
+    payments_cash: float
+    payments_card: float
+    payments_credit: float
+    returns_count: int
+    total_refunds: float
+    net_sales: float
+    sessions_opened_count: int
+    sessions_closed_count: int
+    opening_amount_total: float
+    expected_amount_total: float
+    counted_amount_total: float
+    over_short_total: float
+    open_sessions_now: int
+
+class POSOpsTopCashier(BaseModel):
+    user_id: str
+    user_name: str
+    sessions_closed: int
+    sales_total: float
+    cash_total: float
+    card_total: float
+    credit_total: float
+
+class POSOperationsSummary(BaseModel):
+    date: str
+    branch_id: Optional[str] = None
+    sessions_opened: int
+    sessions_closed: int
+    sessions_reopened: int
+    sessions_open_now: int
+    expected_total: float
+    counted_total: float
+    over_short_total: float
+    alert_threshold: float
+    alert_sessions_count: int
+    payments_cash: float
+    payments_card: float
+    payments_credit: float
+    top_cashiers: List[POSOpsTopCashier]
+
+
+def _has_permission(user: User, permission: str) -> bool:
+    if user.is_superuser:
+        return True
+    perms = (user.role.permissions if user.role else None) or {}
+    if perms.get("all"):
+        return True
+    return bool(perms.get(permission))
+
+
+def _reports_or_sales_manager(user: User = Depends(auth.get_current_user)) -> User:
+    if _has_permission(user, "view_reports") or _has_permission(user, "manage_sales"):
+        return user
+    from fastapi import HTTPException, status
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Operation not permitted. Required permission: view_reports or manage_sales",
+    )
+
 
 def get_date_filter(model, start_date: Optional[datetime], end_date: Optional[datetime], days: int = 7):
     # Default to last 'days' if no dates provided
@@ -60,6 +126,294 @@ def get_date_filter(model, start_date: Optional[datetime], end_date: Optional[da
     if end_date:
         conditions.append(model.created_at <= end_date)
     return conditions
+
+
+@router.get("/daily-close", response_model=DailyCloseSummary)
+async def get_daily_close_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(_reports_or_sales_manager),
+    target_date: Optional[date] = None,
+    branch_id: Optional[uuid.UUID] = None
+) -> Any:
+    """
+    Daily close summary for operations: sales, payments, returns and POS sessions.
+    """
+    d = target_date or datetime.utcnow().date()
+    # DB stores naive timestamps; use naive boundaries to avoid asyncpg tz mismatch errors.
+    start_dt = datetime.combine(d, time.min)
+    end_dt = datetime.combine(d, time.max)
+
+    sale_conditions = [
+        Sale.company_id == current_user.company_id,
+        Sale.status != "CANCELLED",
+        Sale.created_at >= start_dt,
+        Sale.created_at <= end_dt,
+    ]
+    if branch_id:
+        sale_conditions.append(Sale.branch_id == branch_id)
+
+    sales_agg = await db.execute(
+        select(
+            func.count(Sale.id).label("sales_count"),
+            func.coalesce(func.sum(Sale.total), 0.0).label("gross_sales"),
+        ).where(*sale_conditions)
+    )
+    sales_row = sales_agg.one()
+
+    payments_agg = await db.execute(
+        select(
+            func.coalesce(func.sum(Payment.amount).filter(Payment.method == "CASH"), 0.0).label("cash"),
+            func.coalesce(func.sum(Payment.amount).filter(Payment.method == "CARD"), 0.0).label("card"),
+            func.coalesce(func.sum(Payment.amount).filter(Payment.method == "CREDIT"), 0.0).label("credit"),
+        )
+        .join(Sale, Payment.sale_id == Sale.id)
+        .where(*sale_conditions)
+    )
+    payments_row = payments_agg.one()
+
+    return_conditions = [
+        ReturnOrder.company_id == current_user.company_id,
+        ReturnOrder.status == ReturnStatus.APPROVED,
+        ReturnOrder.approved_at >= start_dt,
+        ReturnOrder.approved_at <= end_dt,
+    ]
+    if branch_id:
+        return_conditions.append(Sale.branch_id == branch_id)
+
+    returns_agg = await db.execute(
+        select(
+            func.count(ReturnOrder.id).label("returns_count"),
+            func.coalesce(func.sum(ReturnOrder.total_refund), 0.0).label("total_refunds"),
+        )
+        .join(Sale, ReturnOrder.sale_id == Sale.id)
+        .where(*return_conditions)
+    )
+    returns_row = returns_agg.one()
+
+    session_base_conditions = [
+        POSSession.company_id == current_user.company_id,
+    ]
+    if branch_id:
+        session_base_conditions.append(POSSession.branch_id == branch_id)
+
+    sessions_opened_agg = await db.execute(
+        select(
+            func.count(POSSession.id).label("sessions_opened_count"),
+            func.coalesce(func.sum(POSSession.opening_amount), 0.0).label("opening_amount_total"),
+        ).where(
+            *session_base_conditions,
+            POSSession.opened_at >= start_dt,
+            POSSession.opened_at <= end_dt,
+        )
+    )
+    sessions_opened_row = sessions_opened_agg.one()
+
+    sessions_closed_agg = await db.execute(
+        select(
+            func.count(POSSession.id).label("sessions_closed_count"),
+            func.coalesce(func.sum(POSSession.expected_amount), 0.0).label("expected_amount_total"),
+            func.coalesce(func.sum(POSSession.counted_amount), 0.0).label("counted_amount_total"),
+            func.coalesce(func.sum(POSSession.over_short), 0.0).label("over_short_total"),
+        ).where(
+            *session_base_conditions,
+            POSSession.status == POSSessionStatus.CLOSED,
+            POSSession.closed_at >= start_dt,
+            POSSession.closed_at <= end_dt,
+        )
+    )
+    sessions_closed_row = sessions_closed_agg.one()
+
+    open_now_agg = await db.execute(
+        select(func.count(POSSession.id).label("open_sessions_now")).where(
+            *session_base_conditions,
+            POSSession.status == POSSessionStatus.OPEN,
+        )
+    )
+    open_now_row = open_now_agg.one()
+
+    gross_sales = float(sales_row.gross_sales or 0.0)
+    total_refunds = float(returns_row.total_refunds or 0.0)
+
+    return DailyCloseSummary(
+        date=d.isoformat(),
+        branch_id=str(branch_id) if branch_id else None,
+        sales_count=int(sales_row.sales_count or 0),
+        gross_sales=gross_sales,
+        payments_cash=float(payments_row.cash or 0.0),
+        payments_card=float(payments_row.card or 0.0),
+        payments_credit=float(payments_row.credit or 0.0),
+        returns_count=int(returns_row.returns_count or 0),
+        total_refunds=total_refunds,
+        net_sales=gross_sales - total_refunds,
+        sessions_opened_count=int(sessions_opened_row.sessions_opened_count or 0),
+        sessions_closed_count=int(sessions_closed_row.sessions_closed_count or 0),
+        opening_amount_total=float(sessions_opened_row.opening_amount_total or 0.0),
+        expected_amount_total=float(sessions_closed_row.expected_amount_total or 0.0),
+        counted_amount_total=float(sessions_closed_row.counted_amount_total or 0.0),
+        over_short_total=float(sessions_closed_row.over_short_total or 0.0),
+        open_sessions_now=int(open_now_row.open_sessions_now or 0),
+    )
+
+
+@router.get("/pos-operations", response_model=POSOperationsSummary)
+async def get_pos_operations_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(_reports_or_sales_manager),
+    target_date: Optional[date] = None,
+    branch_id: Optional[uuid.UUID] = None,
+    alert_threshold: float = 20.0,
+) -> Any:
+    """
+    Consolidated operational report for POS sessions (day-level):
+    opened/closed/reopened/open-now, cash over/short and top cashiers.
+    """
+    d = target_date or datetime.utcnow().date()
+    start_dt = datetime.combine(d, time.min)
+    end_dt = datetime.combine(d, time.max)
+    threshold = float(alert_threshold or 20.0)
+
+    session_base_conditions = [POSSession.company_id == current_user.company_id]
+    sale_conditions = [
+        Sale.company_id == current_user.company_id,
+        Sale.status != "CANCELLED",
+        Sale.created_at >= start_dt,
+        Sale.created_at <= end_dt,
+    ]
+    if branch_id:
+        session_base_conditions.append(POSSession.branch_id == branch_id)
+        sale_conditions.append(Sale.branch_id == branch_id)
+
+    opened_row = (
+        await db.execute(
+            select(func.count(POSSession.id)).where(
+                *session_base_conditions,
+                POSSession.opened_at >= start_dt,
+                POSSession.opened_at <= end_dt,
+            )
+        )
+    ).one()
+
+    closed_row = (
+        await db.execute(
+            select(
+                func.count(POSSession.id).label("sessions_closed"),
+                func.coalesce(func.sum(POSSession.expected_amount), 0.0).label("expected_total"),
+                func.coalesce(func.sum(POSSession.counted_amount), 0.0).label("counted_total"),
+                func.coalesce(func.sum(POSSession.over_short), 0.0).label("over_short_total"),
+            ).where(
+                *session_base_conditions,
+                POSSession.status == POSSessionStatus.CLOSED,
+                POSSession.closed_at >= start_dt,
+                POSSession.closed_at <= end_dt,
+            )
+        )
+    ).one()
+
+    reopened_row = (
+        await db.execute(
+            select(func.count(POSSession.id)).where(
+                *session_base_conditions,
+                POSSession.closing_note.ilike("%[POS_REOPEN_AUDIT]%"),
+                POSSession.updated_at >= start_dt,
+                POSSession.updated_at <= end_dt,
+            )
+        )
+    ).one()
+
+    open_now_row = (
+        await db.execute(
+            select(func.count(POSSession.id)).where(
+                *session_base_conditions,
+                POSSession.status == POSSessionStatus.OPEN,
+            )
+        )
+    ).one()
+
+    alerts_row = (
+        await db.execute(
+            select(func.count(POSSession.id)).where(
+                *session_base_conditions,
+                POSSession.status == POSSessionStatus.CLOSED,
+                POSSession.closed_at >= start_dt,
+                POSSession.closed_at <= end_dt,
+                func.abs(POSSession.over_short) >= threshold,
+            )
+        )
+    ).one()
+
+    payments_row = (
+        await db.execute(
+            select(
+                func.coalesce(func.sum(Payment.amount).filter(Payment.method == "CASH"), 0.0).label("cash"),
+                func.coalesce(func.sum(Payment.amount).filter(Payment.method == "CARD"), 0.0).label("card"),
+                func.coalesce(func.sum(Payment.amount).filter(Payment.method == "CREDIT"), 0.0).label("credit"),
+            )
+            .join(Sale, Payment.sale_id == Sale.id)
+            .where(*sale_conditions)
+        )
+    ).one()
+
+    top_cashiers_rows = (
+        await db.execute(
+            select(
+                User.id.label("user_id"),
+                func.coalesce(User.full_name, User.email).label("user_name"),
+                func.count(func.distinct(POSSession.id)).label("sessions_closed"),
+                func.coalesce(func.sum(Payment.amount), 0.0).label("sales_total"),
+                func.coalesce(func.sum(Payment.amount).filter(Payment.method == "CASH"), 0.0).label("cash_total"),
+                func.coalesce(func.sum(Payment.amount).filter(Payment.method == "CARD"), 0.0).label("card_total"),
+                func.coalesce(func.sum(Payment.amount).filter(Payment.method == "CREDIT"), 0.0).label("credit_total"),
+            )
+            .join(POSSession, POSSession.user_id == User.id)
+            .join(Sale, Sale.pos_session_id == POSSession.id)
+            .join(Payment, Payment.sale_id == Sale.id)
+            .where(
+                User.company_id == current_user.company_id,
+                POSSession.company_id == current_user.company_id,
+                POSSession.status == POSSessionStatus.CLOSED,
+                POSSession.closed_at >= start_dt,
+                POSSession.closed_at <= end_dt,
+                *([POSSession.branch_id == branch_id] if branch_id else []),
+                Sale.status != "CANCELLED",
+                Sale.created_at >= start_dt,
+                Sale.created_at <= end_dt,
+            )
+            .group_by(User.id, User.full_name, User.email)
+            .order_by(desc("sales_total"))
+            .limit(10)
+        )
+    ).all()
+
+    top_cashiers = [
+        POSOpsTopCashier(
+            user_id=str(row.user_id),
+            user_name=row.user_name or "-",
+            sessions_closed=int(row.sessions_closed or 0),
+            sales_total=float(row.sales_total or 0.0),
+            cash_total=float(row.cash_total or 0.0),
+            card_total=float(row.card_total or 0.0),
+            credit_total=float(row.credit_total or 0.0),
+        )
+        for row in top_cashiers_rows
+    ]
+
+    return POSOperationsSummary(
+        date=d.isoformat(),
+        branch_id=str(branch_id) if branch_id else None,
+        sessions_opened=int(opened_row[0] or 0),
+        sessions_closed=int(closed_row.sessions_closed or 0),
+        sessions_reopened=int(reopened_row[0] or 0),
+        sessions_open_now=int(open_now_row[0] or 0),
+        expected_total=float(closed_row.expected_total or 0.0),
+        counted_total=float(closed_row.counted_total or 0.0),
+        over_short_total=float(closed_row.over_short_total or 0.0),
+        alert_threshold=threshold,
+        alert_sessions_count=int(alerts_row[0] or 0),
+        payments_cash=float(payments_row.cash or 0.0),
+        payments_card=float(payments_row.card or 0.0),
+        payments_credit=float(payments_row.credit or 0.0),
+        top_cashiers=top_cashiers,
+    )
 
 
 @router.get("/sales-summary", response_model=List[SalesSummary])

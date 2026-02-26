@@ -10,6 +10,8 @@ type PermissionDef = {
   key: string;
   label: string;
   group: 'Empresa' | 'Usuarios' | 'Catalogo' | 'Inventario' | 'Ventas' | 'Reportes';
+  dependsOn?: string[];
+  hint?: string;
 };
 
 @Component({
@@ -30,22 +32,25 @@ export class RoleManagementComponent implements OnInit {
   saving = false;
   isEditMode = false;
   editingRoleId: string | null = null;
+  private readonly frozenRoles = new Set(['ADMINISTRADOR', 'GERENCIA', 'SUPERVISOR', 'CAJA', 'LOGISTICA', 'INVENTARIO_COMPRAS', 'REPORTES']);
 
   permissionDefs: PermissionDef[] = [
     { key: 'manage_company', label: 'Gestionar perfil de empresa', group: 'Empresa' },
-    { key: 'manage_settings', label: 'Gestionar configuraciones operativas', group: 'Empresa' },
-    { key: 'manage_users', label: 'Gestionar usuarios', group: 'Usuarios' },
+    { key: 'manage_settings', label: 'Gestionar configuraciones operativas', group: 'Empresa', dependsOn: ['manage_company'] },
+    { key: 'manage_users', label: 'Gestionar usuarios', group: 'Usuarios', dependsOn: ['manage_company'] },
     { key: 'view_dashboard', label: 'Ver dashboard', group: 'Reportes' },
     { key: 'view_products', label: 'Ver catalogo de productos', group: 'Catalogo' },
     { key: 'manage_inventory', label: 'Gestionar catalogo e inventario', group: 'Inventario' },
     { key: 'view_inventory', label: 'Ver inventario', group: 'Inventario' },
     { key: 'manage_clients', label: 'Gestionar clientes', group: 'Usuarios' },
-    { key: 'create_sales', label: 'Crear ventas/cotizaciones', group: 'Ventas' },
+    { key: 'create_sales', label: 'Crear ventas/cotizaciones', group: 'Ventas', dependsOn: ['view_sales'] },
     { key: 'view_sales', label: 'Ver ventas', group: 'Ventas' },
-    { key: 'manage_sales', label: 'Gestionar estados de venta/logistica', group: 'Ventas' },
-    { key: 'pos_access', label: 'Acceso a punto de venta (POS)', group: 'Ventas' },
-    { key: 'view_reports', label: 'Ver reportes', group: 'Reportes' }
+    { key: 'manage_sales', label: 'Gestionar estados de venta/logistica', group: 'Ventas', dependsOn: ['create_sales', 'view_sales'] },
+    { key: 'pos_access', label: 'Acceso a punto de venta (POS)', group: 'Ventas', dependsOn: ['create_sales', 'view_sales'], hint: 'Recomendado para cajeros' },
+    { key: 'view_reports', label: 'Ver reportes', group: 'Reportes', dependsOn: ['view_dashboard'] }
   ];
+
+  groupedPermissions: { group: string; items: PermissionDef[] }[] = [];
 
   roleForm: FormGroup;
 
@@ -68,16 +73,8 @@ export class RoleManagementComponent implements OnInit {
       this.router.navigate(['/dashboard/default']);
       return;
     }
+    this.groupedPermissions = this.buildGroupedPermissions();
     this.loadRoles();
-  }
-
-  get groupedPermissions(): { group: string; items: PermissionDef[] }[] {
-    const groups: Record<string, PermissionDef[]> = {};
-    for (const permission of this.permissionDefs) {
-      if (!groups[permission.group]) groups[permission.group] = [];
-      groups[permission.group].push(permission);
-    }
-    return Object.keys(groups).map((group) => ({ group, items: groups[group] }));
   }
 
   loadRoles(): void {
@@ -134,7 +131,7 @@ export class RoleManagementComponent implements OnInit {
       return;
     }
 
-    const permissionsRaw = (this.roleForm.get('permissions') as FormGroup).value as Record<string, boolean>;
+    const permissionsRaw = this.buildNormalizedPermissions();
     const enabledPermissions = Object.entries(permissionsRaw).reduce((acc, [key, value]) => {
       if (value) acc[key] = true;
       return acc;
@@ -190,6 +187,10 @@ export class RoleManagementComponent implements OnInit {
     return !!role.permissions?.['all'];
   }
 
+  isFrozenRole(role: Role): boolean {
+    return this.frozenRoles.has((role.name || '').trim().toUpperCase());
+  }
+
   private clearPermissionChecks(): void {
     this.selectAllPermissions(false);
   }
@@ -199,5 +200,65 @@ export class RoleManagementComponent implements OnInit {
     Object.keys(permissionGroup.controls).forEach((key) => {
       permissionGroup.get(key)?.setValue(value);
     });
+  }
+
+  onPermissionChange(permissionKey: string): void {
+    const permissionGroup = this.roleForm.get('permissions') as FormGroup;
+    const control = permissionGroup.get(permissionKey);
+    if (!control?.value) return;
+
+    const def = this.permissionDefs.find((p) => p.key === permissionKey);
+    for (const dep of def?.dependsOn || []) {
+      permissionGroup.get(dep)?.setValue(true, { emitEvent: false });
+    }
+  }
+
+  dependencyLabels(permissionKey: string): string[] {
+    const def = this.permissionDefs.find((p) => p.key === permissionKey);
+    return (def?.dependsOn || []).map((dep) => this.permissionDefs.find((p) => p.key === dep)?.label || dep);
+  }
+
+  private buildGroupedPermissions(): { group: string; items: PermissionDef[] }[] {
+    const order = ['Empresa', 'Usuarios', 'Catalogo', 'Inventario', 'Ventas', 'Reportes'];
+    const groups: Record<string, PermissionDef[]> = {};
+
+    for (const permission of this.permissionDefs) {
+      const key = (permission.group || '').trim() || 'Otros';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(permission);
+    }
+
+    return order
+      .map((group) => ({ group, items: groups[group] || [] }))
+      .filter((group) => group.items.length > 0);
+  }
+
+  private buildNormalizedPermissions(): Record<string, boolean> {
+    const permissionGroup = this.roleForm.get('permissions') as FormGroup;
+    const permissionsRaw = { ...(permissionGroup.value as Record<string, boolean>) };
+
+    // Operational dependencies for consistent behavior across POS/Sales/Reports.
+    if (permissionsRaw['pos_access']) {
+      permissionsRaw['create_sales'] = true;
+      permissionsRaw['view_sales'] = true;
+    }
+    if (permissionsRaw['create_sales']) {
+      permissionsRaw['view_sales'] = true;
+    }
+    if (permissionsRaw['manage_sales']) {
+      permissionsRaw['create_sales'] = true;
+      permissionsRaw['view_sales'] = true;
+    }
+    if (permissionsRaw['view_reports']) {
+      permissionsRaw['view_dashboard'] = true;
+    }
+    if (permissionsRaw['manage_users']) {
+      permissionsRaw['manage_company'] = true;
+    }
+    if (permissionsRaw['manage_settings']) {
+      permissionsRaw['manage_company'] = true;
+    }
+
+    return permissionsRaw;
   }
 }

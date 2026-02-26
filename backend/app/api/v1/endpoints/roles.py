@@ -20,8 +20,9 @@ DEFAULT_ROLE_TEMPLATES = [
         "permissions": {"all": True}
     },
     {
-        "name": "GERENTE",
-        "description": "Gestion integral del negocio (sin funciones SaaS).",
+        "name": "GERENCIA",
+        "aliases": ["GERENTE"],
+        "description": "Gestion integral del negocio con control operativo completo.",
         "permissions": {
             "view_dashboard": True,
             "manage_company": True,
@@ -39,8 +40,9 @@ DEFAULT_ROLE_TEMPLATES = [
         }
     },
     {
-        "name": "VENTAS_POS",
-        "description": "Operacion comercial diaria: clientes, POS y ventas.",
+        "name": "CAJA",
+        "aliases": ["VENTAS_POS", "CAJERO", "CAJERA"],
+        "description": "Operacion comercial diaria en punto de venta.",
         "permissions": {
             "view_dashboard": True,
             "view_products": True,
@@ -48,6 +50,21 @@ DEFAULT_ROLE_TEMPLATES = [
             "create_sales": True,
             "view_sales": True,
             "pos_access": True
+        }
+    },
+    {
+        "name": "SUPERVISOR",
+        "aliases": ["SUPERVISOR_CAJA"],
+        "description": "Supervision de caja y ventas con permisos de control.",
+        "permissions": {
+            "view_dashboard": True,
+            "view_products": True,
+            "manage_clients": True,
+            "create_sales": True,
+            "view_sales": True,
+            "manage_sales": True,
+            "pos_access": True,
+            "view_reports": True
         }
     },
     {
@@ -81,17 +98,48 @@ DEFAULT_ROLE_TEMPLATES = [
         }
     }
 ]
+RESERVED_ROLE_NAMES = {
+    name
+    for template in DEFAULT_ROLE_TEMPLATES
+    for name in [template["name"].strip().upper(), *[a.strip().upper() for a in template.get("aliases", [])]]
+}
+
+
+def _is_reserved_role_name(role_name: str | None) -> bool:
+    return (role_name or "").strip().upper() in RESERVED_ROLE_NAMES
 
 
 async def ensure_company_roles(db: AsyncSession, company_id: UUID) -> None:
     result = await db.execute(select(Role).where(Role.company_id == company_id))
     existing_roles = result.scalars().all()
-    existing_names = {role.name.strip().upper() for role in existing_roles}
+    existing_by_name = {role.name.strip().upper(): role for role in existing_roles}
     created_any = False
 
     for template in DEFAULT_ROLE_TEMPLATES:
-        role_name = template["name"].strip().upper()
-        if role_name in existing_names:
+        canonical_name = template["name"].strip().upper()
+        aliases = [a.strip().upper() for a in template.get("aliases", [])]
+        role = existing_by_name.get(canonical_name)
+        if not role:
+            for alias in aliases:
+                if alias in existing_by_name:
+                    role = existing_by_name[alias]
+                    break
+
+        if role:
+            changed = False
+            if role.name != template["name"]:
+                role.name = template["name"]
+                changed = True
+            if role.description != template["description"]:
+                role.description = template["description"]
+                changed = True
+            if (role.permissions or {}) != (template["permissions"] or {}):
+                role.permissions = template["permissions"]
+                changed = True
+            if changed:
+                db.add(role)
+                created_any = True
+            existing_by_name[canonical_name] = role
             continue
 
         db.add(
@@ -157,6 +205,8 @@ async def create_role(
     """
     Create a new role.
     """
+    if _is_reserved_role_name(role_in.name):
+        raise HTTPException(status_code=400, detail="Ese nombre de rol esta reservado en la matriz MVP.")
     role = Role(
         **role_in.model_dump(),
         company_id=current_user.company_id
@@ -186,6 +236,8 @@ async def update_role(
     
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
+    if _is_reserved_role_name(role.name):
+        raise HTTPException(status_code=400, detail="Este rol base MVP esta congelado y no puede editarse.")
     
     update_data = role_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -215,6 +267,8 @@ async def delete_role(
     
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
+    if _is_reserved_role_name(role.name):
+        raise HTTPException(status_code=400, detail="Este rol base MVP esta congelado y no puede eliminarse.")
     
     # Check if users are assigned to this role
     users_result = await db.execute(
