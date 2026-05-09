@@ -31,6 +31,16 @@ export interface Product {
     brand?: { id?: string; name: string };
     unit_of_measure_id?: string;
     purchase_uom_id?: string;
+    visible_in_ecommerce?: boolean;
+    ecommerce_slug?: string | null;
+    ecommerce_title?: string | null;
+    ecommerce_description?: string | null;
+    ecommerce_price_override?: number | null;
+    ecommerce_compare_at_price?: number | null;
+    ecommerce_is_featured?: boolean;
+    ecommerce_show_stock?: boolean;
+    ecommerce_seo_title?: string | null;
+    ecommerce_seo_description?: string | null;
     images: ProductImage[];
     variants?: ProductVariant[]; // Added for variant support
 }

@@ -1,0 +1,365 @@
+<div class="ecommerce-section">
+  <div class="section-header d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div>
+      <h4 class="mb-1">Menu ecommerce</h4>
+      <p class="text-muted mb-0">Organiza la navegacion principal de la tienda con una estructura clara, editable y facil de mantener.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <select class="form-select storefront-switcher" [(ngModel)]="selectedStorefrontId" (change)="onStorefrontChange()">
+        <option value="">Selecciona una tienda</option>
+        @for (storefront of storefronts; track storefront.id) {
+          <option [value]="storefront.id">{{ storefront.name }} ({{ storefront.slug }})</option>
+        }
+      </select>
+      <button class="btn btn-primary" (click)="createItemOfType('group')" [disabled]="!selectedStorefrontId">Nuevo item</button>
+    </div>
+  </div>
+
+  @if (!selectedStorefrontId) {
+    <div class="card section-card mt-3">
+      <div class="card-body">
+        <div class="empty-state border rounded p-4 text-center text-muted">
+          <p class="mb-1">Selecciona una tienda</p>
+          <small>Necesitas elegir una tienda para construir su menu principal.</small>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (selectedStorefrontId) {
+    <div class="row g-3 mt-1">
+      <div class="col-12 col-xl-8">
+        <div class="card section-card">
+          <div class="card-body">
+            <div class="settings-block__header">
+              <div>
+                <h5 class="mb-1">Items de menu</h5>
+                <small class="text-muted">Lista operativa con tipo, referencia, nivel y estado.</small>
+              </div>
+              <span class="settings-pill">{{ navigationItems.length }} items</span>
+            </div>
+
+            <div class="nav-quick-actions mb-3">
+              <button class="nav-quick-action" type="button" (click)="createItemOfType('group')" [disabled]="!selectedStorefrontId">
+                <strong>Grupo desplegable</strong>
+                <small>Crea un item padre para submenu</small>
+              </button>
+              <button class="nav-quick-action" type="button" (click)="createItemOfType('collection')" [disabled]="!selectedStorefrontId">
+                <strong>Coleccion</strong>
+                <small>Enlace a una coleccion publicada</small>
+              </button>
+              <button class="nav-quick-action" type="button" (click)="createItemOfType('url')" [disabled]="!selectedStorefrontId">
+                <strong>Enlace directo</strong>
+                <small>Ruta interna o URL externa</small>
+              </button>
+            </div>
+
+            <div class="row g-2 mb-3">
+              <div class="col-md-7">
+                <input class="form-control" [(ngModel)]="filterQuery" placeholder="Buscar por label, referencia o nivel" />
+              </div>
+              <div class="col-md-5">
+                <select class="form-select" [(ngModel)]="filterType">
+                  <option value="">Todos los tipos</option>
+                  @for (itemType of navigationTypes; track itemType.value) {
+                    <option [value]="itemType.value">{{ itemType.label }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+
+            @if (navigationItems.length === 0) {
+              <div class="empty-state border rounded p-4 text-center text-muted">
+                <p class="mb-1">Aun no has creado items de menu</p>
+                <small>Crea primero enlaces a colecciones clave para armar la navegacion inicial.</small>
+              </div>
+            }
+
+            @if (navigationItems.length > 0 && filteredNavigationItems.length === 0) {
+              <div class="empty-state border rounded p-4 text-center text-muted">
+                <p class="mb-1">No hay resultados para el filtro actual</p>
+                <small>Ajusta el texto o el tipo para ver mas items.</small>
+              </div>
+            }
+
+            @if (filteredNavigationItems.length > 0) {
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Label</th>
+                      <th>Tipo</th>
+                      <th>Referencia</th>
+                      <th>Padre</th>
+                      <th>Orden</th>
+                      <th>Estado</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (item of filteredNavigationItems; track item.id) {
+                      <tr>
+                        <td>
+                          <strong class="d-block">{{ item.label }}</strong>
+                        </td>
+                        <td>
+                          <span class="nav-type-badge" [attr.data-tone]="typeTone(item.item_type)">{{ typeLabel(item.item_type) }}</span>
+                        </td>
+                        <td>{{ referenceLabel(item) }}</td>
+                        <td>{{ parentLabel(item.parent_id) }}</td>
+                        <td>{{ item.sort_order || 0 }}</td>
+                        <td>
+                          <span class="badge" [class.bg-success]="item.is_visible" [class.bg-secondary]="!item.is_visible">
+                            {{ item.is_visible ? 'Visible' : 'Oculto' }}
+                          </span>
+                        </td>
+                        <td class="text-end">
+                          <div class="d-inline-flex gap-1 align-items-center">
+                            <button class="btn btn-sm btn-outline-secondary nav-order-button" (click)="moveItem(item, 'up')" [disabled]="saving" title="Subir">
+                              Subir
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary nav-order-button" (click)="moveItem(item, 'down')" [disabled]="saving" title="Bajar">
+                              Bajar
+                            </button>
+                            <button class="btn btn-sm btn-link" (click)="edit(item)">Editar</button>
+                            <button class="btn btn-sm btn-link text-danger" (click)="deleteItem(item)">Eliminar</button>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-xl-4">
+        <div class="card section-card h-100">
+          <div class="card-body">
+            <div class="settings-block__header">
+              <div>
+                <h5 class="mb-1">Estructura visual</h5>
+                <small class="text-muted">Lectura rapida de la jerarquia actual del menu.</small>
+              </div>
+            </div>
+
+            @if (topLevelItems.length === 0) {
+              <div class="empty-state border rounded p-4 text-center text-muted">
+                <p class="mb-1">Sin estructura aun</p>
+                <small>Crea items principales y luego asigna hijos si necesitas menus anidados.</small>
+              </div>
+            }
+
+            @if (topLevelItems.length > 0) {
+              <div class="nav-tree">
+                @for (parent of topLevelItems; track parent.id) {
+                  <div class="nav-tree__item">
+                    <div class="nav-tree__row">
+                      <div>
+                        <strong class="d-block">{{ parent.label }}</strong>
+                        <small class="text-muted">
+                          <span class="nav-type-badge me-1" [attr.data-tone]="typeTone(parent.item_type)">{{ typeLabel(parent.item_type) }}</span>
+                          {{ referenceLabel(parent) }}
+                        </small>
+                      </div>
+                      <span class="settings-pill">{{ parent.is_visible ? 'Visible' : 'Oculto' }}</span>
+                    </div>
+
+                    @if (childrenOf(parent.id).length > 0) {
+                      <div class="nav-tree__children">
+                        @for (child of childrenOf(parent.id); track child.id) {
+                          <div class="nav-tree__child">
+                            <div>
+                              <strong class="d-block">{{ child.label }}</strong>
+                              <small class="text-muted">
+                                <span class="nav-type-badge me-1" [attr.data-tone]="typeTone(child.item_type)">{{ typeLabel(child.item_type) }}</span>
+                                {{ referenceLabel(child) }}
+                              </small>
+                            </div>
+                            <span class="settings-pill">{{ child.is_visible ? 'Visible' : 'Oculto' }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (showEditor) {
+    <div class="modal-backdrop-soft" (click)="closeEditor()"></div>
+    <div class="collection-modal">
+      <div class="card collection-modal__card navigation-modal-card">
+        <div class="navigation-modal__header">
+          <div class="d-flex justify-content-between align-items-start gap-3">
+            <div>
+              <h5 class="mb-1">{{ editingId ? 'Editar item de menu' : 'Nuevo item de menu' }}</h5>
+              <small class="text-muted">{{ typeDescription(form.item_type) }}</small>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" (click)="closeEditor()">Cerrar</button>
+          </div>
+        </div>
+
+        <div class="navigation-modal__body">
+          <div class="card-body">
+            <div class="gateway-editor-summary">
+              <strong class="d-block">{{ form.label || 'Nuevo item' }}</strong>
+              <small class="text-muted">{{ typeLabel(form.item_type) }} | {{ parentLabel(form.parent_id) }}</small>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Titulo</label>
+                <input class="form-control" [(ngModel)]="form.label" placeholder="Ej. Dormitorio, Cubrelechos, Ofertas" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Tipo</label>
+                <select class="form-select" [(ngModel)]="form.item_type" (change)="onTypeChange()">
+                  @for (itemType of navigationTypes; track itemType.value) {
+                    <option [value]="itemType.value">{{ itemType.label }}</option>
+                  }
+                </select>
+              </div>
+
+              @if (canAssignParent) {
+                <div class="col-md-6">
+                  <label class="form-label">Nivel</label>
+                  <select class="form-select" [(ngModel)]="form.parent_id">
+                    <option [ngValue]="null">Raiz principal</option>
+                    @for (item of availableParentItems; track item.id) {
+                      <option [value]="item.id">{{ item.label }}</option>
+                    }
+                  </select>
+                </div>
+              }
+
+              @if (form.item_type === 'collection') {
+                <div class="col-12">
+                  <label class="form-label">Coleccion vinculada</label>
+                  <select class="form-select" [(ngModel)]="form.reference_id">
+                    <option [ngValue]="null">Selecciona una coleccion</option>
+                    @for (collection of collections; track collection.id) {
+                      <option [value]="collection.id">{{ collection.name }}</option>
+                    }
+                  </select>
+                </div>
+              }
+
+              @if (form.item_type === 'url') {
+                <div class="col-12">
+                  <label class="form-label">Enlace</label>
+                  <input class="form-control" [(ngModel)]="form.url" placeholder="/ofertas o https://externo.com" />
+                </div>
+              }
+
+              @if (form.item_type === 'group') {
+                <div class="col-12">
+                  <div class="navigation-children">
+                    <div class="navigation-children__header">
+                      <div>
+                        <h6 class="mb-1">Submenu</h6>
+                        <small class="text-muted">{{ childItems.length }} hijos</small>
+                      </div>
+                      <button class="btn btn-outline-primary btn-sm" type="button" (click)="addChildItem()">Agregar hijo</button>
+                    </div>
+
+                    @if (childItems.length === 0) {
+                      <div class="navigation-children__empty">Aun no has agregado hijos a este grupo.</div>
+                    }
+
+                    @for (child of childItems; track child.temp_id) {
+                      <div class="navigation-child-card" [class.navigation-child-card--muted]="child.is_visible === false">
+                        <div class="navigation-child-card__header">
+                          <strong>{{ child.label || 'Nuevo hijo' }}</strong>
+                          <div class="d-flex gap-2 align-items-center">
+                            @if (child.is_visible === false) {
+                              <button class="btn btn-link btn-sm p-0" type="button" (click)="restoreChildItem(child.temp_id)">Restaurar</button>
+                            } @else {
+                              <button class="btn btn-link btn-sm p-0 text-danger" type="button" (click)="removeChildItem(child.temp_id)">
+                                {{ child.id ? 'Ocultar' : 'Quitar' }}
+                              </button>
+                            }
+                          </div>
+                        </div>
+
+                        <div class="row g-3">
+                          <div class="col-md-5">
+                            <label class="form-label">Titulo</label>
+                            <input class="form-control" [(ngModel)]="child.label" placeholder="Ej. Sabanas" />
+                          </div>
+                          <div class="col-md-4">
+                            <label class="form-label">Tipo</label>
+                            <select class="form-select" [(ngModel)]="child.item_type" (change)="onChildTypeChange(child)">
+                              @for (itemType of childNavigationTypes; track itemType.value) {
+                                <option [value]="itemType.value">{{ itemType.label }}</option>
+                              }
+                            </select>
+                          </div>
+                          <div class="col-md-3">
+                            <label class="form-label">Orden</label>
+                            <input class="form-control" type="number" [(ngModel)]="child.sort_order" />
+                          </div>
+
+                          @if (child.item_type === 'collection') {
+                            <div class="col-12">
+                              <label class="form-label">Coleccion vinculada</label>
+                              <select class="form-select" [(ngModel)]="child.reference_id">
+                                <option [ngValue]="null">Selecciona una coleccion</option>
+                                @for (collection of collections; track collection.id) {
+                                  <option [value]="collection.id">{{ collection.name }}</option>
+                                }
+                              </select>
+                            </div>
+                          }
+
+                          @if (child.item_type === 'url') {
+                            <div class="col-12">
+                              <label class="form-label">Enlace</label>
+                              <input class="form-control" [(ngModel)]="child.url" placeholder="/contact o https://externo.com" />
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+
+              <div class="col-md-6">
+                <label class="form-label">Orden</label>
+                <input class="form-control" type="number" [(ngModel)]="form.sort_order" />
+              </div>
+              <div class="col-md-6">
+                <div class="settings-switch-grid h-100">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" [(ngModel)]="form.is_visible" />
+                    <label class="form-check-label">Visible en el menu</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="navigation-modal__footer">
+          <div class="d-flex gap-2">
+            @if (editingId) {
+              <button class="btn btn-outline-danger" (click)="deleteCurrentItem()" [disabled]="saving">Eliminar</button>
+            }
+            <button class="btn btn-outline-secondary w-100" (click)="closeEditor()">Cancelar</button>
+            <button class="btn btn-primary w-100" (click)="save()" [disabled]="saving || !selectedStorefrontId">
+              {{ editingId ? 'Guardar cambios' : 'Crear item' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

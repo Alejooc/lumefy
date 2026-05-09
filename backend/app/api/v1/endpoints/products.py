@@ -3,10 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
+import re
 
 from app.core.database import get_db
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
+from app.models.storefront import PublishedProduct, Storefront
 from app.schemas import product as schemas
 from app.schemas import product_variant as variant_schemas
 from app.models.user import User
@@ -15,6 +17,125 @@ from app.core.plan_limits import PlanLimitChecker
 from app.core.audit import log_activity
 
 router = APIRouter()
+
+
+def _slugify(value: str) -> str:
+    value = (value or "").strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "-", value)
+    return value.strip("-") or "product"
+
+
+async def _get_primary_storefront(db: AsyncSession, company_id: str | None) -> Storefront | None:
+    if not company_id:
+        return None
+    result = await db.execute(
+        select(Storefront).where(
+            Storefront.company_id == company_id,
+            Storefront.is_active == True
+        ).order_by(Storefront.created_at.asc())
+    )
+    return result.scalars().first()
+
+
+def _extract_ecommerce_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    keys = {
+        "visible_in_ecommerce",
+        "ecommerce_slug",
+        "ecommerce_title",
+        "ecommerce_description",
+        "ecommerce_price_override",
+        "ecommerce_compare_at_price",
+        "ecommerce_is_featured",
+        "ecommerce_show_stock",
+        "ecommerce_seo_title",
+        "ecommerce_seo_description",
+    }
+    return {key: payload.pop(key) for key in list(payload.keys()) if key in keys}
+
+
+async def _sync_product_ecommerce(
+    db: AsyncSession,
+    *,
+    product: Product,
+    company_id: str | None,
+    ecommerce_data: dict[str, Any],
+) -> None:
+    if not ecommerce_data:
+        return
+
+    storefront = await _get_primary_storefront(db, company_id)
+    visible = bool(ecommerce_data.get("visible_in_ecommerce", False))
+
+    result = await db.execute(
+        select(PublishedProduct).where(
+            PublishedProduct.product_id == product.id,
+            PublishedProduct.company_id == company_id,
+            PublishedProduct.is_active == True
+        )
+    )
+    published_product = result.scalars().first()
+
+    if not storefront:
+        if visible:
+            raise HTTPException(status_code=400, detail="Primero configura una tienda ecommerce para publicar productos.")
+        return
+
+    if not visible:
+        if published_product:
+            published_product.is_published = False
+            published_product.updated_by_id = product.updated_by_id
+            db.add(published_product)
+        return
+
+    slug = ecommerce_data.get("ecommerce_slug") or _slugify(product.name)
+    if published_product:
+        published_product.storefront_id = storefront.id
+        published_product.custom_title = ecommerce_data.get("ecommerce_title") or None
+        published_product.custom_description = ecommerce_data.get("ecommerce_description") or None
+        published_product.slug = slug
+        published_product.price_override = ecommerce_data.get("ecommerce_price_override")
+        published_product.compare_at_price = ecommerce_data.get("ecommerce_compare_at_price")
+        published_product.is_published = True
+        published_product.is_featured = bool(ecommerce_data.get("ecommerce_is_featured", False))
+        published_product.show_stock = bool(ecommerce_data.get("ecommerce_show_stock", True))
+        published_product.seo_title = ecommerce_data.get("ecommerce_seo_title") or None
+        published_product.seo_description = ecommerce_data.get("ecommerce_seo_description") or None
+        published_product.updated_by_id = product.updated_by_id
+        db.add(published_product)
+        return
+
+    db.add(
+        PublishedProduct(
+            storefront_id=storefront.id,
+            product_id=product.id,
+            custom_title=ecommerce_data.get("ecommerce_title") or None,
+            custom_description=ecommerce_data.get("ecommerce_description") or None,
+            slug=slug,
+            price_override=ecommerce_data.get("ecommerce_price_override"),
+            compare_at_price=ecommerce_data.get("ecommerce_compare_at_price"),
+            is_published=True,
+            is_featured=bool(ecommerce_data.get("ecommerce_is_featured", False)),
+            show_stock=bool(ecommerce_data.get("ecommerce_show_stock", True)),
+            seo_title=ecommerce_data.get("ecommerce_seo_title") or None,
+            seo_description=ecommerce_data.get("ecommerce_seo_description") or None,
+            company_id=company_id,
+            created_by_id=product.created_by_id,
+            updated_by_id=product.updated_by_id,
+        )
+    )
+
+
+def _attach_ecommerce_state(product: Product, published_product: PublishedProduct | None) -> None:
+    product.visible_in_ecommerce = bool(published_product and published_product.is_published)
+    product.ecommerce_slug = published_product.slug if published_product else None
+    product.ecommerce_title = published_product.custom_title if published_product else None
+    product.ecommerce_description = published_product.custom_description if published_product else None
+    product.ecommerce_price_override = published_product.price_override if published_product else None
+    product.ecommerce_compare_at_price = published_product.compare_at_price if published_product else None
+    product.ecommerce_is_featured = bool(published_product.is_featured) if published_product else False
+    product.ecommerce_show_stock = bool(published_product.show_stock) if published_product else True
+    product.ecommerce_seo_title = published_product.seo_title if published_product else None
+    product.ecommerce_seo_description = published_product.seo_description if published_product else None
 
 @router.get("/", response_model=List[schemas.Product])
 async def read_products(
@@ -59,7 +180,22 @@ async def read_products(
         query = query.where(Product.product_type == product_type)
         
     result = await db.execute(query)
-    return result.scalars().all()
+    products = result.scalars().all()
+    if not products or not current_user.company_id:
+        return products
+
+    product_ids = [product.id for product in products]
+    published_result = await db.execute(
+        select(PublishedProduct).where(
+            PublishedProduct.company_id == current_user.company_id,
+            PublishedProduct.product_id.in_(product_ids),
+            PublishedProduct.is_active == True
+        )
+    )
+    published_map = {item.product_id: item for item in published_result.scalars().all()}
+    for product in products:
+        _attach_ecommerce_state(product, published_map.get(product.id))
+    return products
 
 @router.get("/export")
 async def export_products(
@@ -146,6 +282,14 @@ async def read_product(
     product = result.scalars().first()
     if not product:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
+    published_result = await db.execute(
+        select(PublishedProduct).where(
+            PublishedProduct.product_id == product.id,
+            PublishedProduct.company_id == current_user.company_id,
+            PublishedProduct.is_active == True
+        )
+    )
+    _attach_ecommerce_state(product, published_result.scalars().first())
     return product
 
 @router.post("/", response_model=schemas.Product)
@@ -161,8 +305,9 @@ async def create_product(
         # Extract images data
         images_data = product_in.images
         product_data = product_in.model_dump(exclude={"images"})
+        ecommerce_data = _extract_ecommerce_payload(product_data)
         
-        product = Product(**product_data, company_id=current_user.company_id)
+        product = Product(**product_data, company_id=current_user.company_id, created_by_id=current_user.id, updated_by_id=current_user.id)
         db.add(product)
         await db.commit()
         await db.refresh(product)
@@ -173,7 +318,13 @@ async def create_product(
             for img in images_data:
                 new_img = ProductImage(**img.model_dump(), product_id=product.id)
                 db.add(new_img)
-            await db.commit()
+        await _sync_product_ecommerce(
+            db,
+            product=product,
+            company_id=current_user.company_id,
+            ecommerce_data=ecommerce_data,
+        )
+        await db.commit()
         
         await log_activity(db, action="CREATE", entity_type="Product", entity_id=product.id,
                            user_id=current_user.id, company_id=current_user.company_id,
@@ -189,7 +340,16 @@ async def create_product(
                 selectinload(Product.images)
             ).where(Product.id == product.id)
         )
-        return result.scalars().first()
+        created_product = result.scalars().first()
+        published_result = await db.execute(
+            select(PublishedProduct).where(
+                PublishedProduct.product_id == product.id,
+                PublishedProduct.company_id == current_user.company_id,
+                PublishedProduct.is_active == True
+            )
+        )
+        _attach_ecommerce_state(created_product, published_result.scalars().first())
+        return created_product
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -214,10 +374,12 @@ async def update_product(
         raise HTTPException(status_code=404, detail="Producto no encontrado")
         
     update_data = product_in.model_dump(exclude_unset=True)
+    ecommerce_data = _extract_ecommerce_payload(update_data)
     images_data = update_data.pop("images", None)
     
     for field, value in update_data.items():
         setattr(product, field, value)
+    product.updated_by_id = current_user.id
         
     # Update images if provided
     if images_data is not None:
@@ -247,6 +409,13 @@ async def update_product(
             new_img = ProductImage(**img, product_id=product.id)
             db.add(new_img)
 
+    await _sync_product_ecommerce(
+        db,
+        product=product,
+        company_id=current_user.company_id,
+        ecommerce_data=ecommerce_data,
+    )
+
     await db.commit()
     await db.refresh(product)
     
@@ -264,7 +433,16 @@ async def update_product(
             selectinload(Product.images)
         ).where(Product.id == product.id)
     )
-    return result.scalars().first()
+    updated_product = result.scalars().first()
+    published_result = await db.execute(
+        select(PublishedProduct).where(
+            PublishedProduct.product_id == product.id,
+            PublishedProduct.company_id == current_user.company_id,
+            PublishedProduct.is_active == True
+        )
+    )
+    _attach_ecommerce_state(updated_product, published_result.scalars().first())
+    return updated_product
 
 @router.delete("/{product_id}")
 async def delete_product(

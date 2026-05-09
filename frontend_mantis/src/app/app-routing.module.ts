@@ -176,6 +176,10 @@ const routes: Routes = [
         loadComponent: () => import('./modules/apps/app-admin-catalog.component').then((c) => c.AppAdminCatalogComponent)
       },
       {
+        path: 'apps/ecommerce',
+        loadChildren: () => import('./modules/apps/ecommerce.routes').then((m) => m.routes)
+      },
+      {
         path: '**',
         loadComponent: () => import('./demo/pages/not-found/not-found.component').then((c) => c.NotFoundComponent)
       }

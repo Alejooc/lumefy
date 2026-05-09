@@ -1,0 +1,59 @@
+.rich-editor {
+  border: 1px solid #dfe3eb;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.rich-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid #eef2f7;
+  background: #f8fafc;
+}
+
+.rich-editor__surface {
+  padding: 1rem;
+  outline: none;
+  line-height: 1.65;
+}
+
+.rich-editor__surface:empty::before {
+  content: attr(data-placeholder);
+  color: #8b95a7;
+}
+
+.rich-editor__surface :is(h1, h2, h3, h4) {
+  margin: 0 0 0.75rem;
+}
+
+.rich-editor__surface p,
+.rich-editor__surface ul,
+.rich-editor__surface ol,
+.rich-editor__surface table,
+.rich-editor__surface blockquote {
+  margin-bottom: 0.75rem;
+}
+
+.rich-editor__surface ul,
+.rich-editor__surface ol {
+  padding-left: 1.5rem;
+}
+
+.rich-editor__surface table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rich-editor__surface table th,
+.rich-editor__surface table td {
+  border: 1px solid #dfe3eb;
+  padding: 0.5rem 0.75rem;
+}
+
+.rich-editor__surface blockquote {
+  border-left: 3px solid #3b82f6;
+  padding-left: 0.75rem;
+  color: #526074;
+}

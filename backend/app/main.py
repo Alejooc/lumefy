@@ -3,6 +3,7 @@ from starlette.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+import mimetypes
 
 from app.core.config import settings
 from app.core.rate_limit import limiter
@@ -35,6 +36,14 @@ app.add_middleware(MaintenanceMiddleware)
 
 from fastapi.staticfiles import StaticFiles
 import os
+
+# Ensure common image extensions are served with the expected MIME type in Docker/Alpine.
+mimetypes.add_type("image/webp", ".webp")
+mimetypes.add_type("image/avif", ".avif")
+mimetypes.add_type("image/svg+xml", ".svg")
+mimetypes.add_type("image/jpeg", ".jpg")
+mimetypes.add_type("image/jpeg", ".jpeg")
+mimetypes.add_type("image/png", ".png")
 
 # Create static directory if it doesn't exist
 static_dir = os.path.join(os.path.dirname(__file__), "..", "static")

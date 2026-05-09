@@ -1,0 +1,163 @@
+.ecommerce-section {
+  .status-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .storefront-toggle {
+    min-width: 150px;
+    text-align: right;
+  }
+
+  .stacked-action-list {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .stacked-action-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border-radius: 16px;
+    text-decoration: none;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .stacked-action-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(37, 99, 235, 0.22);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  }
+
+  .stacked-action-card__arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 68px;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .domain-highlight {
+    display: grid;
+    gap: 0.2rem;
+    padding: 1rem;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    margin-bottom: 0.75rem;
+  }
+
+  .domain-highlight.is-empty {
+    background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
+  }
+
+  .domain-highlight__label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #0f766e;
+  }
+
+  .setting-check {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .domain-list {
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .domain-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.9rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: #fff;
+  }
+
+  .domain-row--actions {
+    border-radius: 16px;
+  }
+
+  .domains-modal-card {
+    width: min(980px, 100%);
+  }
+
+  .domains-form-panel {
+    height: 100%;
+    padding: 1rem;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .modal-domain-list {
+    max-height: 460px;
+    overflow: auto;
+  }
+
+  .checklist-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.8rem 0.9rem;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    color: #475569;
+  }
+
+  .checklist-item.is-done {
+    border-color: rgba(15, 118, 110, 0.22);
+    background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
+    color: #0f766e;
+  }
+
+  .checklist-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #cbd5e1;
+    flex: 0 0 auto;
+  }
+
+  .checklist-item.is-done .checklist-dot {
+    background: #0f766e;
+  }
+
+  @media (max-width: 991.98px) {
+    .status-toggle-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+}

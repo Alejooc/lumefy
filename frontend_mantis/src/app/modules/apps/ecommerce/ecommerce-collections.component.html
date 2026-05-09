@@ -1,0 +1,419 @@
+<div class="ecommerce-section">
+  <div class="section-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h4 class="mb-1">Colecciones</h4>
+      <p class="text-muted mb-0">Gestiona las colecciones desde un listado principal y entra a una vista separada para productos y configuracion.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <select class="form-select form-select-sm storefront-switcher" [(ngModel)]="selectedStorefrontId" (change)="onStorefrontChange()">
+        <option value="">Selecciona una tienda</option>
+        @for (storefront of storefronts; track storefront.id) {
+          <option [value]="storefront.id">{{ storefront.name }}</option>
+        }
+      </select>
+      @if (viewMode === 'list') {
+        <button class="btn btn-primary btn-sm" (click)="startNewCollection()" [disabled]="!selectedStorefrontId">Crear coleccion</button>
+      } @else {
+        <button class="btn btn-outline-secondary btn-sm" (click)="backToList()">Volver al listado</button>
+      }
+    </div>
+  </div>
+
+  @if (viewMode === 'list') {
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div>
+            <h5 class="mb-0">Listado de colecciones</h5>
+            <small class="text-muted">Entra a cada coleccion para administrar sus productos y abrir su configuracion.</small>
+          </div>
+          <span class="badge bg-light text-dark">{{ collections.length }} colecciones</span>
+        </div>
+
+        @if (!selectedStorefrontId) {
+          <div class="empty-state border rounded p-4 text-center text-muted">
+            <p class="mb-1">Selecciona una tienda</p>
+            <small>Necesitas elegir la tienda para ver sus colecciones.</small>
+          </div>
+        }
+
+        @if (selectedStorefrontId && collections.length === 0) {
+          <div class="empty-state border rounded p-4 text-center text-muted">
+            <p class="mb-1">No hay colecciones creadas</p>
+            <small>Crea la primera para organizar el catalogo del ecommerce.</small>
+          </div>
+        }
+
+        @if (selectedStorefrontId && collections.length > 0) {
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Coleccion</th>
+                  <th>Slug</th>
+                  <th>Estado</th>
+                  <th>Destacada</th>
+                  <th>Orden</th>
+                  <th class="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (collection of collections; track collection.id) {
+                  <tr>
+                    <td>
+                      <strong class="d-block">{{ collection.name }}</strong>
+                      <small class="text-muted">{{ collection.description || 'Sin descripcion' }}</small>
+                    </td>
+                    <td>/{{ collection.slug }}</td>
+                    <td>
+                      <span class="badge" [class.bg-success]="collection.is_visible" [class.bg-secondary]="!collection.is_visible">
+                        {{ collection.is_visible ? 'Visible' : 'Oculta' }}
+                      </span>
+                    </td>
+                    <td>{{ collection.is_featured ? 'Si' : 'No' }}</td>
+                    <td>{{ collection.sort_order }}</td>
+                    <td class="text-end">
+                      <button class="btn btn-outline-primary btn-sm" (click)="openCollection(collection.id)">Editar</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  @if (viewMode === 'detail') {
+    <div class="row g-3">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">{{ selectedCollectionId ? (selectedCollection?.name || 'Editar coleccion') : 'Nueva coleccion' }}</h5>
+              <small class="text-muted">
+                @if (selectedCollectionId) {
+                  Administra los productos vinculados y abre la configuracion cuando necesites editar la coleccion.
+                } @else {
+                  Crea primero la coleccion y luego podras gestionar los productos que pertenecen a ella.
+                }
+              </small>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-secondary btn-sm" (click)="toggleConfigPanel()">
+                {{ showConfigPanel ? 'Ocultar configuracion' : 'Abrir configuracion' }}
+              </button>
+              @if (!selectedCollectionId) {
+                <button class="btn btn-primary btn-sm" (click)="save()" [disabled]="saving || !selectedStorefrontId">Crear coleccion</button>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+
+      @if (showConfigPanel) {
+        <div class="col-12">
+          <div class="card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h5 class="mb-0">Configuracion de la coleccion</h5>
+                  <small class="text-muted">Edita nombre, slug, descripcion, imagen y visibilidad.</small>
+                </div>
+                @if (selectedCollection) {
+                  <span class="badge bg-light text-dark">{{ selectedCollection.name }}</span>
+                }
+              </div>
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Nombre</label>
+                  <input class="form-control" [(ngModel)]="form.name" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Slug</label>
+                  <input class="form-control" [(ngModel)]="form.slug" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Orden</label>
+                  <input class="form-control" type="number" [(ngModel)]="form.sort_order" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Descripcion</label>
+                  <textarea class="form-control" rows="3" [(ngModel)]="form.description"></textarea>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Imagen URL</label>
+                  <input class="form-control" [(ngModel)]="form.image_url" />
+                </div>
+                <div class="col-md-6">
+                  <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" [(ngModel)]="form.is_visible" />
+                    <label class="form-check-label">Visible en tienda</label>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" [(ngModel)]="form.is_featured" />
+                    <label class="form-check-label">Destacada</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-end gap-2 mt-3">
+                <button class="btn btn-outline-secondary" (click)="showConfigPanel = false">Cerrar</button>
+                <button class="btn btn-primary" (click)="save()" [disabled]="saving || !selectedStorefrontId">
+                  {{ selectedCollectionId ? 'Guardar cambios' : 'Crear coleccion' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+              <div>
+                <h5 class="mb-0">Productos de la coleccion</h5>
+                <small class="text-muted">Busca, selecciona y gestiona productos publicados de esta coleccion en lote.</small>
+              </div>
+              <div class="d-flex gap-2 flex-wrap">
+                @if (selectedCollectionId) {
+                  <span class="badge bg-light text-dark">{{ linkedProducts.length }} vinculados</span>
+                  <button class="btn btn-outline-primary btn-sm" (click)="openAddProductsModal()">Agregar productos</button>
+                  <button class="btn btn-outline-danger btn-sm" (click)="removeSelectedLinkedProducts()" [disabled]="selectedLinkedProductIds.length === 0 || saving">
+                    Quitar seleccionados
+                  </button>
+                }
+              </div>
+            </div>
+
+            @if (!selectedCollectionId) {
+              <div class="empty-state border rounded p-4 text-center text-muted">
+                <p class="mb-1">Primero crea la coleccion</p>
+                <small>Cuando guardes la coleccion podras agregar y quitar productos.</small>
+              </div>
+            }
+
+            @if (selectedCollectionId) {
+              <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-4">
+                  <label class="form-label">Buscar dentro de la coleccion</label>
+                  <input class="form-control" [(ngModel)]="linkedSearch" placeholder="Buscar por titulo, descripcion o slug" />
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Slug</label>
+                  <input class="form-control" [(ngModel)]="linkedSlugFilter" placeholder="Filtrar slug" />
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Destacado</label>
+                  <select class="form-select" [(ngModel)]="linkedFeaturedFilter">
+                    <option value="all">Todos</option>
+                    <option value="featured">Solo destacados</option>
+                    <option value="regular">Solo regulares</option>
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Precio min.</label>
+                  <input class="form-control" type="number" [(ngModel)]="linkedMinPrice" />
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Precio max.</label>
+                  <input class="form-control" type="number" [(ngModel)]="linkedMaxPrice" />
+                </div>
+              </div>
+
+              <div class="row g-2 align-items-center mb-3">
+                <div class="col-md-8"></div>
+                <div class="col-md-4">
+                  <div class="bulk-toolbar">
+                    <div class="form-check">
+                      <input
+                        id="select-all-linked"
+                        class="form-check-input"
+                        type="checkbox"
+                        [checked]="areAllFilteredLinkedSelected()"
+                        (change)="toggleSelectAllLinked($any($event.target).checked)"
+                      />
+                      <label class="form-check-label" for="select-all-linked">Seleccionar filtrados</label>
+                    </div>
+                    <small class="text-muted">{{ selectedLinkedProductIds.length }} seleccionados</small>
+                  </div>
+                </div>
+              </div>
+            }
+
+            @if (selectedCollectionId && linkedProducts.length === 0) {
+              <div class="empty-state border rounded p-4 text-center text-muted">
+                <p class="mb-1">Esta coleccion aun no tiene productos</p>
+                <small>Agrega productos publicados desde el selector superior.</small>
+              </div>
+            }
+
+            @if (selectedCollectionId && linkedProducts.length > 0) {
+              <div class="table-responsive">
+                <table class="table align-middle">
+                  <thead>
+                    <tr>
+                      <th class="table-check-cell"></th>
+                      <th>Producto</th>
+                      <th>Slug</th>
+                      <th>Destacado</th>
+                      <th>Precio base / web</th>
+                      <th>Orden</th>
+                      <th class="text-end">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (item of filteredLinkedProducts; track item.id) {
+                      <tr>
+                        <td class="table-check-cell">
+                          <input
+                            class="form-check-input"
+                            type="checkbox"
+                            [checked]="isLinkedSelected(item.id)"
+                            (change)="toggleLinkedSelection(item.id, $any($event.target).checked)"
+                          />
+                        </td>
+                        <td>
+                          <strong class="d-block">{{ productLabel(item) }}</strong>
+                          <small class="text-muted">{{ item.custom_description || 'Sin descripcion personalizada' }}</small>
+                        </td>
+                        <td>/{{ item.slug }}</td>
+                        <td>{{ item.is_featured ? 'Si' : 'No' }}</td>
+                        <td>{{ priceLabel(item) }}</td>
+                        <td>{{ linkedSortOrder(item.id) }}</td>
+                        <td class="text-end">
+                          <button class="btn btn-outline-danger btn-sm" (click)="removeLinkedProduct(item.id)">Quitar</button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (showAddProductsModal) {
+    <div class="modal-backdrop-soft" (click)="closeAddProductsModal()"></div>
+    <div class="collection-modal">
+      <div class="card collection-modal__card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <h5 class="mb-1">Agregar productos a la coleccion</h5>
+              <small class="text-muted">Filtra, selecciona varios productos y agregalos en una sola accion.</small>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" (click)="closeAddProductsModal()">Cerrar</button>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Buscar productos publicados</label>
+              <input class="form-control" [(ngModel)]="availableSearch" placeholder="Buscar por titulo, descripcion o slug" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Slug</label>
+              <input class="form-control" [(ngModel)]="availableSlugFilter" placeholder="Filtrar slug" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Destacado</label>
+              <select class="form-select" [(ngModel)]="availableFeaturedFilter">
+                <option value="all">Todos</option>
+                <option value="featured">Solo destacados</option>
+                <option value="regular">Solo regulares</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Precio min.</label>
+              <input class="form-control" type="number" [(ngModel)]="availableMinPrice" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Precio max.</label>
+              <input class="form-control" type="number" [(ngModel)]="availableMaxPrice" />
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Orden inicial</label>
+              <input class="form-control" type="number" [(ngModel)]="assignment.sortOrder" />
+            </div>
+          </div>
+
+          <div class="bulk-toolbar mb-3">
+            <div class="form-check">
+              <input
+                id="select-all-available"
+                class="form-check-input"
+                type="checkbox"
+                [checked]="areAllFilteredAvailableSelected()"
+                (change)="toggleSelectAllAvailable($any($event.target).checked)"
+              />
+              <label class="form-check-label" for="select-all-available">Seleccionar filtrados</label>
+            </div>
+            <small class="text-muted">{{ selectedAvailableProductIds.length }} seleccionados</small>
+          </div>
+
+          @if (filteredAvailableProducts.length === 0) {
+            <div class="empty-state border rounded p-4 text-center text-muted">
+              <p class="mb-1">No hay productos disponibles</p>
+              <small>Puede que ya todos esten vinculados o que el filtro no tenga coincidencias.</small>
+            </div>
+          }
+
+          @if (filteredAvailableProducts.length > 0) {
+            <div class="table-responsive collection-modal__table">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th class="table-check-cell"></th>
+                    <th>Producto</th>
+                    <th>Slug</th>
+                    <th>Destacado</th>
+                    <th>Precio base / web</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of filteredAvailableProducts; track item.id) {
+                    <tr>
+                      <td class="table-check-cell">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          [checked]="isAvailableSelected(item.id)"
+                          (change)="toggleAvailableSelection(item.id, $any($event.target).checked)"
+                        />
+                      </td>
+                      <td>
+                        <strong class="d-block">{{ productLabel(item) }}</strong>
+                        <small class="text-muted">{{ item.custom_description || 'Sin descripcion personalizada' }}</small>
+                      </td>
+                      <td>/{{ item.slug }}</td>
+                      <td>{{ item.is_featured ? 'Si' : 'No' }}</td>
+                      <td>{{ priceLabel(item) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button class="btn btn-outline-secondary" (click)="closeAddProductsModal()">Cancelar</button>
+            <button class="btn btn-primary" (click)="addSelectedProducts()" [disabled]="selectedAvailableProductIds.length === 0 || saving">
+              Agregar seleccionados
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,395 @@
+<div class="ecommerce-section ecommerce-settings-page">
+  <div class="section-header d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div>
+      <h4 class="mb-1">General</h4>
+      <p class="text-muted mb-0">Concentra los datos base del storefront y deja Branding, Home, SEO y Checkout en modulos separados.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <select class="form-select storefront-switcher" [(ngModel)]="selectedStorefrontId" (change)="onStorefrontChange()">
+        <option value="">Selecciona una tienda</option>
+        @for (storefront of storefronts; track storefront.id) {
+          <option [value]="storefront.id">{{ storefront.name }} ({{ storefront.slug }})</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="settings-hero card">
+    <div class="card-body">
+      <div class="row g-3 align-items-center">
+        <div class="col-12 col-xl-7">
+          <div class="settings-hero__eyebrow">Storefront</div>
+          <h3 class="mb-2">{{ storefrontForm.name || 'Tu tienda online' }}</h3>
+          <p class="text-muted mb-3">
+            {{ editingStorefrontId ? 'Ajusta los datos clave y deja lista la tienda para publicar.' : 'Crea la tienda principal de la empresa y deja preparada su presencia online.' }}
+          </p>
+
+          <div class="settings-hero__actions">
+            <button class="btn btn-dark px-4" (click)="createNewStorefront()">Crear tienda</button>
+            @if (editingStorefrontId) {
+              <span class="settings-inline-note">Estas editando una tienda existente.</span>
+            } @else {
+              <span class="settings-inline-note">Empieza aqui si aun no has creado tu storefront.</span>
+            }
+          </div>
+
+          <div class="settings-hero__stats">
+            <div class="hero-stat">
+              <span class="hero-stat__label">Estado</span>
+              <strong>{{ storefrontStatusLabel }}</strong>
+            </div>
+            <div class="hero-stat">
+              <span class="hero-stat__label">Tema</span>
+              <strong>{{ themeLabel(storefrontForm.theme_key) }}</strong>
+            </div>
+            <div class="hero-stat">
+              <span class="hero-stat__label">Dominios</span>
+              <strong>{{ domains.length }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-xl-5">
+          <div class="store-preview-card">
+            <div class="store-preview-card__bar">
+              <span class="store-preview-card__dot"></span>
+              <span class="store-preview-card__dot"></span>
+              <span class="store-preview-card__dot"></span>
+            </div>
+            <div class="store-preview-card__url">{{ primaryDomain?.domain || storefrontUrlPreview }}</div>
+            <div class="store-preview-card__surface">
+              <div class="store-preview-card__theme">{{ themeLabel(storefrontForm.theme_key) }}</div>
+              <div class="store-preview-card__title">{{ storefrontForm.name || 'Nombre de tienda' }}</div>
+              <div class="store-preview-card__meta">
+                <span>{{ storefrontForm.currency || 'USD' }}</span>
+                <span>{{ storefrontForm.language || 'es' }}</span>
+                <span>{{ storefrontStatusLabel }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-12 col-xl-8">
+      <div class="card section-card">
+        <div class="card-body">
+          <div class="settings-block__header">
+            <div>
+              <h5 class="mb-1">Identidad y acceso</h5>
+              <small class="text-muted">Configura nombre, slug, subdominio y la experiencia base de la tienda.</small>
+            </div>
+            <span class="settings-pill">{{ editingStorefrontId ? 'Tienda existente' : 'Nueva tienda' }}</span>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-7">
+              <label class="form-label">Nombre de tienda</label>
+              <input class="form-control" [(ngModel)]="storefrontForm.name" placeholder="Ej. Lumefy Home" />
+              <small class="form-hint">Nombre visible para clientes y equipo interno.</small>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Slug interno</label>
+              <input class="form-control" [(ngModel)]="storefrontForm.slug" placeholder="lumefy-home" />
+              <small class="form-hint">Identificador de la tienda dentro del sistema.</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Subdominio</label>
+              <input class="form-control" [(ngModel)]="storefrontForm.subdomain" placeholder="lumefy-home" />
+              <small class="form-hint">Vista previa: {{ storefrontUrlPreview }}</small>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Moneda</label>
+              <select class="form-select" [(ngModel)]="storefrontForm.currency">
+                @for (currency of currencyOptions; track currency) {
+                  <option [value]="currency">{{ currency }}</option>
+                }
+              </select>
+              <div class="form-check setting-check mt-2">
+                <input class="form-check-input" type="checkbox" [(ngModel)]="currencySettingsForm.show_decimals" />
+                <label class="form-check-label">Mostrar decimales</label>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Idioma</label>
+              <select class="form-select" [(ngModel)]="storefrontForm.language">
+                @for (language of languageOptions; track language.value) {
+                  <option [value]="language.value">{{ language.label }}</option>
+                }
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card section-card mt-3">
+        <div class="card-body">
+          <div class="settings-block__header">
+            <div>
+              <h5 class="mb-1">Look and feel</h5>
+              <small class="text-muted">Elige el tema base con el que va a arrancar la tienda.</small>
+            </div>
+          </div>
+
+          <div class="theme-option-grid">
+            @for (theme of themeOptions; track theme) {
+              <button
+                type="button"
+                class="theme-option-card"
+                [class.active]="storefrontForm.theme_key === theme"
+                (click)="storefrontForm.theme_key = theme"
+              >
+                <span class="theme-option-card__eyebrow">Tema</span>
+                <strong>{{ themeLabel(theme) }}</strong>
+                <small class="text-muted">
+                  @if (theme === 'modern') { Balanceado para catalogos generales. }
+                  @if (theme === 'minimal') { Limpio y ligero para marcas simples. }
+                  @if (theme === 'retail') { Enfocado en volumen y merchandising. }
+                </small>
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="card section-card mt-3">
+        <div class="card-body">
+          <div class="settings-block__header">
+            <div>
+              <h5 class="mb-1">Modulos del storefront</h5>
+              <small class="text-muted">Accesos rapidos a los modulos especializados del ecommerce.</small>
+            </div>
+          </div>
+
+          <div class="stacked-action-list">
+            <a class="stacked-action-card" routerLink="/apps/ecommerce/branding">
+              <div>
+                <strong class="d-block">Branding</strong>
+                <small class="text-muted">Logo, contacto, redes y promos globales del storefront.</small>
+              </div>
+              <span class="stacked-action-card__arrow">Abrir</span>
+            </a>
+            <a class="stacked-action-card" routerLink="/apps/ecommerce/home">
+              <div>
+                <strong class="d-block">Home</strong>
+                <small class="text-muted">Hero, banners, copys, countdown y newsletter del home.</small>
+              </div>
+              <span class="stacked-action-card__arrow">Abrir</span>
+            </a>
+            <a class="stacked-action-card" routerLink="/apps/ecommerce/checkout">
+              <div>
+                <strong class="d-block">Checkout</strong>
+                <small class="text-muted">Compra invitada, notas, telefono y reglas del pedido.</small>
+              </div>
+              <span class="stacked-action-card__arrow">Abrir</span>
+            </a>
+            <a class="stacked-action-card" routerLink="/apps/ecommerce/seo">
+              <div>
+                <strong class="d-block">SEO</strong>
+                <small class="text-muted">Metadatos, indexacion y senal tecnica del storefront.</small>
+              </div>
+              <span class="stacked-action-card__arrow">Abrir</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="card section-card mt-3">
+        <div class="card-body">
+          <div class="settings-block__header">
+            <div>
+              <h5 class="mb-1">Operacion de la tienda</h5>
+              <small class="text-muted">Controla si la tienda queda activa o en modo borrador mientras se configura.</small>
+            </div>
+          </div>
+
+          <div class="status-toggle-row">
+            <div>
+              <strong class="d-block">{{ storefrontForm.is_enabled ? 'Tienda activa' : 'Tienda en borrador' }}</strong>
+              <small class="text-muted">
+                {{ storefrontForm.is_enabled ? 'La tienda puede responder como storefront publico.' : 'La tienda queda configurada pero no publicada para clientes.' }}
+              </small>
+            </div>
+            <div class="form-check form-switch storefront-toggle">
+              <input class="form-check-input" type="checkbox" [(ngModel)]="storefrontForm.is_enabled" />
+              <label class="form-check-label">Habilitar tienda</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end mt-3">
+        <button class="btn btn-primary btn-lg px-4" (click)="saveStorefront()" [disabled]="saving">
+          {{ editingStorefrontId ? 'Guardar configuracion' : 'Crear tienda' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-4">
+      <div class="card section-card">
+        <div class="card-body">
+          <div class="settings-block__header">
+            <div>
+              <h5 class="mb-1">Dominios</h5>
+              <small class="text-muted">Gestiona dominios propios desde una vista separada y mas limpia.</small>
+            </div>
+            <span class="settings-pill">{{ domains.length }} configurados</span>
+          </div>
+
+          <div class="domain-highlight" [class.is-empty]="!primaryDomain">
+            <span class="domain-highlight__label">Principal</span>
+            <strong>{{ primaryDomain?.domain || 'Sin dominio principal' }}</strong>
+            <small>{{ primaryDomain?.is_verified ? 'Dominio verificado' : 'Aun no hay dominio verificado' }}</small>
+          </div>
+
+          <button class="btn btn-outline-primary w-100 mt-2" (click)="openDomainsModal()" [disabled]="!selectedStorefrontId">
+            Administrar dominios
+          </button>
+
+          @if (!selectedStorefrontId) {
+            <div class="empty-state border rounded p-4 text-center text-muted mt-3">
+              <p class="mb-1">Primero crea o selecciona una tienda</p>
+              <small>Los dominios se gestionan sobre una tienda ya creada.</small>
+            </div>
+          }
+
+          @if (selectedStorefrontId && domains.length === 0) {
+            <div class="empty-state border rounded p-4 text-center text-muted mt-3">
+              <p class="mb-1">No hay dominios configurados</p>
+              <small>Puedes operar con subdominio mientras conectas un dominio propio.</small>
+            </div>
+          }
+
+          @if (selectedStorefrontId && domains.length > 0) {
+            <div class="domain-list mt-3">
+              @for (domain of domains; track domain.id) {
+                <div class="domain-row">
+                  <div>
+                    <strong class="d-block">{{ domain.domain }}</strong>
+                    <small class="text-muted">
+                      {{ domain.is_primary ? 'Principal' : 'Secundario' }} · {{ domain.is_verified ? 'Verificado' : 'Pendiente' }}
+                    </small>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="card section-card mt-3">
+        <div class="card-body">
+          <div class="settings-block__header">
+            <div>
+              <h5 class="mb-1">Checklist rapido</h5>
+              <small class="text-muted">Lo minimo para dejar la tienda lista para el siguiente bloque del ecommerce.</small>
+            </div>
+          </div>
+
+          <div class="checklist-list">
+            <div class="checklist-item" [class.is-done]="!!storefrontForm.name">
+              <span class="checklist-dot"></span>
+              <span>Nombre de tienda definido</span>
+            </div>
+            <div class="checklist-item" [class.is-done]="!!storefrontForm.slug">
+              <span class="checklist-dot"></span>
+              <span>Slug interno configurado</span>
+            </div>
+            <div class="checklist-item" [class.is-done]="!!storefrontForm.subdomain">
+              <span class="checklist-dot"></span>
+              <span>Subdominio configurado</span>
+            </div>
+            <div class="checklist-item" [class.is-done]="domains.length > 0">
+              <span class="checklist-dot"></span>
+              <span>Al menos un dominio registrado</span>
+            </div>
+            <div class="checklist-item" [class.is-done]="!!storefrontForm.is_enabled">
+              <span class="checklist-dot"></span>
+              <span>Tienda habilitada para publicacion</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (showDomainsModal) {
+    <div class="modal-backdrop-soft" (click)="closeDomainsModal()"></div>
+    <div class="collection-modal">
+      <div class="card collection-modal__card domains-modal-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <h5 class="mb-1">Administrar dominios</h5>
+              <small class="text-muted">Agrega, edita o elimina dominios de esta tienda desde una sola vista.</small>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" (click)="closeDomainsModal()">Cerrar</button>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-12 col-xl-5">
+              <div class="domains-form-panel">
+                <div class="settings-block__header">
+                  <div>
+                    <h6 class="mb-1">{{ editingDomainId ? 'Editar dominio' : 'Nuevo dominio' }}</h6>
+                    <small class="text-muted">Define si es principal y si ya esta verificado.</small>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label">Dominio</label>
+                  <input class="form-control" [(ngModel)]="domainForm.domain" placeholder="tienda.midominio.com" />
+                </div>
+                <div class="form-check setting-check mb-2">
+                  <input class="form-check-input" type="checkbox" [(ngModel)]="domainForm.is_primary" />
+                  <label class="form-check-label">Dominio principal</label>
+                </div>
+                <div class="form-check setting-check mb-3">
+                  <input class="form-check-input" type="checkbox" [(ngModel)]="domainForm.is_verified" />
+                  <label class="form-check-label">Verificado</label>
+                </div>
+
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-secondary w-100" (click)="closeDomainsModal()">Cancelar</button>
+                  <button class="btn btn-primary w-100" (click)="saveDomain()" [disabled]="saving || !selectedStorefrontId">
+                    {{ editingDomainId ? 'Guardar cambios' : 'Agregar dominio' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-xl-7">
+              @if (domains.length === 0) {
+                <div class="empty-state border rounded p-4 text-center text-muted h-100 d-flex flex-column justify-content-center">
+                  <p class="mb-1">No hay dominios configurados</p>
+                  <small>Empieza agregando el primer dominio de la tienda.</small>
+                </div>
+              }
+
+              @if (domains.length > 0) {
+                <div class="domain-list modal-domain-list">
+                  @for (domain of domains; track domain.id) {
+                    <div class="domain-row domain-row--actions">
+                      <div>
+                        <strong class="d-block">{{ domain.domain }}</strong>
+                        <small class="text-muted">
+                          {{ domain.is_primary ? 'Principal' : 'Secundario' }} · {{ domain.is_verified ? 'Verificado' : 'Pendiente' }}
+                        </small>
+                      </div>
+                      <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary btn-sm" (click)="editDomain(domain)">Editar</button>
+                        <button class="btn btn-outline-danger btn-sm" (click)="deleteDomain(domain)">Borrar</button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

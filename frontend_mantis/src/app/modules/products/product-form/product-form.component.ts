@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } fr
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
 import { SharedModule } from '../../../theme/shared/shared.module';
+import { RichTextEditorComponent } from '../../../theme/shared/components/rich-text-editor/rich-text-editor.component';
 import { CategoryService, Category } from '../../categories/category.service';
 import Swal from 'sweetalert2';
 
@@ -23,6 +24,16 @@ interface ProductDetailResponse {
     id: string;
     variants?: ProductVariantInput[];
     images?: ProductImageInput[];
+    visible_in_ecommerce?: boolean;
+    ecommerce_slug?: string | null;
+    ecommerce_title?: string | null;
+    ecommerce_description?: string | null;
+    ecommerce_price_override?: number | null;
+    ecommerce_compare_at_price?: number | null;
+    ecommerce_is_featured?: boolean;
+    ecommerce_show_stock?: boolean;
+    ecommerce_seo_title?: string | null;
+    ecommerce_seo_description?: string | null;
     [key: string]: unknown;
 }
 interface ProductSaveResponse {
@@ -32,7 +43,7 @@ interface ProductSaveResponse {
 @Component({
     selector: 'app-product-form',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, RouterModule, SharedModule],
+    imports: [CommonModule, ReactiveFormsModule, RouterModule, SharedModule, RichTextEditorComponent],
     templateUrl: './product-form.component.html',
     styleUrls: ['./product-form.component.scss']
 })
@@ -93,6 +104,16 @@ export class ProductFormComponent implements OnInit {
             min_stock: [0],
             sale_ok: [true],
             purchase_ok: [true],
+            visible_in_ecommerce: [false],
+            ecommerce_slug: [''],
+            ecommerce_title: [''],
+            ecommerce_description: [''],
+            ecommerce_price_override: [null],
+            ecommerce_compare_at_price: [null],
+            ecommerce_is_featured: [false],
+            ecommerce_show_stock: [true],
+            ecommerce_seo_title: [''],
+            ecommerce_seo_description: [''],
 
             // Variants
             variants: this.fb.array([])
@@ -229,6 +250,15 @@ export class ProductFormComponent implements OnInit {
         ['category_id', 'brand_id', 'unit_of_measure_id', 'purchase_uom_id'].forEach(f => {
             if (formData[f] === '' || formData[f] === undefined) formData[f] = null;
         });
+        [
+            'ecommerce_slug',
+            'ecommerce_title',
+            'ecommerce_description',
+            'ecommerce_seo_title',
+            'ecommerce_seo_description'
+        ].forEach((f) => {
+            if (formData[f] === '') formData[f] = null;
+        });
 
         // Handle variants separately
         const variantsToSave = formData.variants || [];
@@ -254,7 +284,7 @@ export class ProductFormComponent implements OnInit {
                         // After create, save variants
                         this.saveVariantsAfterCreate(productId, variantsToSave);
                     } else {
-                        Swal.fire('Éxito', this.isEditMode ? 'Producto actualizado' : 'Producto creado', 'success');
+                        Swal.fire('Exito', this.isEditMode ? 'Producto actualizado' : 'Producto creado', 'success');
                         this.router.navigate(['/products']);
                     }
                 }
@@ -270,7 +300,7 @@ export class ProductFormComponent implements OnInit {
     private saveVariantsAfterCreate(productId: string, variants: ProductVariantInput[]) {
         const newVariants = variants.filter((v: ProductVariantInput) => !v.id);
         if (newVariants.length === 0) {
-            Swal.fire('Éxito', 'Producto creado', 'success');
+            Swal.fire('Exito', 'Producto creado', 'success');
             this.router.navigate(['/products']);
             return;
         }
@@ -284,7 +314,7 @@ export class ProductFormComponent implements OnInit {
                     completed++;
                     if (completed === newVariants.length) {
                         this.isLoading = false;
-                        Swal.fire('Éxito', 'Producto creado con variantes', 'success');
+                        Swal.fire('Exito', 'Producto creado con variantes', 'success');
                         this.router.navigate(['/products']);
                     }
                 },
@@ -302,7 +332,7 @@ export class ProductFormComponent implements OnInit {
 
         if (total === 0) {
             this.isLoading = false;
-            Swal.fire('Éxito', 'Producto actualizado', 'success');
+            Swal.fire('Exito', 'Producto actualizado', 'success');
             this.router.navigate(['/products']);
             return;
         }
@@ -311,7 +341,7 @@ export class ProductFormComponent implements OnInit {
             completed++;
             if (completed === total) {
                 this.isLoading = false;
-                Swal.fire('Éxito', 'Producto actualizado', 'success');
+                Swal.fire('Exito', 'Producto actualizado', 'success');
                 this.router.navigate(['/products']);
             }
         };
@@ -400,5 +430,10 @@ export class ProductFormComponent implements OnInit {
         } else {
             this.form.patchValue({ image_url: '' });
         }
+    }
+
+    updateEditorField(fieldName: 'description' | 'ecommerce_description', value: string) {
+        this.form.get(fieldName)?.setValue(value);
+        this.form.get(fieldName)?.markAsDirty();
     }
 }

@@ -1,0 +1,505 @@
+<div class="ecommerce-section">
+  <div class="section-header d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div>
+      <h4 class="mb-1">Home</h4>
+      <p class="text-muted mb-0">Administra el contenido del home del storefront sin mezclarlo con branding, SEO ni checkout.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <select class="form-select storefront-switcher" [(ngModel)]="selectedStorefrontId" (change)="onStorefrontChange()">
+        <option value="">Selecciona una tienda</option>
+        @for (storefront of storefronts; track storefront.id) {
+          <option [value]="storefront.id">{{ storefront.name }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="card section-card">
+    <div class="card-body">
+      @if (!storefront) {
+        <div class="empty-state border rounded p-4 text-center text-muted">
+          <p class="mb-1">Selecciona una tienda</p>
+          <small>Necesitas elegir una tienda para editar el home.</small>
+        </div>
+      }
+
+      @if (storefront) {
+        <div class="settings-block__header">
+          <div>
+            <h5 class="mb-1">Hero principal</h5>
+            <small class="text-muted">Si dejas este bloque vacio, el storefront genera slides desde el catalogo publicado.</small>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" type="button" (click)="addHeroSlide()">Agregar slide</button>
+        </div>
+
+        @if ((form.hero_slides || []).length === 0) {
+          <div class="empty-state border rounded p-4 text-center text-muted mb-4">
+            <p class="mb-1">No hay slides configurados</p>
+            <small>El storefront usara productos publicados como fallback.</small>
+          </div>
+        }
+
+        @for (slide of form.hero_slides || []; track slide.id; let i = $index) {
+          <div class="border rounded p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <strong>Slide {{ i + 1 }}</strong>
+              <button class="btn btn-outline-danger btn-sm" type="button" (click)="removeHeroSlide(i)">Eliminar</button>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Titulo</label>
+                <input class="form-control" [(ngModel)]="slide.title" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">CTA href</label>
+                <input class="form-control" [(ngModel)]="slide.cta_href" placeholder="/products/slug" />
+              </div>
+              <div class="col-12">
+                <label class="form-label">Descripcion</label>
+                <textarea class="form-control" rows="2" [(ngModel)]="slide.description"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Imagen URL</label>
+                <input class="form-control" [(ngModel)]="slide.image" placeholder="https://.../hero.webp" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Overlay</label>
+                <input class="form-control" type="number" min="0" max="1" step="0.05" [(ngModel)]="slide.overlay_opacity" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Posicion imagen</label>
+                <select class="form-select" [(ngModel)]="slide.image_position">
+                  <option value="center">Center</option>
+                  <option value="top">Top</option>
+                  <option value="bottom">Bottom</option>
+                  <option value="left">Left</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Alineacion contenido</label>
+                <select class="form-select" [(ngModel)]="slide.content_alignment">
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Color texto</label>
+                <input class="form-control" [(ngModel)]="slide.text_color" placeholder="#1C274C" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Texto boton</label>
+                <input class="form-control" [(ngModel)]="slide.button_label" placeholder="Shop Now" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Color boton</label>
+                <input class="form-control" [(ngModel)]="slide.button_color" placeholder="#1C274C" />
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="settings-block__header mt-4">
+          <div>
+            <h5 class="mb-1">Hero promos laterales</h5>
+            <small class="text-muted">Controla las dos tarjetas laterales del hero.</small>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" type="button" (click)="addHeroPromo()">Agregar promo</button>
+        </div>
+
+        @for (promo of form.hero_promos || []; track promo.id; let i = $index) {
+          <div class="border rounded p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <strong>Promo {{ i + 1 }}</strong>
+              <button class="btn btn-outline-danger btn-sm" type="button" (click)="removeHeroPromo(i)">Eliminar</button>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Titulo</label>
+                <input class="form-control" [(ngModel)]="promo.title" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Texto promocional</label>
+                <input class="form-control" [(ngModel)]="promo.offer_label" placeholder="limited time offer" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Precio</label>
+                <input class="form-control" [(ngModel)]="promo.price_label" placeholder="$29.900" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Precio tachado</label>
+                <input class="form-control" [(ngModel)]="promo.compare_price_label" placeholder="$39.900" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Href</label>
+                <input class="form-control" [(ngModel)]="promo.href" placeholder="/products?collection=principal" />
+              </div>
+              <div class="col-md-5">
+                <label class="form-label">Imagen URL</label>
+                <input class="form-control" [(ngModel)]="promo.image" placeholder="https://.../promo.webp" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Color de fondo</label>
+                <input class="form-control" [(ngModel)]="promo.background_color" placeholder="#FFFFFF" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Imagen de fondo URL</label>
+                <input class="form-control" [(ngModel)]="promo.background_image_url" placeholder="https://.../hero-bg.webp" />
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="card section-card mt-3">
+          <div class="card-body">
+            <div class="settings-block__header">
+              <div>
+                <h5 class="mb-1">Copys de secciones</h5>
+                <small class="text-muted">Textos y CTAs de categorias, nuevos y best sellers.</small>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label">Categorias · Eyebrow</label>
+                <input class="form-control" [(ngModel)]="form.category_section!.eyebrow" />
+              </div>
+              <div class="col-md-8">
+                <label class="form-label">Categorias · Titulo</label>
+                <input class="form-control" [(ngModel)]="form.category_section!.title" />
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">New arrivals · Eyebrow</label>
+                <input class="form-control" [(ngModel)]="form.new_arrivals_section!.eyebrow" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">New arrivals · Titulo</label>
+                <input class="form-control" [(ngModel)]="form.new_arrivals_section!.title" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">CTA label</label>
+                <input class="form-control" [(ngModel)]="form.new_arrivals_section!.cta_label" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">CTA href</label>
+                <input class="form-control" [(ngModel)]="form.new_arrivals_section!.cta_href" />
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">Best sellers · Eyebrow</label>
+                <input class="form-control" [(ngModel)]="form.best_sellers_section!.eyebrow" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Best sellers · Titulo</label>
+                <input class="form-control" [(ngModel)]="form.best_sellers_section!.title" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">CTA label</label>
+                <input class="form-control" [(ngModel)]="form.best_sellers_section!.cta_label" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">CTA href</label>
+                <input class="form-control" [(ngModel)]="form.best_sellers_section!.cta_href" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-block__header mt-4">
+          <div>
+            <h5 class="mb-1">Cards de categorias</h5>
+            <small class="text-muted">Controla imagen, color de fondo, overlay y posicion dentro de la forma circular.</small>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" type="button" (click)="addCategoryCard()">Agregar categoria</button>
+        </div>
+
+        @if ((form.category_cards || []).length === 0) {
+          <div class="empty-state border rounded p-4 text-center text-muted mb-4">
+            <p class="mb-1">No hay cards configuradas</p>
+            <small>Si lo dejas vacio, el storefront usara las colecciones publicadas como fallback.</small>
+          </div>
+        }
+
+        @for (card of form.category_cards || []; track card.id; let i = $index) {
+          <div class="border rounded p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <strong>Categoria {{ i + 1 }}</strong>
+              <button class="btn btn-outline-danger btn-sm" type="button" (click)="removeCategoryCard(i)">Eliminar</button>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label">Titulo</label>
+                <input class="form-control" [(ngModel)]="card.title" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Href</label>
+                <input class="form-control" [(ngModel)]="card.href" placeholder="/products?collection=principal" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Imagen URL</label>
+                <input class="form-control" [(ngModel)]="card.image" placeholder="https://.../categoria.webp" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Color de fondo</label>
+                <input class="form-control" [(ngModel)]="card.background_color" placeholder="#F2F3F8" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Overlay</label>
+                <input class="form-control" type="number" min="0" max="1" step="0.05" [(ngModel)]="card.overlay_opacity" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Posicion imagen</label>
+                <select class="form-select" [(ngModel)]="card.image_position">
+                  <option value="center">Center</option>
+                  <option value="top">Top</option>
+                  <option value="bottom">Bottom</option>
+                  <option value="left">Left</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="settings-block__header mt-4">
+          <div>
+            <h5 class="mb-1">Features del hero</h5>
+            <small class="text-muted">Beneficios rapidos debajo del hero principal.</small>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" type="button" (click)="addFeature()">Agregar feature</button>
+        </div>
+
+        @for (feature of form.features || []; track feature.id; let i = $index) {
+          <div class="border rounded p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <strong>Feature {{ i + 1 }}</strong>
+              <button class="btn btn-outline-danger btn-sm" type="button" (click)="removeFeature(i)">Eliminar</button>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label">Titulo</label>
+                <input class="form-control" [(ngModel)]="feature.title" />
+              </div>
+              <div class="col-md-5">
+                <label class="form-label">Descripcion</label>
+                <input class="form-control" [(ngModel)]="feature.description" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Icono URL</label>
+                <input class="form-control" [(ngModel)]="feature.image" placeholder="/images/icons/icon-01.svg" />
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="settings-block__header mt-4">
+          <div>
+            <h5 class="mb-1">Banners del home</h5>
+            <small class="text-muted">Estos reemplazan los promo banners globales solo dentro del home.</small>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" type="button" (click)="addPromoBanner()">Agregar banner</button>
+        </div>
+
+        @for (banner of form.promo_banners || []; track banner.id; let i = $index) {
+          <div class="border rounded p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <strong>Banner {{ i + 1 }}</strong>
+              <button class="btn btn-outline-danger btn-sm" type="button" (click)="removePromoBanner(i)">Eliminar</button>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Titulo</label>
+                <input class="form-control" [(ngModel)]="banner.title" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Subtitulo</label>
+                <input class="form-control" [(ngModel)]="banner.subtitle" />
+              </div>
+              <div class="col-12">
+                <label class="form-label">Descripcion</label>
+                <textarea class="form-control" rows="2" [(ngModel)]="banner.description"></textarea>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">CTA label</label>
+                <input class="form-control" [(ngModel)]="banner.cta_label" />
+              </div>
+              <div class="col-md-8">
+                <label class="form-label">CTA href</label>
+                <input class="form-control" [(ngModel)]="banner.cta_href" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Imagen URL</label>
+                <input class="form-control" [(ngModel)]="banner.image_url" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Color fondo</label>
+                <input class="form-control" [(ngModel)]="banner.background_color" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Color acento</label>
+                <input class="form-control" [(ngModel)]="banner.accent_color" />
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="card section-card mt-3">
+          <div class="card-body">
+            <div class="settings-block__header">
+              <div>
+                <h5 class="mb-1">Countdown</h5>
+                <small class="text-muted">Controla el bloque promocional con timer.</small>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-12">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" [(ngModel)]="form.countdown!.enabled" />
+                  <label class="form-check-label">Mostrar countdown</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Eyebrow</label>
+                <input class="form-control" [(ngModel)]="form.countdown!.eyebrow" />
+              </div>
+              <div class="col-md-8">
+                <label class="form-label">Titulo</label>
+                <input class="form-control" [(ngModel)]="form.countdown!.title" />
+              </div>
+              <div class="col-12">
+                <label class="form-label">Descripcion</label>
+                <textarea class="form-control" rows="2" [(ngModel)]="form.countdown!.description"></textarea>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">CTA label</label>
+                <input class="form-control" [(ngModel)]="form.countdown!.cta_label" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">CTA href</label>
+                <input class="form-control" [(ngModel)]="form.countdown!.cta_href" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Deadline ISO</label>
+                <input class="form-control" [(ngModel)]="form.countdown!.deadline" placeholder="2026-12-31T23:59:59" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Color fondo</label>
+                <input class="form-control" [(ngModel)]="form.countdown!.background_color" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Imagen fondo</label>
+                <input class="form-control" [(ngModel)]="form.countdown!.background_image_url" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Imagen producto</label>
+                <input class="form-control" [(ngModel)]="form.countdown!.product_image_url" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card section-card mt-3">
+          <div class="card-body">
+            <div class="settings-block__header">
+              <div>
+                <h5 class="mb-1">Testimonials</h5>
+                <small class="text-muted">Testimonios del home del template.</small>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" type="button" (click)="addTestimonial()">Agregar testimonio</button>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-12">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" [(ngModel)]="form.testimonials!.enabled" />
+                  <label class="form-check-label">Mostrar testimonials</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Eyebrow</label>
+                <input class="form-control" [(ngModel)]="form.testimonials!.eyebrow" />
+              </div>
+              <div class="col-md-8">
+                <label class="form-label">Titulo</label>
+                <input class="form-control" [(ngModel)]="form.testimonials!.title" />
+              </div>
+            </div>
+
+            @for (item of form.testimonials!.items || []; track item.id; let i = $index) {
+              <div class="border rounded p-3 mb-3">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                  <strong>Testimonio {{ i + 1 }}</strong>
+                  <button class="btn btn-outline-danger btn-sm" type="button" (click)="removeTestimonial(i)">Eliminar</button>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Autor</label>
+                    <input class="form-control" [(ngModel)]="item.author_name" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Cargo</label>
+                    <input class="form-control" [(ngModel)]="item.author_role" />
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Review</label>
+                    <textarea class="form-control" rows="3" [(ngModel)]="item.review"></textarea>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Imagen autor URL</label>
+                    <input class="form-control" [(ngModel)]="item.author_image" placeholder="/images/users/user-01.jpg" />
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="card section-card mt-3">
+          <div class="card-body">
+            <div class="settings-block__header">
+              <div>
+                <h5 class="mb-1">Newsletter</h5>
+                <small class="text-muted">Controla el bloque final de captacion del home.</small>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-12">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" [(ngModel)]="form.newsletter!.enabled" />
+                  <label class="form-check-label">Mostrar newsletter</label>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Titulo</label>
+                <input class="form-control" [(ngModel)]="form.newsletter!.title" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Placeholder</label>
+                <input class="form-control" [(ngModel)]="form.newsletter!.placeholder" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Boton</label>
+                <input class="form-control" [(ngModel)]="form.newsletter!.button_label" />
+              </div>
+              <div class="col-12">
+                <label class="form-label">Descripcion</label>
+                <textarea class="form-control" rows="2" [(ngModel)]="form.newsletter!.description"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Imagen de fondo URL</label>
+                <input class="form-control" [(ngModel)]="form.newsletter!.background_image_url" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end mt-4">
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving">Guardar home</button>
+        </div>
+      }
+    </div>
+  </div>
+</div>

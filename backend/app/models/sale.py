@@ -56,6 +56,7 @@ class Sale(BaseModel):
     client = relationship("Client")
     items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="sale", cascade="all, delete-orphan")
+    storefront_order = relationship("StorefrontOrder", back_populates="sale", uselist=False)
 
 class SaleItem(BaseModel):
     __tablename__ = "sale_items"

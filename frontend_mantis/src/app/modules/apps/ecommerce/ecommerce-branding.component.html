@@ -1,0 +1,368 @@
+<div class="ecommerce-section">
+  <div class="section-header d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div>
+      <h4 class="mb-1">Branding</h4>
+      <p class="text-muted mb-0">Administra identidad visual, contacto, redes y promos globales del storefront desde un modulo separado.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <select class="form-select storefront-switcher" [(ngModel)]="selectedStorefrontId" (change)="onStorefrontChange()">
+        <option value="">Selecciona una tienda</option>
+        @for (storefront of storefronts; track storefront.id) {
+          <option [value]="storefront.id">{{ storefront.name }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="card section-card">
+    <div class="card-body">
+      @if (!storefront) {
+        <div class="empty-state border rounded p-4 text-center text-muted">
+          <p class="mb-1">Selecciona una tienda</p>
+          <small>Necesitas elegir una tienda para editar el branding.</small>
+        </div>
+      }
+
+      @if (storefront) {
+        <div class="settings-block__header">
+          <div>
+            <h5 class="mb-1">Identidad del storefront</h5>
+            <small class="text-muted">Estos datos alimentan header, footer, contacto y banners de marca.</small>
+          </div>
+          <span class="settings-pill">{{ storefront.name }}</span>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Logo URL</label>
+            <input class="form-control" [(ngModel)]="brandingForm.logo_url" placeholder="https://.../logo.png" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Telefono de soporte</label>
+            <input class="form-control" [(ngModel)]="brandingForm.support_phone" placeholder="+57 300 000 0000" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email de soporte</label>
+            <input class="form-control" [(ngModel)]="brandingForm.support_email" placeholder="soporte@marca.com" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Website</label>
+            <input class="form-control" [(ngModel)]="brandingForm.website" placeholder="https://marca.com" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Direccion de soporte</label>
+            <input class="form-control" [(ngModel)]="brandingForm.support_address" placeholder="Direccion o ciudad principal" />
+          </div>
+          <div class="col-12">
+            <label class="form-label">Texto de footer</label>
+            <textarea class="form-control" rows="2" [(ngModel)]="brandingForm.footer_text" placeholder="Texto corto para el pie del storefront"></textarea>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-md-6">
+            <label class="form-label">Facebook</label>
+            <input class="form-control" [(ngModel)]="brandingForm.social_links!.facebook" placeholder="https://facebook.com/..." />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Instagram</label>
+            <input class="form-control" [(ngModel)]="brandingForm.social_links!.instagram" placeholder="https://instagram.com/..." />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Twitter / X</label>
+            <input class="form-control" [(ngModel)]="brandingForm.social_links!.twitter" placeholder="https://x.com/..." />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">LinkedIn</label>
+            <input class="form-control" [(ngModel)]="brandingForm.social_links!.linkedin" placeholder="https://linkedin.com/..." />
+          </div>
+        </div>
+
+        <div class="settings-block__header mt-4">
+          <div>
+            <h5 class="mb-1">Header</h5>
+            <small class="text-muted">Controla textos del encabezado sin tocar la navegacion principal.</small>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Label soporte</label>
+            <input class="form-control" [(ngModel)]="headerForm.support_label" placeholder="24/7 SUPPORT" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Placeholder buscador</label>
+            <input class="form-control" [(ngModel)]="headerForm.search_placeholder" placeholder="I am shopping for..." />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Titulo cuenta</label>
+            <input class="form-control" [(ngModel)]="headerForm.account_heading" placeholder="account" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Texto invitado</label>
+            <input class="form-control" [(ngModel)]="headerForm.guest_account_label" placeholder="Sign In" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Texto logout</label>
+            <input class="form-control" [(ngModel)]="headerForm.sign_out_label" placeholder="Sign Out" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Titulo carrito</label>
+            <input class="form-control" [(ngModel)]="headerForm.cart_heading" placeholder="cart" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Link vistos recientemente</label>
+            <input class="form-control" [(ngModel)]="headerForm.recently_viewed_label" placeholder="Recently Viewed" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Link wishlist</label>
+            <input class="form-control" [(ngModel)]="headerForm.wishlist_label" placeholder="Wishlist" />
+          </div>
+        </div>
+
+        <div class="settings-block__header mt-4">
+          <div>
+            <h5 class="mb-1">Footer</h5>
+            <small class="text-muted">Ajusta titulos, links y bloques del pie del storefront.</small>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Titulo ayuda</label>
+            <input class="form-control" [(ngModel)]="footerForm.help_title" placeholder="Help & Support" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Titulo cuenta</label>
+            <input class="form-control" [(ngModel)]="footerForm.account_title" placeholder="Account" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Titulo links rapidos</label>
+            <input class="form-control" [(ngModel)]="footerForm.quick_links_title" placeholder="Quick Link" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Titulo app</label>
+            <input class="form-control" [(ngModel)]="footerForm.app_title" placeholder="Download App" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Texto app</label>
+            <input class="form-control" [(ngModel)]="footerForm.app_description" placeholder="Exclusive savings for app users" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Titulo pagos</label>
+            <input class="form-control" [(ngModel)]="footerForm.payment_title" placeholder="We Accept:" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label d-block">Mostrar redes</label>
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" [(ngModel)]="footerForm.show_social_links" />
+              <label class="form-check-label">Mostrar iconos sociales</label>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label d-block">Mostrar apps</label>
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" [(ngModel)]="footerForm.show_app_downloads" />
+              <label class="form-check-label">Mostrar bloque App Store / Google Play</label>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label d-block">Mostrar pagos</label>
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" [(ngModel)]="footerForm.show_payment_methods" />
+              <label class="form-check-label">Mostrar metodos de pago</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-md-6">
+            <label class="form-label">App Store subtitulo</label>
+            <input class="form-control" [(ngModel)]="footerForm.app_store_subtitle" placeholder="Download on the" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">App Store label</label>
+            <input class="form-control" [(ngModel)]="footerForm.app_store_label" placeholder="App Store" />
+          </div>
+          <div class="col-12">
+            <label class="form-label">App Store URL</label>
+            <input class="form-control" [(ngModel)]="footerForm.app_store_url" placeholder="https://apps.apple.com/..." />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Google Play subtitulo</label>
+            <input class="form-control" [(ngModel)]="footerForm.play_store_subtitle" placeholder="Get it on" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Google Play label</label>
+            <input class="form-control" [(ngModel)]="footerForm.play_store_label" placeholder="Google Play" />
+          </div>
+          <div class="col-12">
+            <label class="form-label">Google Play URL</label>
+            <input class="form-control" [(ngModel)]="footerForm.play_store_url" placeholder="https://play.google.com/..." />
+          </div>
+        </div>
+
+        <div class="settings-block__header mt-4">
+          <div>
+            <h5 class="mb-1">Links de footer</h5>
+            <small class="text-muted">Edita los enlaces de las columnas Account y Quick Link.</small>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-xl-6">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <strong>Account links</strong>
+              <button class="btn btn-outline-primary btn-sm" type="button" (click)="addFooterLink('account_links')">Agregar</button>
+            </div>
+            @for (link of footerForm.account_links || []; track $index; let i = $index) {
+              <div class="border rounded p-3 mb-2">
+                <div class="row g-2">
+                  <div class="col-5">
+                    <input class="form-control" [(ngModel)]="link.label" placeholder="Label" />
+                  </div>
+                  <div class="col-5">
+                    <input class="form-control" [(ngModel)]="link.href" placeholder="/account" />
+                  </div>
+                  <div class="col-2 d-flex align-items-center">
+                    <button class="btn btn-outline-danger btn-sm w-100" type="button" (click)="removeFooterLink('account_links', i)">Quitar</button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          <div class="col-12 col-xl-6">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <strong>Quick links</strong>
+              <button class="btn btn-outline-primary btn-sm" type="button" (click)="addFooterLink('quick_links')">Agregar</button>
+            </div>
+            @for (link of footerForm.quick_links || []; track $index; let i = $index) {
+              <div class="border rounded p-3 mb-2">
+                <div class="row g-2">
+                  <div class="col-5">
+                    <input class="form-control" [(ngModel)]="link.label" placeholder="Label" />
+                  </div>
+                  <div class="col-5">
+                    <input class="form-control" [(ngModel)]="link.href" placeholder="/contact" />
+                  </div>
+                  <div class="col-2 d-flex align-items-center">
+                    <button class="btn btn-outline-danger btn-sm w-100" type="button" (click)="removeFooterLink('quick_links', i)">Quitar</button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="settings-block__header mt-4">
+          <div>
+            <h5 class="mb-1">Metodos de pago</h5>
+            <small class="text-muted">Configura los logos del pie. Puedes usar rutas internas del storefront o URLs publicas.</small>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" type="button" (click)="addPaymentMethod()">Agregar metodo</button>
+        </div>
+
+        @if ((footerForm.payment_methods || []).length === 0) {
+          <div class="empty-state border rounded p-4 text-center text-muted">
+            <p class="mb-1">Aun no hay metodos de pago configurados</p>
+            <small>Si no agregas nada, el storefront usara los iconos por defecto del template.</small>
+          </div>
+        }
+
+        @for (method of footerForm.payment_methods || []; track $index; let i = $index) {
+          <div class="border rounded p-3 mt-3">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <div>
+                <strong class="d-block">Metodo {{ i + 1 }}</strong>
+                <small class="text-muted">Se muestra en la franja inferior del footer.</small>
+              </div>
+              <button class="btn btn-outline-danger btn-sm" type="button" (click)="removePaymentMethod(i)">Eliminar</button>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label">Label</label>
+                <input class="form-control" [(ngModel)]="method.label" placeholder="Visa" />
+              </div>
+              <div class="col-md-5">
+                <label class="form-label">Icono URL</label>
+                <input class="form-control" [(ngModel)]="method.icon_url" placeholder="/images/payment/payment-01.svg" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Href</label>
+                <input class="form-control" [(ngModel)]="method.href" placeholder="https://..." />
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="settings-block__header mt-4">
+          <div>
+            <h5 class="mb-1">Promos globales</h5>
+            <small class="text-muted">Banners de marca reutilizables. El home puede usar sus propios banners si se configuran en el modulo Home.</small>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" type="button" (click)="addPromoBanner()">Agregar promo</button>
+        </div>
+
+        @if ((brandingForm.promo_banners || []).length === 0) {
+          <div class="empty-state border rounded p-4 text-center text-muted">
+            <p class="mb-1">Aun no hay promos de branding</p>
+            <small>Si el home no define banners propios, usara estas promos como fallback.</small>
+          </div>
+        }
+
+        @for (banner of brandingForm.promo_banners || []; track banner.id; let i = $index) {
+          <div class="border rounded p-3 mt-3">
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <div>
+                <strong class="d-block">Promo {{ i + 1 }}</strong>
+                <small class="text-muted">Solo se publica si tiene titulo.</small>
+              </div>
+              <button class="btn btn-outline-danger btn-sm" type="button" (click)="removePromoBanner(i)">Eliminar</button>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Titulo</label>
+                <input class="form-control" [(ngModel)]="banner.title" placeholder="Ej. New season drop" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Subtitulo</label>
+                <input class="form-control" [(ngModel)]="banner.subtitle" placeholder="Texto corto de apoyo" />
+              </div>
+              <div class="col-12">
+                <label class="form-label">Descripcion</label>
+                <textarea class="form-control" rows="2" [(ngModel)]="banner.description" placeholder="Mensaje principal del banner"></textarea>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">CTA label</label>
+                <input class="form-control" [(ngModel)]="banner.cta_label" placeholder="Shop now" />
+              </div>
+              <div class="col-md-8">
+                <label class="form-label">CTA href</label>
+                <input class="form-control" [(ngModel)]="banner.cta_href" placeholder="/products" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Imagen URL</label>
+                <input class="form-control" [(ngModel)]="banner.image_url" placeholder="https://.../banner.webp" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Color fondo</label>
+                <input class="form-control" [(ngModel)]="banner.background_color" placeholder="#F5F1EA" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Color acento</label>
+                <input class="form-control" [(ngModel)]="banner.accent_color" placeholder="#111827" />
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="d-flex justify-content-end mt-4">
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving">Guardar branding</button>
+        </div>
+      }
+    </div>
+  </div>
+</div>

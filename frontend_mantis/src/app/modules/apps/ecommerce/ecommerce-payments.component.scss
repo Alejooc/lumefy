@@ -1,0 +1,195 @@
+.ecommerce-section {
+  .section-header {
+    margin-bottom: 0.5rem;
+  }
+
+  .form-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .card {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+  }
+
+  .section-card {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  }
+
+  .storefront-switcher {
+    min-width: 220px;
+  }
+
+  .empty-state {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  }
+
+  .modal-backdrop-soft {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 1040;
+  }
+
+  .collection-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+
+  .settings-block__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .settings-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 0.76rem;
+    font-weight: 700;
+  }
+
+  .form-hint {
+    display: block;
+    margin-top: 0.35rem;
+    color: #64748b;
+    font-size: 0.76rem;
+  }
+
+  .settings-switch-grid {
+    display: grid;
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .gateway-catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .gateway-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    gap: 0.3rem;
+    width: 100%;
+    padding: 1rem;
+    border-radius: 16px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .gateway-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(37, 99, 235, 0.22);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  }
+
+  .gateway-card.is-configured {
+    border-color: rgba(15, 118, 110, 0.22);
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.08);
+  }
+
+  .gateway-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .gateway-card__accent {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: #94a3b8;
+    flex: 0 0 auto;
+  }
+
+  .gateway-card__accent[data-accent='indigo'] {
+    background: #6366f1;
+  }
+
+  .gateway-card__accent[data-accent='emerald'] {
+    background: #10b981;
+  }
+
+  .gateway-card__accent[data-accent='amber'] {
+    background: #f59e0b;
+  }
+
+  .gateway-card__accent[data-accent='rose'] {
+    background: #f43f5e;
+  }
+
+  .gateway-card__accent[data-accent='slate'] {
+    background: #64748b;
+  }
+
+  .gateway-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: auto;
+    color: #64748b;
+    font-size: 0.76rem;
+  }
+
+  .gateway-card__meta span {
+    padding: 0.2rem 0.45rem;
+    border-radius: 999px;
+    background: #f8fafc;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+  }
+
+  .gateway-pill--active {
+    background: #ecfdf5;
+    color: #047857;
+  }
+
+  .navigation-modal-card {
+    width: min(760px, 100%);
+    max-height: calc(100vh - 3rem);
+    overflow: hidden;
+  }
+
+  .modal-scroll-body {
+    max-height: calc(100vh - 11rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 0.25rem;
+  }
+
+  .modal-scroll-body::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .modal-scroll-body::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    border-radius: 999px;
+  }
+
+  @media (max-width: 991.98px) {
+    .gateway-catalog-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+}

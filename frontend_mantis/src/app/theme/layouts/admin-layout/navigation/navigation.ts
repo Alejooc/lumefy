@@ -384,6 +384,97 @@ export const NavigationItems: NavigationItem[] = [
         permissions: ['manage_company']
       },
       {
+        id: 'apps-ecommerce',
+        title: 'Ecommerce',
+        type: 'collapse',
+        icon: 'shop',
+        url: '/apps/ecommerce',
+        permissions: ['manage_company'],
+        children: [
+          {
+            id: 'apps-ecommerce-overview',
+            title: 'Resumen',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/apps/ecommerce',
+            breadcrumbs: false,
+            permissions: ['manage_company']
+          },
+          {
+            id: 'apps-ecommerce-settings',
+            title: 'General',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/apps/ecommerce/settings',
+            breadcrumbs: false,
+            permissions: ['manage_company']
+          },
+          {
+            id: 'apps-ecommerce-branding',
+            title: 'Branding',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/apps/ecommerce/branding',
+            breadcrumbs: false,
+            permissions: ['manage_company']
+          },
+          {
+            id: 'apps-ecommerce-home',
+            title: 'Home',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/apps/ecommerce/home',
+            breadcrumbs: false,
+            permissions: ['manage_company']
+          },
+          {
+            id: 'apps-ecommerce-checkout',
+            title: 'Checkout',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/apps/ecommerce/checkout',
+            breadcrumbs: false,
+            permissions: ['manage_company']
+          },
+          {
+            id: 'apps-ecommerce-seo',
+            title: 'SEO',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/apps/ecommerce/seo',
+            breadcrumbs: false,
+            permissions: ['manage_company']
+          },
+          {
+            id: 'apps-ecommerce-collections',
+            title: 'Colecciones',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/apps/ecommerce/collections',
+            breadcrumbs: false,
+            permissions: ['manage_company']
+          },
+          {
+            id: 'apps-ecommerce-navigation',
+            title: 'Menu',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/apps/ecommerce/navigation',
+            breadcrumbs: false,
+            permissions: ['manage_company']
+          },
+          {
+            id: 'apps-ecommerce-payments',
+            title: 'Pagos',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/apps/ecommerce/payments',
+            breadcrumbs: false,
+            permissions: ['manage_company']
+          }
+        ]
+      },
+      {
         id: 'apps-installed',
         title: 'Apps Instaladas',
         type: 'collapse',

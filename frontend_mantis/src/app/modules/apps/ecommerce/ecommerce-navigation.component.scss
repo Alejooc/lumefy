@@ -1,0 +1,191 @@
+.ecommerce-section {
+  .nav-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .nav-quick-action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding: 1rem;
+    text-align: left;
+    border-radius: 16px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    color: #0f172a;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .nav-quick-action:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: rgba(37, 99, 235, 0.24);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  }
+
+  .nav-quick-action:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+
+  .nav-quick-action strong {
+    font-size: 0.92rem;
+  }
+
+  .nav-quick-action small {
+    color: #64748b;
+  }
+
+  .navigation-children {
+    display: grid;
+    gap: 0.85rem;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+    padding-top: 1rem;
+  }
+
+  .navigation-children__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .navigation-children__empty {
+    padding: 1rem;
+    border-radius: 16px;
+    border: 1px dashed rgba(15, 23, 42, 0.14);
+    color: #64748b;
+    background: #fff;
+  }
+
+  .navigation-child-card {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem;
+    border-radius: 18px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  }
+
+  .navigation-child-card--muted {
+    opacity: 0.65;
+  }
+
+  .navigation-child-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .navigation-modal-card {
+    width: min(760px, 100%);
+    max-height: calc(100vh - 3rem);
+    overflow: hidden;
+  }
+
+  .navigation-modal__header,
+  .navigation-modal__footer {
+    padding: 1rem 1.25rem;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  }
+
+  .navigation-modal__header {
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .navigation-modal__body {
+    max-height: calc(100vh - 15rem);
+    overflow: auto;
+  }
+
+  .navigation-modal__footer {
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .gateway-editor-summary {
+    padding: 0.9rem 1rem;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    margin-bottom: 1rem;
+  }
+
+  .nav-tree {
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .nav-tree__item {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    padding: 1rem;
+  }
+
+  .nav-type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: #334155;
+  }
+
+  .nav-type-badge[data-tone='teal'] {
+    background: #ecfeff;
+    color: #155e75;
+  }
+
+  .nav-type-badge[data-tone='amber'] {
+    background: #fffbeb;
+    color: #b45309;
+  }
+
+  .nav-type-badge[data-tone='indigo'] {
+    background: #eef2ff;
+    color: #4338ca;
+  }
+
+  .nav-tree__row,
+  .nav-tree__child {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .nav-tree__children {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    padding-left: 1rem;
+    border-top: 1px dashed rgba(15, 23, 42, 0.12);
+  }
+
+  .nav-tree__child {
+    padding: 0.75rem 0.85rem;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .nav-order-button {
+    min-width: 64px;
+  }
+
+  @media (max-width: 991.98px) {
+    .nav-quick-actions {
+      grid-template-columns: 1fr;
+    }
+
+    .navigation-modal__body {
+      max-height: calc(100vh - 13rem);
+    }
+  }
+}

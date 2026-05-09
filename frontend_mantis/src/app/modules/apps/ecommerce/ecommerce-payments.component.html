@@ -1,0 +1,210 @@
+<div class="ecommerce-section">
+  @if (accessDenied || loadError) {
+    <div class="card section-card">
+      <div class="card-body">
+        <div class="empty-state border rounded p-4 text-center text-muted">
+          <p class="mb-1">{{ accessDenied ? 'Sin acceso al modulo' : 'No se pudo cargar Pagos' }}</p>
+          <small>{{ loadError }}</small>
+        </div>
+      </div>
+    </div>
+  } @else if (loading && storefronts.length === 0) {
+    <div class="card section-card">
+      <div class="card-body">
+        <div class="empty-state border rounded p-4 text-center text-muted">
+          <p class="mb-1">Cargando modulo de pagos</p>
+          <small>Estamos consultando la tienda ecommerce y las pasarelas configuradas.</small>
+        </div>
+      </div>
+    </div>
+  } @else if (!loading && storefronts.length === 0) {
+    <div class="card section-card">
+      <div class="card-body">
+        <div class="empty-state border rounded p-4 text-center text-muted">
+          <p class="mb-1">Aun no tienes una tienda ecommerce creada</p>
+          <small>Primero crea la tienda en Configuracion para luego activar y administrar pasarelas.</small>
+        </div>
+      </div>
+    </div>
+  } @else {
+  <div class="section-header d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div>
+      <h4 class="mb-1">Pagos</h4>
+      <p class="text-muted mb-0">Activa pasarelas por tienda, define prioridad y centraliza credenciales sin mezclar todo en un solo formulario.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <select class="form-select storefront-switcher" [(ngModel)]="selectedStorefrontId" (change)="onStorefrontChange()">
+        <option value="">Selecciona una tienda</option>
+        @for (storefront of storefronts; track storefront.id) {
+          <option [value]="storefront.id">{{ storefront.name }} ({{ storefront.slug }})</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  @if (!selectedStorefrontId) {
+    <div class="card section-card mt-3">
+      <div class="card-body">
+        <div class="empty-state border rounded p-4 text-center text-muted">
+          <p class="mb-1">Selecciona una tienda</p>
+          <small>Necesitas una tienda activa para organizar proveedores, credenciales y orden de checkout.</small>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (selectedStorefrontId) {
+    <div class="card section-card mt-3">
+      <div class="card-body">
+        <div class="settings-block__header">
+          <div>
+            <h5 class="mb-1">Pasarelas disponibles</h5>
+            <small class="text-muted">Toca una pasarela para abrir su configuracion en una modal.</small>
+          </div>
+          <span class="settings-pill">{{ paymentGateways.length }} configuradas</span>
+        </div>
+
+        <div class="gateway-catalog-grid">
+          @for (provider of gatewayProviders; track provider) {
+            <button
+              type="button"
+              class="gateway-card"
+              [class.is-configured]="!!configuredGateway(provider)"
+              (click)="openGatewayCard(provider)"
+            >
+              <div class="gateway-card__top">
+                <span class="gateway-card__accent" [attr.data-accent]="gatewayMeta[provider].accent"></span>
+                <span class="settings-pill" [class.gateway-pill--active]="configuredGateway(provider)?.is_enabled">
+                  {{ configuredGateway(provider) ? 'Configurada' : 'Disponible' }}
+                </span>
+              </div>
+              <strong class="d-block mb-1">{{ providerLabel(provider) }}</strong>
+              <small class="text-muted d-block mb-3">{{ providerDescription(provider) }}</small>
+              @if (configuredGateway(provider); as gateway) {
+                <div class="gateway-card__meta">
+                  <span>{{ gateway.display_name || providerLabel(provider) }}</span>
+                  <span>{{ gateway.is_sandbox ? 'Sandbox' : 'Produccion' }}</span>
+                  <span>{{ gateway.is_enabled ? 'Activa' : 'Inactiva' }}</span>
+                </div>
+              } @else {
+                <div class="gateway-card__meta">
+                  <span>Lista para configurar</span>
+                </div>
+              }
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (showEditor) {
+    <div class="modal-backdrop-soft" (click)="closeEditor()"></div>
+    <div class="collection-modal">
+      <div class="card navigation-modal-card">
+        <div class="card-body">
+          <div class="settings-block__header">
+            <div>
+              <h5 class="mb-1">{{ editingId ? 'Editar pasarela' : 'Nueva pasarela' }}</h5>
+              <small class="text-muted">{{ providerDescription(form.provider) }}</small>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" (click)="closeEditor()">Cerrar</button>
+          </div>
+
+          <div class="modal-scroll-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Proveedor</label>
+                <select class="form-select" [(ngModel)]="form.provider" (change)="applyProviderPreset()">
+                  @for (provider of gatewayProviders; track provider) {
+                    <option [value]="provider">{{ providerLabel(provider) }}</option>
+                  }
+                </select>
+                <small class="form-hint">{{ providerDescription(form.provider) }}</small>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Nombre visible</label>
+                <input class="form-control" [(ngModel)]="form.display_name" placeholder="Nombre mostrado al cliente" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">{{ merchantLabel(form.provider) }}</label>
+                <input class="form-control" [(ngModel)]="form.merchant_id" [placeholder]="merchantPlaceholder(form.provider)" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Orden en checkout</label>
+                <input class="form-control" type="number" [(ngModel)]="form.sort_order" />
+              </div>
+              <div class="col-12">
+                <label class="form-label">{{ publicLabel(form.provider) }}</label>
+                <input class="form-control" [(ngModel)]="form.public_key" [placeholder]="publicPlaceholder(form.provider)" />
+              </div>
+              <div class="col-12">
+                <label class="form-label">{{ secretLabel(form.provider) }}</label>
+                <input class="form-control" [(ngModel)]="form.secret_key_encrypted" [placeholder]="secretPlaceholder(form.provider)" />
+              </div>
+              @if (providerFields.length > 0) {
+                <div class="col-12">
+                  <div class="gateway-extra-panel">
+                    <div class="settings-block__header mb-0">
+                      <div>
+                        <h6 class="mb-1">Campos especificos</h6>
+                        <small class="text-muted">Solo se muestran los campos relevantes para {{ providerLabel(form.provider) }}.</small>
+                      </div>
+                    </div>
+
+                    <div class="row g-3 mt-0">
+                      @for (field of providerFields; track field.key) {
+                        <div class="col-12">
+                          <label class="form-label">{{ field.label }}</label>
+                          @if (field.key === 'instructions') {
+                            <textarea
+                              class="form-control"
+                              rows="3"
+                              [ngModel]="extraFieldValue(field.key)"
+                              (ngModelChange)="setExtraFieldValue(field.key, $event)"
+                              [placeholder]="field.placeholder"
+                            ></textarea>
+                          } @else {
+                            <input
+                              class="form-control"
+                              [ngModel]="extraFieldValue(field.key)"
+                              (ngModelChange)="setExtraFieldValue(field.key, $event)"
+                              [placeholder]="field.placeholder"
+                            />
+                          }
+                          @if (field.help) {
+                            <small class="form-hint">{{ field.help }}</small>
+                          }
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+              <div class="col-12">
+                <div class="settings-switch-grid">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" [(ngModel)]="form.is_enabled" />
+                    <label class="form-check-label">Mostrar pasarela en checkout</label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" [(ngModel)]="form.is_sandbox" />
+                    <label class="form-check-label">Usar modo sandbox</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-outline-secondary" (click)="closeEditor()">Cancelar</button>
+            <button class="btn btn-primary ms-auto" (click)="save()" [disabled]="saving || !selectedStorefrontId">
+              {{ editingId ? 'Guardar cambios' : 'Crear pasarela' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+  }
+</div>

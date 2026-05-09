@@ -67,3 +67,31 @@ class EmailService:
         </html>
         """
         await EmailService.send_email(email_to, subject, html_content)
+
+    @staticmethod
+    async def send_storefront_reset_password_email(
+        email_to: str,
+        token: str,
+        storefront_name: str,
+        reset_link: str,
+    ):
+        subject = f"{storefront_name} - Password reset"
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif;">
+                <div style="background-color: #f4f6f9; padding: 20px;">
+                    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px;">
+                        <h2 style="color: #1a237e; text-align: center;">{storefront_name}</h2>
+                        <h3 style="color: #333;">Reset your password</h3>
+                        <p style="color: #555;">We received a request to reset your password.</p>
+                        <p style="color: #555;">If you did not request this change, you can ignore this email.</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="{reset_link}" style="background-color: #1a237e; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Reset Password</a>
+                        </div>
+                        <p style="color: #999; font-size: 12px; text-align: center;">This link expires in 1 hour.</p>
+                    </div>
+                </div>
+            </body>
+        </html>
+        """
+        await EmailService.send_email(email_to, subject, html_content)

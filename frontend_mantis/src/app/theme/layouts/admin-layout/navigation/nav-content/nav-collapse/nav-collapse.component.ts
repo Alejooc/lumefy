@@ -1,7 +1,7 @@
 // Angular import
 import { Component, input, output, inject } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 
 // project import
 import { NavigationItem } from '../../navigation';
@@ -16,6 +16,7 @@ import { NavItemComponent } from '../nav-item/nav-item.component';
 })
 export class NavCollapseComponent {
   private location = inject(Location);
+  private router = inject(Router);
 
   // public props
   readonly showCollapseItem = output<NavigationItem>();
@@ -56,6 +57,10 @@ export class NavCollapseComponent {
 
   // Method to handle the collapse of the navigation menu
   navCollapse(e: MouseEvent) {
+    if (this.item().url) {
+      this.router.navigateByUrl(this.item().url);
+    }
+
     let parent = e.target as HTMLElement;
 
     if (parent?.tagName === 'SPAN') {

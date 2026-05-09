@@ -37,6 +37,16 @@ from app.models.unit_of_measure import UnitOfMeasure
 from app.models.product_variant import ProductVariant
 from app.models.product_image import ProductImage
 from app.models.logistics import PackageType, SalePackage, SalePackageItem
+from app.models.storefront import (
+    Storefront,
+    StorefrontDomain,
+    StoreCollection,
+    PublishedProduct,
+    StoreCollectionProduct,
+    StoreNavigationItem,
+    StorePaymentGateway,
+    StorefrontOrder,
+)
 
 from app.core.config import settings
 
