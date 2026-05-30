@@ -52,13 +52,13 @@ export class ClientViewComponent implements OnInit {
     constructor() {
         this.paymentForm = this.fb.group({
             amount: [null, [Validators.required, Validators.min(0.01)]],
-            reference_id: [''],
-            description: ['Abono a cuenta', [Validators.required]]
+            reference_id: ['', [Validators.maxLength(80)]],
+            description: ['Abono a cuenta', [Validators.required, Validators.minLength(3), Validators.maxLength(160)]]
         });
 
         this.activityForm = this.fb.group({
             type: ['NOTE', Validators.required],
-            content: ['', [Validators.required, Validators.minLength(3)]]
+            content: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(500)]]
         });
     }
 
@@ -163,10 +163,17 @@ export class ClientViewComponent implements OnInit {
     }
 
     submitPayment() {
-        if (this.paymentForm.invalid) return;
+        if (this.paymentForm.invalid) {
+            this.paymentForm.markAllAsTouched();
+            return;
+        }
 
         this.isSubmittingPayment = true;
-        const paymentData = this.paymentForm.value as { amount: number; reference_id?: string; description: string };
+        const paymentData = {
+            amount: this.paymentForm.getRawValue().amount,
+            reference_id: this.paymentForm.getRawValue().reference_id?.trim() || null,
+            description: this.paymentForm.getRawValue().description?.trim()
+        } as { amount: number; reference_id?: string | null; description: string };
 
         this.clientService.registerPayment(this.clientId, paymentData).subscribe({
             next: () => {
@@ -184,9 +191,15 @@ export class ClientViewComponent implements OnInit {
     }
 
     submitActivity() {
-        if (this.activityForm.invalid) return;
+        if (this.activityForm.invalid) {
+            this.activityForm.markAllAsTouched();
+            return;
+        }
         this.isSubmittingActivity = true;
-        this.clientService.createActivity(this.clientId, this.activityForm.value).subscribe({
+        this.clientService.createActivity(this.clientId, {
+            ...this.activityForm.getRawValue(),
+            content: this.activityForm.getRawValue().content?.trim()
+        }).subscribe({
             next: () => {
                 this.isSubmittingActivity = false;
                 this.activityForm.reset({ type: 'NOTE', content: '' });

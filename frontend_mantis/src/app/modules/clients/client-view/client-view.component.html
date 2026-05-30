@@ -152,7 +152,23 @@
                   <div class="mb-3">
                     <label class="form-label">Contenido</label>
                     <textarea class="form-control" formControlName="content" rows="4"
-                    placeholder="¿Qué pasó con el cliente?"></textarea>
+                    placeholder="¿Qué pasó con el cliente?"
+                    [class.is-invalid]="activityForm.get('content')?.invalid && activityForm.get('content')?.touched"></textarea>
+                    @if (activityForm.get('content')?.errors?.['required']) {
+                      <div class="invalid-feedback">
+                        Debes registrar una descripción
+                      </div>
+                    }
+                    @if (activityForm.get('content')?.errors?.['minlength']) {
+                      <div class="invalid-feedback">
+                        La descripción debe tener minimo 3 caracteres
+                      </div>
+                    }
+                    @if (activityForm.get('content')?.errors?.['maxlength']) {
+                      <div class="invalid-feedback">
+                        La descripción no puede superar 500 caracteres
+                      </div>
+                    }
                   </div>
                   <button type="submit" class="btn btn-primary w-100"
                     [disabled]="activityForm.invalid || isSubmittingActivity">
@@ -351,17 +367,50 @@
             <label class="form-label fw-bold">Monto a abonar</label>
             <div class="input-group">
               <span class="input-group-text">{{ currencySymbol }}</span>
-              <input type="number" class="form-control form-control-lg" formControlName="amount">
+              <input type="number" class="form-control form-control-lg" formControlName="amount"
+                [class.is-invalid]="paymentForm.get('amount')?.invalid && paymentForm.get('amount')?.touched">
             </div>
+            @if (paymentForm.get('amount')?.errors?.['required']) {
+              <div class="invalid-feedback d-block">
+                El monto es obligatorio
+              </div>
+            }
+            @if (paymentForm.get('amount')?.errors?.['min']) {
+              <div class="invalid-feedback d-block">
+                El monto debe ser mayor a 0
+              </div>
+            }
           </div>
           <div class="mb-3">
             <label class="form-label fw-bold">Método / Referencia</label>
             <input type="text" class="form-control" formControlName="reference_id"
-              placeholder="Nro de comprobante">
+              placeholder="Nro de comprobante"
+              [class.is-invalid]="paymentForm.get('reference_id')?.invalid && paymentForm.get('reference_id')?.touched">
+            @if (paymentForm.get('reference_id')?.errors?.['maxlength']) {
+              <div class="invalid-feedback">
+                La referencia no puede superar 80 caracteres
+              </div>
+            }
             </div>
             <div class="mb-3">
               <label class="form-label fw-bold">Notas del pago</label>
-              <textarea class="form-control" formControlName="description" rows="2"></textarea>
+              <textarea class="form-control" formControlName="description" rows="2"
+                [class.is-invalid]="paymentForm.get('description')?.invalid && paymentForm.get('description')?.touched"></textarea>
+              @if (paymentForm.get('description')?.errors?.['required']) {
+                <div class="invalid-feedback">
+                  La descripción del pago es obligatoria
+                </div>
+              }
+              @if (paymentForm.get('description')?.errors?.['minlength']) {
+                <div class="invalid-feedback">
+                  La descripción debe tener minimo 3 caracteres
+                </div>
+              }
+              @if (paymentForm.get('description')?.errors?.['maxlength']) {
+                <div class="invalid-feedback">
+                  La descripción no puede superar 160 caracteres
+                </div>
+              }
             </div>
           </form>
         </div>

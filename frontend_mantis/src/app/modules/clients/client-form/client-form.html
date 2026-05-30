@@ -12,10 +12,31 @@
                   El nombre es requerido
                 </div>
               }
+              @if (form.get('name')?.errors?.['minlength']) {
+                <div class="invalid-feedback">
+                  El nombre debe tener minimo 2 caracteres
+                </div>
+              }
+              @if (form.get('name')?.errors?.['maxlength']) {
+                <div class="invalid-feedback">
+                  El nombre no puede superar 120 caracteres
+                </div>
+              }
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">Identificación (RUC/NIT/DNI)</label>
-              <input type="text" class="form-control" formControlName="tax_id">
+              <input type="text" class="form-control" formControlName="tax_id"
+                [class.is-invalid]="form.get('tax_id')?.invalid && form.get('tax_id')?.touched">
+              @if (form.get('tax_id')?.errors?.['pattern']) {
+                <div class="invalid-feedback">
+                  Solo se permiten letras, numeros, espacios, punto, slash y guion
+                </div>
+              }
+              @if (form.get('tax_id')?.errors?.['maxlength']) {
+                <div class="invalid-feedback">
+                  La identificación no puede superar 30 caracteres
+                </div>
+              }
             </div>
           </div>
 
@@ -24,21 +45,38 @@
               <label class="form-label">Email</label>
               <input type="email" class="form-control" formControlName="email"
                 [class.is-invalid]="form.get('email')?.invalid && form.get('email')?.touched">
-                @if (form.get('email')?.errors?.['email']) {
-                  <div class="invalid-feedback">
-                    Ingrese un email válido
-                  </div>
-                }
-              </div>
+              @if (form.get('email')?.errors?.['email']) {
+                <div class="invalid-feedback">
+                  Ingrese un email válido
+                </div>
+              }
+            </div>
               <div class="col-md-6 mb-3">
                 <label class="form-label">Teléfono</label>
-                <input type="text" class="form-control" formControlName="phone">
+                <input type="text" class="form-control" formControlName="phone"
+                  [class.is-invalid]="form.get('phone')?.invalid && form.get('phone')?.touched">
+                @if (form.get('phone')?.errors?.['pattern']) {
+                  <div class="invalid-feedback">
+                    El teléfono solo admite numeros, espacios, parentesis, + y guion
+                  </div>
+                }
+                @if (form.get('phone')?.errors?.['maxlength']) {
+                  <div class="invalid-feedback">
+                    El teléfono no puede superar 25 caracteres
+                  </div>
+                }
               </div>
             </div>
 
             <div class="mb-3">
               <label class="form-label">Dirección</label>
-              <input type="text" class="form-control" formControlName="address">
+              <input type="text" class="form-control" formControlName="address"
+                [class.is-invalid]="form.get('address')?.invalid && form.get('address')?.touched">
+              @if (form.get('address')?.errors?.['maxlength']) {
+                <div class="invalid-feedback">
+                  La dirección no puede superar 180 caracteres
+                </div>
+              }
             </div>
 
             <div class="row">
@@ -53,7 +91,13 @@
               </div>
               <div class="col-md-4 mb-3">
                 <label class="form-label">Límite de Crédito</label>
-                <input type="number" class="form-control" formControlName="credit_limit">
+                <input type="number" class="form-control" formControlName="credit_limit"
+                  [class.is-invalid]="form.get('credit_limit')?.invalid && form.get('credit_limit')?.touched">
+                @if (form.get('credit_limit')?.errors?.['min']) {
+                  <div class="invalid-feedback">
+                    El límite de crédito no puede ser negativo
+                  </div>
+                }
               </div>
               <div class="col-md-4 mb-3">
                 <label class="form-label">Etiquetas (Opcional)</label>
@@ -64,7 +108,13 @@
 
               <div class="mb-3">
                 <label class="form-label">Notas</label>
-                <textarea class="form-control" rows="3" formControlName="notes"></textarea>
+                <textarea class="form-control" rows="3" formControlName="notes"
+                  [class.is-invalid]="form.get('notes')?.invalid && form.get('notes')?.touched"></textarea>
+                @if (form.get('notes')?.errors?.['maxlength']) {
+                  <div class="invalid-feedback">
+                    Las notas no pueden superar 500 caracteres
+                  </div>
+                }
               </div>
 
               <div class="d-flex justify-content-end">

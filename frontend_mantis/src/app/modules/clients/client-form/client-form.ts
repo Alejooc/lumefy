@@ -11,6 +11,8 @@ import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.se
   standalone: false
 })
 export class ClientFormComponent implements OnInit {
+  private readonly taxIdPattern = /^[A-Za-z0-9 ./-]+$/;
+  private readonly phonePattern = /^[0-9()+\- ]+$/;
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -24,12 +26,12 @@ export class ClientFormComponent implements OnInit {
 
   constructor() {
     this.form = this.fb.group({
-      name: ['', Validators.required],
-      tax_id: [''],
+      name: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(120)]],
+      tax_id: ['', [Validators.maxLength(30), Validators.pattern(this.taxIdPattern)]],
       email: ['', [Validators.email]],
-      phone: [''],
-      address: [''],
-      notes: [''],
+      phone: ['', [Validators.maxLength(25), Validators.pattern(this.phonePattern)]],
+      address: ['', [Validators.maxLength(180)]],
+      notes: ['', [Validators.maxLength(500)]],
       status: ['active', Validators.required],
       tags: [null],
       credit_limit: [0, [Validators.min(0)]]
@@ -62,11 +64,12 @@ export class ClientFormComponent implements OnInit {
 
   onSubmit() {
     if (this.form.invalid) {
+      this.form.markAllAsTouched();
       return;
     }
 
     this.isLoading = true;
-    const clientData = this.form.value;
+    const clientData = this.normalizeClientPayload();
 
     if (this.isEdit && this.id) {
       this.clientService.updateClient(this.id, clientData).subscribe({
@@ -93,5 +96,19 @@ export class ClientFormComponent implements OnInit {
         }
       });
     }
+  }
+
+  private normalizeClientPayload() {
+    const raw = this.form.getRawValue();
+
+    return {
+      ...raw,
+      name: raw.name?.trim(),
+      tax_id: raw.tax_id?.trim() || null,
+      email: raw.email?.trim() || null,
+      phone: raw.phone?.trim() || null,
+      address: raw.address?.trim() || null,
+      notes: raw.notes?.trim() || null
+    };
   }
 }
