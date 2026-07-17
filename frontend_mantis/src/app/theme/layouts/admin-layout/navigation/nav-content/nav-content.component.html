@@ -2,9 +2,9 @@
 <ng-scrollbar style="height: calc(100vh - 49px)" visibility="hover" id="nav-ps-mantis">
   <div class="navbar-content">
     <ul class="nav coded-inner-navbar" (click)="fireOutClick()" (mouseleave)="navMob()">
-      <ng-container *ngFor="let item of navigations; trackBy: trackNavigation">
-        <app-nav-group *ngIf="item.type === 'group'" [item]="item"></app-nav-group>
-      </ng-container>
+      @for (item of navigations; track item.id) {
+        <app-nav-group [item]="item"></app-nav-group>
+      }
     </ul>
     @if (currentCompany) {
     <div class="m-4 mb-0">

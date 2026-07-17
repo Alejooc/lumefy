@@ -1,6 +1,6 @@
 // Angular import
 import { Component, OnInit, inject, output } from '@angular/core';
-import { CommonModule, Location, LocationStrategy } from '@angular/common';
+import { Location, LocationStrategy } from '@angular/common';
 import { RouterModule } from '@angular/router';
 
 // project import
@@ -54,7 +54,7 @@ import { APP_NAVIGATION_RULES, getVisibleNavIds } from 'src/app/core/apps/app-re
 
 @Component({
   selector: 'app-nav-content',
-  imports: [CommonModule, RouterModule, NavGroupComponent, NgScrollbarModule],
+  imports: [RouterModule, NavGroupComponent, NgScrollbarModule],
   templateUrl: './nav-content.component.html',
   styleUrls: ['./nav-content.component.scss']
 })
@@ -174,7 +174,7 @@ export class NavContentComponent implements OnInit {
   }
 
   private buildNavigation(): void {
-    const base = this.filterNavigation(NavigationItems);
+    const base = this.filterNavigation(NavigationItems).filter((item) => item.type === 'group');
     const user = this.authService.currentUserValue;
 
     if (!user || user.is_superuser || !this.permissionService.hasPermission('manage_company')) {
@@ -190,10 +190,6 @@ export class NavContentComponent implements OnInit {
         this.navigations = base;
       }
     });
-  }
-
-  trackNavigation(_index: number, item: NavigationItem): string {
-    return item.id;
   }
 
   private scheduleNavigationRefresh(): void {

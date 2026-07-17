@@ -148,7 +148,7 @@ def _serialize_public_branding(storefront: Storefront, company: Company | None) 
     footer_text = _pick_first(
         branding.get("footer_text"),
         theme_settings.get("footer_text"),
-        f"{storefront.name}. All rights reserved.",
+        f"{storefront.name}. Todos los derechos reservados.",
     )
 
     return schemas.PublicStorefrontBranding(
