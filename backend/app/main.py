@@ -7,6 +7,7 @@ import mimetypes
 
 from app.core.config import settings
 from app.core.rate_limit import limiter
+from app.core.middleware import MaintenanceMiddleware
 import app.models # Import all models to ensure they are registered with SQLAlchemy
 from app.api.v1.api import api_router
 
@@ -20,6 +21,10 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
+# Maintenance must be registered before CORS. FastAPI applies the most recently
+# added middleware first, leaving CORS as the outer layer for 503 responses.
+app.add_middleware(MaintenanceMiddleware)
+
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:
     app.add_middleware(
@@ -29,10 +34,6 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-# Add Maintenance Middleware
-from app.core.middleware import MaintenanceMiddleware
-app.add_middleware(MaintenanceMiddleware)
 
 from fastapi.staticfiles import StaticFiles
 import os

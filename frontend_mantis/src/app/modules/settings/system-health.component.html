@@ -5,7 +5,7 @@
       <p class="text-muted mb-0">Monitoreo de recursos en tiempo real.</p>
     </div>
     <button type="button" class="btn btn-sm btn-primary" (click)="loadHealth()" [disabled]="loading">
-      <i class="feather icon-refresh-cw" [class.fa-spin]="loading"></i>
+      <i class="ti ti-refresh" [class.icon-spin]="loading"></i>
       {{ loading ? 'Actualizando...' : 'Refrescar' }}
     </button>
   </div>
@@ -73,7 +73,7 @@
     <div class="col-sm-12 mt-4">
       <div class="card border-warning">
         <div class="card-header bg-warning text-white d-flex justify-content-between align-items-center">
-          <h5 class="mb-0 text-white"><i class="feather icon-alert-triangle me-2"></i> Zona de Peligro</h5>
+          <h5 class="mb-0 text-white"><i class="ti ti-alert-triangle me-2"></i> Zona de Peligro</h5>
         </div>
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center">
@@ -98,7 +98,7 @@
     <div class="col-sm-12 mt-4">
       <div class="card bg-c-blue order-card">
         <div class="card-header border-0 d-flex justify-content-between align-items-center">
-          <h5 class="mb-0 text-white"><i class="feather icon-volume-2 me-2"></i> Anuncio Global</h5>
+          <h5 class="mb-0 text-white"><i class="ti ti-volume-2 me-2"></i> Anuncio Global</h5>
           <div class="form-check form-switch custom-switch-v1">
             <input type="checkbox" class="form-check-input input-light" id="broadcastSwitch"
               [(ngModel)]="broadcastMessage.is_active" style="transform: scale(1.5);">
@@ -122,7 +122,7 @@
                 </div>
                 <div class="col-md-2 pt-4">
                   <button class="btn btn-primary w-100" (click)="saveBroadcast()" [disabled]="loading">
-                    <i class="feather icon-save me-1"></i> Guardar
+                    <i class="ti ti-device-floppy me-1"></i> Guardar
                   </button>
                 </div>
               </div>

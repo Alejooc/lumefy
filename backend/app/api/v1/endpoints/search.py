@@ -1,5 +1,5 @@
 from typing import Any, List, Dict
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, cast, String, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import auth
@@ -24,6 +24,12 @@ async def global_search(
     Scoped to the current user's company unless Super Admin (though UI context usually dictates scope).
     For now, we scope everything to the tenant/company for safety.
     """
+    if not current_user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform administrators cannot access company-scoped operations directly.",
+        )
+
     search_term = f"%{q}%"
     results = {
         "products": [],

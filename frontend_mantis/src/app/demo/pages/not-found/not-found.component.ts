@@ -11,7 +11,7 @@ import { RouterModule } from '@angular/router';
       <h4 class="mb-3">Página no encontrada</h4>
       <p class="text-muted mb-4">La página que buscas no existe o fue movida.</p>
       <a routerLink="/dashboard/default" class="btn btn-primary">
-        <i class="feather icon-home me-2"></i>Ir al Dashboard
+        <i class="ti ti-home me-2"></i>Ir al Dashboard
       </a>
     </div>
   `,

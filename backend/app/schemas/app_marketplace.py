@@ -52,12 +52,6 @@ class AppConfigUpdate(BaseModel):
     settings: Dict[str, Any]
 
 
-class DemoAppResponse(BaseModel):
-    app_slug: str
-    message: str
-    configured_message: str
-
-
 class AppDefinitionCreate(BaseModel):
     slug: str
     name: str

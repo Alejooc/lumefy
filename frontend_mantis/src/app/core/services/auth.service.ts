@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, of } from 'rxjs';
-import { tap, switchMap } from 'rxjs/operators';
+import { map, switchMap, tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
 
 export interface Role {
@@ -28,6 +28,8 @@ export interface Company {
     currency: string;
     currency_symbol: string;
     plan?: string;
+    valid_until?: string | null;
+    subscription_status?: string;
 }
 
 export interface Branch {
@@ -51,10 +53,17 @@ interface AuthTokenResponse {
     access_token: string;
 }
 
+interface ImpersonationOrigin {
+    access_token: string;
+    user: User | null;
+    company: Company | null;
+}
+
 @Injectable({
     providedIn: 'root'
 })
 export class AuthService {
+    private readonly impersonationOriginKey = 'impersonation_origin';
     private api = inject(ApiService);
     private router = inject(Router);
 
@@ -80,6 +89,10 @@ export class AuthService {
         return this.currentCompanySubject.value;
     }
 
+    get impersonationOriginUser(): User | null {
+        return this.getImpersonationOrigin()?.user ?? null;
+    }
+
     login(username: string, password: string): Observable<User | null> {
         const formData = new FormData();
         formData.append('username', username);
@@ -88,6 +101,7 @@ export class AuthService {
         return this.api.post<AuthTokenResponse>('/login/access-token', formData).pipe(
             switchMap(response => {
                 if (response && response.access_token) {
+                    this.clearImpersonationOrigin();
                     localStorage.setItem('access_token', response.access_token);
                     return this.fetchMe();
                 }
@@ -97,16 +111,19 @@ export class AuthService {
     }
 
     fetchMe(): Observable<User> {
-        // First get user
         return this.api.get<User>('/users/me').pipe(
+            switchMap(user => {
+                if (!user.company_id) {
+                    localStorage.removeItem('currentCompany');
+                    this.currentCompanySubject.next(null);
+                    return of(user);
+                }
+
+                return this.fetchCompany().pipe(map(() => user));
+            }),
             tap(user => {
                 localStorage.setItem('currentUser', JSON.stringify(user));
                 this.currentUserSubject.next(user);
-
-                // Then get company if user has one
-                if (user.company_id) {
-                    this.fetchCompany().subscribe();
-                }
             })
         );
     }
@@ -124,6 +141,7 @@ export class AuthService {
         return this.api.post<AuthTokenResponse>('/register', user).pipe(
             switchMap(response => {
                 if (response && response.access_token) {
+                    this.clearImpersonationOrigin();
                     localStorage.setItem('access_token', response.access_token);
                     return this.fetchMe();
                 }
@@ -132,13 +150,58 @@ export class AuthService {
         );
     }
 
-    logout() {
-        // remove user from local storage to log user out
+    startImpersonation(accessToken: string): Observable<User> {
+        if (!this.getImpersonationOrigin()) {
+            const currentToken = localStorage.getItem('access_token');
+            if (currentToken) {
+                const origin: ImpersonationOrigin = {
+                    access_token: currentToken,
+                    user: this.currentUserValue,
+                    company: this.currentCompanyValue
+                };
+                localStorage.setItem(this.impersonationOriginKey, JSON.stringify(origin));
+            }
+        }
+
+        localStorage.setItem('access_token', accessToken);
+        return this.fetchMe();
+    }
+
+    stopImpersonation(): Observable<User | null> {
+        const origin = this.getImpersonationOrigin();
+        if (!origin) {
+            return of(null);
+        }
+
+        localStorage.setItem('access_token', origin.access_token);
+        return this.fetchMe().pipe(tap(() => this.clearImpersonationOrigin()));
+    }
+
+    isImpersonating(): boolean {
+        return this.getImpersonationOrigin() !== null;
+    }
+
+    logout(): void {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('currentCompany');
         localStorage.removeItem('access_token');
+        this.clearImpersonationOrigin();
         this.currentUserSubject.next(null);
         this.currentCompanySubject.next(null);
         this.router.navigate(['/login']);
+    }
+
+    private getImpersonationOrigin(): ImpersonationOrigin | null {
+        try {
+            const stored = localStorage.getItem(this.impersonationOriginKey);
+            return stored ? JSON.parse(stored) as ImpersonationOrigin : null;
+        } catch {
+            this.clearImpersonationOrigin();
+            return null;
+        }
+    }
+
+    private clearImpersonationOrigin(): void {
+        localStorage.removeItem(this.impersonationOriginKey);
     }
 }

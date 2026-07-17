@@ -142,12 +142,6 @@ export interface WebhookDelivery {
   created_at: string;
 }
 
-export interface DemoHelloResponse {
-  app_slug: string;
-  message: string;
-  configured_message: string;
-}
-
 @Injectable({
   providedIn: 'root'
 })
@@ -215,10 +209,6 @@ export class AppMarketplaceService {
 
   updateConfig(slug: string, settings: Record<string, unknown>): Observable<InstalledApp> {
     return this.api.put<InstalledApp>(`/apps/config/${slug}`, { settings });
-  }
-
-  runDemoHello(): Observable<DemoHelloResponse> {
-    return this.api.get<DemoHelloResponse>('/apps/demo/hello');
   }
 
   adminGetCatalog(): Observable<AdminAppDefinition[]> {

@@ -1,19 +1,35 @@
-.order-card {
-    color: #fff;
+.dashboard-icon {
+  align-items: center;
+  border-radius: 0.5rem;
+  display: inline-flex;
+  font-size: 1.25rem;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
 }
 
-.bg-c-blue {
-    background: linear-gradient(45deg, #4099ff, #73b4ff);
+.plan-summary {
+  display: grid;
+  gap: 0.75rem;
 }
 
-.bg-c-green {
-    background: linear-gradient(45deg, #2ed8b6, #59e0c5);
+.plan-row {
+  align-items: center;
+  border-bottom: 1px solid var(--bs-border-color);
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 0.75rem;
+
+  &:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
 }
 
-.bg-c-yellow {
-    background: linear-gradient(45deg, #FFB64D, #ffcb80);
-}
-
-.bg-c-red {
-    background: linear-gradient(45deg, #FF5370, #ff869a);
+.plan-dot {
+  border-radius: 50%;
+  display: inline-block;
+  height: 0.5rem;
+  margin-right: 0.5rem;
+  width: 0.5rem;
 }

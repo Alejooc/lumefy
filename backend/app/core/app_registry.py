@@ -3,24 +3,28 @@ from typing import Any, Dict, List
 
 APP_REGISTRY: List[Dict[str, Any]] = [
     {
-        "slug": "demo-hello",
-        "name": "Demo Hello App",
-        "description": "App base de ejemplo para aprender como crear nuevas integraciones.",
-        "category": "Productividad",
+        "slug": "ecommerce",
+        "name": "Ecommerce",
+        "description": "Tienda online nativa conectada con catalogo, inventario, pedidos y clientes.",
+        "category": "Canales de venta",
         "version": "1.0.0",
-        "icon": "rocket",
-        "requested_scopes": ["apps:read", "apps:write"],
-        "capabilities": ["embedded_page", "settings_form"],
-        "pricing_model": "free",
+        "icon": "shop",
+        "requested_scopes": ["products:read", "inventory:read", "sales:create", "clients:write"],
+        "capabilities": ["storefront", "checkout", "custom_domains", "catalog_sync"],
+        "pricing_model": "included",
         "monthly_price": 0,
         "config_schema": {
-            "welcome_message": "string",
-            "accent_color": "string",
+            "type": "object",
+            "properties": {
+                "allow_custom_domains": {"type": "boolean", "title": "Permitir dominios propios"},
+                "default_currency": {"type": "string", "title": "Moneda por defecto"},
+            },
         },
         "default_config": {
-            "welcome_message": "Hola desde tu primera app de Lumefy",
-            "accent_color": "#4680ff",
+            "allow_custom_domains": True,
+            "default_currency": "USD",
         },
+        "setup_url": "/apps/ecommerce",
     },
     {
         "slug": "pos_module",

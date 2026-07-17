@@ -30,9 +30,15 @@ export class StorefrontApiError extends Error {
 }
 
 function apiBaseUrl(): string {
-  const value = process.env.NEXT_PUBLIC_API_URL;
+  const value =
+    typeof window === "undefined"
+      ? process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL
+      : process.env.NEXT_PUBLIC_API_URL;
   if (!value) {
-    throw new Error("Missing NEXT_PUBLIC_API_URL environment variable");
+    throw new Error("Missing storefront API URL configuration");
+  }
+  if (typeof window === "undefined" && value.startsWith("/")) {
+    throw new Error("INTERNAL_API_URL must be absolute when rendering the storefront server-side");
   }
   return value.replace(/\/$/, "");
 }
@@ -91,6 +97,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function getPublicStorefrontBySubdomain(subdomain: string): Promise<PublicStorefront> {
   return request<PublicStorefront>(`/storefront/public/by-subdomain/${encodeURIComponent(subdomain)}`);
+}
+
+export async function getPublicStorefrontByDomain(domain: string): Promise<PublicStorefront> {
+  return request<PublicStorefront>(`/storefront/public/by-domain/${encodeURIComponent(domain)}`);
 }
 
 export async function getPublicStorefront(storefrontId: string): Promise<PublicStorefront> {
@@ -305,5 +315,17 @@ export async function resolveStorefront(): Promise<PublicStorefront> {
     return getPublicStorefront(storefrontId);
   }
 
-  throw new Error("Missing NEXT_PUBLIC_STOREFRONT_ID or NEXT_PUBLIC_STOREFRONT_SUBDOMAIN");
+  if (typeof window !== "undefined" && window.location.hostname) {
+    return getPublicStorefrontByDomain(window.location.hostname);
+  }
+
+  // Keep one storefront runtime for every tenant: the incoming host selects its data.
+  const { headers } = await import("next/headers");
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
+  if (host) {
+    return getPublicStorefrontByDomain(host);
+  }
+
+  throw new Error("Missing storefront configuration. Define a storefront ID/subdomain or access through a mapped domain.");
 }

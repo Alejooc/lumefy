@@ -2,7 +2,7 @@ from typing import Any, List, Optional
 from datetime import date, datetime, time, timedelta
 from sqlalchemy import select, func, desc, case
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 import uuid
 
@@ -106,9 +106,13 @@ def _has_permission(user: User, permission: str) -> bool:
 
 
 def _reports_or_sales_manager(user: User = Depends(auth.get_current_user)) -> User:
+    if not user.company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform administrators cannot access company-scoped operations directly.",
+        )
     if _has_permission(user, "view_reports") or _has_permission(user, "manage_sales"):
         return user
-    from fastapi import HTTPException, status
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Operation not permitted. Required permission: view_reports or manage_sales",

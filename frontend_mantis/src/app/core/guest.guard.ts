@@ -12,8 +12,7 @@ export class GuestGuard implements CanActivate {
         void state;
         const currentUser = this.authService.currentUserValue;
         if (currentUser) {
-            // logged in so redirect to dashboard
-            this.router.navigate(['/dashboard/default']);
+            this.router.navigate([currentUser.is_superuser ? '/admin/dashboard' : '/dashboard/default']);
             return false;
         }
 

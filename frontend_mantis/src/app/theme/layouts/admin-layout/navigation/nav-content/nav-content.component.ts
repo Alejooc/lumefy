@@ -1,6 +1,6 @@
 // Angular import
 import { Component, OnInit, inject, output } from '@angular/core';
-import { Location, LocationStrategy } from '@angular/common';
+import { CommonModule, Location, LocationStrategy } from '@angular/common';
 import { RouterModule } from '@angular/router';
 
 // project import
@@ -39,17 +39,22 @@ import {
   ColumnWidthOutline,
   RocketOutline,
   SafetyCertificateOutline,
-  BellOutline
+  BellOutline,
+  CarryOutOutline,
+  ContainerOutline,
+  FileSearchOutline,
+  LayoutOutline,
+  RollbackOutline
 } from '@ant-design/icons-angular/icons';
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { PermissionService } from '../../../../../core/services/permission.service';
-import { AuthService } from '../../../../../core/services/auth.service';
+import { AuthService, Company } from '../../../../../core/services/auth.service';
 import { AppMarketplaceService, InstalledApp } from 'src/app/core/services/app-marketplace.service';
 import { APP_NAVIGATION_RULES, getVisibleNavIds } from 'src/app/core/apps/app-registry';
 
 @Component({
   selector: 'app-nav-content',
-  imports: [RouterModule, NavGroupComponent, NgScrollbarModule],
+  imports: [CommonModule, RouterModule, NavGroupComponent, NgScrollbarModule],
   templateUrl: './nav-content.component.html',
   styleUrls: ['./nav-content.component.scss']
 })
@@ -71,7 +76,9 @@ export class NavContentComponent implements OnInit {
   currentApplicationVersion = environment.appVersion;
 
   navigation = NavigationItems;
+  currentCompany: Company | null = null;
   windowWidth = window.innerWidth;
+  private navigationRefreshPending = false;
 
   // Constructor
   constructor() {
@@ -104,7 +111,12 @@ export class NavContentComponent implements OnInit {
         ColumnWidthOutline,
         RocketOutline,
         SafetyCertificateOutline,
-        BellOutline
+        BellOutline,
+        CarryOutOutline,
+        ContainerOutline,
+        FileSearchOutline,
+        LayoutOutline,
+        RollbackOutline
       ]
     );
     this.navigations = [];
@@ -118,11 +130,15 @@ export class NavContentComponent implements OnInit {
 
     // Subscribe to user changes to update navigation
     this.authService.currentUser.subscribe(() => {
-      this.buildNavigation();
+      this.scheduleNavigationRefresh();
+    });
+
+    this.authService.currentCompany.subscribe((company) => {
+      this.currentCompany = company;
     });
 
     this.appsService.installedChanged$.subscribe(() => {
-      this.buildNavigation();
+      this.scheduleNavigationRefresh();
     });
   }
 
@@ -173,6 +189,22 @@ export class NavContentComponent implements OnInit {
       error: () => {
         this.navigations = base;
       }
+    });
+  }
+
+  trackNavigation(_index: number, item: NavigationItem): string {
+    return item.id;
+  }
+
+  private scheduleNavigationRefresh(): void {
+    if (this.navigationRefreshPending) {
+      return;
+    }
+
+    this.navigationRefreshPending = true;
+    setTimeout(() => {
+      this.navigationRefreshPending = false;
+      this.buildNavigation();
     });
   }
 
@@ -258,6 +290,10 @@ export class NavContentComponent implements OnInit {
       const newItem = { ...item };
       if (newItem.children) {
         newItem.children = this.filterNavigation(newItem.children);
+        // The platform admin manages the catalog, but never installs or operates tenant apps.
+        if (isSuperUser && newItem.id === 'apps-platform') {
+          newItem.children = newItem.children.filter((child) => child.id === 'apps-admin-catalog');
+        }
         if (
           newItem.children.length === 0 &&
           (newItem.type === 'group' || newItem.type === 'collapse') &&

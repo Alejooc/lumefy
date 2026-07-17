@@ -39,77 +39,19 @@
                   }
                   <div class="col-auto">
                     <button class="btn btn-primary btn-sm me-1" (click)="applyFilters()">
-                      <i class="feather icon-filter"></i> Aplicar
+                      <i class="ti ti-filter"></i> Aplicar
                     </button>
                     @if (dateFrom || dateTo || selectedBranchId) {
                       <button class="btn btn-outline-secondary btn-sm" (click)="clearFilters()"
                         >
-                        <i class="feather icon-x"></i> Limpiar
+                        <i class="ti ti-x"></i> Limpiar
                       </button>
                     }
                   </div>
-                  @if (!isSuperUser) {
-                    <div class="col-auto ms-auto">
-                      <button class="btn btn-outline-info btn-sm" (click)="startDashboardTour()" title="Iniciar guía interactiva">
-                        <i class="feather icon-help-circle"></i> Guía
-                      </button>
-                    </div>
-                  }
                 </div>
               </div>
             </div>
           </div>
-          @if (showOnboardingAssistant && onboardingProgressPercent < 100) {
-            <div class="col-12">
-              <app-card [showHeader]="false" blockClass="onboarding-card">
-                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-                  <div>
-                    <h5 class="mb-1">Asistente de onboarding</h5>
-                    <p class="mb-0 text-muted">Completa estos pasos para dejar el negocio operativo.</p>
-                  </div>
-                  <div class="text-end">
-                    <div class="onboarding-progress-value">{{ onboardingProgressPercent }}%</div>
-                    <small class="text-muted">{{ onboardingCompletedCount }}/{{ onboardingTotalCount }} completados</small>
-                    <div class="mt-2">
-                      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="toggleOnboardingCollapsed()">
-                        {{ onboardingCollapsed ? 'Expandir' : 'Minimizar' }}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                @if (onboardingCollapsed) {
-                  <div class="onboarding-collapsed-note">
-                    Checklist minimizado. Puedes expandirlo cuando quieras.
-                  </div>
-                } @else {
-                  <div class="progress onboarding-progress mb-3" role="progressbar" aria-label="Progreso onboarding">
-                    <div class="progress-bar bg-success" [style.width.%]="onboardingProgressPercent"></div>
-                  </div>
-                  @if (onboardingSteps.length === 0) {
-                    <div class="alert alert-light border mb-0">
-                      No hay pasos de onboarding pendientes para tu perfil actual.
-                    </div>
-                  } @else {
-                    <div class="onboarding-steps">
-                      @for (step of onboardingSteps; track step.id) {
-                        <div class="onboarding-step d-flex flex-wrap align-items-center justify-content-between gap-3">
-                          <label class="d-flex align-items-start gap-2 mb-0 step-main">
-                            <input class="form-check-input mt-1" type="checkbox" [checked]="step.completed"
-                              (change)="toggleOnboardingStep(step.id)" />
-                              <span>
-                                <strong [class.text-decoration-line-through]="step.completed">{{ step.title }}</strong>
-                                <small class="d-block text-muted">{{ step.description }}</small>
-                              </span>
-                            </label>
-                            <a [routerLink]="step.route" class="btn btn-sm btn-outline-primary">Ir</a>
-                          </div>
-                        }
-                      </div>
-                    }
-                  }
-                </app-card>
-              </div>
-            }
             <div id="dashboard-kpis" class="row">
               @for (analytic of AnalyticEcommerce; track analytic) {
                 <div class="col-md-6 col-xl-3">
@@ -117,15 +59,15 @@
                     <h6 class="mb-2 f-w-400 text-muted">{{ analytic.title }}</h6>
                     <h4 class="mb-3">
                       {{ analytic.amount }}
+                      @if (analytic.percentage) {
                       <span class="badge {{ analytic.background }} border {{ analytic.border }} ">
                         <i antIcon type="{{ analytic.icon }}" theme="outline"></i>
                         {{ analytic.percentage }}
                       </span>
+                      }
                     </h4>
                     <p class="mb-0 text-muted text-sm">
-                      Has hecho un extra
                       <span class="{{ analytic.color }}">{{ analytic.number }}</span>
-                      este año
                     </p>
                   </app-card>
                 </div>
@@ -145,7 +87,7 @@
                   <table class="table table-hover mb-0">
                     <thead>
                       <tr>
-                        <th>NRO. RASTREO</th>
+                        <th>PEDIDO</th>
                         <th>PRODUCTO</th>
                         <th>ESTADO</th>
                         <th class="text-end">CANTIDAD</th>
@@ -156,7 +98,7 @@
                       @for (order of recentOrder; track order) {
                         <tr>
                           <td>
-                            <a href="javascript:" class="text-muted">{{ order.id }}</a>
+                            <span class="text-muted">{{ order.id }}</span>
                           </td>
                           <td>{{ order.name }}</td>
                           <td>
@@ -168,6 +110,10 @@
                           <td class="text-end">{{ order.quantity }}</td>
                           <td class="text-end">{{ order.amount }}</td>
                         </tr>
+                      } @empty {
+                        <tr>
+                          <td colspan="5" class="text-center text-muted py-4">No hay pedidos para los filtros seleccionados.</td>
+                        </tr>
                       }
                     </tbody>
                   </table>
@@ -175,18 +121,11 @@
               </div>
             </div>
             <div class="col-md-12 col-xl-4">
-              <app-analytics-chart />
-            </div>
-
-            <div class="col-md-12 col-xl-8">
-              <app-sales-report-chart [chartData]="salesReportData" />
-            </div>
-            <div class="col-md-12 col-xl-4">
               <h5 class="mb-3">Historial de Transacciones</h5>
               <div class="card">
                 <div class="list-group list-group-flush">
-                  @for (history of transaction; track history) {
-                    <a href="javascript:" class="list-group-item list-group-item-action px-3">
+                  @for (history of transaction; track history.title) {
+                    <div class="list-group-item px-3">
                       <div class="d-flex">
                         <div class="flex-shrink-0">
                           <div class="avatar avatar-s rounded-circle {{ history.background }}">
@@ -202,28 +141,8 @@
                           <p class="mb-0 text-muted">{{ history.percentage }}</p>
                         </div>
                       </div>
-                    </a>
+                    </div>
                   }
-                </div>
-              </div>
-              <div class="card">
-                <div class="card-body">
-                  <div class="row justify-content-between">
-                    <div class="col-auto">
-                      <h5>Ayuda y Soporte</h5>
-                      <p class="mb-3">Respuesta habitual en 5 min</p>
-                    </div>
-                    <div class="col-auto">
-                      <div class="user-group mb-3">
-                        <img src="assets/images/user/avatar-1.jpg" alt="image" />
-                        <img src="assets/images/user/avatar-2.jpg" alt="image" />
-                        <img src="assets/images/user/avatar-3.jpg" alt="image" />
-                      </div>
-                    </div>
-                  </div>
-                  <div class="d-grid">
-                    <div class="btn btn-primary">¿Necesitas Ayuda?</div>
-                  </div>
                 </div>
               </div>
             </div>

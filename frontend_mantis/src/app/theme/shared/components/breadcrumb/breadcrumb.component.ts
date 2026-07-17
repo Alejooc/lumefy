@@ -6,6 +6,7 @@ import { Title } from '@angular/platform-browser';
 
 // project import
 import { NavigationItem, NavigationItems } from 'src/app/theme/layouts/admin-layout/navigation/navigation';
+import { AuthService } from 'src/app/core/services/auth.service';
 
 // icons
 import { IconService } from '@ant-design/icons-angular';
@@ -32,6 +33,7 @@ export class BreadcrumbComponent {
   private route = inject(Router);
   private titleService = inject(Title);
   private iconService = inject(IconService);
+  private authService = inject(AuthService);
 
   // public props
   @Input() type: string;
@@ -43,6 +45,10 @@ export class BreadcrumbComponent {
   breadcrumbList: Array<string> = [];
   navigationList!: titleType[];
   componentList!: titleType[];
+
+  get homeUrl(): string {
+    return this.authService.currentUserValue?.is_superuser ? '/admin/dashboard' : '/dashboard/default';
+  }
 
   // constructor
   constructor() {

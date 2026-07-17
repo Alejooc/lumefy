@@ -23,6 +23,7 @@ from app.core.app_security import (
 )
 from app.core.database import get_db
 from app.core.permissions import PermissionChecker
+from app.core.plan_limits import PlanLimitChecker
 from app.models.app_definition import AppDefinition
 from app.models.app_install_event import AppInstallEvent
 from app.models.app_webhook_delivery import AppWebhookDelivery
@@ -327,7 +328,11 @@ async def admin_list_catalog(
 ) -> Any:
     ensure_superuser(current_user)
     await ensure_default_apps(db)
-    result = await db.execute(select(AppDefinition).order_by(AppDefinition.name.asc()))
+    result = await db.execute(
+        select(AppDefinition)
+        .where(AppDefinition.slug != "demo-hello")
+        .order_by(AppDefinition.name.asc())
+    )
     apps = result.scalars().all()
     return [
         {
@@ -425,7 +430,10 @@ async def list_installed(
     result = await db.execute(
         select(CompanyAppInstall, AppDefinition)
         .join(AppDefinition, AppDefinition.id == CompanyAppInstall.app_id)
-        .where(CompanyAppInstall.company_id == current_user.company_id)
+        .where(
+            CompanyAppInstall.company_id == current_user.company_id,
+            AppDefinition.is_active == True,
+        )
         .order_by(AppDefinition.name.asc())
     )
     rows = result.all()
@@ -443,7 +451,7 @@ async def get_installed_detail(
         raise HTTPException(status_code=400, detail="El usuario no tiene company_id asociado")
 
     install, app = await _load_install_by_slug(db, current_user.company_id, slug)
-    if not install.is_enabled:
+    if not install.is_enabled or not app.is_active:
         raise HTTPException(status_code=404, detail="La app no esta instalada/activa")
 
     return {
@@ -762,6 +770,11 @@ async def install_app(
             install.oauth_client_id = install.oauth_client_id or generate_client_id()
             install.oauth_client_secret_hash = hash_api_key(generated_client_secret)
     else:
+        # Re-enabling an existing app must not consume another plan slot.
+        await PlanLimitChecker(resource="apps", count_model=CompanyAppInstall)(
+            user=current_user,
+            db=db,
+        )
         generated_api_key = generate_api_key()
         generated_client_secret = generate_client_secret()
         install = CompanyAppInstall(
@@ -900,33 +913,3 @@ async def update_app_config(
         )
         await db.commit()
     return _serialize_install(install, app)
-
-
-@router.get("/demo/hello", response_model=schemas.DemoAppResponse)
-async def run_demo_hello(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(auth.get_current_user),
-) -> Any:
-    if not current_user.company_id:
-        raise HTTPException(status_code=400, detail="El usuario no tiene company_id asociado")
-
-    result = await db.execute(
-        select(CompanyAppInstall, AppDefinition)
-        .join(AppDefinition, AppDefinition.id == CompanyAppInstall.app_id)
-        .where(
-            CompanyAppInstall.company_id == current_user.company_id,
-            CompanyAppInstall.is_enabled == True,
-            AppDefinition.slug == "demo-hello",
-        )
-    )
-    row = result.first()
-    if not row:
-        raise HTTPException(status_code=400, detail="La app demo-hello no esta instalada/activa")
-
-    install, app = row
-    welcome = (install.settings or {}).get("welcome_message") or "Hola desde Demo Hello App"
-    return {
-        "app_slug": app.slug,
-        "message": f"App '{app.name}' ejecutada correctamente para la empresa.",
-        "configured_message": welcome,
-    }

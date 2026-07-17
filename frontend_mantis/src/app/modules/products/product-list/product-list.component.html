@@ -1,34 +1,40 @@
 <div class="row">
   <div class="col-sm-12">
-    <app-card [cardTitle]="'Productos'">
+    <app-card [cardTitle]="'Productos'" cardClass="product-list-card">
       <ng-template #headerOptionsTemplate>
         <div class="d-flex flex-wrap gap-2 justify-content-end">
           <div class="btn-group btn-group-sm">
             <button class="btn btn-outline-success" (click)="exportData('excel')" title="Exportar Excel">
-              <i class="feather icon-file"></i> Excel
+              <i class="ti ti-file"></i> Excel
             </button>
             <button class="btn btn-outline-success" (click)="exportData('csv')" title="Exportar CSV">
-              <i class="feather icon-file-text"></i> CSV
+              <i class="ti ti-file-text"></i> CSV
             </button>
           </div>
           <button class="btn btn-outline-primary" routerLink="/products/import">
-            <i class="feather icon-upload"></i> Importar
+            <i class="ti ti-upload"></i> Importar
           </button>
           <button class="btn btn-primary" routerLink="/products/create">
-            <i class="feather icon-plus"></i> Nuevo Producto
+            <i class="ti ti-plus"></i> Nuevo Producto
           </button>
         </div>
       </ng-template>
 
       <!-- Search Bar -->
-      <div class="row mb-3">
-        <div class="col-md-4">
+      <div class="row align-items-center g-3 mb-3 product-list-toolbar">
+        <div class="col-lg-5">
+          <label class="visually-hidden" for="product-search">Buscar productos</label>
           <div class="input-group">
-            <input type="text" class="form-control" [(ngModel)]="searchQuery"
+            <span class="input-group-text bg-transparent"><i class="ti ti-search"></i></span>
+            <input id="product-search" type="text" class="form-control" [(ngModel)]="searchQuery"
               placeholder="Buscar por nombre, SKU o código..." (keyup.enter)="onSearch()">
-              <button class="btn btn-outline-secondary" (click)="onSearch()">🔍</button>
-            </div>
+            <button class="btn btn-outline-secondary" (click)="onSearch()" title="Buscar productos" aria-label="Buscar productos">
+              <i class="ti ti-arrow-right"></i>
+            </button>
           </div>
+        </div>
+        <div class="col-lg-7 text-lg-end text-muted small">
+          @if (!isLoading) { {{ products.length }} producto(s) en el catálogo }
         </div>
 
         <!-- Loading Skeleton -->
@@ -41,7 +47,7 @@
         <!-- Table -->
         @if (!isLoading && products.length > 0) {
           <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover align-middle mb-0 product-table">
               <thead>
                 <tr>
                   <th>Producto</th>
@@ -58,12 +64,14 @@
               <tbody>
                 @for (product of products; track trackByFn($index, product)) {
                   <tr>
-                    <td>
-                      <div class="d-flex align-items-center">
+                    <td class="product-cell">
+                      <div class="d-flex align-items-center gap-2">
                         @if (product.image_url) {
-                          <img [src]="product.image_url" class="rounded me-2"
-                            style="width: 36px; height: 36px; object-fit: cover;" alt=""
+                          <img [src]="product.image_url" class="product-thumbnail"
+                            alt="Imagen de {{ product.name }}"
                             (error)="product.image_url = ''">
+                        } @else {
+                          <span class="product-thumbnail product-thumbnail-placeholder"><i class="ti ti-package"></i></span>
                         }
                         <div>
                           <div class="fw-bold">{{ product.name }}</div>
@@ -95,17 +103,22 @@
                     </td>
                     <td>{{ product.category?.name || '—' }}</td>
                     <td>{{ product.brand?.name || '—' }}</td>
+                    <td>
+                      <span class="badge" [class.bg-light-primary]="product.visible_in_ecommerce" [class.text-primary]="product.visible_in_ecommerce" [class.bg-light-secondary]="!product.visible_in_ecommerce" [class.text-muted]="!product.visible_in_ecommerce">
+                        {{ product.visible_in_ecommerce ? 'Publicado' : 'No publicado' }}
+                      </span>
+                    </td>
                     <td class="fw-bold">{{ currencySymbol }} {{ product.price | number:'1.2-2' }}</td>
                     <td>{{ currencySymbol }} {{ product.cost | number:'1.2-2' }}</td>
                     <td class="text-center">
                       <a [routerLink]="['/products/edit', product.id]"
                         class="btn btn-icon btn-outline-primary btn-sm me-1" title="Editar">
-                        <i class="feather icon-edit"></i>
+                        <i class="ti ti-edit"></i>
                       </a>
                       <button (click)="deleteProduct(product.id)"
                         class="btn btn-icon btn-outline-danger btn-sm" [disabled]="isLoading"
                         title="Eliminar">
-                        <i class="feather icon-trash-2"></i>
+                        <i class="ti ti-trash"></i>
                       </button>
                     </td>
                   </tr>
@@ -116,7 +129,8 @@
         }
 
         @if (!isLoading && products.length === 0) {
-          <div class="text-center py-5 border rounded bg-light-subtle">
+          <div class="text-center py-5 border rounded bg-light-subtle product-empty-state">
+            <i class="ti ti-package d-block mb-3"></i>
             <h6 class="mb-2">Aun no tienes productos cargados</h6>
             @if (!searchQuery) {
               <p class="text-muted mb-3">Empieza creando tu primer producto para activar
@@ -127,8 +141,8 @@
               }}"</strong>. Prueba con otro termino.</p>
             }
             <div class="d-flex justify-content-center gap-2 flex-wrap">
-              <a routerLink="/products/create" class="btn btn-primary btn-sm">Crear primer producto</a>
-              <a routerLink="/products/import" class="btn btn-outline-primary btn-sm">Importar catalogo</a>
+              <a routerLink="/products/create" class="btn btn-primary btn-sm"><i class="ti ti-plus"></i> Crear primer producto</a>
+              <a routerLink="/products/import" class="btn btn-outline-primary btn-sm"><i class="ti ti-upload"></i> Importar catálogo</a>
               @if (canAccessWizard) {
                 <a routerLink="/sales/first-sale-wizard" class="btn btn-outline-secondary btn-sm"
                 >Ir al Wizard MVP</a>
@@ -136,6 +150,7 @@
             </div>
           </div>
         }
+      </div>
       </app-card>
     </div>
   </div>

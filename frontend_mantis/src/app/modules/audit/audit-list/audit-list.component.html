@@ -50,12 +50,12 @@
               </div>
               <div class="col-auto">
                 <button class="btn btn-primary btn-sm me-1" (click)="applyFilters()">
-                  <i class="feather icon-filter"></i> Filtrar
+                  <i class="ti ti-filter"></i> Filtrar
                 </button>
                 @if (hasActiveFilters) {
                   <button class="btn btn-outline-secondary btn-sm" (click)="clearFilters()"
                     >
-                    <i class="feather icon-x"></i> Limpiar
+                    <i class="ti ti-x"></i> Limpiar
                   </button>
                 }
               </div>
@@ -110,7 +110,7 @@
                     } @empty {
                     <tr>
                       <td colspan="6" class="text-center text-muted py-4">
-                        <i class="feather icon-inbox" style="font-size: 2rem;"></i>
+                        <i class="ti ti-inbox" style="font-size: 2rem;"></i>
                         <p class="mt-2">No se encontraron registros de auditoría</p>
                       </td>
                     </tr>

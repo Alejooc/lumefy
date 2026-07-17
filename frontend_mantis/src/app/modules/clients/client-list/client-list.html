@@ -18,14 +18,14 @@
           <div class="col-md-8 d-flex flex-wrap justify-content-end gap-2">
             <div class="btn-group btn-group-sm">
               <button class="btn btn-outline-success" (click)="exportData('excel')">
-                <i class="feather icon-file"></i> Excel
+                <i class="ti ti-file"></i> Excel
               </button>
               <button class="btn btn-outline-success" (click)="exportData('csv')">
-                <i class="feather icon-file-text"></i> CSV
+                <i class="ti ti-file-text"></i> CSV
               </button>
             </div>
             <button class="btn btn-primary" [routerLink]="['/clients/new']">
-              <i class="feather icon-plus"></i> Nuevo Cliente
+              <i class="ti ti-plus"></i> Nuevo Cliente
             </button>
           </div>
         </div>
@@ -74,15 +74,15 @@
                       <button [routerLink]="['/clients/view', client.id]"
                         class="btn btn-icon btn-outline-info btn-sm me-1"
                         title="Ver Perfil y Estado de Cuenta">
-                        <i class="feather icon-eye"></i>
+                        <i class="ti ti-eye"></i>
                       </button>
                       <button [routerLink]="['/clients/edit', client.id]"
                         class="btn btn-icon btn-outline-primary btn-sm me-1" title="Editar">
-                        <i class="feather icon-edit"></i>
+                        <i class="ti ti-edit"></i>
                       </button>
                       <button (click)="deleteClient(client.id)" class="btn btn-icon btn-outline-danger btn-sm"
                         title="Eliminar">
-                        <i class="feather icon-trash-2"></i>
+                        <i class="ti ti-trash"></i>
                       </button>
                     </td>
                   </tr>

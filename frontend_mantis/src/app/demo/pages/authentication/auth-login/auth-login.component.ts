@@ -1,7 +1,7 @@
 // project import
 import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
 
 
@@ -16,10 +16,11 @@ export class AuthLoginComponent {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   loginForm = this.fb.group({
-    email: ['admin@lumefy.com', [Validators.required, Validators.email]],
-    password: ['admin123', [Validators.required]]
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required]]
   });
 
   isLoading = false;
@@ -27,6 +28,7 @@ export class AuthLoginComponent {
 
   onSubmit() {
     if (this.loginForm.invalid) {
+      this.loginForm.markAllAsTouched();
       return;
     }
 
@@ -36,34 +38,19 @@ export class AuthLoginComponent {
 
     this.authService.login(email!, password!).subscribe({
       next: (user) => {
-        this.isLoading = false;
-        if (user && user.is_superuser) {
-          this.router.navigate(['/admin/dashboard']);
-        } else {
-          this.router.navigate(['/dashboard/default']);
-        }
+        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+        const defaultRoute = user?.is_superuser ? '/admin/dashboard' : '/dashboard/default';
+        void this.router.navigateByUrl(returnUrl || defaultRoute).finally(() => {
+          this.isLoading = false;
+        });
       },
       error: (err) => {
-        this.isLoading = false;
-        this.errorMessage = 'Login failed. Please check your credentials.';
-        console.error('Login error', err);
+        setTimeout(() => {
+          this.isLoading = false;
+          this.errorMessage = err?.error?.detail || 'No fue posible iniciar sesión. Verifica tus credenciales.';
+        });
       }
     });
   }
 
-  // public method
-  SignInOptions = [
-    {
-      image: 'assets/images/authentication/google.svg',
-      name: 'Google'
-    },
-    {
-      image: 'assets/images/authentication/twitter.svg',
-      name: 'Twitter'
-    },
-    {
-      image: 'assets/images/authentication/facebook.svg',
-      name: 'Facebook'
-    }
-  ];
 }

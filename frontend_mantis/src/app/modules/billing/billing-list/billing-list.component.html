@@ -6,12 +6,20 @@
       </div>
       <div class="card-body">
 
-        @if (user$ | async; as user) {
+        @if (loading) {
+          <div class="d-flex align-items-center gap-2 text-muted py-3">
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            Cargando suscripción...
+          </div>
+        } @else if (subscription) {
           <div class="alert alert-info">
-            <h5 class="alert-heading">Plan Actual: {{ user.company?.currency || 'Free' }}</h5>
-            <!-- Temporary fix, accessing currency strictly typed -->
-            <!-- Ideally plan name should be on company object -->
-            <p>Tu suscripción está activa y se renovará automáticamente el próximo mes.</p>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div>
+                <h5 class="alert-heading mb-1">Plan actual: {{ subscription.plan || 'FREE' }}</h5>
+                <p class="mb-0">Vencimiento: {{ subscription.valid_until || 'Sin vencimiento definido' }}</p>
+              </div>
+              <span class="badge" [class]="subscriptionStatusClass">{{ subscriptionStatusLabel }}</span>
+            </div>
           </div>
         }
 
@@ -28,19 +36,11 @@
               </tr>
             </thead>
             <tbody>
-              @for (pay of payments; track pay) {
-                <tr>
-                  <td>{{ pay.date }}</td>
-                  <td>{{ pay.invoice }}</td>
-                  <td>${{ pay.amount | number:'1.2-2' }}</td>
-                  <td><span class="badge bg-success">Pagado</span></td>
-                  <td>
-                    <button class="btn btn-sm btn-outline-secondary">
-                      <i class="feather icon-download"></i> PDF
-                    </button>
-                  </td>
-                </tr>
-              }
+              <tr>
+                <td colspan="5" class="text-center text-muted py-4">
+                  Aún no hay facturas generadas. El historial aparecerá cuando se integre el proveedor de cobro.
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

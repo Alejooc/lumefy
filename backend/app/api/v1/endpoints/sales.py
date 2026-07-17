@@ -9,6 +9,8 @@ from app.models.sale import Sale, SaleItem, SaleStatus, Payment
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.product import Product
+from app.models.branch import Branch
+from app.models.client import Client
 from app.models.user import User
 from app.core.permissions import PermissionChecker
 from app.schemas import sale as schemas
@@ -16,6 +18,31 @@ import uuid
 from datetime import datetime
 
 router = APIRouter()
+
+
+async def _validate_sale_relations(db: AsyncSession, sale_in: schemas.SaleCreate, company_id: uuid.UUID) -> None:
+    if not sale_in.items:
+        raise HTTPException(status_code=400, detail="La venta debe incluir al menos un producto")
+
+    branch_result = await db.execute(
+        select(Branch.id).where(Branch.id == sale_in.branch_id, Branch.company_id == company_id)
+    )
+    if not branch_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Sucursal no encontrada")
+
+    if sale_in.client_id:
+        client_result = await db.execute(
+            select(Client.id).where(Client.id == sale_in.client_id, Client.company_id == company_id)
+        )
+        if not client_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    product_ids = {item.product_id for item in sale_in.items}
+    product_result = await db.execute(
+        select(Product.id).where(Product.id.in_(product_ids), Product.company_id == company_id)
+    )
+    if len(product_result.scalars().all()) != len(product_ids):
+        raise HTTPException(status_code=404, detail="Uno o más productos no pertenecen a la empresa")
 
 @router.get("/", response_model=List[schemas.SaleSummary])
 async def read_sales(
@@ -149,12 +176,18 @@ async def create_sale(
     Does NOT affect inventory immediately unless status is CONFIRMED (which shouldn't be initial status usually).
     """
     try:
+        await _validate_sale_relations(db, sale_in, current_user.company_id)
+
+        initial_status = SaleStatus(sale_in.status or SaleStatus.DRAFT)
+        if initial_status not in (SaleStatus.DRAFT, SaleStatus.QUOTE):
+            raise HTTPException(status_code=400, detail="Una venta nueva debe iniciar en Borrador o Cotización")
+
         # 1. Create Sale Header
         sale = Sale(
             branch_id=sale_in.branch_id,
             user_id=current_user.id,
             client_id=sale_in.client_id,
-            status=sale_in.status if sale_in.status else SaleStatus.DRAFT,
+            status=initial_status,
             payment_method=sale_in.payment_method,
             notes=sale_in.notes,
             shipping_address=sale_in.shipping_address,
@@ -172,12 +205,6 @@ async def create_sale(
         
         # 2. Process Items
         for item_in in sale_in.items:
-            # Get Product
-            result = await db.execute(select(Product).where(Product.id == item_in.product_id))
-            product = result.scalars().first()
-            if not product:
-                continue 
-            
             item_total = (item_in.price * item_in.quantity) - item_in.discount
             total_amount += item_total
             
@@ -280,6 +307,12 @@ async def create_sale(
         result = await db.execute(query)
         return result.scalars().first()
 
+    except HTTPException:
+        await db.rollback()
+        raise
+    except (TypeError, ValueError) as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -318,7 +351,10 @@ async def update_status(
         raise HTTPException(status_code=404, detail="Sale not found")
         
     old_status = sale.status
-    new_status = status
+    try:
+        new_status = SaleStatus(status)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Estado de venta inválido")
     
     if old_status == new_status:
         return sale
@@ -340,15 +376,13 @@ async def update_status(
         SaleStatus.PICKING: [SaleStatus.PACKING, SaleStatus.DISPATCHED, SaleStatus.CANCELLED],
         SaleStatus.PACKING: [SaleStatus.DISPATCHED, SaleStatus.CANCELLED],
         SaleStatus.DISPATCHED: [SaleStatus.DELIVERED, SaleStatus.CANCELLED],
-        SaleStatus.DELIVERED: [], # Final state
+        SaleStatus.DELIVERED: [SaleStatus.COMPLETED],
+        SaleStatus.COMPLETED: [],
         SaleStatus.CANCELLED: [], # Final state (unless we allow re-drafting later)
     }
     
-    # Bypass validation if we are just moving fast (optional), but let's enforce for now
     if new_status not in valid_transitions.get(old_status, []):
-        # Allow skipping steps? E.g. CONFIRMED -> DISPATCHED directly
-        # Let's allow forward movement skipping for flexibility
-        pass 
+        raise HTTPException(status_code=400, detail=f"Transición no permitida: {old_status.value} a {new_status.value}")
 
     if new_status == SaleStatus.CONFIRMED and old_status in [SaleStatus.DRAFT, SaleStatus.QUOTE]:
         # Deduct Inventory

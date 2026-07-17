@@ -67,10 +67,10 @@ export interface Brand {
                             <td class="text-muted">{{ brand.description || '—' }}</td>
                             <td>
                               <button class="btn btn-outline-primary btn-sm me-1" (click)="editBrand(brand)" title="Editar">
-                                <i class="feather icon-edit"></i>
+                                <i class="ti ti-edit"></i>
                               </button>
                               <button class="btn btn-outline-danger btn-sm" (click)="deleteBrand(brand)" title="Eliminar">
-                                <i class="feather icon-trash-2"></i>
+                                <i class="ti ti-trash"></i>
                               </button>
                             </td>
                           </tr>

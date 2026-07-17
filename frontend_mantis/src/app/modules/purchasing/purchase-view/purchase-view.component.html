@@ -64,7 +64,7 @@
                 }
                 @if (!purchase.branch_id) {
                   <div class="text-danger">
-                    <i class="feather icon-alert-triangle"></i> <strong>Sin Sucursal de Destino</strong>
+                    <i class="ti ti-alert-triangle"></i> <strong>Sin Sucursal de Destino</strong>
                   </div>
                 }
               </div>
@@ -154,7 +154,7 @@
                     @if (!receiveMode) {
                       <button class="btn btn-success" (click)="toggleReceiveMode()"
                         [disabled]="loading || !purchase.branch_id">
-                        <i class="ti ti-package me-1"></i>Recibir Productos
+                        <i class="ti ti-box me-1"></i>Recibir Productos
                       </button>
                     }
                     @if (receiveMode) {

@@ -1,0 +1,55 @@
+name: Validate and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            frontend_mantis/package-lock.json
+            storefront_nextmerce/package-lock.json
+      - name: Validate Angular admin
+        working-directory: frontend_mantis
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+      - name: Validate storefront
+        working-directory: storefront_nextmerce
+        run: |
+          npm ci
+          npm run lint
+          NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1 NEXT_PUBLIC_STOREFRONT_ID=placeholder npm run build
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Deploy on VPS
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          test -n "$DEPLOY_HOST" && test -n "$DEPLOY_USER" && test -n "$DEPLOY_SSH_KEY" && test -n "$DEPLOY_PATH"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "set -eu; cd '$DEPLOY_PATH'; git fetch origin main; git checkout main; git pull --ff-only origin main; docker compose -f docker-compose.prod.yml up -d --build --remove-orphans; docker image prune -f"

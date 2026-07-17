@@ -89,7 +89,7 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                   <h6>Productos</h6>
                   <button type="button" class="btn btn-primary btn-sm" (click)="addItem()">
-                    <i class="feather icon-plus"></i> Agregar Producto
+                    <i class="ti ti-plus"></i> Agregar Producto
                   </button>
                 </div>
                 <!-- Items Table -->
@@ -149,7 +149,7 @@
                                 <td class="text-end">
                                   <button type="button" class="btn btn-outline-danger btn-sm"
                                     (click)="removeItem(i)">
-                                    <i class="feather icon-trash-2"></i>
+                                    <i class="ti ti-trash"></i>
                                   </button>
                                 </td>
                               </tr>
@@ -159,7 +159,7 @@
                       </div>
                       @if (items.controls.length === 0) {
                         <div class="alert alert-secondary text-center py-4">
-                          <i class="feather icon-shopping-cart fs-3 d-block mb-2 text-muted"></i>
+                          <i class="ti ti-shopping-cart fs-3 d-block mb-2 text-muted"></i>
                           No hay productos en la orden. Presiona "Agregar Producto".
                         </div>
                       }

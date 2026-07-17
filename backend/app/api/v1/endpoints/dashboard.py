@@ -11,6 +11,7 @@ from alembic.script import ScriptDirectory
 from app.core.database import get_db
 from app.models.user import User
 from app.models.product import Product
+from app.models.company import Company
 from app.models.sale import Sale, SaleStatus, SaleItem
 from app.core.permissions import PermissionChecker
 from app.schemas import dashboard as schemas
@@ -83,6 +84,20 @@ async def get_dashboard_stats(
     res_revenue = await db.execute(q_revenue)
     total_revenue = res_revenue.scalar() or 0.0
     
+    company = await db.get(Company, current_user.company_id)
+    currency_symbol = company.currency_symbol if company and company.currency_symbol else "$"
+    sale_status_labels = {
+        SaleStatus.QUOTE: "Cotización",
+        SaleStatus.DRAFT: "Borrador",
+        SaleStatus.CONFIRMED: "Confirmado",
+        SaleStatus.PICKING: "En preparación",
+        SaleStatus.PACKING: "Empacado",
+        SaleStatus.DISPATCHED: "Despachado",
+        SaleStatus.DELIVERED: "Entregado",
+        SaleStatus.COMPLETED: "Completado",
+        SaleStatus.CANCELLED: "Cancelado",
+    }
+
     # Construct Cards
     cards = [
         {
@@ -91,9 +106,9 @@ async def get_dashboard_stats(
             "background": "bg-light-primary",
             "border": "border-primary",
             "icon": "rise",
-            "percentage": "100%",
+            "percentage": "",
             "color": "text-primary",
-            "number": str(total_users_count) 
+            "number": "Usuarios registrados"
         },
         {
             "title": "Productos",
@@ -101,9 +116,9 @@ async def get_dashboard_stats(
             "background": "bg-light-primary", 
             "border": "border-primary",
             "icon": "rise",
-            "percentage": "-",
+            "percentage": "",
             "color": "text-primary",
-            "number": str(total_products_count)
+            "number": "Productos en catálogo"
         },
         {
             "title": "Pedidos",
@@ -111,19 +126,19 @@ async def get_dashboard_stats(
             "background": "bg-light-warning",
             "border": "border-warning",
             "icon": "rise",
-            "percentage": "-",
+            "percentage": "",
             "color": "text-warning",
-            "number": str(total_orders_count)
+            "number": "Pedidos del período" if (parsed_date_from or parsed_date_to) else "Pedidos registrados"
         },
         {
             "title": "Ingresos",
-            "amount": f"${total_revenue:,.2f}",
+            "amount": f"{currency_symbol}{total_revenue:,.2f}",
             "background": "bg-light-success",
             "border": "border-success",
             "icon": "rise",
-            "percentage": "-",
+            "percentage": "",
             "color": "text-success",
-            "number": f"${total_revenue:,.2f}"
+            "number": "Ingresos del período" if (parsed_date_from or parsed_date_to) else "Ingresos confirmados"
         },
     ]
 
@@ -163,10 +178,10 @@ async def get_dashboard_stats(
         recent_orders_data.append({
             "id": str(sale.id)[:8],
             "name": product_name,
-            "status": sale.status.value,
+            "status": sale_status_labels.get(sale.status, sale.status.value),
             "status_type": status_color,
             "quantity": sum(i.quantity for i in sale.items) if sale.items else 0,
-            "amount": f"${sale.total:,.2f}"
+            "amount": f"{currency_symbol}{sale.total:,.2f}"
         })
         
     # 3. Transactions
@@ -177,8 +192,8 @@ async def get_dashboard_stats(
             "icon": "gift" if sale.status == SaleStatus.COMPLETED else "message",
             "title": f"Pedido #{str(sale.id)[:6]}",
             "time": sale.created_at.strftime("%d %b, %H:%M"),
-            "amount": f"+ ${sale.total:,.2f}",
-            "percentage": "-"
+            "amount": f"{currency_symbol}{sale.total:,.2f}",
+            "percentage": ""
         })
         
     # 4. Charts Data
@@ -256,22 +271,12 @@ async def get_dashboard_stats(
         ]
     }
     
-    # 4c. Sales Report
-    sales_report_data = {
-         "categories": monthly_labels[:6],
-         "series": [
-             {"name": "Ingresos", "data": monthly_values[:6]},
-             {"name": "Beneficio", "data": [v * 0.3 for v in monthly_values[:6]]}
-         ]
-    }
-    
     return {
         "cards": cards,
         "recent_orders": recent_orders_data,
         "transactions": transactions_data,
         "monthly_sales": monthly_sales_chart,
-        "income_overview": income_overview_data,
-        "sales_report": sales_report_data
+        "income_overview": income_overview_data
     }
 
 

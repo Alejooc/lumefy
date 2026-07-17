@@ -162,9 +162,12 @@ const Checkout = ({ storefrontId, currency }: Props) => {
         }
         const sorted = gateways.slice().sort((a, b) => a.sort_order - b.sort_order);
         setPaymentOptions(sorted);
-        if (sorted.length && !sorted.some((item) => item.provider === form.payment_provider)) {
-          setForm((current) => ({ ...current, payment_provider: sorted[0].provider }));
-        }
+        setForm((current) => {
+          if (!sorted.length || sorted.some((item) => item.provider === current.payment_provider)) {
+            return current;
+          }
+          return { ...current, payment_provider: sorted[0].provider };
+        });
       })
       .catch(() => {
         if (!active) {

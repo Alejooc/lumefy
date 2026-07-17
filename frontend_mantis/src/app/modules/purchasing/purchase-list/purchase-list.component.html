@@ -6,14 +6,14 @@
         <div>
           <div class="btn-group btn-group-sm me-2">
             <button class="btn btn-outline-success" (click)="exportData('excel')">
-              <i class="feather icon-file"></i> Excel
+              <i class="ti ti-file"></i> Excel
             </button>
             <button class="btn btn-outline-success" (click)="exportData('csv')">
-              <i class="feather icon-file-text"></i> CSV
+              <i class="ti ti-file-text"></i> CSV
             </button>
           </div>
           <a [routerLink]="['/purchasing/orders/add']" class="btn btn-primary btn-sm">
-            <i class="feather icon-plus"></i> Nueva Orden de Compra
+            <i class="ti ti-plus"></i> Nueva Orden de Compra
           </a>
         </div>
       </div>
@@ -46,16 +46,16 @@
                 <td>
                   <div ngbDropdown container="body" class="d-inline-block">
                     <button class="btn btn-sm btn-light no-arrow" ngbDropdownToggle>
-                      <i class="feather icon-more-vertical"></i>
+                      <i class="ti ti-dots-vertical"></i>
                     </button>
                     <div ngbDropdownMenu>
                       <button ngbDropdownItem [routerLink]="['/purchasing/orders/view', po.id]">
-                        <i class="feather icon-eye text-info"></i> Ver Detalle
+                        <i class="ti ti-eye text-info"></i> Ver Detalle
                       </button>
 
                       <!-- PDF Options -->
                       <button ngbDropdownItem (click)="downloadPdf(po.id)">
-                        <i class="feather icon-file-text text-primary"></i> Ver Factura
+                        <i class="ti ti-file-text text-primary"></i> Ver Factura
                       </button>
 
                       <!-- Delete (Only Draft) -->
@@ -64,7 +64,7 @@
                       }
                       @if (po.status === 'DRAFT') {
                         <button ngbDropdownItem class="text-danger">
-                          <i class="feather icon-trash-2"></i> Eliminar
+                          <i class="ti ti-trash"></i> Eliminar
                         </button>
                       }
                     </div>

@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import auth
 from app.core.database import get_db
 from app.core.security import get_password_hash
-from app.core.security import get_password_hash
 from app.models.user import User
 from app.core.permissions import PermissionChecker 
 from app.core.plan_limits import PlanLimitChecker
@@ -85,6 +84,8 @@ async def create_user(
         user_data = user_in.model_dump(exclude={"password"})
         user_data["hashed_password"] = get_password_hash(user_in.password)
         user_data["company_id"] = current_user.company_id # Force company association
+        # Tenant administrators can never create platform superusers.
+        user_data["is_superuser"] = False
         
         user = User(**user_data)
         user.created_by_id = current_user.id

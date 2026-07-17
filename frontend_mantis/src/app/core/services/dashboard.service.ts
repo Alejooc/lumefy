@@ -43,7 +43,6 @@ export interface DashboardStats {
     transactions: TransactionHistory[];
     monthly_sales: ChartData;
     income_overview: ChartData;
-    sales_report: ChartData;
 }
 
 export interface DashboardHealth {

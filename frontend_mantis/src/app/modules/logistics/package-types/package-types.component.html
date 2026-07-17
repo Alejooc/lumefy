@@ -17,12 +17,12 @@
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-start mb-2">
               <h6 class="mb-0 fw-bold">
-                <i class="ti ti-package me-1 text-primary"></i>{{ type.name }}
+                <i class="ti ti-box me-1 text-primary"></i>{{ type.name }}
               </h6>
               <div class="btn-group btn-group-sm">
                 <button class="btn btn-outline-secondary btn-sm" (click)="openModal(formModal, type)"
                   title="Editar">
-                  <i class="ti ti-pencil"></i>
+                  <i class="ti ti-edit"></i>
                 </button>
                 <button class="btn btn-outline-danger btn-sm" (click)="deleteType(type)" title="Eliminar">
                   <i class="ti ti-trash"></i>
@@ -31,11 +31,11 @@
             </div>
             <div class="package-dimensions">
               <div class="dim-row">
-                <i class="ti ti-dimensions me-1"></i>
+                <i class="ti ti-maximize me-1"></i>
                 <span>{{ getDimensions(type) }}</span>
               </div>
               <div class="dim-row">
-                <i class="ti ti-weight me-1"></i>
+                <i class="ti ti-archive me-1"></i>
                 <span>Peso máx: <strong>{{ type.max_weight }} kg</strong></span>
               </div>
             </div>
@@ -45,7 +45,7 @@
     }
     @if (packageTypes.length === 0) {
       <div class="col-12 text-center py-5">
-        <i class="ti ti-box-off" style="font-size: 3rem; opacity: 0.3;"></i>
+        <i class="ti ti-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
         <p class="text-muted mt-2">No hay tipos de empaque creados</p>
         <button class="btn btn-primary" (click)="openModal(formModal)">
           <i class="ti ti-plus me-1"></i>Crear el primero

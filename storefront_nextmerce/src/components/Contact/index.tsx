@@ -13,12 +13,10 @@ import {
 
 const Contact = () => {
   const { session } = useStorefrontAuth();
-  const [supportName, setSupportName] = useState("Support Team");
-  const [supportPhone, setSupportPhone] = useState("1234 567890");
-  const [supportEmail, setSupportEmail] = useState("support@example.com");
-  const [supportAddress, setSupportAddress] = useState(
-    "7398 Smoke Ranch RoadLas Vegas, Nevada 89128",
-  );
+  const [supportName, setSupportName] = useState("Tienda");
+  const [supportPhone, setSupportPhone] = useState("");
+  const [supportEmail, setSupportEmail] = useState("");
+  const [supportAddress, setSupportAddress] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -114,9 +112,9 @@ const Contact = () => {
               <div className="p-4 sm:p-7.5">
                 <div className="flex flex-col gap-4">
                   <p className="flex items-center gap-4">Tienda: {supportName}</p>
-                  <p className="flex items-center gap-4">Teléfono: {supportPhone}</p>
-                  <p className="flex gap-4">Email: {supportEmail}</p>
-                  <p className="flex gap-4">Dirección: {supportAddress}</p>
+                  {supportPhone ? <p className="flex items-center gap-4">Teléfono: {supportPhone}</p> : null}
+                  {supportEmail ? <p className="flex gap-4">Email: {supportEmail}</p> : null}
+                  {supportAddress ? <p className="flex gap-4">Dirección: {supportAddress}</p> : null}
                 </div>
               </div>
             </div>

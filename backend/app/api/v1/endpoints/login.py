@@ -42,7 +42,7 @@ async def login_access_token(
         "token_type": "bearer",
     }
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 class Msg(BaseModel):
     msg: str
@@ -52,7 +52,7 @@ class PasswordResetRequest(BaseModel):
 
 class PasswordReset(BaseModel):
     token: str
-    new_password: str
+    new_password: str = Field(..., min_length=8)
 
 from app.services.email import EmailService
 from jose import jwt, JWTError

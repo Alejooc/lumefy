@@ -5,9 +5,9 @@
     align-items: center;
     gap: 1rem;
     padding: 1rem 1.1rem;
-    border-radius: 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
   }
 
   .storefront-toggle {
@@ -26,18 +26,16 @@
     justify-content: space-between;
     gap: 1rem;
     padding: 1rem 1.1rem;
-    border-radius: 16px;
+    border-radius: var(--bs-border-radius);
     text-decoration: none;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    color: #0f172a;
-    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    color: var(--bs-body-color);
+    transition: border-color 0.2s ease;
   }
 
   .stacked-action-card:hover {
-    transform: translateY(-1px);
-    border-color: rgba(37, 99, 235, 0.22);
-    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    border-color: var(--bs-primary);
   }
 
   .stacked-action-card__arrow {
@@ -46,9 +44,9 @@
     justify-content: center;
     min-width: 68px;
     padding: 0.35rem 0.75rem;
-    border-radius: 999px;
-    background: #eff6ff;
-    color: #1d4ed8;
+    border-radius: var(--bs-border-radius-pill);
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary);
     font-size: 0.78rem;
     font-weight: 700;
   }
@@ -57,14 +55,14 @@
     display: grid;
     gap: 0.2rem;
     padding: 1rem;
-    border-radius: 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
     margin-bottom: 0.75rem;
   }
 
   .domain-highlight.is-empty {
-    background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
+    background: var(--bs-warning-bg-subtle);
   }
 
   .domain-highlight__label {
@@ -72,7 +70,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #0f766e;
+    color: var(--bs-primary);
   }
 
   .setting-check {
@@ -94,13 +92,13 @@
     width: 100%;
     text-align: left;
     padding: 0.9rem 1rem;
-    border-radius: 14px;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    background: #fff;
+    border-radius: var(--bs-border-radius);
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
   }
 
   .domain-row--actions {
-    border-radius: 16px;
+    border-radius: var(--bs-border-radius);
   }
 
   .domains-modal-card {
@@ -110,9 +108,9 @@
   .domains-form-panel {
     height: 100%;
     padding: 1rem;
-    border-radius: 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-tertiary-bg);
+    border: 1px solid var(--bs-border-color);
   }
 
   .modal-domain-list {
@@ -130,28 +128,28 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.8rem 0.9rem;
-    border-radius: 14px;
-    background: #fff;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    color: #475569;
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    color: var(--bs-body-color);
   }
 
   .checklist-item.is-done {
-    border-color: rgba(15, 118, 110, 0.22);
-    background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
-    color: #0f766e;
+    border-color: var(--bs-success);
+    background: var(--bs-success-bg-subtle);
+    color: var(--bs-success-text-emphasis);
   }
 
   .checklist-dot {
     width: 10px;
     height: 10px;
-    border-radius: 999px;
-    background: #cbd5e1;
+    border-radius: 50%;
+    background: var(--bs-secondary);
     flex: 0 0 auto;
   }
 
   .checklist-item.is-done .checklist-dot {
-    background: #0f766e;
+    background: var(--bs-success);
   }
 
   @media (max-width: 991.98px) {

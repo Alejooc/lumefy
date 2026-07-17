@@ -5,11 +5,11 @@
         <div class="col-md-12 d-flex flex-wrap justify-content-end gap-2">
           @if (canManageRoles) {
             <button class="btn btn-outline-secondary" [routerLink]="['/users/roles']">
-              <i class="feather icon-shield"></i> Roles y Permisos
+              <i class="ti ti-shield"></i> Roles y Permisos
             </button>
           }
           <button class="btn btn-primary" [routerLink]="['/users/new']">
-            <i class="feather icon-plus"></i> Nuevo Usuario
+            <i class="ti ti-plus"></i> Nuevo Usuario
           </button>
         </div>
       </div>
@@ -44,10 +44,10 @@
                 <td class="text-end">
                   <button [routerLink]="['/users/edit', user.id]"
                     class="btn btn-icon btn-outline-primary btn-sm me-1">
-                    <i class="feather icon-edit"></i>
+                    <i class="ti ti-edit"></i>
                   </button>
                   <button (click)="deleteUser(user.id)" class="btn btn-icon btn-outline-danger btn-sm">
-                    <i class="feather icon-trash-2"></i>
+                    <i class="ti ti-trash"></i>
                   </button>
                 </td>
               </tr>

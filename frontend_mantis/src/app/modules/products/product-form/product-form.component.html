@@ -1,35 +1,40 @@
 <div class="row">
   <div class="col-sm-12">
-    <div class="card">
+    <div class="card product-form-card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5>{{ isEditMode ? 'Editar Producto' : 'Nuevo Producto' }}</h5>
-        <button type="button" class="btn btn-secondary btn-sm" routerLink="/products">Volver</button>
+        <div>
+          <h5 class="mb-1">{{ isEditMode ? 'Editar producto' : 'Nuevo producto' }}</h5>
+          <small class="text-muted">Completa los datos esenciales y guarda cuando termines.</small>
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm" routerLink="/products">
+          <i class="ti ti-arrow-left"></i> Volver al catálogo
+        </button>
       </div>
       <div class="card-body">
         <form [formGroup]="form" (ngSubmit)="onSubmit()">
-          <ul class="nav nav-tabs mb-4">
+          <ul class="nav nav-tabs mb-4 product-form-tabs" role="tablist">
             <li class="nav-item">
-              <a class="nav-link" [class.active]="activeTab === 'general'" (click)="setTab('general')" style="cursor:pointer;">
-                General
-              </a>
+              <button type="button" class="nav-link" [class.active]="activeTab === 'general'" (click)="setTab('general')">
+                <i class="ti ti-box"></i> General
+              </button>
             </li>
             <li class="nav-item">
-              <a class="nav-link" [class.active]="activeTab === 'inventory'" (click)="setTab('inventory')" style="cursor:pointer;">
-                Inventario y Precios
-              </a>
+              <button type="button" class="nav-link" [class.active]="activeTab === 'inventory'" (click)="setTab('inventory')">
+                <i class="ti ti-database"></i> Inventario y precios
+              </button>
             </li>
             <li class="nav-item">
-              <a class="nav-link" [class.active]="activeTab === 'variants'" (click)="setTab('variants')" style="cursor:pointer;">
-                Variantes
+              <button type="button" class="nav-link" [class.active]="activeTab === 'variants'" (click)="setTab('variants')">
+                <i class="ti ti-layers-linked"></i> Variantes
                 @if (variants.length > 0) {
                   <span class="badge bg-primary ms-1">{{ variants.length }}</span>
                 }
-              </a>
+              </button>
             </li>
             <li class="nav-item">
-              <a class="nav-link" [class.active]="activeTab === 'ecommerce'" (click)="setTab('ecommerce')" style="cursor:pointer;">
-                Tienda Online
-              </a>
+              <button type="button" class="nav-link" [class.active]="activeTab === 'ecommerce'" (click)="setTab('ecommerce')">
+                <i class="ti ti-shopping-cart"></i> Tienda online
+              </button>
             </li>
           </ul>
 
@@ -112,14 +117,15 @@
 
                 <div class="col-md-4">
                   <div class="mb-3">
-                    <label class="form-label">Imagenes del Producto</label>
+                    <label class="form-label">Imágenes del producto</label>
                     <div class="d-grid gap-2">
                       <input type="file" #fileInput class="d-none" multiple accept="image/*" (change)="uploadImages($event)">
                       <button type="button" class="btn btn-outline-primary" (click)="fileInput.click()" [disabled]="isUploading">
                         @if (isUploading) {
                           <span class="spinner-border spinner-border-sm me-1"></span>
                         }
-                        {{ isUploading ? 'Subiendo...' : 'Subir imagenes' }}
+                        <i class="ti ti-upload" [class.d-none]="isUploading"></i>
+                        {{ isUploading ? 'Subiendo...' : 'Subir imágenes' }}
                       </button>
                     </div>
                   </div>
@@ -132,7 +138,7 @@
                             <img [src]="img.image_url" class="img-fluid w-100 rounded" style="height: 120px; object-fit: cover;">
                             <div class="gallery-actions">
                               <button type="button" class="btn btn-danger btn-sm p-1" (click)="removeImage(i)" title="Eliminar">
-                                <i class="feather icon-trash-2"></i>
+                                <i class="ti ti-trash"></i>
                               </button>
                               @if (i !== 0) {
                                 <button
@@ -141,7 +147,7 @@
                                   (click)="setAsMain(i)"
                                   title="Establecer como principal"
                                 >
-                                  <i class="feather icon-star"></i>
+                                  <i class="ti ti-star"></i>
                                 </button>
                               }
                             </div>
@@ -158,8 +164,9 @@
 
                   @if (images.length === 0) {
                     <div class="text-center text-muted border rounded p-4 mb-3 bg-light">
-                      <p class="mb-0">Sin imagenes</p>
-                      <small>Sube imagenes para mostrar en el catalogo</small>
+                      <i class="ti ti-photo d-block mb-2"></i>
+                      <p class="mb-0">Sin imágenes</p>
+                      <small>Sube imágenes para mostrar en el catálogo.</small>
                     </div>
                   }
 
@@ -280,7 +287,9 @@
                   <h6 class="mb-0">Variantes del Producto</h6>
                   <small class="text-muted">Agrega variaciones como talla, color, presentacion, etc.</small>
                 </div>
-                <button type="button" class="btn btn-sm btn-primary" (click)="addVariant()">+ Agregar Variante</button>
+                <button type="button" class="btn btn-sm btn-primary" (click)="addVariant()">
+                  <i class="ti ti-plus"></i> Agregar variante
+                </button>
               </div>
 
               @if (variants.length > 0) {
@@ -325,8 +334,8 @@
                             <input type="number" class="form-control form-control-sm" formControlName="weight" step="0.01" placeholder="kg">
                           </td>
                           <td class="text-center">
-                            <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeVariant(i)" title="Eliminar">
-                              X
+                            <button type="button" class="btn btn-icon btn-outline-danger btn-sm" (click)="removeVariant(i)" title="Eliminar variante" aria-label="Eliminar variante">
+                              <i class="ti ti-trash"></i>
                             </button>
                           </td>
                         </tr>
@@ -415,12 +424,13 @@
           }
 
           <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-            <button type="button" class="btn btn-secondary" routerLink="/products">Cancelar</button>
+            <button type="button" class="btn btn-outline-secondary" routerLink="/products">Cancelar</button>
             <button type="submit" class="btn btn-primary" [disabled]="form.invalid || isLoading">
               @if (isLoading) {
                 <span class="spinner-border spinner-border-sm me-1"></span>
               }
-              {{ isLoading ? 'Guardando...' : (isEditMode ? 'Actualizar Producto' : 'Crear Producto') }}
+              <i class="ti ti-device-floppy" [class.d-none]="isLoading"></i>
+              {{ isLoading ? 'Guardando...' : (isEditMode ? 'Actualizar producto' : 'Crear producto') }}
             </button>
           </div>
         </form>

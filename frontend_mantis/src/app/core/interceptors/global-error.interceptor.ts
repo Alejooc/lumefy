@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpErrorResponse, HttpEvent, HttpHandler, HttpInterceptor, HttpRequest } from '@angular/common/http';
-import { Router } from '@angular/router';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import Swal from 'sweetalert2';
+import { AuthService } from '../services/auth.service';
 
 interface ValidationErrorDetail {
     loc: Array<string | number>;
@@ -18,7 +18,7 @@ interface ValidationErrorBody {
 
 @Injectable()
 export class GlobalErrorInterceptor implements HttpInterceptor {
-    private router = inject(Router);
+    private authService = inject(AuthService);
 
     intercept(request: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
         return next.handle(request).pipe(
@@ -37,8 +37,7 @@ export class GlobalErrorInterceptor implements HttpInterceptor {
                                 icon = 'warning';
                                 errorTitle = 'Sesion expirada';
                                 errorMessage = 'Tu sesion ha caducado. Por favor inicia sesion nuevamente.';
-                                localStorage.removeItem('token');
-                                this.router.navigate(['/login']);
+                                this.authService.logout();
                             }
                             break;
                         case 402:

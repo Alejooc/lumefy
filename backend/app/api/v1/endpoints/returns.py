@@ -1,7 +1,7 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.models.return_order import ReturnOrder, ReturnOrderItem, ReturnStatus, ReturnType
@@ -103,6 +103,10 @@ async def create_return(
 
         # Build item lookup
         sale_items_map = {str(si.id): si for si in sale.items}
+        requested_by_sale_item: dict[str, float] = {}
+        for item_in in return_in.items:
+            key = str(item_in.sale_item_id)
+            requested_by_sale_item[key] = requested_by_sale_item.get(key, 0.0) + item_in.quantity
         
         total_refund = 0.0
         return_items = []
@@ -115,10 +119,21 @@ async def create_return(
             
             if item_in.quantity <= 0:
                 raise HTTPException(status_code=400, detail="Return quantity must be greater than 0")
-            if item_in.quantity > sale_item.quantity:
+            returned_result = await db.execute(
+                select(func.coalesce(func.sum(ReturnOrderItem.quantity_returned), 0.0))
+                .join(ReturnOrder, ReturnOrder.id == ReturnOrderItem.return_order_id)
+                .where(
+                    ReturnOrderItem.sale_item_id == item_in.sale_item_id,
+                    ReturnOrder.company_id == current_user.company_id,
+                    ReturnOrder.status.in_([ReturnStatus.PENDING, ReturnStatus.APPROVED]),
+                )
+            )
+            previously_returned = float(returned_result.scalar_one())
+            requested_quantity = requested_by_sale_item[str(item_in.sale_item_id)]
+            if previously_returned + requested_quantity > sale_item.quantity:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Return quantity ({item_in.quantity}) exceeds sold quantity ({sale_item.quantity}) for {sale_item.product_id}"
+                    detail=f"La cantidad a devolver excede la cantidad disponible para {sale_item.product_id}"
                 )
             
             if item_in.quantity < sale_item.quantity:

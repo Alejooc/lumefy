@@ -7,14 +7,14 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy the rest of the application code
 COPY . .
 
 # Build the application for production
 # Override base-href /angular/free/ to / for root deployment in Docker
-RUN npm run build-prod -- --base-href /
+RUN npx ng build --configuration production --base-href /
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine

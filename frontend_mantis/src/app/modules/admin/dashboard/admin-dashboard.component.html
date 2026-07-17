@@ -1,58 +1,61 @@
-<div class="row">
-    @for (analytic of AnalyticEcommerce; track analytic) {
-    <div class="col-md-6 col-xl-3">
-        <app-card [showHeader]="false" blockClass="dashboard-card">
-            <h6 class="mb-2 f-w-400 text-muted">{{ analytic.title }}</h6>
-            <h4 class="mb-3">
-                {{ analytic.amount }}
-                <span class="badge {{ analytic.background }} border {{ analytic.border }} ">
-                    <i antIcon type="{{ analytic.icon }}" theme="outline"></i>
-                    {{ analytic.percentage }}
-                </span>
-            </h4>
-            <p class="mb-0 text-muted text-sm">
-                Metric:
-                <span class="{{ analytic.color }}">{{ analytic.number }}</span>
-            </p>
-        </app-card>
+@if (loading) {
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando</span></div>
     </div>
+  </div>
+} @else if (loadFailed) {
+  <div class="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+    <span>No fue posible cargar las metricas de la plataforma.</span>
+    <button type="button" class="btn btn-sm btn-outline-danger" (click)="loadStats()">Reintentar</button>
+  </div>
+} @else if (stats) {
+  <div class="row">
+    @for (card of summaryCards; track card.title) {
+      <div class="col-md-6 col-xl-3">
+        <app-card [showHeader]="false" blockClass="dashboard-card">
+          <div class="d-flex align-items-start justify-content-between">
+            <div>
+              <p class="mb-2 text-muted text-uppercase f-w-500">{{ card.title }}</p>
+              <h3 class="mb-1">{{ card.value }}</h3>
+              <p class="mb-0 text-muted text-sm">{{ card.detail }}</p>
+            </div>
+            <span class="dashboard-icon {{ card.tone }}">
+              <i antIcon type="{{ card.icon }}" theme="outline"></i>
+            </span>
+          </div>
+        </app-card>
+      </div>
     }
 
-    <div class="col-md-12 col-xl-8">
-        <app-monthly-bar-chart />
-    </div>
-    <div class="col-md-12 col-xl-4">
-        <app-income-overview-chart />
-    </div>
-
-    <div class="col-md-12 col-xl-8">
-        <app-sales-report-chart />
-    </div>
-
-    <div class="col-md-12 col-xl-4">
-        <h5 class="mb-3">Actividad Reciente</h5>
-        <div class="card">
-            <div class="list-group list-group-flush">
-                @for (history of transaction; track history) {
-                <a href="javascript:" class="list-group-item list-group-item-action px-3">
-                    <div class="d-flex">
-                        <div class="flex-shrink-0">
-                            <div class="avatar avatar-s rounded-circle {{ history.background }}">
-                                <i class="f-16" antIcon type="{{ history.icon }}" theme="outline"></i>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <h6 class="mb-1">{{ history.title }}</h6>
-                            <p class="mb-0 text-muted">{{ history.time }}</p>
-                        </div>
-                        <div class="flex-shrink-0 text-end">
-                            <h6 class="mb-1">{{ history.amount }}</h6>
-                            <p class="mb-0 text-muted">{{ history.percentage }}</p>
-                        </div>
-                    </div>
-                </a>
-                }
-            </div>
+    <div class="col-xl-7">
+      <app-card cardTitle="Distribucion de suscripciones">
+        <div class="plan-summary">
+          <div class="plan-row">
+            <div><span class="plan-dot bg-primary"></span>Free</div>
+            <strong>{{ stats.active_subscriptions.FREE }}</strong>
+          </div>
+          <div class="plan-row">
+            <div><span class="plan-dot bg-success"></span>Pro</div>
+            <strong>{{ stats.active_subscriptions.PRO }}</strong>
+          </div>
+          <div class="plan-row">
+            <div><span class="plan-dot bg-danger"></span>Enterprise</div>
+            <strong>{{ stats.active_subscriptions.ENTERPRISE }}</strong>
+          </div>
         </div>
+      </app-card>
     </div>
-</div>
+
+    <div class="col-xl-5">
+      <app-card cardTitle="Administracion de la plataforma">
+        <p class="text-muted mb-3">Gestiona tenants, planes y el catalogo global desde las herramientas de SaaS.</p>
+        <div class="d-flex flex-wrap gap-2">
+          <a routerLink="/admin/companies" class="btn btn-primary">Empresas</a>
+          <a routerLink="/admin/plans" class="btn btn-outline-primary">Planes</a>
+          <a routerLink="/apps/admin" class="btn btn-outline-secondary">Catalogo global</a>
+        </div>
+      </app-card>
+    </div>
+  </div>
+}

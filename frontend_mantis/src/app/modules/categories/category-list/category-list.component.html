@@ -3,7 +3,7 @@
     <app-card cardTitle="Categories">
       <ng-template #headerOptionsTemplate>
         <button [routerLink]="['/categories/create']" class="btn btn-primary" [disabled]="isLoading">
-          <i class="feather icon-plus"></i> Create Category
+          <i class="ti ti-plus"></i> Create Category
         </button>
       </ng-template>
 
@@ -34,11 +34,11 @@
                   <td>
                     <a [routerLink]="['/categories/edit', category.id]"
                       class="btn btn-icon btn-outline-primary btn-sm me-2">
-                      <i class="feather icon-edit"></i>
+                      <i class="ti ti-edit"></i>
                     </a>
                     <button (click)="deleteCategory(category.id)"
                       class="btn btn-icon btn-outline-danger btn-sm" [disabled]="isLoading">
-                      <i class="feather icon-trash-2"></i>
+                      <i class="ti ti-trash"></i>
                     </button>
                   </td>
                 </tr>

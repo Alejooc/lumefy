@@ -25,10 +25,10 @@
                 <td>{{ role.description || '-' }}</td>
                 <td class="text-end">
                   <button class="btn btn-icon btn-outline-primary btn-sm me-1" (click)="startEdit(role)" [disabled]="isFrozenRole(role)">
-                    <i class="feather icon-edit"></i>
+                    <i class="ti ti-edit"></i>
                   </button>
                   <button class="btn btn-icon btn-outline-danger btn-sm" (click)="deleteRole(role)" [disabled]="isAdminRole(role) || isFrozenRole(role)">
-                    <i class="feather icon-trash-2"></i>
+                    <i class="ti ti-trash"></i>
                   </button>
                 </td>
               </tr>

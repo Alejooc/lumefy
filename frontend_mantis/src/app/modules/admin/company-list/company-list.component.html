@@ -4,7 +4,7 @@
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5>Gestión de Empresas (SaaS)</h5>
         <button class="btn btn-primary" [routerLink]="['/admin/companies/new']">
-          <i class="feather icon-plus"></i> Nueva Empresa
+          <i class="ti ti-plus"></i> Nueva Empresa
         </button>
       </div>
       <div class="card-body">
@@ -16,20 +16,23 @@
                 <th>Plan</th>
                 <th>Estado</th>
                 <th>Vence</th>
-                <th>Admin Email</th>
+                <th>Contacto</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              @for (company of companies; track company) {
+              @for (company of companies; track company.id) {
                 <tr>
                   <td>
                     <div class="d-flex align-items-center">
-                      <img [src]="company.logo_url || 'assets/images/user/avatar-2.jpg'" width="30"
-                        class="rounded me-2">
+                      @if (company.logo_url) {
+                        <img [src]="company.logo_url" [alt]="'Logo de ' + company.name" width="30" class="rounded me-2">
+                      } @else {
+                        <span class="avatar avatar-s bg-light-primary text-primary me-2"><i class="ti ti-building-store"></i></span>
+                      }
                         <div>
                           <div class="fw-bold">{{ company.name }}</div>
-                          <small class="text-muted">{{ company.tax_id }}</small>
+                          <small class="text-muted">{{ company.tax_id || 'Sin identificación fiscal' }}</small>
                         </div>
                       </div>
                     </td>
@@ -44,20 +47,22 @@
                         {{ company.is_active ? 'Activo' : 'Suspendido' }}
                       </span>
                     </td>
-                    <td>{{ company.valid_until || 'Indefinido' }}</td>
-                    <td>{{ company.email }}</td>
+                    <td>{{ company.valid_until ? (company.valid_until | date:'dd/MM/yyyy') : 'Indefinido' }}</td>
+                    <td>{{ company.email || 'Sin correo de contacto' }}</td>
                     <td>
                       <button class="btn btn-icon btn-outline-primary me-2"
-                        [routerLink]="['/admin/companies/edit', company.id]" title="Editar Empresa">
-                        <i class="feather icon-edit"></i>
+                        [routerLink]="['/admin/companies/edit', company.id]" title="Editar empresa"
+                        [attr.aria-label]="'Editar ' + company.name">
+                        <i class="ti ti-edit"></i>
                       </button>
                       <button class="btn btn-icon btn-outline-warning me-2" (click)="impersonate(company)"
-                        title="Iniciar Sesión como Admin">
-                        <i class="feather icon-log-in"></i>
+                        title="Iniciar sesión delegada" [attr.aria-label]="'Iniciar sesión delegada en ' + company.name">
+                        <i class="ti ti-login"></i>
                       </button>
                       <button class="btn btn-icon btn-outline-success"
-                        (click)="extendSubscription(company)" title="Extender Suscripción">
-                        <i class="feather icon-calendar"></i>
+                        (click)="extendSubscription(company)" title="Extender suscripción"
+                        [attr.aria-label]="'Extender suscripción de ' + company.name">
+                        <i class="ti ti-calendar"></i>
                       </button>
                     </td>
                   </tr>

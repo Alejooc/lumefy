@@ -12,14 +12,14 @@
           </select>
           <div class="btn-group btn-group-sm">
             <button class="btn btn-outline-success" (click)="exportData('excel')">
-              <i class="feather icon-file"></i> Excel
+              <i class="ti ti-file"></i> Excel
             </button>
             <button class="btn btn-outline-success" (click)="exportData('csv')">
-              <i class="feather icon-file-text"></i> CSV
+              <i class="ti ti-file-text"></i> CSV
             </button>
           </div>
           <button class="btn btn-primary btn-sm" routerLink="/inventory/movement">
-            <i class="feather icon-plus"></i> Nuevo Movimiento
+            <i class="ti ti-plus"></i> Nuevo Movimiento
           </button>
         </div>
       </ng-template>
@@ -55,7 +55,7 @@
                   <button class="btn btn-icon btn-outline-info btn-sm" title="Ver Movimientos (Kardex)"
                     [routerLink]="['/inventory/history', item.product_id]"
                     [queryParams]="{branchId: item.branch_id}">
-                    <i class="feather icon-list"></i>
+                    <i class="ti ti-list"></i>
                   </button>
                 </td>
               </tr>

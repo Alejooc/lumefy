@@ -47,31 +47,21 @@ export type StorefrontBrandingViewModel = {
   promoBanners: PublicStorefrontBrandingPromo[];
 };
 
-const DEFAULT_SUPPORT_PHONE = "(+965) 7492-3477";
-const DEFAULT_SUPPORT_EMAIL = "support@example.com";
-const DEFAULT_SUPPORT_ADDRESS =
-  "685 Market Street,Las Vegas, LA 95820,United States.";
+const DEFAULT_SUPPORT_PHONE = "";
+const DEFAULT_SUPPORT_EMAIL = "";
+const DEFAULT_SUPPORT_ADDRESS = "";
 const DEFAULT_ACCOUNT_LINKS = [
-  { href: "/account", label: "My Account" },
-  { href: "/login", label: "Login / Register" },
-  { href: "/cart", label: "Cart" },
-  { href: "/wishlist", label: "Wishlist" },
-  { href: "/products", label: "Shop" },
+  { href: "/account", label: "Mi cuenta" },
+  { href: "/login", label: "Ingresar" },
+  { href: "/cart", label: "Carrito" },
+  { href: "/wishlist", label: "Favoritos" },
+  { href: "/products", label: "Productos" },
 ];
 const DEFAULT_QUICK_LINKS = [
-  { href: "/products", label: "Privacy Policy" },
-  { href: "/products", label: "Refund Policy" },
-  { href: "/products", label: "Terms of Use" },
-  { href: "/products", label: "FAQs" },
-  { href: "/contact", label: "Contact" },
+  { href: "/products", label: "Productos" },
+  { href: "/contact", label: "Contacto" },
 ];
-const DEFAULT_PAYMENT_METHODS = [
-  { iconUrl: "/images/payment/payment-01.svg", label: "Visa" },
-  { iconUrl: "/images/payment/payment-02.svg", label: "PayPal" },
-  { iconUrl: "/images/payment/payment-03.svg", label: "Mastercard" },
-  { iconUrl: "/images/payment/payment-04.svg", label: "Apple Pay" },
-  { iconUrl: "/images/payment/payment-05.svg", label: "Google Pay" },
-];
+const DEFAULT_PAYMENT_METHODS: Array<{ label: string; href?: string; iconUrl?: string }> = [];
 
 function nonEmpty(value: string | null | undefined): string | undefined {
   const normalized = value?.trim();
@@ -130,7 +120,7 @@ export function getStorefrontBranding(
     themeSettings["footer"] && typeof themeSettings["footer"] === "object"
       ? (themeSettings["footer"] as Record<string, unknown>)
       : {};
-  const storeName = storefront?.name?.trim() || "NextMerce";
+  const storeName = storefront?.name?.trim() || "Tienda online";
 
   return {
     logoUrl: nonEmpty(branding?.logo_url),
@@ -140,42 +130,42 @@ export function getStorefrontBranding(
       nonEmpty(branding?.support_address) || DEFAULT_SUPPORT_ADDRESS,
     website: nonEmpty(branding?.website),
     footerText:
-      nonEmpty(branding?.footer_text) || `${storeName}. All rights reserved.`,
+      nonEmpty(branding?.footer_text) || `${storeName}. Todos los derechos reservados.`,
     header: {
-      supportLabel: nonEmpty(String(headerSettings["support_label"] || "")) || "24/7 SUPPORT",
+      supportLabel: nonEmpty(String(headerSettings["support_label"] || "")) || "Atención al cliente",
       searchPlaceholder:
-        nonEmpty(String(headerSettings["search_placeholder"] || "")) || "I am shopping for...",
-      accountHeading: nonEmpty(String(headerSettings["account_heading"] || "")) || "account",
+        nonEmpty(String(headerSettings["search_placeholder"] || "")) || "Buscar productos...",
+      accountHeading: nonEmpty(String(headerSettings["account_heading"] || "")) || "cuenta",
       guestAccountLabel:
-        nonEmpty(String(headerSettings["guest_account_label"] || "")) || "Sign In",
-      signOutLabel: nonEmpty(String(headerSettings["sign_out_label"] || "")) || "Sign Out",
-      cartHeading: nonEmpty(String(headerSettings["cart_heading"] || "")) || "cart",
+        nonEmpty(String(headerSettings["guest_account_label"] || "")) || "Ingresar",
+      signOutLabel: nonEmpty(String(headerSettings["sign_out_label"] || "")) || "Cerrar sesión",
+      cartHeading: nonEmpty(String(headerSettings["cart_heading"] || "")) || "carrito",
       recentlyViewedLabel:
-        nonEmpty(String(headerSettings["recently_viewed_label"] || "")) || "Recently Viewed",
-      wishlistLabel: nonEmpty(String(headerSettings["wishlist_label"] || "")) || "Wishlist",
+        nonEmpty(String(headerSettings["recently_viewed_label"] || "")) || "Vistos recientemente",
+      wishlistLabel: nonEmpty(String(headerSettings["wishlist_label"] || "")) || "Favoritos",
     },
     footer: {
-      helpTitle: nonEmpty(String(footerSettings["help_title"] || "")) || "Help & Support",
-      accountTitle: nonEmpty(String(footerSettings["account_title"] || "")) || "Account",
+      helpTitle: nonEmpty(String(footerSettings["help_title"] || "")) || "Ayuda y contacto",
+      accountTitle: nonEmpty(String(footerSettings["account_title"] || "")) || "Cuenta",
       quickLinksTitle:
-        nonEmpty(String(footerSettings["quick_links_title"] || "")) || "Quick Link",
-      appTitle: nonEmpty(String(footerSettings["app_title"] || "")) || "Download App",
+        nonEmpty(String(footerSettings["quick_links_title"] || "")) || "Enlaces",
+      appTitle: nonEmpty(String(footerSettings["app_title"] || "")) || "App móvil",
       appDescription:
         nonEmpty(String(footerSettings["app_description"] || "")) ||
-        "Exclusive savings for app users",
+        "Compra desde cualquier lugar",
       appStoreSubtitle:
-        nonEmpty(String(footerSettings["app_store_subtitle"] || "")) || "Download on the",
+        nonEmpty(String(footerSettings["app_store_subtitle"] || "")) || "Disponible en",
       appStoreLabel: nonEmpty(String(footerSettings["app_store_label"] || "")) || "App Store",
       appStoreUrl: nonEmpty(String(footerSettings["app_store_url"] || "")),
       playStoreSubtitle:
-        nonEmpty(String(footerSettings["play_store_subtitle"] || "")) || "Get it on",
+        nonEmpty(String(footerSettings["play_store_subtitle"] || "")) || "Disponible en",
       playStoreLabel:
         nonEmpty(String(footerSettings["play_store_label"] || "")) || "Google Play",
       playStoreUrl: nonEmpty(String(footerSettings["play_store_url"] || "")),
-      paymentTitle: nonEmpty(String(footerSettings["payment_title"] || "")) || "We Accept:",
-      showSocialLinks: footerSettings["show_social_links"] !== false,
-      showAppDownloads: footerSettings["show_app_downloads"] !== false,
-      showPaymentMethods: footerSettings["show_payment_methods"] !== false,
+      paymentTitle: nonEmpty(String(footerSettings["payment_title"] || "")) || "Medios de pago:",
+      showSocialLinks: footerSettings["show_social_links"] === true,
+      showAppDownloads: footerSettings["show_app_downloads"] === true,
+      showPaymentMethods: footerSettings["show_payment_methods"] === true,
       accountLinks: validLinkList(footerSettings["account_links"]).length
         ? validLinkList(footerSettings["account_links"])
         : DEFAULT_ACCOUNT_LINKS,

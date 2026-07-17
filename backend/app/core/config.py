@@ -13,7 +13,12 @@ class Settings(BaseSettings):
     POSTGRES_PORT: str
     DATABASE_URL: Optional[str] = None
     
-    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:4200", "http://localhost:3000"]
+    BACKEND_CORS_ORIGINS: list[str] = [
+        "http://localhost:4200",
+        "http://127.0.0.1:4200",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod

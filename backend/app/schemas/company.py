@@ -16,6 +16,7 @@ class CompanyBase(BaseModel):
     
     plan: Optional[str] = "FREE"
     valid_until: Optional[str] = None
+    subscription_status: Optional[str] = "ACTIVE"
     is_active: Optional[bool] = True
 
 # Properties to receive on creation
@@ -29,7 +30,21 @@ class CompanyOnboard(CompanyCreate):
     admin_name: str = "Administrador"
 
 # Properties to receive on update
-class CompanyUpdate(CompanyBase):
+class CompanyUpdate(BaseModel):
+    """Fields a tenant administrator is allowed to change for its own company."""
+    name: Optional[str] = None
+    tax_id: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    website: Optional[str] = None
+    currency: Optional[str] = None
+    currency_symbol: Optional[str] = None
+    logo_url: Optional[str] = None
+
+
+class CompanyAdminUpdate(CompanyBase):
+    """Full company and subscription update, restricted to SaaS superadmins."""
     pass
 
 # Properties shared by models stored in DB
@@ -58,3 +73,4 @@ class CompanyOnboardResponse(BaseModel):
 class CompanySubscriptionExtend(BaseModel):
     valid_until: str # ISO Date YYYY-MM-DD
     plan: Optional[str] = None # Optional upgrade
+    subscription_status: Optional[str] = "ACTIVE"
