@@ -28,7 +28,6 @@ export class SalesListComponent implements OnInit {
     loading = false;
     filterStatus = '';
     canCreateSales = false;
-    canAccessWizard = false;
 
     // Inject services
     private saleService = inject(SaleService);
@@ -38,7 +37,6 @@ export class SalesListComponent implements OnInit {
 
     ngOnInit() {
         this.canCreateSales = this.permissionService.hasPermission('create_sales');
-        this.canAccessWizard = this.permissionService.hasAnyPermission(['manage_company', 'manage_users']);
         this.loadSales();
     }
 

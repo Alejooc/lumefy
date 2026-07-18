@@ -152,34 +152,43 @@ export const NavigationItems: NavigationItem[] = [
         permissions: ['view_products']
       },
       {
-        id: 'categories',
-        title: 'Categorías',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/categories',
-        icon: 'gold',
-        breadcrumbs: true,
-        permissions: ['view_products']
-      },
-      {
-        id: 'brands',
-        title: 'Marcas',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/brands',
-        icon: 'tags',
-        breadcrumbs: true,
-        permissions: ['view_products']
-      },
-      {
-        id: 'units-of-measure',
-        title: 'Unidades de Medida',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/units-of-measure',
-        icon: 'column-width',
-        breadcrumbs: true,
-        permissions: ['view_products']
+        id: 'catalog-configuration',
+        title: 'Configuración de catálogo',
+        type: 'collapse',
+        icon: 'setting',
+        permissions: ['manage_inventory'],
+        children: [
+          {
+            id: 'categories',
+            title: 'Categorías',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/categories',
+            icon: 'gold',
+            breadcrumbs: true,
+            permissions: ['view_products']
+          },
+          {
+            id: 'brands',
+            title: 'Marcas',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/brands',
+            icon: 'tags',
+            breadcrumbs: true,
+            permissions: ['view_products']
+          },
+          {
+            id: 'units-of-measure',
+            title: 'Unidades de medida',
+            type: 'item',
+            classes: 'nav-item',
+            url: '/units-of-measure',
+            icon: 'column-width',
+            breadcrumbs: true,
+            permissions: ['view_products']
+          }
+        ]
       }
     ]
   },
@@ -292,15 +301,6 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'rollback',
         permissions: ['manage_sales']
       },
-      {
-        id: 'first-sale-wizard',
-        title: 'Crear primera venta',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/sales/first-sale-wizard',
-        icon: 'rocket',
-        permissions: ['manage_company']
-      }
     ]
   },
 

@@ -15,7 +15,7 @@
 @if (!isLoading) {
   <div class="kanban-board">
     @for (col of columns; track col) {
-      <div class="kanban-column" (dragover)="onDragOver($event)" (drop)="onDrop($event, col)">
+      <div class="kanban-column">
         <!-- Column Header -->
         <div class="kanban-header" [style.border-top-color]="col.color">
           <div class="d-flex justify-content-between align-items-center">
@@ -31,8 +31,7 @@
         <!-- Cards -->
         <div class="kanban-cards">
           @for (card of col.cards; track card) {
-            <div class="kanban-card" draggable="true"
-              (dragstart)="onDragStart($event, card, col.key)" (dragend)="onDragEnd()">
+            <div class="kanban-card">
               <div class="card-top d-flex justify-content-between">
                 <span class="card-id" (click)="viewSale(card.id)">#{{card.short_id}}</span>
                 <span class="card-total">{{card.total | currency}}</span>

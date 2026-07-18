@@ -1,4 +1,6 @@
 from typing import Any, List
+from typing import Any, List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -6,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.logistics import PackageType, SalePackage, SalePackageItem
-from app.models.sale import Sale, SaleItem
+from app.models.sale import Sale, SaleItem, SaleStatus
 from app.models.user import User
 from app.core.permissions import PermissionChecker
 from app.schemas import logistics as schemas
@@ -93,14 +95,23 @@ async def update_picking_item(
     """
     Update the quantity picked for a specific Sale Item.
     """
-    result = await db.execute(select(SaleItem).where(SaleItem.id == picking_in.sale_item_id))
+    result = await db.execute(
+        select(SaleItem)
+        .join(Sale)
+        .options(selectinload(SaleItem.sale))
+        .where(
+            SaleItem.id == picking_in.sale_item_id,
+            Sale.company_id == current_user.company_id,
+        )
+    )
     item = result.scalars().first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-        
-    # Validation
-    if picking_in.quantity_picked > item.quantity:
-        raise HTTPException(status_code=400, detail="Picked quantity cannot exceed ordered quantity")
+
+    if item.sale.status != SaleStatus.PICKING:
+        raise HTTPException(status_code=400, detail="Solo se puede preparar un pedido en estado PICKING")
+    if picking_in.quantity_picked < 0 or picking_in.quantity_picked > item.quantity:
+        raise HTTPException(status_code=400, detail="La cantidad preparada debe estar entre 0 y la cantidad solicitada")
         
     item.quantity_picked = picking_in.quantity_picked
     await db.commit()
@@ -115,10 +126,13 @@ async def read_sale_packages(
     sale_id: uuid.UUID,
     current_user: User = Depends(PermissionChecker("view_sales")),
 ) -> Any:
-    query = select(SalePackage).options(
+    query = select(SalePackage).join(Sale).options(
         selectinload(SalePackage.items).selectinload(SalePackageItem.sale_item),
         selectinload(SalePackage.package_type)
-    ).where(SalePackage.sale_id == sale_id)
+    ).where(
+        SalePackage.sale_id == sale_id,
+        Sale.company_id == current_user.company_id,
+    )
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -137,6 +151,31 @@ async def create_package(
     sale = result.scalars().first()
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
+
+    if sale.status != SaleStatus.PACKING:
+        raise HTTPException(status_code=400, detail="Solo se puede empacar un pedido en estado PACKING")
+
+    if package_in.package_type_id:
+        package_type_result = await db.execute(select(PackageType).where(
+            PackageType.id == package_in.package_type_id,
+            PackageType.company_id == current_user.company_id,
+        ))
+        if not package_type_result.scalars().first():
+            raise HTTPException(status_code=404, detail="Package type not found")
+
+    requested_items = {item.sale_item_id: item.quantity for item in package_in.items}
+    if any(quantity <= 0 for quantity in requested_items.values()):
+        raise HTTPException(status_code=400, detail="La cantidad empacada debe ser mayor a cero")
+
+    if requested_items:
+        sale_items_result = await db.execute(select(SaleItem).where(SaleItem.sale_id == sale.id))
+        sale_items = {item.id: item for item in sale_items_result.scalars().all()}
+        for sale_item_id, quantity in requested_items.items():
+            sale_item = sale_items.get(sale_item_id)
+            if not sale_item:
+                raise HTTPException(status_code=400, detail="Un artículo no pertenece a este pedido")
+            if quantity > sale_item.quantity:
+                raise HTTPException(status_code=400, detail="La cantidad empacada no puede superar la solicitada")
         
     package = SalePackage(
         sale_id=package_in.sale_id,
@@ -243,11 +282,6 @@ async def move_sale_stage(
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Invalid status: {new_status}")
 
-    allowed = [SaleStatus.CONFIRMED, SaleStatus.PICKING, SaleStatus.PACKING,
-               SaleStatus.DISPATCHED, SaleStatus.DELIVERED]
-    if target_status not in allowed:
-        raise HTTPException(status_code=400, detail="Cannot move to this status")
-
     result = await db.execute(
         select(Sale).where(
             Sale.id == sale_id,
@@ -257,6 +291,19 @@ async def move_sale_stage(
     sale = result.scalars().first()
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
+
+    valid_transitions = {
+        SaleStatus.CONFIRMED: SaleStatus.PICKING,
+        SaleStatus.PICKING: SaleStatus.PACKING,
+        SaleStatus.PACKING: SaleStatus.DISPATCHED,
+        SaleStatus.DISPATCHED: SaleStatus.DELIVERED,
+    }
+    expected_status = valid_transitions.get(sale.status)
+    if target_status != expected_status:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Transición no permitida: {sale.status.value} a {target_status.value}",
+        )
 
     sale.status = target_status
     await db.commit()

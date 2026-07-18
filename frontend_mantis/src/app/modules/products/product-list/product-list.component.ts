@@ -2,7 +2,6 @@ import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { ApiService } from '../../../core/services/api.service';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { PermissionService } from '../../../core/services/permission.service';
 import { ExportService } from '../../../core/services/export.service';
 import { Product } from '../../../core/services/product.service';
 
@@ -16,7 +15,6 @@ export class ProductListComponent implements OnInit {
     private apiService = inject(ApiService);
     private swal = inject(SweetAlertService);
     private auth = inject(AuthService);
-    private permissionService = inject(PermissionService);
     private cdr = inject(ChangeDetectorRef);
     private exportService = inject(ExportService);
 
@@ -25,11 +23,8 @@ export class ProductListComponent implements OnInit {
     searchQuery = '';
 
     currencySymbol = '$';
-    canAccessWizard = false;
 
     ngOnInit(): void {
-        this.canAccessWizard = this.permissionService.hasAnyPermission(['manage_company', 'manage_users']);
-
         this.auth.currentCompany.subscribe(company => {
             if (company && company.currency_symbol) {
                 this.currencySymbol = company.currency_symbol;

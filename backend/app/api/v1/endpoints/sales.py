@@ -385,6 +385,23 @@ async def update_status(
         raise HTTPException(status_code=400, detail=f"Transición no permitida: {old_status.value} a {new_status.value}")
 
     if new_status == SaleStatus.CONFIRMED and old_status in [SaleStatus.DRAFT, SaleStatus.QUOTE]:
+        # Validate every tracked item before applying a single deduction. This keeps
+        # confirmations atomic and prevents ecommerce orders from creating negative stock.
+        for item in sale.items:
+            if not item.product or not item.product.track_inventory:
+                continue
+            inv_result = await db.execute(select(Inventory).where(
+                Inventory.product_id == item.product_id,
+                Inventory.branch_id == sale.branch_id,
+            ))
+            inventory = inv_result.scalars().first()
+            available = inventory.quantity if inventory else 0
+            if available < item.quantity:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Stock insuficiente para confirmar '{item.product.name}'. Disponible: {available:g}",
+                )
+
         # Deduct Inventory
         for item in sale.items:
             if item.product and item.product.track_inventory:

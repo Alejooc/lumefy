@@ -374,7 +374,7 @@ class PublicCheckoutItemInput(BaseModel):
 
 class PublicCheckoutCustomer(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=160)
-    email: str
+    email: EmailStr
     phone: Optional[str] = Field(default=None, max_length=40)
     document_id: Optional[str] = Field(default=None, max_length=60)
 

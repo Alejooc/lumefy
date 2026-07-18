@@ -40,12 +40,12 @@ export class LandingPage implements OnInit, OnDestroy {
         // Ensure features have data (Fallback if API returns empty list)
         if (!this.config.features || this.config.features.length === 0) {
           this.config.features = [
-            { title: "Inventario Inteligente", description: "Control de stock en tiempo real con alertas predictivas.", icon: "box-seam" },
-            { title: "Punto de Venta POS", description: "Vende en segundos. Facturación electrónica integrada.", icon: "cart-check" },
-            { title: "Analítica Avanzada", description: "Reportes financieros para decisiones basadas en datos.", icon: "graph-up-arrow" },
-            { title: "CRM Integrado", description: "Gestiona fidelización y aumenta tus ventas.", icon: "people" },
-            { title: "100% en la Nube", description: "Accede desde cualquier lugar con seguridad total.", icon: "cloud-check" },
-            { title: "App Móvil", description: "Lleva tu negocio en el bolsillo.", icon: "phone" }
+            { title: 'Catálogo e inventario', description: 'Centraliza productos, stock, compras y movimientos por sucursal.', icon: 'box-seam' },
+            { title: 'Ventas y punto de venta', description: 'Gestiona cotizaciones, pedidos, caja y devoluciones desde un mismo lugar.', icon: 'cart-check' },
+            { title: 'Tienda online', description: 'Publica tu catálogo y configura branding, checkout, pagos y dominios.', icon: 'shop' },
+            { title: 'Logística', description: 'Prepara picking, empaques y fulfillment a partir de tus pedidos.', icon: 'truck' },
+            { title: 'Clientes y equipo', description: 'Organiza clientes, usuarios, roles y permisos por empresa.', icon: 'people' },
+            { title: 'Reportes operativos', description: 'Consulta ventas, pedidos e indicadores para tomar decisiones.', icon: 'graph-up-arrow' }
           ];
         }
 
@@ -66,19 +66,19 @@ export class LandingPage implements OnInit, OnDestroy {
         this.config = {
           enabled: true,
           hero: {
-            title: "Revoluciona la Gestión de tu Empresa",
-            subtitle: "La plataforma all-in-one.",
-            cta_text: "Prueba Gratis",
+            title: 'Opera tu negocio y vende online desde un solo lugar',
+            subtitle: 'Lumefy conecta catálogo, inventario, ventas, logística y tienda online para que tu operación avance sin duplicar trabajo.',
+            cta_text: 'Crear mi empresa',
             cta_link: "/register",
             image_url: "assets/images/auth/auth-bg.png"
           },
           features: [
-            { title: "Inventario Inteligente", description: "Control de stock en tiempo real.", icon: "box-seam" },
-            { title: "Punto de Venta POS", description: "Facturación electrónica integrada.", icon: "cart-check" },
-            { title: "Analítica Avanzada", description: "Reportes financieros detallados.", icon: "graph-up-arrow" },
-            { title: "CRM Integrado", description: "Gestiona fidelización de clientes.", icon: "people" },
-            { title: "100% en la Nube", description: "Acceso seguro desde cualquier lugar.", icon: "cloud-check" },
-            { title: "App Móvil", description: "Tu negocio en el bolsillo.", icon: "phone" }
+            { title: 'Catálogo e inventario', description: 'Centraliza productos, stock, compras y movimientos por sucursal.', icon: 'box-seam' },
+            { title: 'Ventas y punto de venta', description: 'Gestiona cotizaciones, pedidos, caja y devoluciones desde un mismo lugar.', icon: 'cart-check' },
+            { title: 'Tienda online', description: 'Publica tu catálogo y configura branding, checkout, pagos y dominios.', icon: 'shop' },
+            { title: 'Logística', description: 'Prepara picking, empaques y fulfillment a partir de tus pedidos.', icon: 'truck' },
+            { title: 'Clientes y equipo', description: 'Organiza clientes, usuarios, roles y permisos por empresa.', icon: 'people' },
+            { title: 'Reportes operativos', description: 'Consulta ventas, pedidos e indicadores para tomar decisiones.', icon: 'graph-up-arrow' }
           ],
           clients: [],
           social: {},
@@ -98,24 +98,24 @@ export class LandingPage implements OnInit, OnDestroy {
 
   faqs = [
     {
-      question: "¿Puedo cancelar en cualquier momento?",
-      answer: "Sí, Lumefy no tiene contratos de permanencia. Puedes cancelar tu suscripción cuando quieras desde el panel de administración."
+      question: '¿Cómo empiezo a operar en Lumefy?',
+      answer: 'Crea tu empresa y sucursal, agrega el catálogo y registra cotizaciones o pedidos. Desde el dashboard encontrarás el orden recomendado.'
     },
     {
-      question: "¿Necesito tarjeta de crédito para la prueba?",
-      answer: "No. Puedes probar todas las funcionalidades Premium durante 14 días sin ingresar datos de pago."
+      question: '¿Puedo manejar varias sucursales?',
+      answer: 'Sí. Puedes registrar sucursales y consultar la operación por sucursal desde los módulos de inventario, ventas y dashboard.'
     },
     {
-      question: "¿Ofrecen facturación electrónica?",
-      answer: "Sí, Lumefy cumple con la normativa de la DIAN en Colombia y generamos facturas electrónicas automáticamente."
+      question: '¿La tienda online es obligatoria?',
+      answer: 'No. Puedes operar solamente con ventas internas o activar la tienda cuando tu catálogo y operación estén listos.'
     },
     {
-      question: "¿Mis datos están seguros?",
-      answer: "Absolutamente. Usamos encriptación de grado bancario y realizamos copias de seguridad diarias para proteger tu información."
+      question: '¿Cómo publico productos en la tienda?',
+      answer: 'Primero crea la tienda online, luego configura los productos, el branding y los pagos desde el módulo de Ecommerce.'
     },
     {
-      question: "¿Incluye soporte técnico?",
-      answer: "Sí, todos los planes incluyen soporte por chat y correo electrónico. El plan Enterprise incluye soporte prioritario dedicado."
+      question: '¿Dónde configuro usuarios y permisos?',
+      answer: 'En Gestión puedes crear usuarios, asignar roles y definir qué puede hacer cada integrante de tu equipo.'
     }
   ];
 

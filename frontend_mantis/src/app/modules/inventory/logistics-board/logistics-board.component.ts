@@ -49,8 +49,6 @@ export class LogisticsBoardComponent implements OnInit {
         { key: 'DISPATCHED', label: 'Despachados', icon: 'ti ti-truck', color: '#673ab7', nextStatus: 'DELIVERED', nextLabel: 'Entregado', cards: [] }
     ];
     isLoading = false;
-    draggedCard: BoardCard | null = null;
-    dragSourceColumn = '';
 
     ngOnInit(): void {
         this.loadBoard();
@@ -109,33 +107,4 @@ export class LogisticsBoardComponent implements OnInit {
         this.router.navigate(['/sales/view', id]);
     }
 
-    onDragStart(event: DragEvent, card: BoardCard, columnKey: string) {
-        this.draggedCard = card;
-        this.dragSourceColumn = columnKey;
-        if (event.dataTransfer) {
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', card.id);
-        }
-    }
-
-    onDragOver(event: DragEvent) {
-        event.preventDefault();
-        if (event.dataTransfer) {
-            event.dataTransfer.dropEffect = 'move';
-        }
-    }
-
-    onDrop(event: DragEvent, targetColumn: BoardColumn) {
-        event.preventDefault();
-        if (!this.draggedCard || this.dragSourceColumn === targetColumn.key) {
-            this.draggedCard = null;
-            return;
-        }
-        this.moveCard(this.draggedCard, targetColumn.key);
-        this.draggedCard = null;
-    }
-
-    onDragEnd() {
-        this.draggedCard = null;
-    }
 }

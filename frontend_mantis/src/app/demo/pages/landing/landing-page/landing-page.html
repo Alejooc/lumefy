@@ -24,18 +24,18 @@
         <div class="collapse navbar-collapse justify-content-end d-none d-lg-flex">
           <ul class="navbar-nav align-items-center">
             <li class="nav-item">
-              <a class="nav-link" href="javascript:void(0)" (click)="scrollTo('features')">Características</a>
+              <a class="nav-link" href="#features" (click)="scrollTo('features')">Capacidades</a>
             </li>
             @if (config.pricing_visible) {
               <li class="nav-item">
-                <a class="nav-link" href="javascript:void(0)" (click)="scrollTo('pricing')">Precios</a>
+              <a class="nav-link" href="#pricing" (click)="scrollTo('pricing')">Planes</a>
               </li>
             }
             <li class="nav-item">
-              <a class="nav-link" href="javascript:void(0)" (click)="scrollTo('faq')">Preguntas</a>
+              <a class="nav-link" href="#faq" (click)="scrollTo('faq')">Preguntas</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="javascript:void(0)" (click)="scrollTo('contact')">Contacto</a>
+              <a class="nav-link" href="#contact" (click)="scrollTo('contact')">Contacto</a>
             </li>
             <li class="nav-item ms-lg-3">
               <button class="btn btn-link text-white text-decoration-none me-2"
@@ -64,30 +64,19 @@
       <div class="drawer-body px-4 d-flex flex-column gap-3 overflow-auto">
         <!-- Main Navigation -->
         <div class="text-xs text-muted fw-bold letter-spacing-2 mt-2 mb-1">PRODUCTO</div>
-        <a class="nav-link-mobile" (click)="scrollTo('features')">
-          <i class="bi bi-grid-fill me-3 opacity-50"></i> Características
+        <a class="nav-link-mobile" href="#features" (click)="scrollTo('features')">
+          <i class="bi bi-grid-fill me-3 opacity-50"></i> Capacidades
         </a>
         @if (config.pricing_visible) {
-          <a class="nav-link-mobile" (click)="scrollTo('pricing')">
-            <i class="bi bi-tag-fill me-3 opacity-50"></i> Precios
+          <a class="nav-link-mobile" href="#pricing" (click)="scrollTo('pricing')">
+            <i class="bi bi-tag-fill me-3 opacity-50"></i> Planes
           </a>
         }
-        <a class="nav-link-mobile" (click)="scrollTo('faq')">
+        <a class="nav-link-mobile" href="#faq" (click)="scrollTo('faq')">
           <i class="bi bi-question-circle-fill me-3 opacity-50"></i> Preguntas
         </a>
-        <a class="nav-link-mobile" (click)="scrollTo('contact')">
+        <a class="nav-link-mobile" href="#contact" (click)="scrollTo('contact')">
           <i class="bi bi-envelope-fill me-3 opacity-50"></i> Contacto
-        </a>
-        <!-- Resources & Company -->
-        <div class="text-xs text-muted fw-bold letter-spacing-2 mt-4 mb-1">RECURSOS</div>
-        <a class="nav-link-mobile" href="javascript:void(0)">
-          <i class="bi bi-journal-text me-3 opacity-50"></i> Blog
-        </a>
-        <a class="nav-link-mobile" href="javascript:void(0)">
-          <i class="bi bi-life-preserver me-3 opacity-50"></i> Centro de Ayuda
-        </a>
-        <a class="nav-link-mobile" href="javascript:void(0)">
-          <i class="bi bi-building me-3 opacity-50"></i> Empresa
         </a>
         <div class="py-4"></div> <!-- Extra scrolling space -->
       </div>
@@ -98,12 +87,6 @@
           <button class="btn btn-outline-light rounded-pill py-2" (click)="navigateToLogin()">Ingresar</button>
           <button class="btn btn-primary rounded-pill shadow-lg py-2"
           [routerLink]="['/register']">Registrarse</button>
-        </div>
-        <!-- Legal Footer -->
-        <div class="d-flex justify-content-center gap-3 text-muted small opacity-50">
-          <a href="#" class="text-reset text-decoration-none">Privacidad</a>
-          <span>•</span>
-          <a href="#" class="text-reset text-decoration-none">Términos</a>
         </div>
       </div>
     </div>
@@ -118,7 +101,7 @@
           <div class="col-lg-5 mb-5 mb-lg-0">
             <div
               class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-2 mb-3 animate-up">
-              <i class="bi bi-lightning-charge-fill me-1"></i> Nueva Versión 2.0
+              <i class="bi bi-lightning-charge-fill me-1"></i> Operación y tienda online en un solo lugar
             </div>
             <h1 class="display-title animate-up delay-100">{{ config.hero.title }}</h1>
             <p class="lead-text animate-up delay-200">{{ config.hero.subtitle }}</p>
@@ -127,12 +110,8 @@
                 class="btn btn-primary btn-lg rounded-pill px-5 shadow-lg">{{
               config.hero.cta_text }}</a>
               <button (click)="scrollTo('features')" class="btn btn-outline-light btn-lg rounded-pill px-4">
-                <i class="bi bi-play-circle me-2"></i> Demo
+                <i class="bi bi-grid-1x2 me-2"></i> Ver capacidades
               </button>
-            </div>
-            <div class="mt-4 text-muted small animate-up delay-300">
-              <i class="bi bi-check-circle-fill text-success me-1"></i> Sin tarjeta de crédito
-              <i class="bi bi-check-circle-fill text-success ms-3 me-1"></i> 14 días gratis
             </div>
           </div>
           <div class="col-lg-7 text-center animate-up delay-300 dashboard-mockup-container">
@@ -188,32 +167,6 @@
         </div>
       </div>
     </header>
-    <!-- Clients / Trust Section -->
-    <section class="clients-section">
-      <div class="container">
-        <p class="text-center text-muted text-uppercase small letter-spacing-2 mb-4">Empresas que confían en
-        nosotros</p>
-        <div class="d-flex flex-wrap justify-content-center align-items-center gap-5 px-4" style="opacity: 0.7;">
-          <!-- Fallback Clients if API config is empty -->
-          @if (!config.clients || config.clients.length === 0) {
-            <h4 class="text-muted fw-bold m-0"
-            style="font-family: 'Inter'; letter-spacing: -1px; opacity: 0.5;">ACME Corp</h4>
-            <h4 class="text-muted fw-bold m-0"
-            style="font-family: 'Inter'; letter-spacing: -1px; opacity: 0.5;">GlobalTech</h4>
-            <h4 class="text-muted fw-bold m-0"
-            style="font-family: 'Inter'; letter-spacing: -1px; opacity: 0.5;">Nebula</h4>
-            <h4 class="text-muted fw-bold m-0"
-            style="font-family: 'Inter'; letter-spacing: -1px; opacity: 0.5;">FoxRun</h4>
-            <h4 class="text-muted fw-bold m-0"
-            style="font-family: 'Inter'; letter-spacing: -1px; opacity: 0.5;">Starlight</h4>
-          }
-          <!-- Dynamic Clients -->
-          @for (client of config.clients; track client) {
-            <img [src]="client.logo_url" [alt]="client.name" class="client-logo" style="max-height: 28px;">
-          }
-        </div>
-      </div>
-    </section>
     <!-- Features Grid -->
     <section id="features" class="features-section">
       <div class="container">
@@ -330,11 +283,11 @@
         <div class="cta-card p-5 rounded-4 text-center">
           <h2 class="display-6 font-weight-bold mb-4 text-white">¿Listo para escalar tu negocio?</h2>
           <p class="lead text-muted mb-5 mx-auto" style="max-width: 600px;">
-            Únete a cientos de empresas que ya usan Lumefy para gestionar sus operaciones.
+            Centraliza tu operación diaria y activa tu canal online cuando estés listo para vender.
           </p>
           <div class="d-flex justify-content-center gap-3">
             <button class="btn btn-primary btn-lg rounded-pill px-5 shadow-lg" [routerLink]="['/register']">
-              Comenzar Prueba Gratis
+              Crear mi empresa
             </button>
             <button class="btn btn-outline-light btn-lg rounded-pill px-4" (click)="scrollTo('contact')">
               Agendar Demo
@@ -353,24 +306,15 @@
             </h5>
             <p class="small text-muted mb-4">Plataforma integral de gestión empresarial. Simplificamos tus
             operaciones para que te enfoques en crecer.</p>
-            <div class="d-flex gap-3">
-              <a href="#" class="btn btn-icon btn-sm btn-outline-secondary rounded-circle"><i
-              class="bi bi-facebook"></i></a>
-              <a href="#" class="btn btn-icon btn-sm btn-outline-secondary rounded-circle"><i
-              class="bi bi-twitter-x"></i></a>
-              <a href="#" class="btn btn-icon btn-sm btn-outline-secondary rounded-circle"><i
-              class="bi bi-instagram"></i></a>
-              <a href="#" class="btn btn-icon btn-sm btn-outline-secondary rounded-circle"><i
-              class="bi bi-linkedin"></i></a>
-            </div>
           </div>
           <div class="col-md-2 col-6">
             <h6 class="text-uppercase mb-3 small font-weight-bold">Producto</h6>
             <ul class="list-unstyled small">
-              <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Características</a></li>
-              <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Precios</a></li>
-              <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Integraciones</a></li>
-              <li class="mb-2"><a href="#" class="text-decoration-none text-muted">Roadmap</a></li>
+              <li class="mb-2"><a href="#features" class="text-decoration-none text-muted">Capacidades</a></li>
+              @if (config.pricing_visible) {
+                <li class="mb-2"><a href="#pricing" class="text-decoration-none text-muted">Planes</a></li>
+              }
+              <li class="mb-2"><a href="#faq" class="text-decoration-none text-muted">Preguntas frecuentes</a></li>
             </ul>
           </div>
           <!-- ... more cols ... -->
@@ -390,10 +334,6 @@
   <div class="row align-items-center">
     <div class="col-md-6 text-center text-md-start small text-muted">
       &copy; {{ 2026 }} Lumefy SaaS. Todos los derechos reservados.
-    </div>
-    <div class="col-md-6 text-center text-md-end small text-muted">
-      <a href="#" class="text-muted text-decoration-none me-3">Privacidad</a>
-      <a href="#" class="text-muted text-decoration-none">Términos</a>
     </div>
   </div>
 </div>

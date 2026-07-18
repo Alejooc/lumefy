@@ -9,16 +9,16 @@ import { Component, Input } from '@angular/core';
         <!-- Table skeleton -->
         @if (type === 'table') {
           <div class="skeleton-table">
-            @for (col of cols; track col) {
+            @for (col of cols; track $index) {
               <div class="skeleton-row header">
-                <div class="skeleton-cell skeleton-pulse" [style.width.%]="getRandomWidth()"></div>
+                <div class="skeleton-cell skeleton-pulse" [style.width.%]="72"></div>
               </div>
             }
-            @for (row of rows; track row) {
+            @for (row of rows; track $index) {
               <div class="skeleton-table-row">
-                @for (col of cols; track col) {
+                @for (col of cols; track $index) {
                   <div class="skeleton-cell skeleton-pulse"
-                  [style.width.%]="getRandomWidth()"></div>
+                  [style.width.%]="72"></div>
                 }
               </div>
             }
@@ -42,7 +42,7 @@ import { Component, Input } from '@angular/core';
         <!-- List skeleton -->
         @if (type === 'list') {
           <div class="skeleton-list">
-            @for (row of rows; track row) {
+            @for (row of rows; track $index) {
               <div class="skeleton-list-item">
                 <div class="skeleton-avatar skeleton-pulse"></div>
                 <div class="skeleton-content">
@@ -137,7 +137,4 @@ export class SkeletonComponent {
         return Array(this.colCount).fill(0);
     }
 
-    getRandomWidth(): number {
-        return 50 + Math.random() * 40;
-    }
 }

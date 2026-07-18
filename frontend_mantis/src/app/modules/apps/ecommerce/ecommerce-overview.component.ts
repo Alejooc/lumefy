@@ -109,7 +109,7 @@ export class EcommerceOverviewComponent implements OnInit {
         this.storefronts = storefronts;
         this.selectedStorefrontId = this.context.resolveSelectedStorefront(storefronts);
         if (!this.selectedStorefrontId) {
-          this.loading = false;
+          this.completeLoading();
           this.collections = [];
           this.paymentGateways = [];
           this.publishedCount = 0;
@@ -120,7 +120,7 @@ export class EcommerceOverviewComponent implements OnInit {
         this.loadStorefrontMetrics();
       },
       error: (err) => {
-        this.loading = false;
+        this.completeLoading();
         this.swal.error('Error', err?.error?.detail || 'No se pudo cargar ecommerce.');
       }
     });
@@ -150,12 +150,20 @@ export class EcommerceOverviewComponent implements OnInit {
         this.publishedCount = products.length;
         this.navigationCount = navigation.length;
         this.domainsCount = domains.length;
-        this.loading = false;
+        this.completeLoading();
       },
       error: (err) => {
-        this.loading = false;
+        this.completeLoading();
         this.swal.error('Error', err?.error?.detail || 'No se pudo cargar el resumen de ecommerce.');
       }
+    });
+  }
+
+  private completeLoading(): void {
+    // Async responses can arrive during Angular's development verification pass.
+    // Deferring this UI-only state transition keeps the screen from remaining disabled.
+    setTimeout(() => {
+      this.loading = false;
     });
   }
 }

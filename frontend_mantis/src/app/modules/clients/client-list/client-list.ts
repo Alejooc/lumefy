@@ -2,7 +2,6 @@ import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { ClientListParams, ClientService } from '../client.service';
 import { Client } from '../client.model';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
-import { PermissionService } from '../../../core/services/permission.service';
 import { ExportService } from '../../../core/services/export.service';
 
 @Component({
@@ -14,7 +13,6 @@ import { ExportService } from '../../../core/services/export.service';
 export class ClientListComponent implements OnInit {
   private clientService = inject(ClientService);
   private swal = inject(SweetAlertService);
-  private permissionService = inject(PermissionService);
   private cdr = inject(ChangeDetectorRef);
   private exportService = inject(ExportService);
 
@@ -22,10 +20,8 @@ export class ClientListComponent implements OnInit {
   isLoading = false;
   searchQuery = '';
   selectedStatus = '';
-  canAccessWizard = false;
 
   ngOnInit(): void {
-    this.canAccessWizard = this.permissionService.hasAnyPermission(['manage_company', 'manage_users']);
     this.loadClients();
   }
 

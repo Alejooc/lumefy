@@ -52,6 +52,57 @@
               </div>
             </div>
           </div>
+          <div class="col-12 mb-3">
+            <div class="card border-primary-subtle">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div>
+                    <h5 class="mb-1">Pon tu operación en marcha</h5>
+                    <p class="text-muted mb-0">Sigue este orden para vender en el sistema y, después, publicar tu tienda online.</p>
+                  </div>
+                  <a class="btn btn-outline-primary btn-sm" routerLink="/company/profile">Ver mi empresa</a>
+                </div>
+                <div class="row g-3">
+                  <div class="col-12 col-md-6 col-xl-3">
+                    <a class="card h-100 text-decoration-none border" routerLink="/branches">
+                      <div class="card-body">
+                        <span class="badge bg-light-primary text-primary mb-2">Paso 1</span>
+                        <h6 class="mb-1">Configura tu operación</h6>
+                        <small class="text-muted">Crea la sucursal desde la que venderás y despacharás.</small>
+                      </div>
+                    </a>
+                  </div>
+                  <div class="col-12 col-md-6 col-xl-3">
+                    <a class="card h-100 text-decoration-none border" routerLink="/products/create">
+                      <div class="card-body">
+                        <span class="badge bg-light-primary text-primary mb-2">Paso 2</span>
+                        <h6 class="mb-1">Crea tu catálogo</h6>
+                        <small class="text-muted">Agrega productos, precio y stock inicial.</small>
+                      </div>
+                    </a>
+                  </div>
+                  <div class="col-12 col-md-6 col-xl-3">
+                    <a class="card h-100 text-decoration-none border" routerLink="/sales/quote">
+                      <div class="card-body">
+                        <span class="badge bg-light-primary text-primary mb-2">Paso 3</span>
+                        <h6 class="mb-1">Registra una venta</h6>
+                        <small class="text-muted">Crea una cotización o pedido desde el flujo normal de ventas.</small>
+                      </div>
+                    </a>
+                  </div>
+                  <div class="col-12 col-md-6 col-xl-3">
+                    <a class="card h-100 text-decoration-none border" routerLink="/apps/ecommerce/settings">
+                      <div class="card-body">
+                        <span class="badge bg-light-primary text-primary mb-2">Paso 4</span>
+                        <h6 class="mb-1">Activa tu tienda online</h6>
+                        <small class="text-muted">Crea la tienda y publica tu catálogo cuando la operación esté lista.</small>
+                      </div>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
             <div id="dashboard-kpis" class="row">
               @for (analytic of AnalyticEcommerce; track analytic) {
                 <div class="col-md-6 col-xl-3">

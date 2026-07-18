@@ -33,6 +33,16 @@
         }
       </div>
 
+      @if (!loading && storefronts.length === 0) {
+        <div class="alert alert-info d-flex justify-content-between align-items-center gap-3 flex-wrap mt-3 mb-0">
+          <div>
+            <strong>Crea tu primera tienda para comenzar.</strong>
+            <span class="d-block">Luego podrás configurar branding, catálogo, pagos y contenido.</span>
+          </div>
+          <a class="btn btn-primary btn-sm" routerLink="/apps/ecommerce/settings">Crear tienda</a>
+        </div>
+      }
+
       <div class="row g-3 mt-1">
         <div class="col-6 col-xl-3">
           <div class="card metric-card">

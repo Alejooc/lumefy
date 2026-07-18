@@ -105,10 +105,6 @@
             }
             <div class="d-flex justify-content-center gap-2 flex-wrap">
               <a class="btn btn-primary btn-sm" [routerLink]="['/clients/new']">Crear primer cliente</a>
-              @if (canAccessWizard) {
-                <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/sales/first-sale-wizard']"
-                >Ir al Wizard MVP</a>
-              }
             </div>
           </div>
         }

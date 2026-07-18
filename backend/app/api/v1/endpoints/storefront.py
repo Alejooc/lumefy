@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.models.branch import Branch
 from app.models.company import Company
+from app.models.inventory import Inventory
 from app.models.sale import Payment, Sale, SaleItem, SaleStatus
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
@@ -726,6 +727,32 @@ async def _load_checkout_products(
         )
 
     return rows, subtotal
+
+
+async def _validate_checkout_inventory(
+    db: AsyncSession,
+    branch_id: uuid.UUID,
+    rows: list[schemas.PublicCheckoutPreviewItem],
+) -> None:
+    """Prevent a storefront draft from being created for unavailable physical stock."""
+    for row in rows:
+        product_result = await db.execute(select(Product).where(Product.id == row.product_id))
+        product = product_result.scalars().first()
+        if not product or not product.track_inventory:
+            continue
+
+        inventory_result = await db.execute(
+            select(Inventory.quantity).where(
+                Inventory.product_id == product.id,
+                Inventory.branch_id == branch_id,
+            )
+        )
+        available = _safe_float(inventory_result.scalar_one_or_none())
+        if available < row.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Stock insuficiente para '{row.title}'. Disponible: {available:g}",
+            )
 
 
 @router.get("/", response_model=List[schemas.Storefront])
@@ -2009,6 +2036,7 @@ async def create_public_checkout_order(
     total = max(0.0, subtotal - discount + shipping + tax)
 
     branch = await _resolve_default_branch_for_company(db, storefront.company_id)
+    await _validate_checkout_inventory(db, branch.id, rows)
     sale_user = await _resolve_default_user_for_company(db, storefront.company_id)
     storefront_customer_user = await _get_storefront_customer_user_by_email(db, storefront, payload.customer.email)
     storefront_client = await _get_or_create_storefront_client(db, storefront, payload)
