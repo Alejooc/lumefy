@@ -18,6 +18,7 @@ from app.core.rate_limit import limiter
 from app.models.branch import Branch
 from app.models.company import Company
 from app.models.inventory import Inventory
+from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.sale import Payment, Sale, SaleItem, SaleStatus
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
@@ -38,6 +39,11 @@ from app.schemas import storefront as schemas
 
 router = APIRouter()
 
+# Providers that have a complete checkout path in this application. New
+# providers must add a signed intent and payment-status verification before
+# being exposed to customers.
+SUPPORTED_PUBLIC_PAYMENT_PROVIDERS = {"wompi", "cod", "manual_transfer"}
+
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
     try:
@@ -46,6 +52,22 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _resolve_public_checkout_adjustments(payload: Any) -> tuple[float, float]:
+    """Reject client-priced shipping, discounts and coupons until server rules exist."""
+    discount = _safe_float(getattr(payload, "discount_amount", 0))
+    shipping = _safe_float(getattr(payload, "shipping_amount", 0))
+    coupon_code = _safe_string(getattr(payload, "coupon_code", None))
+
+    if discount < 0 or shipping < 0:
+        raise HTTPException(status_code=400, detail="Checkout adjustments cannot be negative")
+    if discount > 0 or shipping > 0 or coupon_code:
+        raise HTTPException(
+            status_code=400,
+            detail="Shipping, discounts and coupons must be calculated by configured server-side rules",
+        )
+    return 0.0, 0.0
 
 
 def _safe_string(value: Any) -> str | None:
@@ -390,7 +412,11 @@ def _serialize_admin_published_product(published_product: PublishedProduct) -> s
     )
 
 
-def _serialize_public_product(published_product: PublishedProduct, product: Product) -> schemas.PublicProduct:
+def _serialize_public_product(
+    published_product: PublishedProduct,
+    product: Product,
+    stock_quantity: float | None = None,
+) -> schemas.PublicProduct:
     title = (published_product.custom_title or product.name or "").strip()
     description = (published_product.custom_description or product.description or "").strip() or None
     base_price = float(product.price or 0)
@@ -400,6 +426,8 @@ def _serialize_public_product(published_product: PublishedProduct, product: Prod
     if image_url and image_url not in gallery:
         gallery.insert(0, image_url)
     available_sizes, available_colors = _extract_variant_facets(product.variants or [])
+    is_tracked = bool(product.track_inventory)
+    available_stock = max(0.0, _safe_float(stock_quantity)) if is_tracked else None
     return schemas.PublicProduct(
         id=published_product.id,
         product_id=product.id,
@@ -418,6 +446,8 @@ def _serialize_public_product(published_product: PublishedProduct, product: Prod
         compare_at_price=published_product.compare_at_price,
         is_featured=bool(published_product.is_featured),
         show_stock=bool(published_product.show_stock),
+        in_stock=not is_tracked or bool(available_stock and available_stock > 0),
+        stock_quantity=available_stock if published_product.show_stock and is_tracked else None,
         seo_title=published_product.seo_title or title,
         seo_description=published_product.seo_description or description,
     )
@@ -627,18 +657,27 @@ async def _get_enabled_gateway_for_storefront(
     gateway = result.scalars().first()
     if not gateway:
         raise HTTPException(status_code=400, detail=f"Payment provider '{provider}' is not active for this storefront")
+    if gateway.provider not in SUPPORTED_PUBLIC_PAYMENT_PROVIDERS:
+        raise HTTPException(status_code=400, detail=f"Payment provider '{provider}' is not available for checkout")
     return gateway
 
 
 def _gateway_checkout_flow(provider: str, extra_config: dict | None = None) -> str:
-    config = extra_config or {}
     if provider in {"manual_transfer", "cod"}:
         return "manual"
     if provider == "wompi":
         return "form_redirect"
-    if provider in {"addi", "payu", "paypal"} and config.get("checkout_url"):
-        return "redirect"
     return "manual"
+
+
+def _validate_payment_gateway_provider(provider: str) -> str:
+    normalized = (provider or "").strip().lower()
+    if normalized not in SUPPORTED_PUBLIC_PAYMENT_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported payment provider. Available providers: wompi, cod, manual_transfer",
+        )
+    return normalized
 
 
 async def _resolve_default_branch_for_company(db: AsyncSession, company_id: uuid.UUID) -> Branch:
@@ -653,6 +692,23 @@ async def _resolve_default_branch_for_company(db: AsyncSession, company_id: uuid
     if not branch:
         raise HTTPException(status_code=400, detail="No active branch available to register ecommerce orders")
     return branch
+
+
+async def _get_storefront_stock_map(
+    db: AsyncSession,
+    storefront: Storefront,
+    product_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, float]:
+    if not product_ids:
+        return {}
+    branch = await _resolve_default_branch_for_company(db, storefront.company_id)
+    result = await db.execute(
+        select(Inventory.product_id, Inventory.quantity).where(
+            Inventory.branch_id == branch.id,
+            Inventory.product_id.in_(product_ids),
+        )
+    )
+    return {product_id: _safe_float(quantity) for product_id, quantity in result.all()}
 
 
 async def _resolve_default_user_for_company(db: AsyncSession, company_id: uuid.UUID) -> User:
@@ -755,6 +811,56 @@ async def _validate_checkout_inventory(
             )
 
 
+async def _confirm_paid_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
+    """Confirm a paid ecommerce order using the same inventory invariant as sales."""
+    if sale.status == SaleStatus.CONFIRMED:
+        return True
+    if sale.status not in {SaleStatus.DRAFT, SaleStatus.QUOTE}:
+        return False
+
+    inventories: dict[uuid.UUID, Inventory] = {}
+    for item in sale.items:
+        if not item.product or not item.product.track_inventory:
+            continue
+        result = await db.execute(
+            select(Inventory)
+            .where(
+                Inventory.product_id == item.product_id,
+                Inventory.branch_id == sale.branch_id,
+            )
+            .with_for_update()
+        )
+        inventory = result.scalars().first()
+        available = inventory.quantity if inventory else 0
+        if available < item.quantity:
+            return False
+        if inventory:
+            inventories[item.product_id] = inventory
+
+    for item in sale.items:
+        if not item.product or not item.product.track_inventory:
+            continue
+        inventory = inventories[item.product_id]
+        previous_stock = inventory.quantity
+        inventory.quantity -= item.quantity
+        db.add(
+            InventoryMovement(
+                product_id=item.product_id,
+                branch_id=sale.branch_id,
+                user_id=sale.user_id or sale.created_by_id,
+                type=MovementType.OUT,
+                quantity=-item.quantity,
+                previous_stock=previous_stock,
+                new_stock=inventory.quantity,
+                reference_id=str(sale.id),
+                reason="Ecommerce payment approved",
+            )
+        )
+
+    sale.status = SaleStatus.CONFIRMED
+    return True
+
+
 @router.get("/", response_model=List[schemas.Storefront])
 async def read_storefronts(
     db: AsyncSession = Depends(get_db),
@@ -805,6 +911,62 @@ async def update_storefront(
     await db.commit()
     await db.refresh(storefront)
     return storefront
+
+
+@router.get("/{storefront_id}/readiness")
+async def read_storefront_readiness(
+    storefront_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    """Return the operational prerequisites that must be met before selling online."""
+    storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    products_result = await db.execute(
+        select(PublishedProduct)
+        .options(selectinload(PublishedProduct.product))
+        .where(
+            PublishedProduct.storefront_id == storefront.id,
+            PublishedProduct.is_active == True,
+            PublishedProduct.is_published == True,
+        )
+    )
+    published_products = products_result.scalars().all()
+    stock_map = await _get_storefront_stock_map(
+        db,
+        storefront,
+        [item.product_id for item in published_products],
+    )
+    out_of_stock_count = sum(
+        1
+        for item in published_products
+        if item.product and item.product.track_inventory and stock_map.get(item.product_id, 0) <= 0
+    )
+    gateways_result = await db.execute(
+        select(StorePaymentGateway.id).where(
+            StorePaymentGateway.storefront_id == storefront.id,
+            StorePaymentGateway.is_active == True,
+            StorePaymentGateway.is_enabled == True,
+            StorePaymentGateway.provider.in_(SUPPORTED_PUBLIC_PAYMENT_PROVIDERS),
+        )
+    )
+    enabled_gateways = len(gateways_result.scalars().all())
+    issues: list[str] = []
+    if not storefront.is_enabled:
+        issues.append("La tienda está en borrador.")
+    if not published_products:
+        issues.append("Publica al menos un producto.")
+    if out_of_stock_count:
+        issues.append(f"{out_of_stock_count} producto(s) publicado(s) no tienen stock.")
+    if not enabled_gateways:
+        issues.append("Activa al menos una forma de pago.")
+
+    return {
+        "ready": not issues,
+        "published_products": len(published_products),
+        "out_of_stock_products": out_of_stock_count,
+        "enabled_payment_gateways": enabled_gateways,
+        "issues": issues,
+    }
 
 
 @router.get("/domains", response_model=List[schemas.StorefrontDomain])
@@ -1200,8 +1362,10 @@ async def create_payment_gateway(
     current_user: User = Depends(PermissionChecker("manage_company")),
 ) -> Any:
     await _get_storefront_or_404(db, gateway_in.storefront_id, current_user.company_id)
+    payload = gateway_in.model_dump()
+    payload["provider"] = _validate_payment_gateway_provider(gateway_in.provider)
     gateway = StorePaymentGateway(
-        **gateway_in.model_dump(),
+        **payload,
         company_id=current_user.company_id,
         created_by_id=current_user.id,
         updated_by_id=current_user.id,
@@ -1622,6 +1786,7 @@ async def read_public_payment_gateways(
             StorePaymentGateway.storefront_id == storefront_id,
             StorePaymentGateway.is_active == True,
             StorePaymentGateway.is_enabled == True,
+            StorePaymentGateway.provider.in_(SUPPORTED_PUBLIC_PAYMENT_PROVIDERS),
         ).order_by(StorePaymentGateway.sort_order.asc(), StorePaymentGateway.display_name.asc())
     )
     gateways = result.scalars().all()
@@ -1677,6 +1842,7 @@ async def read_public_collection_detail(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     collection = await _get_public_collection_or_404(db, storefront_id, slug)
+    storefront = await _get_public_storefront_by_id(db, storefront_id)
     result = await db.execute(
         select(StoreCollectionProduct)
         .options(
@@ -1699,12 +1865,24 @@ async def read_public_collection_detail(
         )
         .order_by(StoreCollectionProduct.sort_order.asc(), StoreCollectionProduct.created_at.asc())
     )
+    links = result.scalars().all()
+    stock_map = await _get_storefront_stock_map(
+        db,
+        storefront,
+        [link.published_product.product_id for link in links if link.published_product and link.published_product.product],
+    )
     products: list[schemas.PublicProduct] = []
-    for link in result.scalars().all():
+    for link in links:
         published_product = link.published_product
         if not published_product or not published_product.is_published or not published_product.product:
             continue
-        products.append(_serialize_public_product(published_product, published_product.product))
+        products.append(
+            _serialize_public_product(
+                published_product,
+                published_product.product,
+                stock_map.get(published_product.product_id),
+            )
+        )
     return schemas.PublicCollection(
         id=collection.id,
         storefront_id=collection.storefront_id,
@@ -1732,7 +1910,7 @@ async def read_public_products(
     page: int = 1,
     page_size: int = 12,
 ) -> Any:
-    await _get_public_storefront_by_id(db, storefront_id)
+    storefront = await _get_public_storefront_by_id(db, storefront_id)
 
     selected_collections = _parse_multi_query_param(collection)
     selected_types = [item.upper() for item in _parse_multi_query_param(type)]
@@ -1871,6 +2049,11 @@ async def read_public_products(
     start_index = (current_page - 1) * safe_page_size
     end_index = start_index + safe_page_size
     paginated_products = filtered_products[start_index:end_index]
+    stock_map = await _get_storefront_stock_map(
+        db,
+        storefront,
+        [item.product_id for item in paginated_products],
+    )
 
     category_counts: dict[str, int] = {item.slug: 0 for item in collections}
     type_counts: dict[str, int] = {}
@@ -1904,7 +2087,11 @@ async def read_public_products(
 
     return schemas.PublicCatalogResponse(
         items=[
-            _serialize_public_product(published_product, published_product.product)
+            _serialize_public_product(
+                published_product,
+                published_product.product,
+                stock_map.get(published_product.product_id),
+            )
             for published_product in paginated_products
             if published_product.product
         ],
@@ -1956,9 +2143,14 @@ async def read_public_product_detail(
     slug: str,
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    await _get_public_storefront_by_id(db, storefront_id)
+    storefront = await _get_public_storefront_by_id(db, storefront_id)
     published_product = await _get_public_published_product_or_404(db, storefront_id, slug)
-    return _serialize_public_product(published_product, published_product.product)
+    stock_map = await _get_storefront_stock_map(db, storefront, [published_product.product_id])
+    return _serialize_public_product(
+        published_product,
+        published_product.product,
+        stock_map.get(published_product.product_id),
+    )
 
 
 @router.post("/public/{storefront_id}/checkout/preview", response_model=schemas.PublicCheckoutPreviewResponse)
@@ -1970,8 +2162,7 @@ async def preview_public_checkout(
     storefront = await _get_public_storefront_by_id(db, storefront_id)
     rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
 
-    discount = max(0.0, _safe_float(payload.discount_amount))
-    shipping = max(0.0, _safe_float(payload.shipping_amount))
+    discount, shipping = _resolve_public_checkout_adjustments(payload)
     tax = 0.0
     total = max(0.0, subtotal - discount + shipping + tax)
 
@@ -2030,8 +2221,7 @@ async def create_public_checkout_order(
     gateway = await _get_enabled_gateway_for_storefront(db, storefront_id, payment_provider)
     rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
 
-    discount = max(0.0, _safe_float(payload.discount_amount))
-    shipping = max(0.0, _safe_float(payload.shipping_amount))
+    discount, shipping = _resolve_public_checkout_adjustments(payload)
     tax = 0.0
     total = max(0.0, subtotal - discount + shipping + tax)
 
@@ -2152,15 +2342,35 @@ async def create_public_payment_intent(
     storefront = await _get_public_storefront_by_id(db, storefront_id)
     gateway = await _get_enabled_gateway_for_storefront(db, storefront_id, payload.provider)
 
-    amount = max(0.0, _safe_float(payload.amount))
+    order_result = await db.execute(
+        select(StorefrontOrder)
+        .options(selectinload(StorefrontOrder.sale))
+        .where(
+            StorefrontOrder.storefront_id == storefront.id,
+            StorefrontOrder.sale_id == payload.order_id,
+            StorefrontOrder.is_active == True,
+        )
+    )
+    storefront_order = order_result.scalars().first()
+    if not storefront_order or not storefront_order.sale:
+        raise HTTPException(status_code=404, detail="Checkout order not found")
+    if storefront_order.payment_provider != gateway.provider:
+        raise HTTPException(status_code=400, detail="Payment provider does not match the checkout order")
+    if storefront_order.payment_status.lower() in {"approved", "approved_partial"}:
+        raise HTTPException(status_code=400, detail="This order has already been paid")
+
+    # Never trust client supplied totals. The order was priced server-side from
+    # published products, so it is the single source of truth for payment.
+    amount = max(0.0, _safe_float(storefront_order.sale.total))
     if amount <= 0:
-        raise HTTPException(status_code=400, detail="Amount must be greater than zero")
+        raise HTTPException(status_code=400, detail="Order total must be greater than zero")
+    currency = (storefront_order.currency or storefront.currency or "USD").upper()
 
     mode = "sandbox" if gateway.is_sandbox else "production"
-    external_reference = str(payload.order_id) if payload.order_id else f"{storefront.slug}-{uuid.uuid4().hex[:10]}"
+    external_reference = str(storefront_order.sale_id)
     metadata = {
         "storefront_id": str(storefront.id),
-        "order_id": str(payload.order_id) if payload.order_id else None,
+        "order_id": str(storefront_order.sale_id),
         "customer_email": payload.customer_email,
         "provider": gateway.provider,
     }
@@ -2176,7 +2386,7 @@ async def create_public_payment_intent(
     elif gateway.provider == "cod":
         instructions = extra_config.get("instructions") or "Paga al recibir tu pedido en la entrega."
     elif gateway.provider == "wompi":
-        currency = (payload.currency or storefront.currency or "COP").upper()
+        currency = currency
         if currency != "COP":
             raise HTTPException(status_code=400, detail="Wompi checkout currently supports COP only")
 
@@ -2232,27 +2442,12 @@ async def create_public_payment_intent(
         if payload.customer_full_name:
             provider_payload["fields"]["shipping-address:name"] = payload.customer_full_name
 
-    elif gateway.provider == "payu":
-        checkout_url = extra_config.get("checkout_url") or "https://checkout.payulatam.com/ppp-web-gateway-payu/"
-        provider_payload = {"method": "GET", "action": checkout_url, "fields": {}}
-    elif gateway.provider == "paypal":
-        checkout_url = extra_config.get("checkout_url") or "https://www.paypal.com/checkoutnow"
-        provider_payload = {"method": "GET", "action": checkout_url, "fields": {}}
-    elif gateway.provider == "addi":
-        checkout_url = extra_config.get("checkout_url")
-        instructions = (
-            extra_config.get("instructions")
-            or "Configura la URL oficial de checkout de Addi para redirigir al cliente."
-        )
-        if checkout_url:
-            provider_payload = {"method": "GET", "action": checkout_url, "fields": {}}
-
     return schemas.PublicPaymentIntentResponse(
         provider=gateway.provider,
         flow=flow,
         mode=mode,
         amount=amount,
-        currency=payload.currency or storefront.currency,
+        currency=currency,
         external_reference=external_reference,
         checkout_url=checkout_url,
         public_key=gateway.public_key,
@@ -2300,7 +2495,11 @@ async def read_public_payment_status(
             sale_id = uuid.UUID(str(external_reference))
             result = await db.execute(
                 select(StorefrontOrder)
-                .options(selectinload(StorefrontOrder.sale))
+                .options(
+                    selectinload(StorefrontOrder.sale)
+                    .selectinload(Sale.items)
+                    .selectinload(SaleItem.product)
+                )
                 .where(
                     StorefrontOrder.storefront_id == storefront.id,
                     StorefrontOrder.sale_id == sale_id,
@@ -2312,12 +2511,22 @@ async def read_public_payment_status(
         except ValueError:
             storefront_order = None
 
+    result_status = status
     if storefront_order:
         storefront_order.payment_status = status.lower()
         storefront_order.updated_by_id = storefront_order.updated_by_id or storefront_order.created_by_id
         db.add(storefront_order)
 
     if sale:
+        if status in {"APPROVED", "APPROVED_PARTIAL"}:
+            expected_amount_in_cents = int(round(float(sale.total) * 100))
+            received_amount_in_cents = data.get("amount_in_cents")
+            received_currency = str(data.get("currency") or "").upper()
+            if received_amount_in_cents is None or int(received_amount_in_cents) != expected_amount_in_cents:
+                raise HTTPException(status_code=400, detail="Wompi transaction amount does not match the order")
+            if received_currency and received_currency != (storefront.currency or "COP").upper():
+                raise HTTPException(status_code=400, detail="Wompi transaction currency does not match the order")
+
         payment_result = await db.execute(
             select(Payment).where(
                 Payment.sale_id == sale.id,
@@ -2331,8 +2540,12 @@ async def read_public_payment_status(
             db.add(payment)
 
         if status in {"APPROVED", "APPROVED_PARTIAL"}:
-            sale.status = SaleStatus.CONFIRMED
-        elif status in {"DECLINED", "ERROR", "VOIDED"}:
+            confirmed = await _confirm_paid_storefront_sale(db, sale)
+            if not confirmed:
+                storefront_order.payment_status = "approved_stock_unavailable"
+                result_status = "APPROVED_STOCK_UNAVAILABLE"
+                status_message = "Pago aprobado; el pedido requiere revisión por falta de inventario."
+        elif status in {"DECLINED", "ERROR", "VOIDED"} and sale.status in {SaleStatus.DRAFT, SaleStatus.QUOTE}:
             sale.status = SaleStatus.CANCELLED
         sale.updated_by_id = sale.updated_by_id or sale.created_by_id
         db.add(sale)
@@ -2342,7 +2555,7 @@ async def read_public_payment_status(
         provider=clean_provider,
         transaction_id=clean_transaction_id,
         external_reference=str(external_reference) if external_reference else None,
-        status=status,
+        status=result_status,
         status_message=status_message or f"Estado consultado en Wompi ({mode})",
         order_id=sale.id if sale else None,
         order_code=str(sale.id).split("-")[0].upper() if sale else None,

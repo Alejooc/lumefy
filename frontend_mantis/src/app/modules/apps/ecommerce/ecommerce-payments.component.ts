@@ -34,7 +34,7 @@ export class EcommercePaymentsComponent implements OnInit {
   storefronts: Storefront[] = [];
   selectedStorefrontId = '';
   paymentGateways: StorePaymentGateway[] = [];
-  readonly gatewayProviders = ['paypal', 'wompi', 'payu', 'addi', 'cod', 'manual_transfer'];
+  readonly gatewayProviders = ['wompi', 'cod', 'manual_transfer'];
   readonly gatewayMeta: Record<
     string,
     {
@@ -50,18 +50,6 @@ export class EcommercePaymentsComponent implements OnInit {
       secretPlaceholder: string;
     }
   > = {
-    paypal: {
-      label: 'PayPal',
-      description: 'Cobro internacional y checkout conocido para ecommerce general.',
-      defaultName: 'PayPal',
-      accent: 'indigo',
-      merchantLabel: 'Merchant ID',
-      merchantPlaceholder: 'Merchant o partner id',
-      publicLabel: 'Client ID',
-      publicPlaceholder: 'Client ID publico',
-      secretLabel: 'Client secret',
-      secretPlaceholder: 'Client secret privado'
-    },
     wompi: {
       label: 'Wompi',
       description: 'Pasarela local con tarjeta, PSE y medios comunes en Latam.',
@@ -73,30 +61,6 @@ export class EcommercePaymentsComponent implements OnInit {
       publicPlaceholder: 'Llave publica Wompi',
       secretLabel: 'Integrity / secret',
       secretPlaceholder: 'Llave privada o integrity secret'
-    },
-    payu: {
-      label: 'PayU',
-      description: 'Integracion regional para tarjetas y medios alternativos.',
-      defaultName: 'PayU',
-      accent: 'amber',
-      merchantLabel: 'Merchant ID',
-      merchantPlaceholder: 'Merchant id PayU',
-      publicLabel: 'API login',
-      publicPlaceholder: 'API login',
-      secretLabel: 'API key',
-      secretPlaceholder: 'API key privada'
-    },
-    addi: {
-      label: 'Addi',
-      description: 'Compra ahora y paga despues para financiamiento en checkout.',
-      defaultName: 'Addi',
-      accent: 'rose',
-      merchantLabel: 'Merchant ID',
-      merchantPlaceholder: 'Identificador Addi',
-      publicLabel: 'Client ID',
-      publicPlaceholder: 'Client ID Addi',
-      secretLabel: 'Client secret',
-      secretPlaceholder: 'Secret Addi'
     },
     cod: {
       label: 'COD',
@@ -124,22 +88,9 @@ export class EcommercePaymentsComponent implements OnInit {
     }
   };
   readonly providerExtraFields: Record<string, GatewayExtraField[]> = {
-    paypal: [
-      { key: 'webhook_id', label: 'Webhook ID', placeholder: 'Webhook configurado en PayPal' },
-      { key: 'environment', label: 'Entorno API', placeholder: 'sandbox o live' }
-    ],
     wompi: [
       { key: 'integrity_secret', label: 'Integrity secret', placeholder: 'Secreto de integridad de Wompi' },
       { key: 'redirect_url', label: 'URL retorno', placeholder: 'https://tu-tienda.com/checkout/return' }
-    ],
-    payu: [
-      { key: 'account_id', label: 'Account ID', placeholder: 'Cuenta PayU' },
-      { key: 'integrity_key', label: 'Integrity key', placeholder: 'Llave de firma PayU' }
-    ],
-    addi: [
-      { key: 'country', label: 'Pais', placeholder: 'CO, MX, etc.' },
-      { key: 'checkout_url', label: 'Checkout URL', placeholder: 'URL oficial de Addi para redireccion del checkout' },
-      { key: 'return_url', label: 'URL retorno', placeholder: 'https://tu-tienda.com/checkout/addi' }
     ],
     cod: [
       { key: 'instructions', label: 'Instrucciones', placeholder: 'Ej. Paga al recibir tu pedido. Ten el valor exacto disponible.', help: 'Se muestra al finalizar la compra.' }

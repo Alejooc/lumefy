@@ -10,6 +10,8 @@ import { AuthGuard } from './core/auth.guard';
 import { GuestGuard } from './core/guest.guard';
 import { SuperuserGuard } from './core/superuser.guard';
 import { TenantGuard } from './core/tenant.guard';
+import { PosAccessGuard } from './core/pos-access.guard';
+import { AppAccessGuard } from './core/app-access.guard';
 
 const routes: Routes = [
   {
@@ -50,7 +52,7 @@ const routes: Routes = [
   },
   {
     path: 'pos',
-    canActivate: [AuthGuard, TenantGuard],
+    canActivate: [AuthGuard, TenantGuard, PosAccessGuard],
     loadComponent: () => import('./modules/pos/pos.component').then((c) => c.PosComponent)
   },
   {
@@ -189,7 +191,8 @@ const routes: Routes = [
       },
       {
         path: 'apps/ecommerce',
-        canActivate: [TenantGuard],
+        canActivate: [TenantGuard, AppAccessGuard],
+        data: { appSlug: 'ecommerce', requiredPermission: 'manage_company' },
         loadChildren: () => import('./modules/apps/ecommerce.routes').then((m) => m.routes)
       },
       {

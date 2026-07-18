@@ -49,6 +49,8 @@ function toTemplateProduct(product: PublicProduct): Product {
     discountedPrice: Number(product.price),
     href: `/products/${encodeURIComponent(product.slug)}`,
     slug: product.slug,
+    inStock: product.in_stock,
+    stockQuantity: product.stock_quantity ?? undefined,
     imgs: {
       thumbnails: [previewImage, secondaryImage],
       previews: [previewImage, secondaryImage],

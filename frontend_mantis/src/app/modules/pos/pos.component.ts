@@ -119,8 +119,6 @@ export class PosComponent implements OnInit {
         this.currentBranchId = this.currentUser?.branch_id || storedBranch;
 
         this.loadPosConfig();
-        this.loadBranches();
-        this.loadClients();
     }
 
     loadPosConfig() {
@@ -128,6 +126,8 @@ export class PosComponent implements OnInit {
             next: (cfg) => {
                 this.posConfig = cfg;
                 this.sessionsOpsSummary.threshold = Number(cfg.over_short_alert_threshold || 20);
+                this.loadBranches();
+                this.loadClients();
                 this.cdr.detectChanges();
             },
             error: () => {

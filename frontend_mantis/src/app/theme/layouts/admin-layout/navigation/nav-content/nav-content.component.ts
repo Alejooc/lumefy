@@ -49,7 +49,7 @@ import {
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { PermissionService } from '../../../../../core/services/permission.service';
 import { AuthService, Company } from '../../../../../core/services/auth.service';
-import { AppMarketplaceService, InstalledApp } from 'src/app/core/services/app-marketplace.service';
+import { AppAvailability, AppMarketplaceService, InstalledApp } from 'src/app/core/services/app-marketplace.service';
 import { APP_NAVIGATION_RULES, getVisibleNavIds } from 'src/app/core/apps/app-registry';
 
 @Component({
@@ -177,17 +177,31 @@ export class NavContentComponent implements OnInit {
     const base = this.filterNavigation(NavigationItems).filter((item) => item.type === 'group');
     const user = this.authService.currentUserValue;
 
-    if (!user || user.is_superuser || !this.permissionService.hasPermission('manage_company')) {
+    if (!user || user.is_superuser) {
       this.navigations = base;
+      return;
+    }
+
+    if (!this.permissionService.hasPermission('manage_company')) {
+      this.appsService.getAvailability().subscribe({
+        next: (availability) => {
+          this.navigations = this.removeEmptyNavigationGroups(this.applyAppAvailability(base, availability));
+        },
+        error: () => {
+          // App-bound entries must never be shown when their availability is unknown.
+          this.navigations = this.removeEmptyNavigationGroups(this.applyAppAvailability(base, []));
+        }
+      });
       return;
     }
 
     this.appsService.getInstalled().subscribe({
       next: (installed) => {
-        this.navigations = this.attachInstalledApps(base, installed);
+        this.navigations = this.removeEmptyNavigationGroups(this.attachInstalledApps(base, installed));
       },
       error: () => {
-        this.navigations = base;
+        // Do not expose paid app entries if the availability request fails.
+        this.navigations = this.removeEmptyNavigationGroups(this.attachInstalledApps(base, []));
       }
     });
   }
@@ -198,7 +212,7 @@ export class NavContentComponent implements OnInit {
     }
 
     this.navigationRefreshPending = true;
-    setTimeout(() => {
+    queueMicrotask(() => {
       this.navigationRefreshPending = false;
       this.buildNavigation();
     });
@@ -254,6 +268,36 @@ export class NavContentComponent implements OnInit {
       }
       return item;
     });
+  }
+
+  private applyAppAvailability(items: NavigationItem[], availability: AppAvailability[]): NavigationItem[] {
+    const visibleAppNavIds = getVisibleNavIds(availability);
+    const allAppNavIds = new Set(APP_NAVIGATION_RULES.flatMap((rule) => rule.navIds));
+
+    return items.map((item) => {
+      if (!item.children) {
+        return item;
+      }
+      return {
+        ...item,
+        children: this.applyAppAvailability(item.children, availability).filter((child) => {
+          return !allAppNavIds.has(child.id) || visibleAppNavIds.has(child.id);
+        })
+      };
+    });
+  }
+
+  private removeEmptyNavigationGroups(items: NavigationItem[]): NavigationItem[] {
+    return items.reduce((result, item) => {
+      const nextItem = item.children
+        ? { ...item, children: this.removeEmptyNavigationGroups(item.children) }
+        : item;
+      if ((nextItem.type === 'group' || nextItem.type === 'collapse') && nextItem.children?.length === 0) {
+        return result;
+      }
+      result.push(nextItem);
+      return result;
+    }, [] as NavigationItem[]);
   }
 
   private filterNavigation(items: NavigationItem[]): NavigationItem[] {

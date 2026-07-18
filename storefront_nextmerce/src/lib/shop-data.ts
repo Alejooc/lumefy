@@ -101,6 +101,8 @@ function toTemplateProduct(product: PublicProduct): Product {
     productType: product.product_type || undefined,
     availableSizes: product.available_sizes || [],
     availableColors: product.available_colors || [],
+    inStock: product.in_stock,
+    stockQuantity: product.stock_quantity ?? undefined,
     imgs: {
       thumbnails: [previewImage, secondaryImage],
       previews: [previewImage, secondaryImage],

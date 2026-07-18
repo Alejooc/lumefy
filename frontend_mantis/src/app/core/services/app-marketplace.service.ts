@@ -41,6 +41,11 @@ export interface InstalledApp {
   installed_at: string;
 }
 
+export interface AppAvailability {
+  slug: string;
+  is_enabled: boolean;
+}
+
 export interface AppInstalledDetail extends InstalledApp {
   description: string | null;
   category: string | null;
@@ -161,6 +166,10 @@ export class AppMarketplaceService {
 
   getInstalled(): Observable<InstalledApp[]> {
     return this.api.get<InstalledApp[]>('/apps/installed');
+  }
+
+  getAvailability(): Observable<AppAvailability[]> {
+    return this.api.get<AppAvailability[]>('/apps/availability');
   }
 
   getInstalledDetail(slug: string): Observable<AppInstalledDetail> {

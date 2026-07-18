@@ -319,6 +319,8 @@ class PublicProduct(BaseModel):
     compare_at_price: Optional[float] = None
     is_featured: bool = False
     show_stock: bool = True
+    in_stock: bool = True
+    stock_quantity: Optional[float] = None
     seo_title: Optional[str] = None
     seo_description: Optional[str] = None
 
@@ -442,9 +444,11 @@ class PublicCheckoutCreateOrderResponse(BaseModel):
 
 class PublicPaymentIntentRequest(BaseModel):
     provider: str
-    amount: float
-    currency: str
-    order_id: Optional[UUID] = None
+    # The server derives amount and currency from this order. They stay optional
+    # only to avoid breaking older storefront clients while they upgrade.
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    order_id: UUID
     customer_email: Optional[str] = None
     customer_full_name: Optional[str] = None
     customer_phone: Optional[str] = None

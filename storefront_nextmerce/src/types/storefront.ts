@@ -107,6 +107,8 @@ export type PublicProduct = {
   compare_at_price?: number | null;
   is_featured: boolean;
   show_stock: boolean;
+  in_stock: boolean;
+  stock_quantity?: number | null;
   seo_title?: string | null;
   seo_description?: string | null;
 };

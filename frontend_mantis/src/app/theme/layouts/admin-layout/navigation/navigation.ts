@@ -271,7 +271,9 @@ export const NavigationItems: NavigationItem[] = [
     title: 'Ventas',
     type: 'group',
     icon: 'icon-navigation',
-    permissions: ['pos_access'],
+    // A sales representative may manage orders without operating the POS.
+    // Groups use "any" permission, so include every capability exposed below.
+    permissions: ['pos_access', 'view_sales', 'manage_sales'],
     children: [
       {
         id: 'pos',

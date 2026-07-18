@@ -77,6 +77,19 @@
           </div>
         </div>
       </div>
+
+      @if (readiness) {
+        <div class="alert mt-3 mb-0" [class.alert-success]="readiness.ready" [class.alert-warning]="!readiness.ready">
+          <strong>{{ readiness.ready ? 'Tienda lista para vender.' : 'Antes de vender revisa estos puntos:' }}</strong>
+          @if (!readiness.ready) {
+            <ul class="mb-0 mt-2 ps-3">
+              @for (issue of readiness.issues; track issue) {
+                <li>{{ issue }}</li>
+              }
+            </ul>
+          }
+        </div>
+      }
     </div>
   </div>
 

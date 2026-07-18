@@ -6,7 +6,7 @@ import { forkJoin } from 'rxjs';
 
 import { EcommerceContextService } from 'src/app/core/services/ecommerce-context.service';
 import { PermissionService } from 'src/app/core/services/permission.service';
-import { StoreCollection, StorePaymentGateway, Storefront, StorefrontAdminService } from 'src/app/core/services/storefront-admin.service';
+import { StoreCollection, StorefrontReadiness, StorePaymentGateway, Storefront, StorefrontAdminService } from 'src/app/core/services/storefront-admin.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
 
 @Component({
@@ -30,6 +30,7 @@ export class EcommerceOverviewComponent implements OnInit {
   publishedCount = 0;
   navigationCount = 0;
   domainsCount = 0;
+  readiness: StorefrontReadiness | null = null;
 
   readonly sections = [
     {
@@ -115,6 +116,7 @@ export class EcommerceOverviewComponent implements OnInit {
           this.publishedCount = 0;
           this.navigationCount = 0;
           this.domainsCount = 0;
+          this.readiness = null;
           return;
         }
         this.loadStorefrontMetrics();
@@ -142,14 +144,16 @@ export class EcommerceOverviewComponent implements OnInit {
       gateways: this.storefrontService.getPaymentGateways(this.selectedStorefrontId),
       products: this.storefrontService.getPublishedProducts(this.selectedStorefrontId),
       navigation: this.storefrontService.getNavigation(this.selectedStorefrontId),
-      domains: this.storefrontService.getDomains(this.selectedStorefrontId)
+      domains: this.storefrontService.getDomains(this.selectedStorefrontId),
+      readiness: this.storefrontService.getReadiness(this.selectedStorefrontId)
     }).subscribe({
-      next: ({ collections, gateways, products, navigation, domains }) => {
+      next: ({ collections, gateways, products, navigation, domains, readiness }) => {
         this.collections = collections;
         this.paymentGateways = gateways;
         this.publishedCount = products.length;
         this.navigationCount = navigation.length;
         this.domainsCount = domains.length;
+        this.readiness = readiness;
         this.completeLoading();
       },
       error: (err) => {
@@ -160,10 +164,6 @@ export class EcommerceOverviewComponent implements OnInit {
   }
 
   private completeLoading(): void {
-    // Async responses can arrive during Angular's development verification pass.
-    // Deferring this UI-only state transition keeps the screen from remaining disabled.
-    setTimeout(() => {
-      this.loading = false;
-    });
+    this.loading = false;
   }
 }

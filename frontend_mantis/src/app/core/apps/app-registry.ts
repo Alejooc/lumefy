@@ -1,4 +1,4 @@
-import { InstalledApp } from '../services/app-marketplace.service';
+import { AppAvailability } from '../services/app-marketplace.service';
 
 export interface AppNavigationRule {
   appSlug: string;
@@ -19,7 +19,7 @@ export const APP_NAVIGATION_RULES: AppNavigationRule[] = [
   }
 ];
 
-export function getVisibleNavIds(installed: InstalledApp[]): Set<string> {
+export function getVisibleNavIds(installed: AppAvailability[]): Set<string> {
   const visible = new Set<string>();
   const installedBySlug = new Map(installed.map((app) => [app.slug, app]));
 

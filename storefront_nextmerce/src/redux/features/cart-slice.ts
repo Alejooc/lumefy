@@ -14,6 +14,8 @@ type CartItem = {
   quantity: number;
   href?: string;
   slug?: string;
+  inStock?: boolean;
+  stockQuantity?: number;
   imgs?: {
     thumbnails: string[];
     previews: string[];
@@ -32,12 +34,17 @@ export const cart = createSlice({
       state.items = action.payload;
     },
     addItemToCart: (state, action: PayloadAction<CartItem>) => {
-      const { id, publishedProductId, title, price, quantity, discountedPrice, imgs, href, slug } =
+      const { id, publishedProductId, title, price, quantity, discountedPrice, imgs, href, slug, inStock, stockQuantity } =
         action.payload;
+      if (inStock === false || stockQuantity === 0) {
+        return;
+      }
       const existingItem = state.items.find((item) => item.id === id);
 
       if (existingItem) {
-        existingItem.quantity += quantity;
+        existingItem.quantity = stockQuantity === undefined
+          ? existingItem.quantity + quantity
+          : Math.min(existingItem.quantity + quantity, stockQuantity);
       } else {
         state.items.push({
           id,
@@ -48,6 +55,8 @@ export const cart = createSlice({
           discountedPrice,
           href,
           slug,
+          inStock,
+          stockQuantity,
           imgs,
         });
       }
@@ -64,7 +73,9 @@ export const cart = createSlice({
       const existingItem = state.items.find((item) => item.id === id);
 
       if (existingItem) {
-        existingItem.quantity = quantity;
+        existingItem.quantity = existingItem.stockQuantity === undefined
+          ? quantity
+          : Math.min(quantity, existingItem.stockQuantity);
       }
     },
 

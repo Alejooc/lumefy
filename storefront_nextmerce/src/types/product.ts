@@ -13,6 +13,8 @@ export type Product = {
   productType?: string;
   availableSizes?: string[];
   availableColors?: string[];
+  inStock?: boolean;
+  stockQuantity?: number;
   imgs?: {
     thumbnails: string[];
     previews: string[];

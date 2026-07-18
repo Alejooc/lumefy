@@ -440,6 +440,25 @@ async def list_installed(
     return [_serialize_install(install, app) for install, app in rows]
 
 
+@router.get("/availability")
+async def read_app_availability(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(auth.get_current_user),
+) -> Any:
+    """Expose only enabled app slugs so tenant navigation can be accurate for every role."""
+    if not current_user.company_id:
+        return []
+    result = await db.execute(
+        select(AppDefinition.slug, CompanyAppInstall.is_enabled)
+        .join(AppDefinition, AppDefinition.id == CompanyAppInstall.app_id)
+        .where(
+            CompanyAppInstall.company_id == current_user.company_id,
+            AppDefinition.is_active == True,
+        )
+    )
+    return [{"slug": slug, "is_enabled": enabled} for slug, enabled in result.all()]
+
+
 @router.get("/installed/{slug}", response_model=schemas.AppInstalledDetail)
 async def get_installed_detail(
     slug: str,

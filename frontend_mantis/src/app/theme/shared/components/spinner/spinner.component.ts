@@ -19,7 +19,10 @@ export class SpinnerComponent implements OnDestroy {
   private document = inject<Document>(DOCUMENT);
 
   // public props
-  isSpinnerVisible = true;
+  // A spinner created after the router has already emitted NavigationEnd must
+  // start hidden; otherwise it can leave an invisible page beneath a full-screen
+  // overlay until the user triggers another UI event.
+  isSpinnerVisible = false;
   Spinkit = Spinkit;
   backgroundColor = input('#1890ff');
   spinner = input(Spinkit.skLine);
@@ -30,15 +33,15 @@ export class SpinnerComponent implements OnDestroy {
       (event) => {
         if (event instanceof NavigationStart) {
           this.isSpinnerVisible = true;
-          this.cdRef.detectChanges();
+          this.cdRef.markForCheck();
         } else if (event instanceof NavigationEnd || event instanceof NavigationCancel || event instanceof NavigationError) {
           this.isSpinnerVisible = false;
-          this.cdRef.detectChanges();
+          this.cdRef.markForCheck();
         }
       },
       () => {
         this.isSpinnerVisible = false;
-        this.cdRef.detectChanges();
+        this.cdRef.markForCheck();
       }
     );
   }

@@ -93,10 +93,12 @@ const ShopDetails = ({
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 
   const hasComparePrice = product.price > product.discountedPrice;
-  const stockLabel =
-    product.availableSizes?.length || product.availableColors?.length || product.discountedPrice >= 0
-      ? "Disponible"
-      : "Agotado";
+  const isInStock = product.inStock !== false;
+  const stockLabel = !isInStock
+    ? "Agotado"
+    : product.stockQuantity !== undefined
+      ? `${product.stockQuantity} disponibles`
+      : "Disponible";
   const descriptionText = stripHtml(product.description);
 
   const tabs = [
@@ -106,6 +108,7 @@ const ShopDetails = ({
   ];
 
   const handleAddToCart = () => {
+    if (!isInStock) return;
     dispatch(
       addItemToCart({
         ...product,
@@ -280,7 +283,7 @@ const ShopDetails = ({
                       </span>
                       <button
                         type="button"
-                        onClick={() => setQuantity(quantity + 1)}
+                        onClick={() => isInStock && (product.stockQuantity === undefined || quantity < product.stockQuantity) && setQuantity(quantity + 1)}
                         aria-label="aumentar cantidad"
                         className="flex items-center justify-center w-12 h-12 ease-out duration-200 hover:text-blue"
                       >
@@ -291,9 +294,10 @@ const ShopDetails = ({
                     <button
                       type="button"
                       onClick={handleAddToCart}
-                      className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark"
+                      disabled={!isInStock}
+                      className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:cursor-not-allowed disabled:bg-gray-4"
                     >
-                      Agregar al carrito
+                      {isInStock ? "Agregar al carrito" : "Agotado"}
                     </button>
 
                     <button

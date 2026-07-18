@@ -1,6 +1,6 @@
 
 import { Component, OnInit, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from 'src/app/core/services/auth.service';
 import {
   AppCatalogItem,
@@ -23,6 +23,7 @@ export class AppStoreComponent implements OnInit {
   private permissionService = inject(PermissionService);
   private authService = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private swal = inject(SweetAlertService);
 
   loading = false;
@@ -40,6 +41,9 @@ export class AppStoreComponent implements OnInit {
       this.swal.error('Sin permiso', 'Solo administradores de empresa pueden instalar apps.');
       this.router.navigate(['/dashboard/default']);
       return;
+    }
+    if (this.route.snapshot.queryParamMap.get('unavailable') === 'pos_module') {
+      this.swal.warning('POS no está disponible', 'Tu plan no tiene el módulo POS instalado o habilitado. Actívalo aquí para poder usarlo.');
     }
     this.reload();
   }

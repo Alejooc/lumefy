@@ -371,6 +371,14 @@ export interface StorePaymentGateway {
   sort_order: number;
 }
 
+export interface StorefrontReadiness {
+  ready: boolean;
+  published_products: number;
+  out_of_stock_products: number;
+  enabled_payment_gateways: number;
+  issues: string[];
+}
+
 export interface CatalogProduct {
   id: string;
   name: string;
@@ -479,6 +487,10 @@ export class StorefrontAdminService {
 
   getStorefronts(): Observable<Storefront[]> {
     return this.api.get<Storefront[]>('/storefront');
+  }
+
+  getReadiness(storefrontId: string): Observable<StorefrontReadiness> {
+    return this.api.get<StorefrontReadiness>(`/storefront/${storefrontId}/readiness`);
   }
 
   createStorefront(payload: Partial<Storefront>): Observable<Storefront> {
