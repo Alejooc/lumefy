@@ -22,7 +22,7 @@ export class AuthResetPasswordComponent implements OnInit {
     loading = false;
 
     resetPasswordForm = this.fb.group({
-        new_password: ['', [Validators.required, Validators.minLength(6)]],
+        new_password: ['', [Validators.required, Validators.minLength(8)]],
         confirm_password: ['', [Validators.required]]
     });
 

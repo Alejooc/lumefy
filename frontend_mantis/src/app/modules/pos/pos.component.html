@@ -3,10 +3,10 @@
   <!-- Mobile tabs (only visible ≤768px) -->
   <div class="pos-mobile-tabs">
     <button [class.active]="mobileTab === 'products'" (click)="mobileTab = 'products'">
-      <i class="feather icon-grid me-1"></i> Productos
+      <i class="ti ti-layout-grid me-1"></i> Productos
     </button>
     <button [class.active]="mobileTab === 'cart'" (click)="mobileTab = 'cart'">
-      <i class="feather icon-shopping-cart me-1"></i> Carrito
+      <i class="ti ti-shopping-cart me-1"></i> Carrito
       @if (cart.length > 0) {
         <span class="badge bg-primary ms-1">{{ cart.length }}</span>
       }
@@ -21,10 +21,10 @@
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <button class="btn btn-sm btn-outline-secondary" routerLink="/dashboard/default"
               title="Volver al Sistema" style="width:36px; height:36px; padding:0; flex-shrink:0;">
-              <i class="feather icon-home"></i>
+              <i class="ti ti-home"></i>
             </button>
             <div class="input-group" style="flex: 1; min-width: 150px;">
-              <span class="input-group-text bg-light border-0"><i class="feather icon-search"></i></span>
+              <span class="input-group-text bg-light border-0"><i class="ti ti-search"></i></span>
               <input type="text" class="form-control bg-light border-0 ps-0"
                 placeholder="Buscar o escanear código..." [(ngModel)]="searchQuery"
                 (input)="filterProducts()" #searchInput>
@@ -38,22 +38,22 @@
               </select>
               @if (posConfig.show_sessions_manager) {
                 <button class="btn btn-sm btn-outline-primary" (click)="openSessionsManager()" title="Gestionar cajas">
-                  <i class="feather icon-layers me-1"></i>Cajas
+                  <i class="ti ti-layers-linked me-1"></i>Cajas
                 </button>
               }
               @if (canViewDailyClose) {
                 <button class="btn btn-sm btn-outline-dark" (click)="openDailyClose()" title="Cierre del dia">
-                  <i class="feather icon-bar-chart-2 me-1"></i>Cierre
+                  <i class="ti ti-chart-bar me-1"></i>Cierre
                 </button>
               }
               @if (currentSession) {
                 <button class="btn btn-sm btn-outline-danger" (click)="closeCashSession()" title="Cerrar caja">
-                  <i class="feather icon-lock me-1"></i>Cerrar caja
+                  <i class="ti ti-lock me-1"></i>Cerrar caja
                 </button>
               }
               @if (!currentSession) {
                 <button class="btn btn-sm btn-outline-success" (click)="openCashSession()" title="Abrir caja">
-                  <i class="feather icon-unlock me-1"></i>Abrir caja
+                  <i class="ti ti-lock-open me-1"></i>Abrir caja
                 </button>
               }
             </div>
@@ -67,14 +67,14 @@
           }
           @if (currentBranchId && !currentSession) {
             <div class="px-3 py-2 border-bottom bg-warning-subtle text-warning-emphasis">
-              <small><i class="feather icon-alert-triangle me-1"></i>Caja cerrada. Abre caja para vender.</small>
+              <small><i class="ti ti-alert-triangle me-1"></i>Caja cerrada. Abre caja para vender.</small>
             </div>
           }
           <!-- Category chips -->
           @if (categories.length > 0) {
             <div class="pos-category-chips">
               <button class="chip" [class.active]="selectedCategory === ''" (click)="selectCategory('')">
-                <i class="feather icon-grid me-1" style="font-size:11px"></i> Todos
+                <i class="ti ti-layout-grid me-1" style="font-size:11px"></i> Todos
               </button>
               @for (cat of categories; track cat) {
                 <button class="chip" [class.active]="selectedCategory === cat"
@@ -97,7 +97,7 @@
                     }
                     @if (!p.image_url) {
                       <div class="product-img-placeholder">
-                        <i class="feather icon-box"></i>
+                        <i class="ti ti-box"></i>
                       </div>
                     }
                     <div class="p-2">
@@ -117,7 +117,7 @@
               <!-- Empty state -->
               @if (filteredProducts.length === 0) {
                 <div class="col-12 text-center py-5">
-                  <i class="feather icon-box text-muted" style="font-size: 3rem;"></i>
+                  <i class="ti ti-box text-muted" style="font-size: 3rem;"></i>
                   <h6 class="text-muted mt-3">
                     {{ currentBranchId ? 'No hay productos que coincidan' : 'Selecciona una sucursal
                     primero' }}
@@ -136,7 +136,7 @@
             <div class="d-flex align-items-center gap-2">
               <div class="avatar bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center"
                 style="width:36px; height:36px; flex-shrink:0;">
-                <i class="feather icon-user"></i>
+                <i class="ti ti-user"></i>
               </div>
               <select class="form-select form-select-sm border-0 bg-light fw-semibold"
                 [(ngModel)]="selectedClientId" style="flex:1;">
@@ -148,7 +148,7 @@
               @if (cart.length > 0) {
                 <button class="btn btn-sm btn-light text-danger" style="flex-shrink:0;" (click)="clearCart()"
                   title="Vaciar carrito">
-                  <i class="feather icon-trash-2"></i>
+                  <i class="ti ti-trash"></i>
                 </button>
               }
             </div>
@@ -166,7 +166,7 @@
                       </div>
                       <button class="btn btn-sm text-danger p-0 ms-1" style="flex-shrink:0;"
                         (click)="removeItem(item)">
-                        <i class="feather icon-x"></i>
+                        <i class="ti ti-x"></i>
                       </button>
                     </div>
                     <div class="d-flex justify-content-between align-items-center">
@@ -187,7 +187,7 @@
               <!-- Empty cart -->
               @if (cart.length === 0) {
                 <div class="text-center py-5">
-                  <i class="feather icon-shopping-cart text-muted" style="font-size: 3rem; opacity:.4"></i>
+                  <i class="ti ti-shopping-cart text-muted" style="font-size: 3rem; opacity:.4"></i>
                   <h6 class="text-muted mt-3">El carrito está vacío</h6>
                   <p class="text-muted small mb-0">Selecciona productos</p>
                 </div>
@@ -212,7 +212,7 @@
               <button class="btn btn-primary w-100 d-flex justify-content-between align-items-center"
                 style="padding: 12px 16px; font-size: 1rem;" [disabled]="cart.length === 0"
                 (click)="openCheckout()">
-                <span><i class="feather icon-zap me-2"></i>Cobrar</span>
+                <span><i class="ti ti-bolt me-2"></i>Cobrar</span>
                 <strong>{{ total | currency }}</strong>
               </button>
             </div>
@@ -299,7 +299,7 @@
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" (click)="closeDailyClose()">Cerrar</button>
             <button class="btn btn-primary" [disabled]="!dailyClose" (click)="exportDailyCloseCsv()">
-              <i class="feather icon-download me-1"></i>Exportar CSV
+              <i class="ti ti-download me-1"></i>Exportar CSV
             </button>
           </div>
         </div>
@@ -323,16 +323,16 @@
                 <button class="btn btn-sm" [class.btn-primary]="sessionsFilter === 'CLOSED'" [class.btn-outline-primary]="sessionsFilter !== 'CLOSED'" (click)="onSessionFilterChange('CLOSED')">Cerradas</button>
                 <button class="btn btn-sm" [class.btn-primary]="sessionsFilter === ''" [class.btn-outline-primary]="sessionsFilter !== ''" (click)="onSessionFilterChange('')">Todas</button>
                 <button class="btn btn-sm btn-outline-success ms-auto" [disabled]="loadingSessions || sessions.length === 0" (click)="exportSessionsCsv()">
-                  <i class="feather icon-download me-1"></i>Exportar CSV
+                  <i class="ti ti-download me-1"></i>Exportar CSV
                 </button>
                 <button class="btn btn-sm btn-outline-success" [disabled]="loadingSessions || closedSessions.length === 0" (click)="exportClosedSessionsCsv()">
-                  <i class="feather icon-download me-1"></i>Cerradas CSV
+                  <i class="ti ti-download me-1"></i>Cerradas CSV
                 </button>
                 <button class="btn btn-sm btn-outline-success" [disabled]="loadingSessions || myOpenSessions.length === 0" (click)="exportMyOpenSessionsCsv()">
-                  <i class="feather icon-download me-1"></i>Mis abiertas CSV
+                  <i class="ti ti-download me-1"></i>Mis abiertas CSV
                 </button>
                 <button class="btn btn-sm btn-outline-secondary" (click)="loadSessions()">
-                  <i class="feather icon-refresh-cw me-1"></i>Actualizar
+                  <i class="ti ti-refresh me-1"></i>Actualizar
                 </button>
               </div>
               <div class="row g-2 mb-3">
@@ -578,19 +578,19 @@
                   <input type="radio" class="btn-check" name="paymethod" id="cash" autocomplete="off"
                     [(ngModel)]="paymentMethod" value="CASH">
                     <label class="btn btn-outline-success w-100 fw-bold" for="cash"><i
-                    class="feather icon-dollar-sign d-block fs-3 mb-1"></i>Efectivo</label>
+                    class="ti ti-currency-dollar d-block fs-3 mb-1"></i>Efectivo</label>
                   </div>
                   <div class="col-4">
                     <input type="radio" class="btn-check" name="paymethod" id="card" autocomplete="off"
                       [(ngModel)]="paymentMethod" value="CARD">
                       <label class="btn btn-outline-info w-100 fw-bold" for="card"><i
-                      class="feather icon-credit-card d-block fs-3 mb-1"></i>Tarjeta</label>
+                      class="ti ti-credit-card d-block fs-3 mb-1"></i>Tarjeta</label>
                     </div>
                     <div class="col-4">
                       <input type="radio" class="btn-check" name="paymethod" id="credit" autocomplete="off"
                         [(ngModel)]="paymentMethod" value="CREDIT">
                         <label class="btn btn-outline-warning w-100 fw-bold" for="credit"><i
-                        class="feather icon-clock d-block fs-3 mb-1"></i>Crédito</label>
+                        class="ti ti-clock d-block fs-3 mb-1"></i>Crédito</label>
                       </div>
                     </div>
                   </div>
@@ -630,7 +630,7 @@
                     @if (paymentMethod === 'CREDIT' && selectedClientId === '') {
                       <div>
                         <div class="alert alert-warning mb-0">
-                          <i class="feather icon-alert-triangle me-2"></i>
+                          <i class="ti ti-alert-triangle me-2"></i>
                           Selecciona un cliente para ventas a crédito.
                         </div>
                       </div>
@@ -653,16 +653,16 @@
             @if (showReceipt) {
               <div class="receipt-container">
                 <div class="d-flex justify-content-between align-items-center mb-3 no-print">
-                  <h4 class="text-success mb-0"><i class="feather icon-check-circle me-2"></i>Pago Exitoso</h4>
+                  <h4 class="text-success mb-0"><i class="ti ti-circle-check me-2"></i>Pago Exitoso</h4>
                   <div class="d-flex gap-2">
                     @if (!posConfig.require_manager_for_void || canVoidSales) {
                       <button class="btn btn-outline-danger" (click)="voidLastSale()">
-                        <i class="feather icon-x-circle me-1"></i>Anular venta
+                        <i class="ti ti-circle-x me-1"></i>Anular venta
                       </button>
                     }
                     <button class="btn btn-outline-secondary" (click)="closeReceipt()">Nueva Venta</button>
                     <button class="btn btn-primary" (click)="printReceipt()">
-                      <i class="feather icon-printer me-1"></i>Imprimir
+                      <i class="ti ti-printer me-1"></i>Imprimir
                     </button>
                   </div>
                 </div>

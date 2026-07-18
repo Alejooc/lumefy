@@ -70,6 +70,12 @@ class PlanLimitChecker:
                 detail="La empresa está desactivada. Contacta soporte.",
             )
 
+        if company.subscription_status in {"SUSPENDED", "CANCELED"}:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="La suscripción de la empresa no está activa. Contacta soporte.",
+            )
+
         if company.valid_until:
             try:
                 expiry = datetime.fromisoformat(company.valid_until)

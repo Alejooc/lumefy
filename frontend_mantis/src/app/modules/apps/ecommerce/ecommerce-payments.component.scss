@@ -1,83 +1,4 @@
 .ecommerce-section {
-  .section-header {
-    margin-bottom: 0.5rem;
-  }
-
-  .form-label {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: #475569;
-  }
-
-  .card {
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
-  }
-
-  .section-card {
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  }
-
-  .storefront-switcher {
-    min-width: 220px;
-  }
-
-  .empty-state {
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  }
-
-  .modal-backdrop-soft {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.45);
-    z-index: 1040;
-  }
-
-  .collection-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 1050;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1.5rem;
-  }
-
-  .settings-block__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .settings-pill {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 999px;
-    padding: 0.35rem 0.7rem;
-    background: #f1f5f9;
-    color: #334155;
-    font-size: 0.76rem;
-    font-weight: 700;
-  }
-
-  .form-hint {
-    display: block;
-    margin-top: 0.35rem;
-    color: #64748b;
-    font-size: 0.76rem;
-  }
-
-  .settings-switch-grid {
-    display: grid;
-    gap: 0.85rem;
-    padding: 0.9rem 1rem;
-    border-radius: 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    border: 1px solid rgba(15, 23, 42, 0.08);
-  }
-
   .gateway-catalog-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -92,21 +13,18 @@
     gap: 0.3rem;
     width: 100%;
     padding: 1rem;
-    border-radius: 16px;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: var(--bs-border-radius);
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+    transition: border-color 0.2s ease;
   }
 
   .gateway-card:hover {
-    transform: translateY(-1px);
-    border-color: rgba(37, 99, 235, 0.22);
-    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    border-color: var(--bs-primary);
   }
 
   .gateway-card.is-configured {
-    border-color: rgba(15, 118, 110, 0.22);
-    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.08);
+    border-color: var(--bs-success);
   }
 
   .gateway-card__top {
@@ -119,29 +37,29 @@
   .gateway-card__accent {
     width: 12px;
     height: 12px;
-    border-radius: 999px;
-    background: #94a3b8;
+    border-radius: 50%;
+    background: var(--bs-secondary);
     flex: 0 0 auto;
   }
 
   .gateway-card__accent[data-accent='indigo'] {
-    background: #6366f1;
+    background: var(--bs-primary);
   }
 
   .gateway-card__accent[data-accent='emerald'] {
-    background: #10b981;
+    background: var(--bs-success);
   }
 
   .gateway-card__accent[data-accent='amber'] {
-    background: #f59e0b;
+    background: var(--bs-warning);
   }
 
   .gateway-card__accent[data-accent='rose'] {
-    background: #f43f5e;
+    background: var(--bs-danger);
   }
 
   .gateway-card__accent[data-accent='slate'] {
-    background: #64748b;
+    background: var(--bs-secondary);
   }
 
   .gateway-card__meta {
@@ -149,20 +67,20 @@
     flex-wrap: wrap;
     gap: 0.4rem;
     margin-top: auto;
-    color: #64748b;
+    color: var(--bs-secondary-color);
     font-size: 0.76rem;
   }
 
   .gateway-card__meta span {
     padding: 0.2rem 0.45rem;
-    border-radius: 999px;
-    background: #f8fafc;
-    border: 1px solid rgba(15, 23, 42, 0.06);
+    border-radius: var(--bs-border-radius-pill);
+    background: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
   }
 
   .gateway-pill--active {
-    background: #ecfdf5;
-    color: #047857;
+    background: var(--bs-success-bg-subtle);
+    color: var(--bs-success-text-emphasis);
   }
 
   .navigation-modal-card {

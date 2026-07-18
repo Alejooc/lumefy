@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.core import auth, security
 from app.core.database import get_db
 from app.core.permissions import PermissionChecker
+from app.core.plan_limits import PlanLimitChecker
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.models.branch import Branch
@@ -147,7 +148,7 @@ def _serialize_public_branding(storefront: Storefront, company: Company | None) 
     footer_text = _pick_first(
         branding.get("footer_text"),
         theme_settings.get("footer_text"),
-        f"{storefront.name}. All rights reserved.",
+        f"{storefront.name}. Todos los derechos reservados.",
     )
 
     return schemas.PublicStorefrontBranding(
@@ -465,6 +466,27 @@ async def _get_public_storefront_by_subdomain(db: AsyncSession, subdomain: str) 
     return storefront
 
 
+async def _get_public_storefront_by_domain(db: AsyncSession, domain: str) -> Storefront:
+    normalized_domain = domain.strip().lower().split(":", 1)[0]
+    if not normalized_domain:
+        raise HTTPException(status_code=404, detail="Storefront not found")
+
+    result = await db.execute(
+        select(Storefront)
+        .join(StorefrontDomain, StorefrontDomain.storefront_id == Storefront.id)
+        .where(
+            StorefrontDomain.domain == normalized_domain,
+            StorefrontDomain.is_active == True,
+            Storefront.is_active == True,
+            Storefront.is_enabled == True,
+        )
+    )
+    storefront = result.scalars().first()
+    if not storefront:
+        raise HTTPException(status_code=404, detail="Storefront not found")
+    return storefront
+
+
 async def _get_public_collection_or_404(db: AsyncSession, storefront_id: uuid.UUID, slug: str) -> StoreCollection:
     result = await db.execute(
         select(StoreCollection).where(
@@ -726,6 +748,7 @@ async def create_storefront(
     db: AsyncSession = Depends(get_db),
     storefront_in: schemas.StorefrontCreate,
     current_user: User = Depends(PermissionChecker("manage_company")),
+    _plan: User = Depends(PlanLimitChecker(resource="storefronts", count_model=Storefront)),
 ) -> Any:
     storefront = Storefront(
         **storefront_in.model_dump(),
@@ -1186,6 +1209,28 @@ async def read_public_storefront_by_subdomain(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     storefront = await _get_public_storefront_by_subdomain(db, subdomain)
+    company = await _get_company_for_storefront(db, storefront)
+    return schemas.PublicStorefront(
+        id=storefront.id,
+        name=storefront.name,
+        slug=storefront.slug,
+        subdomain=storefront.subdomain,
+        theme_key=storefront.theme_key,
+        theme_settings=storefront.theme_settings or {},
+        checkout_settings=storefront.checkout_settings or {},
+        seo_settings=storefront.seo_settings or {},
+        currency=storefront.currency,
+        language=storefront.language,
+        branding=_serialize_public_branding(storefront, company),
+    )
+
+
+@router.get("/public/by-domain/{domain}", response_model=schemas.PublicStorefront)
+async def read_public_storefront_by_domain(
+    domain: str,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    storefront = await _get_public_storefront_by_domain(db, domain)
     company = await _get_company_for_storefront(db, storefront)
     return schemas.PublicStorefront(
         id=storefront.id,

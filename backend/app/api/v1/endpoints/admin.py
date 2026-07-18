@@ -228,7 +228,7 @@ async def update_company(
     *,
     db: AsyncSession = Depends(get_db),
     id: uuid.UUID,
-    company_in: schemas.CompanyUpdate,
+    company_in: schemas.CompanyAdminUpdate,
     current_user: User = Depends(PermissionChecker("manage_saas")),
 ) -> Any:
     """

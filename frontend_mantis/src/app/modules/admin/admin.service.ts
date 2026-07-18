@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
@@ -142,7 +142,9 @@ export class AdminService {
     }
 
     getBroadcast(): Observable<BroadcastConfig> {
-        return this.http.get<BroadcastConfig>(`${environment.apiUrl}/system/broadcast`);
+        return this.http.get<BroadcastConfig>(`${environment.apiUrl}/system/broadcast`, {
+            headers: new HttpHeaders({ 'X-Suppress-Error': 'true' })
+        });
     }
 
     setBroadcast(msg: BroadcastConfig): Observable<BroadcastConfig> {

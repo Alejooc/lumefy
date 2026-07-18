@@ -30,15 +30,15 @@ const Header = () => {
   const [stickyMenu, setStickyMenu] = useState(false);
   const [menuItems, setMenuItems] = useState<Menu[]>(menuData);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
-  const [supportPhone, setSupportPhone] = useState("(+965) 7492-3477");
-  const [supportLabel, setSupportLabel] = useState("24/7 SUPPORT");
-  const [searchPlaceholder, setSearchPlaceholder] = useState("I am shopping for...");
-  const [accountHeading, setAccountHeading] = useState("account");
-  const [guestAccountLabel, setGuestAccountLabel] = useState("Sign In");
-  const [signOutLabel, setSignOutLabel] = useState("Sign Out");
-  const [cartHeading, setCartHeading] = useState("cart");
-  const [recentlyViewedLabel, setRecentlyViewedLabel] = useState("Recently Viewed");
-  const [wishlistLabel, setWishlistLabel] = useState("Wishlist");
+  const [supportPhone, setSupportPhone] = useState("");
+  const [supportLabel, setSupportLabel] = useState("Atención al cliente");
+  const [searchPlaceholder, setSearchPlaceholder] = useState("Buscar productos...");
+  const [accountHeading, setAccountHeading] = useState("cuenta");
+  const [guestAccountLabel, setGuestAccountLabel] = useState("Ingresar");
+  const [signOutLabel, setSignOutLabel] = useState("Cerrar sesión");
+  const [cartHeading, setCartHeading] = useState("carrito");
+  const [recentlyViewedLabel, setRecentlyViewedLabel] = useState("Vistos recientemente");
+  const [wishlistLabel, setWishlistLabel] = useState("Favoritos");
   const { openCartModal } = useCartModalContext();
   const { session, signOut } = useStorefrontAuth();
   const { format } = useStorefrontCurrency();
@@ -381,10 +381,12 @@ const Header = () => {
               </Link>
             </div>
 
-            <p className="mb-1 text-xs font-medium uppercase tracking-[0.18em] text-dark-4">
-              {supportLabel}
-            </p>
-            <p className="text-sm font-medium text-dark">{supportPhone}</p>
+            {supportPhone ? <>
+              <p className="mb-1 text-xs font-medium uppercase tracking-[0.18em] text-dark-4">
+                {supportLabel}
+              </p>
+              <p className="text-sm font-medium text-dark">{supportPhone}</p>
+            </> : null}
           </div>
         </aside>
       </div>
@@ -550,7 +552,7 @@ const Header = () => {
 
           {/* <!-- header top right --> */}
           <div className="flex w-full lg:w-auto items-center gap-5 xl:gap-6">
-            <div className="hidden xl:flex flex-col rounded-xl bg-gray-1 px-4 py-2.5">
+            {supportPhone ? <><div className="hidden xl:flex flex-col rounded-xl bg-gray-1 px-4 py-2.5">
               <span className="block text-2xs text-dark-4 uppercase">
                 {supportLabel}
               </span>
@@ -560,7 +562,7 @@ const Header = () => {
             </div>
 
             {/* <!-- divider --> */}
-            <span className="hidden xl:block w-px h-7.5 bg-gray-4"></span>
+            <span className="hidden xl:block w-px h-7.5 bg-gray-4"></span></> : null}
 
             <div className="hidden lg:flex w-full lg:w-auto justify-between items-center gap-5">
               <div className="flex items-center gap-5">

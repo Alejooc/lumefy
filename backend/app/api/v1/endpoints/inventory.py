@@ -18,6 +18,26 @@ from sqlalchemy.orm import selectinload
 
 from app.models.product import Product
 
+
+async def _validate_company_product_and_branch(
+    db: AsyncSession,
+    *,
+    product_id: str,
+    branch_id: str,
+    company_id: str,
+) -> None:
+    product_result = await db.execute(
+        select(Product.id).where(Product.id == product_id, Product.company_id == company_id)
+    )
+    if not product_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+
+    branch_result = await db.execute(
+        select(Branch.id).where(Branch.id == branch_id, Branch.company_id == company_id)
+    )
+    if not branch_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Sucursal no encontrada")
+
 @router.get("/", response_model=List[schemas.Inventory])
 async def read_inventory(
     db: AsyncSession = Depends(get_db),
@@ -107,6 +127,12 @@ async def create_movement(
     Register a stock movement (IN/OUT/ADJ/TRF).
     Updates the Inventory table automatically.
     """
+    await _validate_company_product_and_branch(
+        db,
+        product_id=str(movement_in.product_id),
+        branch_id=str(movement_in.branch_id),
+        company_id=str(current_user.company_id),
+    )
     
     # 1. Get current inventory record
     result = await db.execute(
@@ -145,6 +171,13 @@ async def create_movement(
              raise HTTPException(status_code=400, detail="Destination branch required for transfer")
         if movement_in.destination_branch_id == movement_in.branch_id:
              raise HTTPException(status_code=400, detail="Source and Destination branch cannot be the same")
+
+        await _validate_company_product_and_branch(
+            db,
+            product_id=str(movement_in.product_id),
+            branch_id=str(movement_in.destination_branch_id),
+            company_id=str(current_user.company_id),
+        )
              
         # 1. OUT from Source
         # (inventory_item already fetched above)

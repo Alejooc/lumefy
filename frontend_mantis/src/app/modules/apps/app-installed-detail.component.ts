@@ -51,6 +51,11 @@ export class AppInstalledDetailComponent implements OnInit {
   billing: BillingSummary | null = null;
   webhookDeliveries: WebhookDelivery[] = [];
 
+  get appIconClass(): string {
+    const icon = (this.appDetail?.icon || 'box').trim();
+    return `ti-${icon.replace(/^ti-/, '').replace(/^icon-/, '')}`;
+  }
+
   ngOnInit(): void {
     if (this.authService.currentUserValue?.is_superuser) {
       this.router.navigate(['/apps/admin']);
@@ -267,15 +272,4 @@ export class AppInstalledDetailComponent implements OnInit {
     }
   }
 
-  runDemo(): void {
-    if (this.slug !== 'demo-hello') {
-      this.swal.warning('Info', 'Esta app no tiene accion demo configurada aun.');
-      return;
-    }
-
-    this.appService.runDemoHello().subscribe({
-      next: (result) => this.swal.success('Debug OK', result.configured_message),
-      error: (err) => this.swal.error('Error', err?.error?.detail || 'No se pudo ejecutar la demo.')
-    });
-  }
 }

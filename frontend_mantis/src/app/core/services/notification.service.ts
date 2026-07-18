@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { BehaviorSubject, Observable, timer, switchMap, retry, share, tap, catchError, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
@@ -41,7 +41,9 @@ export class NotificationService {
     }
 
     getUnread(): Observable<Notification[]> {
-        return this.http.get<Notification[]>(`${this.apiUrl}/unread`).pipe(
+        return this.http.get<Notification[]>(`${this.apiUrl}/unread`, {
+            headers: new HttpHeaders({ 'X-Suppress-Error': 'true' })
+        }).pipe(
             tap(notifications => {
                 this.unreadCountSubject.next(notifications.length);
             }),

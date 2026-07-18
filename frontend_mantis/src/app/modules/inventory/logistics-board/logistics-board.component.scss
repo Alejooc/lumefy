@@ -1,38 +1,38 @@
 .kanban-board {
     display: flex;
-    gap: 16px;
+    gap: 1rem;
     overflow-x: auto;
     padding-bottom: 16px;
-    min-height: 500px;
+    min-height: 420px;
 }
 
 .kanban-column {
     flex: 1;
-    min-width: 280px;
-    max-width: 340px;
-    background: var(--bs-body-bg, #f4f5f7);
-    border-radius: 12px;
-    border-top: 4px solid #ccc;
+    min-width: 270px;
+    max-width: 330px;
+    background: var(--bs-tertiary-bg);
+    border-radius: var(--bs-border-radius);
+    border: 1px solid var(--bs-border-color);
     display: flex;
     flex-direction: column;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    box-shadow: none;
 }
 
 .kanban-header {
-    padding: 14px 16px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    background: rgba(255, 255, 255, 0.6);
-    border-radius: 12px 12px 0 0;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: var(--bs-card-bg);
+    border-radius: var(--bs-border-radius) var(--bs-border-radius) 0 0;
 }
 
 .kanban-header .badge {
     font-size: 0.75rem;
     padding: 4px 10px;
-    color: #fff;
+    color: var(--bs-emphasis-color);
 }
 
 .kanban-cards {
-    padding: 12px;
+    padding: 0.75rem;
     flex: 1;
     overflow-y: auto;
     max-height: 65vh;
@@ -40,44 +40,28 @@
 
 /* ─── Card Styling ─── */
 .kanban-card {
-    background: var(--bs-card-bg, #fff);
-    border-radius: 10px;
-    padding: 14px;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+    background: var(--bs-card-bg);
+    border-radius: var(--bs-border-radius-sm);
+    padding: 0.875rem;
+    margin-bottom: 0.75rem;
+    box-shadow: none;
     cursor: grab;
     transition: all 0.2s ease;
-    border-left: 4px solid transparent;
+    border-left: 3px solid var(--bs-primary);
     position: relative;
     overflow: hidden;
 }
 
 /* Color-coded left border per column */
-.kanban-column:nth-child(1) .kanban-card {
-    border-left-color: #4680ff;
-}
-
-.kanban-column:nth-child(2) .kanban-card {
-    border-left-color: #e58a00;
-}
-
-.kanban-column:nth-child(3) .kanban-card {
-    border-left-color: #2ca87f;
-}
-
-.kanban-column:nth-child(4) .kanban-card {
-    border-left-color: #7c4dff;
-}
-
 .kanban-card:hover {
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-    transform: translateY(-2px);
+    border-color: var(--bs-primary);
+    transform: none;
 }
 
 .kanban-card:active {
     cursor: grabbing;
-    transform: scale(0.97);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transform: none;
+    box-shadow: none;
 }
 
 /* ─── Card Inner Elements ─── */
@@ -87,38 +71,38 @@
 
 .card-id {
     font-weight: 700;
-    color: var(--bs-primary, #4680ff);
+    color: var(--bs-primary);
     cursor: pointer;
     font-size: 0.82rem;
     letter-spacing: 0.02em;
-    background: rgba(70, 128, 255, 0.08);
+    background: var(--bs-primary-bg-subtle);
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: var(--bs-border-radius-sm);
     transition: background 0.2s;
 }
 
 .card-id:hover {
-    background: rgba(70, 128, 255, 0.18);
+    background: var(--bs-primary-bg-subtle);
     text-decoration: none;
 }
 
 .card-total {
     font-weight: 700;
     font-size: 0.9rem;
-    color: var(--bs-body-color, #333);
+    color: var(--bs-body-color);
 }
 
 .card-client {
     font-size: 0.88rem;
     margin: 6px 0 4px;
     font-weight: 600;
-    color: var(--bs-body-color, #333);
+    color: var(--bs-body-color);
 }
 
 .card-meta {
     font-size: 0.76rem;
     line-height: 1.6;
-    color: #888;
+    color: var(--bs-secondary-color);
 
     i {
         opacity: 0.6;
@@ -126,54 +110,13 @@
 }
 
 .card-actions {
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    border-top: 1px solid var(--bs-border-color);
     padding-top: 8px;
 
     .btn {
         font-size: 0.78rem;
         font-weight: 600;
         letter-spacing: 0.02em;
-    }
-}
-
-/* Column-specific action button colors */
-.kanban-column:nth-child(1) .card-actions .btn {
-    color: #4680ff;
-    border-color: #4680ff;
-
-    &:hover {
-        background: #4680ff;
-        color: #fff;
-    }
-}
-
-.kanban-column:nth-child(2) .card-actions .btn {
-    color: #e58a00;
-    border-color: #e58a00;
-
-    &:hover {
-        background: #e58a00;
-        color: #fff;
-    }
-}
-
-.kanban-column:nth-child(3) .card-actions .btn {
-    color: #2ca87f;
-    border-color: #2ca87f;
-
-    &:hover {
-        background: #2ca87f;
-        color: #fff;
-    }
-}
-
-.kanban-column:nth-child(4) .card-actions .btn {
-    color: #7c4dff;
-    border-color: #7c4dff;
-
-    &:hover {
-        background: #7c4dff;
-        color: #fff;
     }
 }
 

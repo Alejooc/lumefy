@@ -6,17 +6,17 @@
         <div>
           <div class="btn-group btn-group-sm me-2">
             <button class="btn btn-outline-success" (click)="exportData('excel')">
-              <i class="feather icon-file"></i> Excel
+              <i class="ti ti-file"></i> Excel
             </button>
             <button class="btn btn-outline-success" (click)="exportData('csv')">
-              <i class="feather icon-file-text"></i> CSV
+              <i class="ti ti-file-text"></i> CSV
             </button>
           </div>
           <a [routerLink]="['/sales/quote']" class="btn btn-secondary btn-sm me-2">
-            <i class="feather icon-file-text"></i> Nueva Cotización
+            <i class="ti ti-file-text"></i> Nueva Cotización
           </a>
           <a [routerLink]="['/sales/order']" class="btn btn-primary btn-sm">
-            <i class="feather icon-plus"></i> Nueva Venta
+            <i class="ti ti-plus"></i> Nueva Venta
           </a>
         </div>
       </div>
@@ -68,33 +68,33 @@
                     <td>
                       <div ngbDropdown container="body" class="d-inline-block">
                         <button class="btn btn-sm btn-light no-arrow" ngbDropdownToggle>
-                          <i class="feather icon-more-vertical"></i>
+                          <i class="ti ti-dots-vertical"></i>
                         </button>
                         <div ngbDropdownMenu>
                           <button ngbDropdownItem [routerLink]="['/sales/view', sale.id]">
-                            <i class="feather icon-eye text-info"></i> Ver Detalle
+                            <i class="ti ti-eye text-info"></i> Ver Detalle
                           </button>
                           <!-- PDF Options -->
                           <button ngbDropdownItem (click)="downloadPdf(sale.id, 'invoice')">
-                            <i class="feather icon-file-text text-primary"></i> Ver Factura
+                            <i class="ti ti-file-text text-primary"></i> Ver Factura
                           </button>
                           @if (['CONFIRMED', 'PICKING', 'PACKING', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(sale.status)) {
                             <button
                               ngbDropdownItem (click)="downloadPdf(sale.id, 'picking')">
-                              <i class="feather icon-box text-warning"></i> Ver Picking
+                              <i class="ti ti-box text-warning"></i> Ver Picking
                             </button>
                           }
                           @if (['PACKING', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(sale.status)) {
                             <button
                               ngbDropdownItem (click)="downloadPdf(sale.id, 'packing')">
-                              <i class="feather icon-package text-success"></i> Ver Packing
+                              <i class="ti ti-package text-success"></i> Ver Packing
                             </button>
                           }
                           <div class="dropdown-divider"></div>
                           @if (['DRAFT', 'QUOTE', 'CANCELLED'].includes(sale.status)) {
                             <button
                               ngbDropdownItem (click)="deleteSale(sale.id)" class="text-danger">
-                              <i class="feather icon-trash-2"></i> Eliminar
+                              <i class="ti ti-trash"></i> Eliminar
                             </button>
                           }
                         </div>

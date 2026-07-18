@@ -28,3 +28,41 @@
     display: block;
     width: 100%;
 }
+
+.product-form-tabs {
+  gap: 0.25rem;
+
+  .nav-link {
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--bs-secondary-color);
+    background: transparent;
+    padding-inline: 0.75rem;
+
+    &.active {
+      color: var(--bs-primary);
+      border-bottom-color: var(--bs-primary);
+      font-weight: 600;
+    }
+  }
+}
+
+.product-form-card .card-header {
+  gap: 1rem;
+}
+
+@media (max-width: 575.98px) {
+  .product-form-card .card-header {
+    align-items: flex-start !important;
+    flex-direction: column;
+  }
+
+  .product-form-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+
+    .nav-link {
+      white-space: nowrap;
+    }
+  }
+}

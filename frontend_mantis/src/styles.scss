@@ -1,13 +1,11 @@
 /**======================================================================
 =========================================================================
-Template Name: MAntis Angular - Angular Admin Template
-Author: codedThemes
-Support: https://codedthemes.support-hub.io/
-File: style.css
+Lumefy application styles
 =========================================================================
 =================================================================================== */
 
 @import "@ng-select/ng-select/themes/default.theme.css";
+@import 'scss/fonts/tabler-icons.min.css';
 
 // main framework
 @import 'node_modules/bootstrap/scss/functions';
@@ -38,3 +36,4 @@ File: style.css
 @import 'scss/themes/layouts/footer/footer.scss';
 
 @import 'scss/themes/preset-style.scss';
+@import 'scss/themes/lumefy-admin.scss';

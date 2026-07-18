@@ -59,19 +59,22 @@ export class AdminUserListComponent implements OnInit {
                 this.loading = true;
                 this.adminService.impersonateUser(user.id).subscribe({
                     next: (res) => {
-                        // Store new token
-                        localStorage.setItem('access_token', res.access_token);
-
-                        // Fetch new user (impersonated)
-                        this.authService.fetchMe().subscribe(() => {
-                            Swal.fire(
-                                '¡Conectado!',
-                                `Ahora eres ${res.user.email}`,
-                                'success'
-                            ).then(() => {
-                                // Redirect to dashboard
-                                this.router.navigate(['/dashboard']);
-                            });
+                        this.authService.startImpersonation(res.access_token).subscribe({
+                            next: (impersonatedUser) => {
+                                this.loading = false;
+                                Swal.fire(
+                                    'Sesión delegada iniciada',
+                                    `Ahora estás operando como ${res.user.email}`,
+                                    'success'
+                                ).then(() => {
+                                    this.router.navigate([impersonatedUser.is_superuser ? '/admin/dashboard' : '/dashboard/default']);
+                                });
+                            },
+                            error: (err) => {
+                                this.loading = false;
+                                Swal.fire('Error', err.error?.detail || 'No se pudo cargar la sesión delegada', 'error');
+                                this.cdr.detectChanges();
+                            }
                         });
                     },
                     error: (err) => {

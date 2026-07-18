@@ -154,6 +154,11 @@ async def check_pos_app(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(auth.get_current_user)
 ):
+    if not current_user.company_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Platform administrators cannot access company-scoped operations directly.",
+        )
     if not _has_permission(current_user, "create_sales") and not _has_permission(current_user, "manage_sales"):
         raise HTTPException(status_code=403, detail="Se requiere permiso de ventas para usar POS.")
     if not _has_permission(current_user, "pos_access") and not _has_permission(current_user, "manage_sales"):

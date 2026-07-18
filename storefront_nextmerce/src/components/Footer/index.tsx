@@ -15,28 +15,26 @@ const socialLabels: Record<string, string> = {
 
 const Footer = () => {
   const year = new Date().getFullYear();
-  const [supportPhone, setSupportPhone] = useState("(+099) 532-786-9843");
-  const [supportEmail, setSupportEmail] = useState("support@example.com");
-  const [supportAddress, setSupportAddress] = useState(
-    "685 Market Street,Las Vegas, LA 95820,United States.",
-  );
-  const [footerText, setFooterText] = useState("All rights reserved by PimjoLabs.");
+  const [supportPhone, setSupportPhone] = useState("");
+  const [supportEmail, setSupportEmail] = useState("");
+  const [supportAddress, setSupportAddress] = useState("");
+  const [footerText, setFooterText] = useState("Todos los derechos reservados.");
   const [socialLinks, setSocialLinks] = useState<Array<{ key: string; href: string }>>([]);
-  const [helpTitle, setHelpTitle] = useState("Help & Support");
-  const [accountTitle, setAccountTitle] = useState("Account");
-  const [quickLinksTitle, setQuickLinksTitle] = useState("Quick Link");
-  const [appTitle, setAppTitle] = useState("Download App");
-  const [appDescription, setAppDescription] = useState("Exclusive savings for app users");
-  const [appStoreSubtitle, setAppStoreSubtitle] = useState("Download on the");
+  const [helpTitle, setHelpTitle] = useState("Ayuda y contacto");
+  const [accountTitle, setAccountTitle] = useState("Cuenta");
+  const [quickLinksTitle, setQuickLinksTitle] = useState("Enlaces");
+  const [appTitle, setAppTitle] = useState("App móvil");
+  const [appDescription, setAppDescription] = useState("Compra desde cualquier lugar");
+  const [appStoreSubtitle, setAppStoreSubtitle] = useState("Disponible en");
   const [appStoreLabel, setAppStoreLabel] = useState("App Store");
   const [appStoreUrl, setAppStoreUrl] = useState<string | undefined>(undefined);
-  const [playStoreSubtitle, setPlayStoreSubtitle] = useState("Get it on");
+  const [playStoreSubtitle, setPlayStoreSubtitle] = useState("Disponible en");
   const [playStoreLabel, setPlayStoreLabel] = useState("Google Play");
   const [playStoreUrl, setPlayStoreUrl] = useState<string | undefined>(undefined);
-  const [paymentTitle, setPaymentTitle] = useState("We Accept:");
-  const [showSocialLinks, setShowSocialLinks] = useState(true);
-  const [showAppDownloads, setShowAppDownloads] = useState(true);
-  const [showPaymentMethods, setShowPaymentMethods] = useState(true);
+  const [paymentTitle, setPaymentTitle] = useState("Medios de pago:");
+  const [showSocialLinks, setShowSocialLinks] = useState(false);
+  const [showAppDownloads, setShowAppDownloads] = useState(false);
+  const [showPaymentMethods, setShowPaymentMethods] = useState(false);
   const [accountLinks, setAccountLinks] = useState<Array<{ href: string; label: string }>>([]);
   const [quickLinks, setQuickLinks] = useState<Array<{ href: string; label: string }>>([]);
   const [paymentMethods, setPaymentMethods] = useState<
@@ -100,20 +98,20 @@ const Footer = () => {
             </h2>
 
             <ul className="flex flex-col gap-3">
-              <li>{supportAddress}</li>
-              <li>
+              {supportAddress ? <li>{supportAddress}</li> : null}
+              {supportPhone ? <li>
                 <a href={`tel:${supportPhone}`} className="ease-out duration-200 hover:text-blue">
                   {supportPhone}
                 </a>
-              </li>
-              <li>
+              </li> : null}
+              {supportEmail ? <li>
                 <a
                   href={`mailto:${supportEmail}`}
                   className="ease-out duration-200 hover:text-blue"
                 >
                   {supportEmail}
                 </a>
-              </li>
+              </li> : null}
             </ul>
 
             {showSocialLinks && socialLinks.length > 0 ? (
@@ -166,7 +164,7 @@ const Footer = () => {
             </ul>
           </div>
 
-          {showAppDownloads ? (
+          {showAppDownloads && (appStoreUrl || playStoreUrl) ? (
             <div className="w-full sm:w-auto">
             <h2 className="mb-7.5 text-custom-1 font-medium text-dark lg:text-right">
               {appTitle}
@@ -177,7 +175,7 @@ const Footer = () => {
             </p>
 
             <ul className="flex flex-col lg:items-end gap-3">
-              <li>
+              {appStoreUrl ? <li>
                 <a
                   className="inline-flex items-center gap-3 py-[9px] pl-4 pr-7.5 text-white rounded-md bg-dark ease-out duration-200 hover:bg-opacity-95"
                   href={appStoreUrl || "#"}
@@ -189,9 +187,9 @@ const Footer = () => {
                     <p className="font-medium">{appStoreLabel}</p>
                   </div>
                 </a>
-              </li>
+              </li> : null}
 
-              <li>
+              {playStoreUrl ? <li>
                 <a
                   className="inline-flex items-center gap-3 py-[9px] pl-4 pr-8.5 text-white rounded-md bg-blue ease-out duration-200 hover:bg-opacity-95"
                   href={playStoreUrl || "#"}
@@ -201,7 +199,7 @@ const Footer = () => {
                     <p className="font-medium">{playStoreLabel}</p>
                   </div>
                 </a>
-              </li>
+              </li> : null}
             </ul>
             </div>
           ) : null}
@@ -222,6 +220,8 @@ const Footer = () => {
                 <div className="flex flex-wrap items-center gap-6">
                   {paymentMethods.map((method) => {
                     const content = method.iconUrl ? (
+                      // Gateway icons are tenant-configured remote URLs, which cannot use Next's fixed image allowlist.
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={method.iconUrl}
                         alt={method.label}

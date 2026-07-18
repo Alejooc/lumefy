@@ -8,6 +8,11 @@ export interface AppNavigationRule {
 
 export const APP_NAVIGATION_RULES: AppNavigationRule[] = [
   {
+    appSlug: 'ecommerce',
+    navIds: ['apps-ecommerce'],
+    requireEnabled: true
+  },
+  {
     appSlug: 'pos_module',
     navIds: ['pos'],
     requireEnabled: true

@@ -48,7 +48,7 @@
             <div class="col-md-1 d-flex justify-content-end">
               <button class="btn btn-link text-danger p-0" (click)="clearDateFilters()"
                 title="Limpiar fechas">
-                <i class="ti ti-calendar-cancel fa-2x"></i>
+                <i class="ti ti-calendar fs-2"></i>
               </button>
             </div>
           }
@@ -61,27 +61,27 @@
 <ul class="nav nav-pills mb-4">
   <li class="nav-item">
     <a class="nav-link cursor-pointer" [class.active]="activeTab === 'general'" (click)="setTab('general')">
-      <i class="ti ti-layout-dashboard me-2"></i>Resumen General
+      <i class="ti ti-layout-grid me-2"></i>Resumen General
     </a>
   </li>
   <li class="nav-item">
     <a class="nav-link cursor-pointer" [class.active]="activeTab === 'finanzas'" (click)="setTab('finanzas')">
-      <i class="ti ti-businessplan me-2"></i>Finanzas
+      <i class="ti ti-chart-bar me-2"></i>Finanzas
     </a>
   </li>
   <li class="nav-item">
     <a class="nav-link cursor-pointer" [class.active]="activeTab === 'inventario'" (click)="setTab('inventario')">
-      <i class="ti ti-packages me-2"></i>Inventario y Rotación
+      <i class="ti ti-package me-2"></i>Inventario y Rotación
     </a>
   </li>
   <li class="nav-item">
     <a class="nav-link cursor-pointer" [class.active]="activeTab === 'cierre'" (click)="setTab('cierre')">
-      <i class="ti ti-cash-banknote me-2"></i>Cierre Diario
+      <i class="ti ti-currency-dollar me-2"></i>Cierre Diario
     </a>
   </li>
   <li class="nav-item">
     <a class="nav-link cursor-pointer" [class.active]="activeTab === 'pos-ops'" (click)="setTab('pos-ops')">
-      <i class="ti ti-register me-2"></i>Operaci&oacute;n POS
+      <i class="ti ti-credit-card me-2"></i>Operaci&oacute;n POS
     </a>
   </li>
 </ul>
@@ -516,7 +516,7 @@
                   <div class="text-success fw-bold small">Costo Total</div>
                 </div>
                 <div class="feature-icon bg-light-primary text-primary">
-                  <i class="feather icon-package fa-2x"></i>
+                  <i class="ti ti-package fs-2"></i>
                 </div>
               </div>
               <hr>

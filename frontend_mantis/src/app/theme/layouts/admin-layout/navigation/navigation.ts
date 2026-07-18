@@ -29,7 +29,7 @@ export const NavigationItems: NavigationItem[] = [
     children: [
       {
         id: 'default',
-        title: 'Default',
+        title: 'Resumen',
         type: 'item',
         classes: 'nav-item',
         url: '/dashboard/default',
@@ -49,7 +49,7 @@ export const NavigationItems: NavigationItem[] = [
     children: [
       {
         id: 'admin-dashboard',
-        title: 'Dashboard',
+        title: 'Resumen SaaS',
         type: 'item',
         url: '/admin/dashboard',
         classes: 'nav-item',
@@ -81,7 +81,7 @@ export const NavigationItems: NavigationItem[] = [
       },
       {
         id: 'landing-cms',
-        title: 'Editor Landing',
+        title: 'Landing pública',
         type: 'item',
         url: '/admin/landing-cms',
         classes: 'nav-item',
@@ -97,7 +97,7 @@ export const NavigationItems: NavigationItem[] = [
       },
       {
         id: 'system-health-admin',
-        title: 'Health Check',
+        title: 'Estado del sistema',
         type: 'item',
         url: '/settings/health',
         classes: 'nav-item',
@@ -105,7 +105,7 @@ export const NavigationItems: NavigationItem[] = [
       },
       {
         id: 'database-stats',
-        title: 'Inspector DB',
+        title: 'Base de datos',
         type: 'item',
         url: '/settings/database',
         classes: 'nav-item',
@@ -294,7 +294,7 @@ export const NavigationItems: NavigationItem[] = [
       },
       {
         id: 'first-sale-wizard',
-        title: 'Wizard Primera Venta',
+        title: 'Crear primera venta',
         type: 'item',
         classes: 'nav-item',
         url: '/sales/first-sale-wizard',
@@ -338,7 +338,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/logistics/package-types',
-        icon: 'box',
+        icon: 'container',
         breadcrumbs: true,
         permissions: ['manage_sales']
       }
@@ -483,7 +483,7 @@ export const NavigationItems: NavigationItem[] = [
       },
       {
         id: 'apps-admin-catalog',
-        title: 'Catalogo Global',
+        title: 'Catálogo global',
         type: 'item',
         classes: 'nav-item',
         url: '/apps/admin',
@@ -553,7 +553,7 @@ export const NavigationItems: NavigationItem[] = [
       },
       {
         id: 'audit',
-        title: 'Audit Logs',
+        title: 'Auditoría',
         type: 'item',
         classes: 'nav-item',
         url: '/audit',

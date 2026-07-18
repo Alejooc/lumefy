@@ -1,10 +1,11 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import func, select
 from app.core import auth, security
 from app.core.database import get_db
 from app.models.user import User
+from app.models.role import Role
 from app.schemas import user as schemas
 from app.core.config import settings
 from datetime import timedelta
@@ -88,22 +89,21 @@ async def impersonate_company(
     if not current_user.is_superuser:
          raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    # Find Admin User for Company
-    # Strategy: Find user with "Administrador" role in this company, or fallback to first user
+    # Only impersonate an actual tenant administrator. The former case-sensitive
+    # match fell back to the first company user, which could be a limited role.
     query = select(User).join(User.role).where(
         User.company_id == company_id,
-        User.role.has(name="Administrador")
-    )
+        User.is_active == True,
+        func.upper(Role.name).in_(["ADMINISTRADOR", "ADMIN", "ADMINISTRATOR"]),
+    ).order_by(User.created_at.asc())
     result = await db.execute(query)
     target_user = result.scalars().first()
-    
-    # Fallback to any user if no specific "Administrador" found (e.g. customized roles)
+
     if not target_user:
-        result = await db.execute(select(User).where(User.company_id == company_id).limit(1))
-        target_user = result.scalars().first()
-        
-    if not target_user:
-        raise HTTPException(status_code=404, detail="No users found for this company")
+        raise HTTPException(
+            status_code=409,
+            detail="La empresa no tiene un administrador activo para impersonar",
+        )
         
     # Generate Token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

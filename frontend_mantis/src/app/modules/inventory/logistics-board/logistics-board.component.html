@@ -1,7 +1,7 @@
 <div class="row mb-3">
   <div class="col-12 d-flex justify-content-between align-items-center">
     <h5 class="mb-0">
-      <i class="ti ti-layout-kanban me-2"></i>Logística — Fulfillment Board
+      <i class="ti ti-columns me-2"></i>Logística — Fulfillment Board
       @if (!isLoading) {
         <span class="badge bg-light text-dark ms-2">{{getTotalCount()}} pedidos</span>
       }
@@ -42,7 +42,7 @@
               </div>
               @if (card.branch_name) {
                 <div class="card-meta text-muted">
-                  <i class="ti ti-building me-1"></i>{{card.branch_name}}
+                  <i class="ti ti-home me-1"></i>{{card.branch_name}}
                 </div>
               }
               <div class="card-meta text-muted">

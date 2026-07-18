@@ -43,8 +43,8 @@ export class LogisticsBoardComponent implements OnInit {
     private cdr = inject(ChangeDetectorRef);
 
     columns: BoardColumn[] = [
-        { key: 'CONFIRMED', label: 'Confirmados', icon: 'ti ti-clipboard-check', color: '#4680ff', nextStatus: 'PICKING', nextLabel: 'Iniciar Picking', cards: [] },
-        { key: 'PICKING', label: 'En Picking', icon: 'ti ti-package', color: '#e58a00', nextStatus: 'PACKING', nextLabel: 'Listo para Empacar', cards: [] },
+        { key: 'CONFIRMED', label: 'Confirmados', icon: 'ti ti-clipboard', color: '#4680ff', nextStatus: 'PICKING', nextLabel: 'Iniciar Picking', cards: [] },
+        { key: 'PICKING', label: 'En Picking', icon: 'ti ti-box', color: '#e58a00', nextStatus: 'PACKING', nextLabel: 'Listo para Empacar', cards: [] },
         { key: 'PACKING', label: 'Empacando', icon: 'ti ti-box', color: '#2ca87f', nextStatus: 'DISPATCHED', nextLabel: 'Despachar', cards: [] },
         { key: 'DISPATCHED', label: 'Despachados', icon: 'ti ti-truck', color: '#673ab7', nextStatus: 'DELIVERED', nextLabel: 'Entregado', cards: [] }
     ];

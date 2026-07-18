@@ -2,7 +2,7 @@
   <div class="col-sm-12">
     <app-card cardTitle="Importar Productos Masivamente">
       <div class="alert alert-info">
-        <h5><i class="feather icon-info"></i> Instrucciones</h5>
+        <h5><i class="ti ti-info-circle"></i> Instrucciones</h5>
         <p>Sube un archivo Excel (.xlsx) o CSV con las siguientes columnas:</p>
         <ul>
           <li><strong>name</strong> (Requerido): Nombre del producto</li>
@@ -27,7 +27,7 @@
               aria-hidden="true"></span>
             }
             @if (!isLoading) {
-              <i class="feather icon-upload me-1"></i>
+              <i class="ti ti-upload me-1"></i>
               } Importar
             </button>
             <button class="btn btn-secondary" (click)="cancel()">Cancelar</button>
@@ -38,7 +38,7 @@
             <div class="mt-4">
               @if (importResult.count > 0) {
                 <div class="alert alert-success">
-                  <i class="feather icon-check-circle"></i> {{ importResult.count }} productos importados
+                  <i class="ti ti-circle-check"></i> {{ importResult.count }} productos importados
                   correctamente.
                 </div>
               }

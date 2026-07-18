@@ -51,7 +51,7 @@
             @if (sale.status === 'DISPATCHED') {
               <button class="btn btn-success btn-sm me-2"
                 (click)="openDeliveryModal()">
-                <i class="ti ti-package-export me-1"></i>Confirmar Entrega
+                <i class="ti ti-send me-1"></i>Confirmar Entrega
               </button>
             }
             @if (sale.status === 'DELIVERED') {
@@ -65,7 +65,7 @@
               <button
                 class="btn btn-warning btn-sm me-2" [routerLink]="['/returns/new']"
                 [queryParams]="{sale_id: sale.id}">
-                <i class="ti ti-transform me-1"></i>Crear Devolución
+                <i class="ti ti-repeat me-1"></i>Crear Devolución
               </button>
             }
             @if (sale.status !== 'CANCELLED' && sale.status !== 'COMPLETED' && sale.status !== 'DELIVERED') {
@@ -112,7 +112,7 @@
           <div class="row mb-4">
             <div class="col-12">
               <div class="alert alert-success d-flex align-items-start">
-                <i class="ti ti-truck-delivery me-2 fs-4"></i>
+                <i class="ti ti-truck me-2 fs-4"></i>
                 <div>
                   <strong>Entrega Confirmada</strong> — {{ sale.delivered_at | date:'medium' }}
                   @if (sale.delivery_notes) {
@@ -244,7 +244,7 @@
           [disabled]="isSubmittingDelivery">Cancelar</button>
           <button type="button" class="btn btn-success" (click)="confirmDelivery()"
             [disabled]="isSubmittingDelivery">
-            <i class="feather icon-check me-1"></i>
+            <i class="ti ti-check me-1"></i>
             @if (isSubmittingDelivery) {
               <span class="spinner-border spinner-border-sm me-1"></span>
             }

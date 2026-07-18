@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import Swal from 'sweetalert2';
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AdminService, BroadcastConfig, SystemHealth } from 'src/app/modules/admin/admin.service'; // Use AdminService
@@ -30,7 +30,7 @@ export type ChartOptions = {
   templateUrl: './system-health.component.html',
   styleUrl: './system-health.component.scss'
 })
-export class SystemHealthComponent implements OnInit {
+export class SystemHealthComponent implements OnInit, OnDestroy {
   private adminService = inject(AdminService);
   private authService = inject(AuthService);
   private router = inject(Router);
@@ -40,6 +40,7 @@ export class SystemHealthComponent implements OnInit {
   errorMessage = '';
   healthData: SystemHealth | null = null;
   maintenanceEnabled = false;
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   // Broadcast
   broadcastMessage: BroadcastConfig = { message: '', type: 'info', is_active: false };
@@ -66,9 +67,15 @@ export class SystemHealthComponent implements OnInit {
     this.loadBroadcast();
 
     // Auto refresh every 30s
-    setInterval(() => {
+    this.refreshTimer = setInterval(() => {
       if (!this.loading) this.loadHealth();
     }, 30000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+    }
   }
 
   loadBroadcast() {
@@ -151,6 +158,10 @@ export class SystemHealthComponent implements OnInit {
   }
 
   loadHealth(): void {
+    if (!this.authService.currentUserValue?.is_superuser) {
+      return;
+    }
+
     this.loading = true;
     this.adminService.getSystemHealth().subscribe({
       next: (data) => {

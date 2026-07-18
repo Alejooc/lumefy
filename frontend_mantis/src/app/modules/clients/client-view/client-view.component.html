@@ -42,7 +42,7 @@
                                 'bg-danger': client.status === 'at_risk',
                                 'bg-secondary': client.status === 'inactive'
                             }">{{ client.status | uppercase }}</span>
-                <p class="text-muted small mt-2 mb-0"><i class="ti ti-id me-1"></i>{{ client.tax_id || 'Sin
+                <p class="text-muted small mt-2 mb-0"><i class="ti ti-credit-card me-1"></i>{{ client.tax_id || 'Sin
               NIT/DNI' }}</p>
             </div>
             @if (client.tags) {
@@ -71,7 +71,7 @@
         <li class="nav-item">
           <a class="nav-link cursor-pointer" [class.active]="activeTab === 'timeline'"
             (click)="setTab('timeline')">
-            <i class="ti ti-list-details me-2"></i>Línea de Tiempo
+            <i class="ti ti-list me-2"></i>Línea de Tiempo
           </a>
         </li>
         <li class="nav-item">
@@ -82,7 +82,7 @@
         <li class="nav-item">
           <a class="nav-link cursor-pointer" [class.active]="activeTab === 'statement'"
             (click)="setTab('statement')">
-            <i class="ti ti-receipt me-2"></i>Estado de Cuenta
+            <i class="ti ti-file-text me-2"></i>Estado de Cuenta
           </a>
         </li>
       </ul>
@@ -219,7 +219,7 @@
                     }
                     @if (timeline.length === 0) {
                       <div class="text-center p-5 opacity-50">
-                        <i class="ti ti-history fs-huge d-block mb-3"></i>
+                        <i class="ti ti-clock fs-huge d-block mb-3"></i>
                         Sin actividad reciente.
                       </div>
                     }
@@ -287,7 +287,7 @@
               <p class="text-muted mb-0">Movimientos de cargos y abonos.</p>
               <button class="btn btn-primary" (click)="openPaymentModal()"
                 [disabled]="client.current_balance <= 0">
-                <i class="ti ti-cash me-1"></i> Registrar Abono
+                <i class="ti ti-currency-dollar me-1"></i> Registrar Abono
               </button>
             </div>
             @if (isLoadingStatement) {
@@ -359,7 +359,7 @@
             <h4 class="mb-0 text-primary">{{ currencySymbol }} {{ statement?.current_balance |
             number:'1.2-2' }}</h4>
           </div>
-          <i class="ti ti-coins fs-2"></i>
+          <i class="ti ti-currency-dollar fs-2"></i>
         </div>
 
         <form [formGroup]="paymentForm">

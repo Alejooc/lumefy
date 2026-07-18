@@ -20,6 +20,7 @@ class Company(BaseModel):
     # SaaS Fields
     plan: Mapped[str] = mapped_column(String, default="FREE") # FREE, PRO, ENTERPRISE
     valid_until: Mapped[str] = mapped_column(String, nullable=True) # ISO Date
+    subscription_status: Mapped[str] = mapped_column(String, default="ACTIVE") # ACTIVE, PAST_DUE, SUSPENDED, CANCELED
     is_active: Mapped[bool] = mapped_column(default=True)
     
     # Relationships

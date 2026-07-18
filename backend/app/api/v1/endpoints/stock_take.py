@@ -10,6 +10,7 @@ from app.models.stock_take import StockTake, StockTakeItem, StockTakeStatus
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.product import Product
+from app.models.branch import Branch
 from app.models.user import User
 from app.core.permissions import PermissionChecker
 from app.schemas import stock_take as schemas
@@ -64,6 +65,15 @@ async def create_stock_take(
     Create a new stock take for a branch.
     Automatically loads all current inventory for that branch.
     """
+    branch_result = await db.execute(
+        select(Branch.id).where(
+            Branch.id == stock_take_in.branch_id,
+            Branch.company_id == current_user.company_id,
+        )
+    )
+    if not branch_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Sucursal no encontrada")
+
     # Create the stock take header
     stock_take = StockTake(
         branch_id=stock_take_in.branch_id,
@@ -97,7 +107,7 @@ async def create_stock_take(
     await db.commit()
 
     # Reload with relationships
-    return await _get_stock_take_detail(db, stock_take.id)
+    return await _get_stock_take_detail(db, stock_take.id, current_user.company_id)
 
 
 @router.get("/{stock_take_id}", response_model=schemas.StockTake)
@@ -107,7 +117,7 @@ async def get_stock_take(
     current_user: User = Depends(PermissionChecker("view_inventory")),
 ) -> Any:
     """Get a stock take with all its items."""
-    take = await _get_stock_take_detail(db, stock_take_id)
+    take = await _get_stock_take_detail(db, stock_take_id, current_user.company_id)
     if not take:
         raise HTTPException(status_code=404, detail="Stock take not found")
     return take
@@ -123,7 +133,9 @@ async def update_counts(
 ) -> Any:
     """Update counted quantities for items in a stock take."""
     # Verify stock take exists and is in progress
-    result = await db.execute(select(StockTake).where(StockTake.id == stock_take_id))
+    result = await db.execute(
+        select(StockTake).where(StockTake.id == stock_take_id, StockTake.company_id == current_user.company_id)
+    )
     stock_take = result.scalars().first()
     if not stock_take:
         raise HTTPException(status_code=404, detail="Stock take not found")
@@ -132,7 +144,11 @@ async def update_counts(
 
     for item_update in count_in.items:
         item_result = await db.execute(
-            select(StockTakeItem).where(StockTakeItem.id == item_update.id)
+            select(StockTakeItem).where(
+                StockTakeItem.id == item_update.id,
+                StockTakeItem.stock_take_id == stock_take_id,
+                StockTakeItem.company_id == current_user.company_id,
+            )
         )
         item = item_result.scalars().first()
         if item:
@@ -140,7 +156,7 @@ async def update_counts(
             item.difference = (item_update.counted_qty or 0) - item.system_qty
 
     await db.commit()
-    return await _get_stock_take_detail(db, stock_take_id)
+    return await _get_stock_take_detail(db, stock_take_id, current_user.company_id)
 
 
 @router.post("/{stock_take_id}/apply", response_model=schemas.StockTake)
@@ -152,7 +168,9 @@ async def apply_stock_take(
     """
     Apply the stock take: generate ADJ movements for all items with differences.
     """
-    result = await db.execute(select(StockTake).where(StockTake.id == stock_take_id))
+    result = await db.execute(
+        select(StockTake).where(StockTake.id == stock_take_id, StockTake.company_id == current_user.company_id)
+    )
     stock_take = result.scalars().first()
     if not stock_take:
         raise HTTPException(status_code=404, detail="Stock take not found")
@@ -212,7 +230,7 @@ async def apply_stock_take(
     stock_take.status = StockTakeStatus.COMPLETED
     await db.commit()
 
-    return await _get_stock_take_detail(db, stock_take_id)
+    return await _get_stock_take_detail(db, stock_take_id, current_user.company_id)
 
 
 @router.post("/{stock_take_id}/cancel", response_model=schemas.StockTake)
@@ -222,7 +240,9 @@ async def cancel_stock_take(
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """Cancel a stock take without applying changes."""
-    result = await db.execute(select(StockTake).where(StockTake.id == stock_take_id))
+    result = await db.execute(
+        select(StockTake).where(StockTake.id == stock_take_id, StockTake.company_id == current_user.company_id)
+    )
     stock_take = result.scalars().first()
     if not stock_take:
         raise HTTPException(status_code=404, detail="Stock take not found")
@@ -232,10 +252,10 @@ async def cancel_stock_take(
     stock_take.status = StockTakeStatus.CANCELLED
     await db.commit()
 
-    return await _get_stock_take_detail(db, stock_take_id)
+    return await _get_stock_take_detail(db, stock_take_id, current_user.company_id)
 
 
-async def _get_stock_take_detail(db: AsyncSession, stock_take_id: UUID):
+async def _get_stock_take_detail(db: AsyncSession, stock_take_id: UUID, company_id: UUID):
     """Helper to load a stock take with all relationships."""
     query = select(StockTake).options(
         selectinload(StockTake.branch),
@@ -246,7 +266,7 @@ async def _get_stock_take_detail(db: AsyncSession, stock_take_id: UUID):
             selectinload(Product.unit_of_measure),
             selectinload(Product.category)
         )
-    ).where(StockTake.id == stock_take_id)
+    ).where(StockTake.id == stock_take_id, StockTake.company_id == company_id)
 
     result = await db.execute(query)
     return result.scalars().first()

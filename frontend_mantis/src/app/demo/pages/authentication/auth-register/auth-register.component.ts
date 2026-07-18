@@ -25,21 +25,6 @@ export class AuthRegisterComponent {
     company_name: ''
   };
 
-  SignUpOptions = [
-    {
-      image: 'assets/images/authentication/google.svg',
-      name: 'Google'
-    },
-    {
-      image: 'assets/images/authentication/twitter.svg',
-      name: 'Twitter'
-    },
-    {
-      image: 'assets/images/authentication/facebook.svg',
-      name: 'Facebook'
-    }
-  ];
-
   register() {
     if (!this.userData.first_name || !this.userData.last_name || !this.userData.email || !this.userData.password || !this.userData.company_name) {
       Swal.fire('Error', 'Por favor completa todos los campos requeridos', 'error');

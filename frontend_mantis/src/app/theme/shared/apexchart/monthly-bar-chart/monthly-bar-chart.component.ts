@@ -88,10 +88,4 @@ export class MonthlyBarChartComponent implements OnChanges {
       }
     };
   }
-
-  // public method
-  toggleActive(value: string) {
-    void value;
-    // Disabled for now as we rely on input data
-  }
 }

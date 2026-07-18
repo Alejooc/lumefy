@@ -1,0 +1,27 @@
+// Shared refinements for product modules that sit on top of the Mantis shell.
+i.ti {
+  display: inline-block;
+  line-height: 1;
+  vertical-align: -0.125em;
+}
+
+.btn > i.ti,
+.nav-link > i.ti {
+  margin-inline-end: 0.25rem;
+}
+
+.table > :not(caption) > * > * {
+  vertical-align: middle;
+}
+
+.card-header .btn-sm {
+  white-space: nowrap;
+}
+
+.icon-spin {
+  animation: icon-spin 0.9s linear infinite;
+}
+
+@keyframes icon-spin {
+  to { transform: rotate(360deg); }
+}

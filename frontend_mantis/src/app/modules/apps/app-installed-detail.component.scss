@@ -1,5 +1,5 @@
 .app-header-card {
-  border-radius: 12px;
+  border-radius: var(--bs-border-radius);
 }
 
 .app-icon-wrapper {
@@ -9,12 +9,13 @@
 .app-icon {
   width: 72px;
   height: 72px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #e6f4ff, #bae0ff);
+  border-radius: var(--bs-border-radius);
+  background: var(--bs-primary-bg-subtle);
+  border: 1px solid var(--bs-primary-border-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #1890ff;
+  color: var(--bs-primary);
 }
 
 .info-row {
@@ -22,7 +23,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 6px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--bs-border-color);
 
   &:last-child {
     border-bottom: none;

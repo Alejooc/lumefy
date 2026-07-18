@@ -13,7 +13,7 @@
         <div class="d-flex justify-content-between align-items-center">
           <div>
             <h3 class="mb-1">{{ supplier.name }}</h3>
-            <p class="text-muted mb-0"><i class="ti ti-id me-1"></i>{{ supplier.tax_id || 'Sin Identificación'
+            <p class="text-muted mb-0"><i class="ti ti-credit-card me-1"></i>{{ supplier.tax_id || 'Sin Identificación'
           }}</p>
         </div>
         <div class="text-end">
@@ -38,7 +38,7 @@
     </li>
     <li class="nav-item">
       <a class="nav-link cursor-pointer" [class.active]="activeTab === 'statement'" (click)="setTab('statement')">
-        <i class="ti ti-receipt me-2"></i>Estado de Cuenta
+        <i class="ti ti-file-text me-2"></i>Estado de Cuenta
       </a>
     </li>
   </ul>
@@ -73,7 +73,7 @@
         <h5 class="card-title mb-0">Movimientos de Crédito</h5>
         <button class="btn btn-primary btn-sm" (click)="openPaymentModal()"
           [disabled]="supplier.current_balance <= 0">
-          <i class="ti ti-cash me-1"></i> Registrar Abono
+          <i class="ti ti-currency-dollar me-1"></i> Registrar Abono
         </button>
       </div>
       <div class="card-body">

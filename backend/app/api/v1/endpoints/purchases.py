@@ -9,6 +9,8 @@ from app.core.database import get_db
 from app.models.purchase import PurchaseOrder, PurchaseStatus
 from app.models.purchase_item import PurchaseOrderItem
 from app.models.product import Product
+from app.models.branch import Branch
+from app.models.supplier import Supplier
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.inventory import Inventory
 from app.models.user import User
@@ -17,6 +19,38 @@ from app.core.audit import log_activity
 from app.schemas import purchase as schemas
 
 router = APIRouter()
+
+
+async def _validate_purchase_relations(
+    db: AsyncSession,
+    purchase_in: schemas.PurchaseOrderCreate,
+    company_id: UUID,
+) -> None:
+    if not purchase_in.items:
+        raise HTTPException(status_code=400, detail="La compra debe incluir al menos un producto")
+
+    if not purchase_in.branch_id:
+        raise HTTPException(status_code=400, detail="La compra requiere una sucursal de destino")
+
+    branch_result = await db.execute(
+        select(Branch.id).where(Branch.id == purchase_in.branch_id, Branch.company_id == company_id)
+    )
+    if not branch_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Sucursal no encontrada")
+
+    if purchase_in.supplier_id:
+        supplier_result = await db.execute(
+            select(Supplier.id).where(Supplier.id == purchase_in.supplier_id, Supplier.company_id == company_id)
+        )
+        if not supplier_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Proveedor no encontrado")
+
+    product_ids = {item.product_id for item in purchase_in.items}
+    product_result = await db.execute(
+        select(Product.id).where(Product.id.in_(product_ids), Product.company_id == company_id)
+    )
+    if len(product_result.scalars().all()) != len(product_ids):
+        raise HTTPException(status_code=404, detail="Uno o más productos no pertenecen a la empresa")
 
 @router.get("/", response_model=List[schemas.PurchaseOrderSummary])
 async def read_purchases(
@@ -124,6 +158,8 @@ async def create_purchase(
     Create Purchase Order.
     """
     try:
+        await _validate_purchase_relations(db, purchase_in, current_user.company_id)
+
         # Create Header
         purchase = PurchaseOrder(
             supplier_id=purchase_in.supplier_id,
@@ -201,6 +237,9 @@ async def create_purchase(
         
         await log_activity(db, "CREATE", "PurchaseOrder", purchase.id, current_user.id, current_user.company_id)
         return purchase
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
