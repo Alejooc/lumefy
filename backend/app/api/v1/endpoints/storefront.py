@@ -418,18 +418,13 @@ def _serialize_admin_published_product(published_product: PublishedProduct) -> s
         id=published_product.id,
         storefront_id=published_product.storefront_id,
         product_id=published_product.product_id,
-        custom_title=published_product.custom_title,
-        custom_description=published_product.custom_description,
         slug=published_product.slug,
-        price_override=published_product.price_override,
-        compare_at_price=published_product.compare_at_price,
         is_published=published_product.is_published,
         is_featured=published_product.is_featured,
-        show_stock=published_product.show_stock,
         sort_order=published_product.sort_order,
-        seo_title=published_product.seo_title,
-        seo_description=published_product.seo_description,
         base_price=base_price,
+        product_name=published_product.product.name if published_product.product else None,
+        product_description=published_product.product.description if published_product.product else None,
         company_id=published_product.company_id,
         created_at=published_product.created_at,
         updated_at=published_product.updated_at,
@@ -442,10 +437,10 @@ def _serialize_public_product(
     product: Product,
     stock_quantity: float | None = None,
 ) -> schemas.PublicProduct:
-    title = (published_product.custom_title or product.name or "").strip()
-    description = (published_product.custom_description or product.description or "").strip() or None
+    title = (product.name or "").strip()
+    description = (product.description or "").strip() or None
     base_price = float(product.price or 0)
-    price = float(published_product.price_override if published_product.price_override is not None else base_price)
+    price = base_price
     image_url = published_product.product.image_url or product.image_url
     gallery = [img.image_url for img in sorted(product.images or [], key=lambda item: item.order)]
     if image_url and image_url not in gallery:
@@ -468,13 +463,13 @@ def _serialize_public_product(
         gallery=gallery,
         price=price,
         base_price=base_price,
-        compare_at_price=published_product.compare_at_price,
+        compare_at_price=None,
         is_featured=bool(published_product.is_featured),
-        show_stock=bool(published_product.show_stock),
+        show_stock=is_tracked,
         in_stock=not is_tracked or bool(available_stock and available_stock > 0),
-        stock_quantity=available_stock if published_product.show_stock and is_tracked else None,
-        seo_title=published_product.seo_title or title,
-        seo_description=published_product.seo_description or description,
+        stock_quantity=available_stock,
+        seo_title=title,
+        seo_description=description,
     )
 
 
@@ -509,9 +504,13 @@ async def _get_public_storefront_by_id(db: AsyncSession, storefront_id: uuid.UUI
 
 
 async def _get_public_storefront_by_subdomain(db: AsyncSession, subdomain: str) -> Storefront:
+    normalized_subdomain = subdomain.strip().lower()
+    if not normalized_subdomain:
+        raise HTTPException(status_code=404, detail="Storefront not found")
+
     result = await db.execute(
         select(Storefront).where(
-            Storefront.subdomain == subdomain,
+            Storefront.subdomain == normalized_subdomain,
             Storefront.is_active == True,
             Storefront.is_enabled == True,
         )
@@ -794,7 +793,7 @@ async def _load_checkout_products(
         product = published.product
         if not product:
             raise HTTPException(status_code=400, detail="One or more products are not available")
-        unit_price = _safe_float(published.price_override, _safe_float(product.price))
+        unit_price = _safe_float(product.price)
         quantity = merged[published_id]
         line_subtotal = unit_price * quantity
         subtotal += line_subtotal
@@ -803,7 +802,7 @@ async def _load_checkout_products(
                 published_product_id=published.id,
                 product_id=product.id,
                 slug=published.slug,
-                title=(published.custom_title or product.name or "").strip(),
+                title=(product.name or "").strip(),
                 quantity=quantity,
                 unit_price=unit_price,
                 line_subtotal=line_subtotal,
@@ -888,7 +887,7 @@ async def read_storefronts(
         select(Storefront).where(
             Storefront.company_id == current_user.company_id,
             Storefront.is_active == True,
-        )
+        ).order_by(Storefront.created_at.asc())
     )
     return result.scalars().all()
 
@@ -901,6 +900,28 @@ async def create_storefront(
     current_user: User = Depends(PermissionChecker("manage_company")),
     _plan: User = Depends(PlanLimitChecker(resource="storefronts", count_model=Storefront)),
 ) -> Any:
+    # A company owns one public storefront.  Keeping the rule in the write
+    # path lets existing tenants with historic duplicate rows keep working
+    # while preventing any new split-store configuration.
+    # Lock the company row first so two concurrent create requests cannot both
+    # observe an empty storefront list and create duplicates.
+    await db.execute(
+        select(Company.id)
+        .where(Company.id == current_user.company_id)
+        .with_for_update()
+    )
+    existing_storefront = await db.scalar(
+        select(Storefront.id).where(
+            Storefront.company_id == current_user.company_id,
+            Storefront.is_active == True,
+        ).limit(1)
+    )
+    if existing_storefront:
+        raise HTTPException(
+            status_code=409,
+            detail="La empresa ya tiene una tienda. Actualiza la tienda existente.",
+        )
+
     storefront = Storefront(
         **storefront_in.model_dump(),
         company_id=current_user.company_id,
@@ -1999,7 +2020,7 @@ async def read_public_products(
         sizes_list, colors_list = _extract_variant_facets(product.variants or [])
         matches_search = (
             not normalized_search
-            or normalized_search in (published_product.custom_title or product.name or "").lower()
+            or normalized_search in (product.name or "").lower()
             or normalized_search in (published_product.slug or "").lower()
             or normalized_search in (product.description or "").lower()
             or normalized_search in ((product.brand.name if getattr(product, "brand", None) else "") or "").lower()
@@ -2024,11 +2045,7 @@ async def read_public_products(
             or not selected_colors
             or any(item.lower() in selected_colors for item in colors_list)
         )
-        unit_price = float(
-            published_product.price_override
-            if published_product.price_override is not None
-            else product.price or 0
-        )
+        unit_price = float(product.price or 0)
         matches_min = min_price is None or unit_price >= float(min_price)
         matches_max = max_price is None or unit_price <= float(max_price)
         return (
@@ -2045,9 +2062,7 @@ async def read_public_products(
 
     def product_sort_key(item: PublishedProduct) -> Any:
         product = item.product
-        unit_price = float(
-            item.price_override if item.price_override is not None else (product.price if product else 0) or 0
-        )
+        unit_price = float((product.price if product else 0) or 0)
         if normalized_sort == "best-selling":
             return (int(bool(item.is_featured)), item.sort_order or 0, item.created_at)
         if normalized_sort == "price-low":

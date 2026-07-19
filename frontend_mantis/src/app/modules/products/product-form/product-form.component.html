@@ -31,11 +31,6 @@
                 }
               </button>
             </li>
-            <li class="nav-item">
-              <button type="button" class="nav-link" [class.active]="activeTab === 'ecommerce'" (click)="setTab('ecommerce')">
-                <i class="ti ti-shopping-cart"></i> Tienda online
-              </button>
-            </li>
           </ul>
 
           @if (activeTab === 'general') {
@@ -179,6 +174,11 @@
                       <input class="form-check-input" type="checkbox" id="purchaseOk" formControlName="purchase_ok">
                       <label class="form-check-label" for="purchaseOk">Se puede comprar</label>
                     </div>
+                    <div class="form-check form-switch mt-2">
+                      <input class="form-check-input" type="checkbox" id="visibleInEcommerce" formControlName="visible_in_ecommerce">
+                      <label class="form-check-label" for="visibleInEcommerce">Publicar en la tienda online</label>
+                    </div>
+                    <small class="text-muted d-block mt-1">La tienda reutiliza automáticamente el nombre, descripción, imágenes, precio e inventario de este producto.</small>
                   </div>
                 </div>
               </div>
@@ -359,75 +359,6 @@
                   <p class="small">Agrega variantes si tu producto tiene diferentes tallas, colores, presentaciones, etc.</p>
                 </div>
               }
-            </div>
-          }
-
-          @if (activeTab === 'ecommerce') {
-            <div>
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                  <h6 class="mb-0">Publicacion en ecommerce</h6>
-                  <small class="text-muted">Reutiliza nombre y descripcion del producto. Solo define overrides web si necesitas algo distinto.</small>
-                </div>
-              </div>
-
-              <div class="card border-0 bg-light mb-4">
-                <div class="card-body">
-                  <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="visibleInEcommerce" formControlName="visible_in_ecommerce">
-                    <label class="form-check-label" for="visibleInEcommerce">Visible en ecommerce</label>
-                  </div>
-
-                  <div class="row g-3">
-                    <div class="col-md-6">
-                      <label class="form-label">Slug web</label>
-                      <input type="text" class="form-control" formControlName="ecommerce_slug" placeholder="Opcional. Si va vacio se genera desde el nombre">
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Titulo web opcional</label>
-                      <input type="text" class="form-control" formControlName="ecommerce_title" placeholder="Si va vacio usa el nombre del producto">
-                    </div>
-                    <div class="col-12">
-                      <label class="form-label">Descripcion web opcional</label>
-                      <app-rich-text-editor
-                        [value]="form.get('ecommerce_description')?.value || ''"
-                        placeholder="Si va vacio usa la descripcion del producto"
-                        [minHeight]="220"
-                        (valueChange)="updateEditorField('ecommerce_description', $event)"
-                      ></app-rich-text-editor>
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label">Precio web</label>
-                      <input type="number" class="form-control" formControlName="ecommerce_price_override" step="0.01">
-                      <small class="text-muted d-block mt-1">Opcional. Sirve para precio web distinto al del ERP.</small>
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label">Compare at</label>
-                      <input type="number" class="form-control" formControlName="ecommerce_compare_at_price" step="0.01">
-                    </div>
-                    <div class="col-md-4">
-                      <div class="form-check form-switch mt-4 pt-2">
-                        <input class="form-check-input" type="checkbox" id="ecommerceFeatured" formControlName="ecommerce_is_featured">
-                        <label class="form-check-label" for="ecommerceFeatured">Destacado</label>
-                      </div>
-                    </div>
-                    <div class="col-md-4">
-                      <div class="form-check form-switch mt-4 pt-2">
-                        <input class="form-check-input" type="checkbox" id="ecommerceShowStock" formControlName="ecommerce_show_stock">
-                        <label class="form-check-label" for="ecommerceShowStock">Mostrar stock</label>
-                      </div>
-                    </div>
-                    <div class="col-md-8">
-                      <label class="form-label">SEO titulo</label>
-                      <input type="text" class="form-control" formControlName="ecommerce_seo_title" placeholder="Titulo SEO">
-                    </div>
-                    <div class="col-12">
-                      <label class="form-label">SEO descripcion</label>
-                      <textarea class="form-control" rows="2" formControlName="ecommerce_seo_description" placeholder="Descripcion SEO"></textarea>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           }
 

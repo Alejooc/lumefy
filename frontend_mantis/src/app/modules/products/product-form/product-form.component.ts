@@ -25,15 +25,6 @@ interface ProductDetailResponse {
     variants?: ProductVariantInput[];
     images?: ProductImageInput[];
     visible_in_ecommerce?: boolean;
-    ecommerce_slug?: string | null;
-    ecommerce_title?: string | null;
-    ecommerce_description?: string | null;
-    ecommerce_price_override?: number | null;
-    ecommerce_compare_at_price?: number | null;
-    ecommerce_is_featured?: boolean;
-    ecommerce_show_stock?: boolean;
-    ecommerce_seo_title?: string | null;
-    ecommerce_seo_description?: string | null;
     [key: string]: unknown;
 }
 interface ProductSaveResponse {
@@ -106,15 +97,6 @@ export class ProductFormComponent implements OnInit {
             sale_ok: [true],
             purchase_ok: [true],
             visible_in_ecommerce: [false],
-            ecommerce_slug: [''],
-            ecommerce_title: [''],
-            ecommerce_description: [''],
-            ecommerce_price_override: [null],
-            ecommerce_compare_at_price: [null],
-            ecommerce_is_featured: [false],
-            ecommerce_show_stock: [true],
-            ecommerce_seo_title: [''],
-            ecommerce_seo_description: [''],
 
             // Variants
             variants: this.fb.array([])
@@ -251,16 +233,6 @@ export class ProductFormComponent implements OnInit {
         ['category_id', 'brand_id', 'unit_of_measure_id', 'purchase_uom_id'].forEach(f => {
             if (formData[f] === '' || formData[f] === undefined) formData[f] = null;
         });
-        [
-            'ecommerce_slug',
-            'ecommerce_title',
-            'ecommerce_description',
-            'ecommerce_seo_title',
-            'ecommerce_seo_description'
-        ].forEach((f) => {
-            if (formData[f] === '') formData[f] = null;
-        });
-
         // Handle variants separately
         const variantsToSave = formData.variants || [];
         delete formData.variants;
@@ -433,7 +405,7 @@ export class ProductFormComponent implements OnInit {
         }
     }
 
-    updateEditorField(fieldName: 'description' | 'ecommerce_description', value: string) {
+    updateEditorField(fieldName: 'description', value: string) {
         this.form.get(fieldName)?.setValue(value);
         this.form.get(fieldName)?.markAsDirty();
     }

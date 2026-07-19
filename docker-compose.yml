@@ -37,5 +37,30 @@ services:
       timeout: 5s
       retries: 5
 
+  storefront:
+    build:
+      context: ./storefront_nextmerce
+      args:
+        # This value is embedded in browser-side code during the Next build.
+        # The API is exposed on the same host for local ecommerce testing.
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+        # Browsers resolve tenant.localhost to loopback, matching production's
+        # tenant.lumefy.shop behavior without editing the hosts file.
+        NEXT_PUBLIC_PLATFORM_STOREFRONT_DOMAIN: localhost
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_URL: http://backend:8000/api/v1
+      NEXT_IMAGE_ALLOW_LOCAL_IP: "true"
+    ports:
+      - "3001:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:

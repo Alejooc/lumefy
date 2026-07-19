@@ -38,19 +38,34 @@ async def _get_primary_storefront(db: AsyncSession, company_id: str | None) -> S
 
 
 def _extract_ecommerce_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    keys = {
-        "visible_in_ecommerce",
-        "ecommerce_slug",
-        "ecommerce_title",
-        "ecommerce_description",
-        "ecommerce_price_override",
-        "ecommerce_compare_at_price",
-        "ecommerce_is_featured",
-        "ecommerce_show_stock",
-        "ecommerce_seo_title",
-        "ecommerce_seo_description",
-    }
+    keys = {"visible_in_ecommerce"}
     return {key: payload.pop(key) for key in list(payload.keys()) if key in keys}
+
+
+async def _available_storefront_slug(
+    db: AsyncSession,
+    *,
+    storefront_id: str,
+    product_id: str,
+    product_name: str,
+) -> str:
+    """Generate a stable, store-local URL without making it editable per channel."""
+    base_slug = _slugify(product_name)
+    candidate = base_slug
+    suffix = 2
+
+    while True:
+        result = await db.execute(
+            select(PublishedProduct.id).where(
+                PublishedProduct.storefront_id == storefront_id,
+                PublishedProduct.slug == candidate,
+                PublishedProduct.product_id != product_id,
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            return candidate
+        candidate = f"{base_slug}-{suffix}"
+        suffix += 1
 
 
 async def _sync_product_ecommerce(
@@ -87,19 +102,9 @@ async def _sync_product_ecommerce(
             db.add(published_product)
         return
 
-    slug = ecommerce_data.get("ecommerce_slug") or _slugify(product.name)
     if published_product:
         published_product.storefront_id = storefront.id
-        published_product.custom_title = ecommerce_data.get("ecommerce_title") or None
-        published_product.custom_description = ecommerce_data.get("ecommerce_description") or None
-        published_product.slug = slug
-        published_product.price_override = ecommerce_data.get("ecommerce_price_override")
-        published_product.compare_at_price = ecommerce_data.get("ecommerce_compare_at_price")
         published_product.is_published = True
-        published_product.is_featured = bool(ecommerce_data.get("ecommerce_is_featured", False))
-        published_product.show_stock = bool(ecommerce_data.get("ecommerce_show_stock", True))
-        published_product.seo_title = ecommerce_data.get("ecommerce_seo_title") or None
-        published_product.seo_description = ecommerce_data.get("ecommerce_seo_description") or None
         published_product.updated_by_id = product.updated_by_id
         db.add(published_product)
         return
@@ -108,16 +113,13 @@ async def _sync_product_ecommerce(
         PublishedProduct(
             storefront_id=storefront.id,
             product_id=product.id,
-            custom_title=ecommerce_data.get("ecommerce_title") or None,
-            custom_description=ecommerce_data.get("ecommerce_description") or None,
-            slug=slug,
-            price_override=ecommerce_data.get("ecommerce_price_override"),
-            compare_at_price=ecommerce_data.get("ecommerce_compare_at_price"),
+            slug=await _available_storefront_slug(
+                db,
+                storefront_id=storefront.id,
+                product_id=product.id,
+                product_name=product.name,
+            ),
             is_published=True,
-            is_featured=bool(ecommerce_data.get("ecommerce_is_featured", False)),
-            show_stock=bool(ecommerce_data.get("ecommerce_show_stock", True)),
-            seo_title=ecommerce_data.get("ecommerce_seo_title") or None,
-            seo_description=ecommerce_data.get("ecommerce_seo_description") or None,
             company_id=company_id,
             created_by_id=product.created_by_id,
             updated_by_id=product.updated_by_id,
@@ -127,15 +129,6 @@ async def _sync_product_ecommerce(
 
 def _attach_ecommerce_state(product: Product, published_product: PublishedProduct | None) -> None:
     product.visible_in_ecommerce = bool(published_product and published_product.is_published)
-    product.ecommerce_slug = published_product.slug if published_product else None
-    product.ecommerce_title = published_product.custom_title if published_product else None
-    product.ecommerce_description = published_product.custom_description if published_product else None
-    product.ecommerce_price_override = published_product.price_override if published_product else None
-    product.ecommerce_compare_at_price = published_product.compare_at_price if published_product else None
-    product.ecommerce_is_featured = bool(published_product.is_featured) if published_product else False
-    product.ecommerce_show_stock = bool(published_product.show_stock) if published_product else True
-    product.ecommerce_seo_title = published_product.seo_title if published_product else None
-    product.ecommerce_seo_description = published_product.seo_description if published_product else None
 
 @router.get("/", response_model=List[schemas.Product])
 async def read_products(

@@ -16,6 +16,7 @@ import {
   PublicStoreNavigationItem,
   PublicStorefront,
 } from "@/types/storefront";
+import { resolveStorefrontHost } from "./storefront-host";
 
 export class StorefrontApiError extends Error {
   status: number;
@@ -304,28 +305,25 @@ export async function sendStorefrontContactMessage(
 }
 
 export async function resolveStorefront(): Promise<PublicStorefront> {
-  const storefrontId = process.env.NEXT_PUBLIC_STOREFRONT_ID?.trim();
-  const storefrontSubdomain = process.env.NEXT_PUBLIC_STOREFRONT_SUBDOMAIN?.trim();
+  const baseDomain = process.env.NEXT_PUBLIC_PLATFORM_STOREFRONT_DOMAIN;
+  let host = "";
 
-  if (storefrontSubdomain) {
-    return getPublicStorefrontBySubdomain(storefrontSubdomain);
+  if (typeof window !== "undefined") {
+    host = window.location.host;
+  } else {
+    // Reading request headers marks the route as request-specific, preventing
+    // one tenant's rendered storefront from being reused for another host.
+    const { headers } = await import("next/headers");
+    const requestHeaders = await headers();
+    host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || "";
   }
 
-  if (storefrontId) {
-    return getPublicStorefront(storefrontId);
+  const target = resolveStorefrontHost(host, baseDomain);
+  if (!target) {
+    throw new Error("Missing storefront host. Access the store through a mapped subdomain or custom domain.");
   }
 
-  if (typeof window !== "undefined" && window.location.hostname) {
-    return getPublicStorefrontByDomain(window.location.hostname);
-  }
-
-  // Keep one storefront runtime for every tenant: the incoming host selects its data.
-  const { headers } = await import("next/headers");
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
-  if (host) {
-    return getPublicStorefrontByDomain(host);
-  }
-
-  throw new Error("Missing storefront configuration. Define a storefront ID/subdomain or access through a mapped domain.");
+  return target.type === "subdomain"
+    ? getPublicStorefrontBySubdomain(target.value)
+    : getPublicStorefrontByDomain(target.value);
 }

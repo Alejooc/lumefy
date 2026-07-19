@@ -12,21 +12,24 @@ function nowIso(): string {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const lastModified = nowIso();
+  const homeUrl = await buildCanonicalUrl("/");
+  const productsUrl = await buildCanonicalUrl("/products");
+  const contactUrl = await buildCanonicalUrl("/contact");
   const entries: MetadataRoute.Sitemap = [
     {
-      url: buildCanonicalUrl("/"),
+      url: homeUrl,
       lastModified,
       changeFrequency: "daily",
       priority: 1,
     },
     {
-      url: buildCanonicalUrl("/products"),
+      url: productsUrl,
       lastModified,
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
-      url: buildCanonicalUrl("/contact"),
+      url: contactUrl,
       lastModified,
       changeFrequency: "monthly",
       priority: 0.5,
@@ -56,7 +59,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
         seenProducts.add(product.slug);
         entries.push({
-          url: buildCanonicalUrl(`/products/${product.slug}`),
+          url: await buildCanonicalUrl(`/products/${product.slug}`),
           lastModified,
           changeFrequency: "weekly",
           priority: product.is_featured ? 0.85 : 0.75,

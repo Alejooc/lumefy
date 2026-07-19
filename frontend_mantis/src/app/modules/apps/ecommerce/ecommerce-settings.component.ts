@@ -110,18 +110,6 @@ export class EcommerceSettingsComponent implements OnInit {
     return `${subdomain}.lumefy.shop`;
   }
 
-  createNewStorefront(): void {
-    this.selectedStorefrontId = '';
-    this.context.setSelectedStorefrontId('');
-    this.storefrontForm = this.createStorefrontForm();
-    this.brandingForm = this.createBrandingForm();
-    this.currencySettingsForm = this.createCurrencySettingsForm();
-    this.domainForm = this.createDomainForm();
-    this.domains = [];
-    this.editingStorefrontId = '';
-    this.editingDomainId = '';
-  }
-
   loadDomains(): void {
     if (!this.selectedStorefrontId) {
       this.domains = [];

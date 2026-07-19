@@ -1,23 +1,38 @@
 import { Metadata } from "next";
 
 import { resolveStorefront } from "@/lib/storefront-api";
+import { normalizeStorefrontHost } from "@/lib/storefront-host";
 
-const DEFAULT_SITE_URL = "http://localhost:3000";
+function normalizeCanonicalHost(value: string | null | undefined): string {
+  const rawHost = value?.split(",")[0]?.trim().toLowerCase() || "";
+  const hostWithOptionalPort = rawHost.replace(/^https?:\/\//, "").split("/")[0].replace(/\.$/, "");
+  const host = normalizeStorefrontHost(hostWithOptionalPort);
+  const port = hostWithOptionalPort.match(/:(\d+)$/)?.[1];
+  return port && host ? `${host}:${port}` : host;
+}
 
-function normalizeSiteUrl(url: string | undefined): string {
-  if (!url) {
-    return DEFAULT_SITE_URL;
+export async function getSiteUrl(): Promise<string> {
+  if (typeof window !== "undefined") {
+    return window.location.origin;
   }
-  return url.endsWith("/") ? url.slice(0, -1) : url;
+
+  const { headers } = await import("next/headers");
+  const requestHeaders = await headers();
+  const host = normalizeCanonicalHost(
+    requestHeaders.get("x-forwarded-host") || requestHeaders.get("host"),
+  );
+  if (!host) {
+    throw new Error("Missing storefront host for canonical URL generation");
+  }
+
+  const forwardedProtocol = requestHeaders.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol = forwardedProtocol || (host === "localhost" || host.endsWith(".localhost") ? "http" : "https");
+  return `${protocol}://${host}`;
 }
 
-export function getSiteUrl(): string {
-  return normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
-}
-
-export function buildCanonicalUrl(path: string): string {
+export async function buildCanonicalUrl(path: string): Promise<string> {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${getSiteUrl()}${normalizedPath}`;
+  return `${await getSiteUrl()}${normalizedPath}`;
 }
 
 export const INDEXABLE_PATHS = ["/", "/products", "/contact"] as const;
@@ -73,17 +88,17 @@ export async function buildStorefrontPageMetadata({
   });
 }
 
-export function buildPageMetadata({
+export async function buildPageMetadata({
   title,
   description,
   path,
   index = true,
-}: MetadataInput): Metadata {
+}: MetadataInput): Promise<Metadata> {
   return {
     title,
     description,
     alternates: {
-      canonical: buildCanonicalUrl(path),
+      canonical: await buildCanonicalUrl(path),
     },
     robots: index
       ? {

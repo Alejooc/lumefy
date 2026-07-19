@@ -117,17 +117,10 @@ class StoreCollection(StoreCollectionBase):
 class PublishedProductBase(BaseModel):
     storefront_id: UUID
     product_id: UUID
-    custom_title: Optional[str] = None
-    custom_description: Optional[str] = None
     slug: str
-    price_override: Optional[float] = None
-    compare_at_price: Optional[float] = None
     is_published: bool = True
     is_featured: bool = False
-    show_stock: bool = True
     sort_order: int = 0
-    seo_title: Optional[str] = None
-    seo_description: Optional[str] = None
 
 
 class PublishedProductCreate(PublishedProductBase):
@@ -135,22 +128,16 @@ class PublishedProductCreate(PublishedProductBase):
 
 
 class PublishedProductUpdate(BaseModel):
-    custom_title: Optional[str] = None
-    custom_description: Optional[str] = None
-    slug: Optional[str] = None
-    price_override: Optional[float] = None
-    compare_at_price: Optional[float] = None
     is_published: Optional[bool] = None
     is_featured: Optional[bool] = None
-    show_stock: Optional[bool] = None
     sort_order: Optional[int] = None
-    seo_title: Optional[str] = None
-    seo_description: Optional[str] = None
 
 
 class PublishedProduct(PublishedProductBase):
     id: UUID
     base_price: Optional[float] = None
+    product_name: Optional[str] = None
+    product_description: Optional[str] = None
     company_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime

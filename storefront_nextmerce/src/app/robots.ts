@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 import { buildCanonicalUrl, getSiteUrl, PRIVATE_PATHS } from "@/lib/seo";
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
   return {
     rules: [
       {
@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [...PRIVATE_PATHS],
       },
     ],
-    sitemap: buildCanonicalUrl("/sitemap.xml"),
-    host: getSiteUrl(),
+    sitemap: await buildCanonicalUrl("/sitemap.xml"),
+    host: await getSiteUrl(),
   };
 }

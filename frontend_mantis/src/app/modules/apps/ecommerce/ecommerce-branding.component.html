@@ -4,14 +4,9 @@
       <h4 class="mb-1">Branding</h4>
       <p class="text-muted mb-0">Administra identidad visual, contacto, redes y promos globales del storefront desde un modulo separado.</p>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
-      <select class="form-select storefront-switcher" [(ngModel)]="selectedStorefrontId" (change)="onStorefrontChange()">
-        <option value="">Selecciona una tienda</option>
-        @for (storefront of storefronts; track storefront.id) {
-          <option [value]="storefront.id">{{ storefront.name }}</option>
-        }
-      </select>
-    </div>
+    @if (storefronts.length > 0) {
+      <span class="settings-pill">{{ storefronts[0].name }}</span>
+    }
   </div>
 
   <div class="card section-card">

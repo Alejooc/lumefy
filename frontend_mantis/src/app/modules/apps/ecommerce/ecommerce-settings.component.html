@@ -4,14 +4,9 @@
       <h4 class="mb-1">General</h4>
       <p class="text-muted mb-0">Concentra los datos base del storefront y deja Branding, Home, SEO y Checkout en modulos separados.</p>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
-      <select class="form-select storefront-switcher" [(ngModel)]="selectedStorefrontId" (change)="onStorefrontChange()">
-        <option value="">Selecciona una tienda</option>
-        @for (storefront of storefronts; track storefront.id) {
-          <option [value]="storefront.id">{{ storefront.name }} ({{ storefront.slug }})</option>
-        }
-      </select>
-    </div>
+    @if (selectedStorefront) {
+      <span class="settings-pill">{{ selectedStorefront.name }}</span>
+    }
   </div>
 
   <div class="settings-hero card">
@@ -25,12 +20,9 @@
           </p>
 
           <div class="settings-hero__actions">
-            <button class="btn btn-dark px-4" (click)="createNewStorefront()">Crear tienda</button>
-            @if (editingStorefrontId) {
-              <span class="settings-inline-note">Estas editando una tienda existente.</span>
-            } @else {
-              <span class="settings-inline-note">Empieza aqui si aun no has creado tu storefront.</span>
-            }
+            <span class="settings-inline-note">
+              {{ editingStorefrontId ? 'Esta es la única tienda de la empresa.' : 'Completa estos datos para crear la tienda de la empresa.' }}
+            </span>
           </div>
 
           <div class="settings-hero__stats">
@@ -171,35 +163,35 @@
               </div>
               <span class="stacked-action-card__arrow">Abrir</span>
             </a>
-            <a class="stacked-action-card" routerLink="/apps/ecommerce/branding">
+            <a class="stacked-action-card" routerLink="/commerce/branding">
               <div>
                 <strong class="d-block">2. Definir marca</strong>
                 <small class="text-muted">Logo, contacto, redes y promos globales del storefront.</small>
               </div>
               <span class="stacked-action-card__arrow">Abrir</span>
             </a>
-            <a class="stacked-action-card" routerLink="/apps/ecommerce/payments">
+            <a class="stacked-action-card" routerLink="/commerce/payments">
               <div>
                 <strong class="d-block">3. Configurar pagos</strong>
                 <small class="text-muted">Activa las pasarelas que usarás para cobrar pedidos online.</small>
               </div>
               <span class="stacked-action-card__arrow">Abrir</span>
             </a>
-            <a class="stacked-action-card" routerLink="/apps/ecommerce/home">
+            <a class="stacked-action-card" routerLink="/commerce/design">
               <div>
                 <strong class="d-block">4. Personalizar la home</strong>
                 <small class="text-muted">Hero, banners, copys, countdown y newsletter del storefront.</small>
               </div>
               <span class="stacked-action-card__arrow">Abrir</span>
             </a>
-            <a class="stacked-action-card" routerLink="/apps/ecommerce/checkout">
+            <a class="stacked-action-card" routerLink="/commerce/checkout">
               <div>
                 <strong class="d-block">5. Ajustar checkout</strong>
                 <small class="text-muted">Compra invitada, notas, telefono y reglas del pedido.</small>
               </div>
               <span class="stacked-action-card__arrow">Abrir</span>
             </a>
-            <a class="stacked-action-card" routerLink="/apps/ecommerce/seo">
+            <a class="stacked-action-card" routerLink="/commerce/seo">
               <div>
                 <strong class="d-block">6. Preparar SEO</strong>
                 <small class="text-muted">Metadatos, indexacion y senal tecnica del storefront.</small>

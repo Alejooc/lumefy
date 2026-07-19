@@ -1,64 +1,21 @@
-"use client";
-import { useState, useEffect } from "react";
-import "../css/euclid-circular-a-font.css";
-import "../css/style.css";
-import Header from "../../components/Header";
-import Footer from "../../components/Footer";
+import { notFound } from "next/navigation";
 
-import { ModalProvider } from "../context/QuickViewModalContext";
-import { CartModalProvider } from "../context/CartSidebarModalContext";
-import { ReduxProvider } from "@/redux/provider";
-import { StorefrontAuthProvider } from "@/lib/storefront-auth";
-import { StorefrontCurrencyProvider } from "@/lib/storefront-currency";
-import QuickViewModal from "@/components/Common/QuickViewModal";
-import CartSidebarModal from "@/components/Common/CartSidebarModal";
-import { PreviewSliderProvider } from "../context/PreviewSliderContext";
-import PreviewSliderModal from "@/components/Common/PreviewSlider";
+import { StorefrontApiError, resolveStorefront } from "@/lib/storefront-api";
+import SiteShell from "./site-shell";
 
-import ScrollToTop from "@/components/Common/ScrollToTop";
-import PreLoader from "@/components/Common/PreLoader";
-
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [loading, setLoading] = useState<boolean>(true);
+  try {
+    await resolveStorefront();
+  } catch (error) {
+    if (error instanceof StorefrontApiError && error.status === 404) {
+      notFound();
+    }
+    throw error;
+  }
 
-  useEffect(() => {
-    setTimeout(() => setLoading(false), 1000);
-  }, []);
-
-  return (
-    <html lang="en" suppressHydrationWarning={true}>
-      <body>
-        {loading ? (
-          <PreLoader />
-        ) : (
-          <>
-            <ReduxProvider>
-              <StorefrontCurrencyProvider>
-                <StorefrontAuthProvider>
-                  <CartModalProvider>
-                    <ModalProvider>
-                      <PreviewSliderProvider>
-                        <Header />
-                        {children}
-
-                        <QuickViewModal />
-                        <CartSidebarModal />
-                        <PreviewSliderModal />
-                      </PreviewSliderProvider>
-                    </ModalProvider>
-                  </CartModalProvider>
-                </StorefrontAuthProvider>
-              </StorefrontCurrencyProvider>
-            </ReduxProvider>
-            <ScrollToTop />
-            <Footer />
-          </>
-        )}
-      </body>
-    </html>
-  );
+  return <SiteShell>{children}</SiteShell>;
 }

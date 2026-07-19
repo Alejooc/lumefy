@@ -14,11 +14,19 @@ export const routes: Routes = [
         loadComponent: () => import('./ecommerce/ecommerce-settings.component').then((c) => c.EcommerceSettingsComponent)
       },
       {
+        path: 'store',
+        loadComponent: () => import('./ecommerce/ecommerce-settings.component').then((c) => c.EcommerceSettingsComponent)
+      },
+      {
         path: 'branding',
         loadComponent: () => import('./ecommerce/ecommerce-branding.component').then((c) => c.EcommerceBrandingComponent)
       },
       {
         path: 'home',
+        loadComponent: () => import('./ecommerce/ecommerce-home.component').then((c) => c.EcommerceHomeComponent)
+      },
+      {
+        path: 'design',
         loadComponent: () => import('./ecommerce/ecommerce-home.component').then((c) => c.EcommerceHomeComponent)
       },
       {

@@ -325,17 +325,12 @@ export interface PublishedProduct {
   storefront_id: string;
   product_id: string;
   base_price?: number | null;
-  custom_title?: string | null;
-  custom_description?: string | null;
+  product_name?: string | null;
+  product_description?: string | null;
   slug: string;
-  price_override?: number | null;
-  compare_at_price?: number | null;
   is_published: boolean;
   is_featured: boolean;
-  show_stock: boolean;
   sort_order: number;
-  seo_title?: string | null;
-  seo_description?: string | null;
 }
 
 export interface StoreCollectionProduct {

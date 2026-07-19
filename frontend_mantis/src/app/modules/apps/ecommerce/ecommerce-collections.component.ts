@@ -376,22 +376,15 @@ export class EcommerceCollectionsComponent implements OnInit {
   }
 
   productLabel(item: PublishedProduct): string {
-    return item.custom_title || item.slug;
+    return item.product_name || item.slug;
   }
 
   priceLabel(item: PublishedProduct): string {
     const base = item.base_price ?? null;
-    const web = item.price_override ?? null;
-    if (base === null && web === null) {
+    if (base === null) {
       return 'Sin precio';
     }
-    if (web === null) {
-      return `Base ${base}`;
-    }
-    if (base === null) {
-      return `Web ${web}`;
-    }
-    return `Base ${base} / Web ${web}`;
+    return `Precio ERP ${base}`;
   }
 
   backToList(): void {
@@ -419,7 +412,7 @@ export class EcommerceCollectionsComponent implements OnInit {
       return true;
     }
 
-    return [item.custom_title, item.custom_description, item.slug]
+    return [item.product_name, item.product_description, item.slug]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(normalized));
   }
@@ -439,7 +432,7 @@ export class EcommerceCollectionsComponent implements OnInit {
       (featuredFilter === 'featured' && item.is_featured) ||
       (featuredFilter === 'regular' && !item.is_featured);
 
-    const price = item.price_override;
+    const price = item.base_price;
     const matchesMinPrice = minPrice === null || price === null || price === undefined || price >= minPrice;
     const matchesMaxPrice = maxPrice === null || price === null || price === undefined || price <= maxPrice;
 

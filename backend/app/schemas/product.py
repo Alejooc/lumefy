@@ -31,15 +31,6 @@ class ProductBase(BaseModel):
     sale_ok: bool = True
     purchase_ok: bool = True
     visible_in_ecommerce: bool = False
-    ecommerce_slug: Optional[str] = None
-    ecommerce_title: Optional[str] = None
-    ecommerce_description: Optional[str] = None
-    ecommerce_price_override: Optional[float] = None
-    ecommerce_compare_at_price: Optional[float] = None
-    ecommerce_is_featured: bool = False
-    ecommerce_show_stock: bool = True
-    ecommerce_seo_title: Optional[str] = None
-    ecommerce_seo_description: Optional[str] = None
 
     # Foreign Keys
     category_id: Optional[UUID] = None
@@ -72,15 +63,6 @@ class ProductUpdate(BaseModel):
     sale_ok: Optional[bool] = None
     purchase_ok: Optional[bool] = None
     visible_in_ecommerce: Optional[bool] = None
-    ecommerce_slug: Optional[str] = None
-    ecommerce_title: Optional[str] = None
-    ecommerce_description: Optional[str] = None
-    ecommerce_price_override: Optional[float] = None
-    ecommerce_compare_at_price: Optional[float] = None
-    ecommerce_is_featured: Optional[bool] = None
-    ecommerce_show_stock: Optional[bool] = None
-    ecommerce_seo_title: Optional[str] = None
-    ecommerce_seo_description: Optional[str] = None
     category_id: Optional[UUID] = None
     brand_id: Optional[UUID] = None
     unit_of_measure_id: Optional[UUID] = None

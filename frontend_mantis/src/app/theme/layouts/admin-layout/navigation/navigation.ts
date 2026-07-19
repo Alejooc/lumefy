@@ -404,6 +404,42 @@ export const NavigationItems: NavigationItem[] = [
     ]
   },
 
+  // ──────────────────── Canales de venta ────────────────────
+  {
+    id: 'sales-channels',
+    title: 'Canales de venta',
+    type: 'group',
+    icon: 'icon-navigation',
+    children: [
+      {
+        id: 'apps-ecommerce',
+        title: 'Comercio electrónico',
+        type: 'collapse',
+        icon: 'shop',
+        url: '/commerce',
+        permissions: ['manage_company'],
+        children: [
+          { id: 'commerce-overview', title: 'Resumen', type: 'item', classes: 'nav-item', url: '/commerce', icon: 'dashboard', breadcrumbs: false, permissions: ['manage_company'] },
+          { id: 'commerce-store', title: 'Tienda y dominio', type: 'item', classes: 'nav-item', url: '/commerce/store', icon: 'shop', breadcrumbs: false, permissions: ['manage_company'] },
+          { id: 'commerce-branding', title: 'Marca', type: 'item', classes: 'nav-item', url: '/commerce/branding', icon: 'bg-colors', breadcrumbs: false, permissions: ['manage_company'] },
+          { id: 'commerce-design', title: 'Diseño y contenido', type: 'item', classes: 'nav-item', url: '/commerce/design', icon: 'layout', breadcrumbs: false, permissions: ['manage_company'] },
+          { id: 'commerce-catalog', title: 'Catálogo publicado', type: 'item', classes: 'nav-item', url: '/products', icon: 'shopping-cart', breadcrumbs: false, permissions: ['view_products'] },
+          { id: 'commerce-collections', title: 'Colecciones', type: 'item', classes: 'nav-item', url: '/commerce/collections', icon: 'tags', breadcrumbs: false, permissions: ['manage_company'] },
+          { id: 'commerce-navigation', title: 'Navegación y SEO', type: 'collapse', icon: 'setting', permissions: ['manage_company'], children: [
+            { id: 'commerce-menu', title: 'Menú de tienda', type: 'item', url: '/commerce/navigation', breadcrumbs: false, permissions: ['manage_company'] },
+            { id: 'commerce-seo', title: 'SEO', type: 'item', url: '/commerce/seo', breadcrumbs: false, permissions: ['manage_company'] }
+          ]},
+          { id: 'commerce-checkout', title: 'Checkout y pagos', type: 'collapse', icon: 'credit-card', permissions: ['manage_company'], children: [
+            { id: 'commerce-checkout-rules', title: 'Reglas de checkout', type: 'item', url: '/commerce/checkout', breadcrumbs: false, permissions: ['manage_company'] },
+            { id: 'commerce-payments', title: 'Métodos de pago', type: 'item', url: '/commerce/payments', breadcrumbs: false, permissions: ['manage_company'] }
+          ]},
+          { id: 'commerce-orders', title: 'Pedidos online', type: 'item', classes: 'nav-item', url: '/sales', icon: 'solution', breadcrumbs: false, permissions: ['view_sales'] },
+          { id: 'commerce-fulfillment', title: 'Preparación y envío', type: 'item', classes: 'nav-item', url: '/inventory/logistics-board', icon: 'carry-out', breadcrumbs: false, permissions: ['manage_sales'] }
+        ]
+      }
+    ]
+  },
+
   // ──────────────────── Tienda de Apps ────────────────────
   {
     id: 'apps-platform',
@@ -420,97 +456,6 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'appstore',
         breadcrumbs: false,
         permissions: ['manage_company']
-      },
-      {
-        id: 'apps-ecommerce',
-        title: 'Ecommerce',
-        type: 'collapse',
-        icon: 'shop',
-        url: '/apps/ecommerce',
-        permissions: ['manage_company'],
-        children: [
-          {
-            id: 'apps-ecommerce-overview',
-            title: 'Resumen',
-            type: 'item',
-            classes: 'nav-item',
-            url: '/apps/ecommerce',
-            breadcrumbs: false,
-            permissions: ['manage_company']
-          },
-          {
-            id: 'apps-ecommerce-settings',
-            title: 'General',
-            type: 'item',
-            classes: 'nav-item',
-            url: '/apps/ecommerce/settings',
-            breadcrumbs: false,
-            permissions: ['manage_company']
-          },
-          {
-            id: 'apps-ecommerce-branding',
-            title: 'Branding',
-            type: 'item',
-            classes: 'nav-item',
-            url: '/apps/ecommerce/branding',
-            breadcrumbs: false,
-            permissions: ['manage_company']
-          },
-          {
-            id: 'apps-ecommerce-home',
-            title: 'Home',
-            type: 'item',
-            classes: 'nav-item',
-            url: '/apps/ecommerce/home',
-            breadcrumbs: false,
-            permissions: ['manage_company']
-          },
-          {
-            id: 'apps-ecommerce-checkout',
-            title: 'Checkout',
-            type: 'item',
-            classes: 'nav-item',
-            url: '/apps/ecommerce/checkout',
-            breadcrumbs: false,
-            permissions: ['manage_company']
-          },
-          {
-            id: 'apps-ecommerce-seo',
-            title: 'SEO',
-            type: 'item',
-            classes: 'nav-item',
-            url: '/apps/ecommerce/seo',
-            breadcrumbs: false,
-            permissions: ['manage_company']
-          },
-          {
-            id: 'apps-ecommerce-collections',
-            title: 'Colecciones',
-            type: 'item',
-            classes: 'nav-item',
-            url: '/apps/ecommerce/collections',
-            breadcrumbs: false,
-            permissions: ['manage_company']
-          },
-          {
-            id: 'apps-ecommerce-navigation',
-            title: 'Menu',
-            type: 'item',
-            classes: 'nav-item',
-            url: '/apps/ecommerce/navigation',
-            breadcrumbs: false,
-            permissions: ['manage_company']
-          },
-          {
-            id: 'apps-ecommerce-payments',
-            title: 'Pagos',
-            type: 'item',
-            classes: 'nav-item',
-            url: '/apps/ecommerce/payments',
-            breadcrumbs: false,
-            permissions: ['manage_company']
-          }
-        ]
       },
       {
         id: 'apps-installed',

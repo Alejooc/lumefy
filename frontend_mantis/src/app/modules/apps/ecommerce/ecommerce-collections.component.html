@@ -5,12 +5,9 @@
       <p class="text-muted mb-0">Gestiona las colecciones desde un listado principal y entra a una vista separada para productos y configuracion.</p>
     </div>
     <div class="d-flex gap-2">
-      <select class="form-select form-select-sm storefront-switcher" [(ngModel)]="selectedStorefrontId" (change)="onStorefrontChange()">
-        <option value="">Selecciona una tienda</option>
-        @for (storefront of storefronts; track storefront.id) {
-          <option [value]="storefront.id">{{ storefront.name }}</option>
-        }
-      </select>
+      @if (storefronts.length > 0) {
+        <span class="settings-pill">{{ storefronts[0].name }}</span>
+      }
       @if (viewMode === 'list') {
         <button class="btn btn-primary btn-sm" (click)="startNewCollection()" [disabled]="!selectedStorefrontId">Crear coleccion</button>
       } @else {
@@ -280,7 +277,7 @@
                         </td>
                         <td>
                           <strong class="d-block">{{ productLabel(item) }}</strong>
-                          <small class="text-muted">{{ item.custom_description || 'Sin descripcion personalizada' }}</small>
+                          <small class="text-muted">{{ item.product_description || 'Sin descripcion' }}</small>
                         </td>
                         <td>/{{ item.slug }}</td>
                         <td>{{ item.is_featured ? 'Si' : 'No' }}</td>
@@ -394,7 +391,7 @@
                       </td>
                       <td>
                         <strong class="d-block">{{ productLabel(item) }}</strong>
-                        <small class="text-muted">{{ item.custom_description || 'Sin descripcion personalizada' }}</small>
+                        <small class="text-muted">{{ item.product_description || 'Sin descripcion' }}</small>
                       </td>
                       <td>/{{ item.slug }}</td>
                       <td>{{ item.is_featured ? 'Si' : 'No' }}</td>

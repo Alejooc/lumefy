@@ -35,12 +35,11 @@ services:
       context: ./storefront_nextmerce
       args:
         NEXT_PUBLIC_API_URL: /api/v1
+        NEXT_PUBLIC_PLATFORM_STOREFRONT_DOMAIN: ${PLATFORM_STOREFRONT_DOMAIN}
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: /api/v1
-      NEXT_PUBLIC_SITE_URL: ${STOREFRONT_URL}
-      NEXT_PUBLIC_STOREFRONT_ID: ${STOREFRONT_ID:-}
-      NEXT_PUBLIC_STOREFRONT_SUBDOMAIN: ${STOREFRONT_SUBDOMAIN:-}
+      NEXT_PUBLIC_PLATFORM_STOREFRONT_DOMAIN: ${PLATFORM_STOREFRONT_DOMAIN}
       INTERNAL_API_URL: http://backend:8000/api/v1
       NEXT_IMAGE_ALLOW_LOCAL_IP: "false"
     depends_on:

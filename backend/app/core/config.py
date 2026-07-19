@@ -19,6 +19,7 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
+    BACKEND_CORS_ORIGIN_REGEX: Optional[str] = r"^https?://([a-z0-9-]+\.)*localhost(?::\d+)?$"
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod

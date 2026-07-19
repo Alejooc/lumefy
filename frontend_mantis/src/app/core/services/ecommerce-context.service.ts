@@ -21,9 +21,9 @@ export class EcommerceContextService {
   }
 
   resolveSelectedStorefront(storefronts: Storefront[]): string {
-    const savedId = this.getSelectedStorefrontId();
-    const match = storefronts.find((item) => item.id === savedId);
-    const selectedId = match?.id || storefronts[0]?.id || '';
+    // Commerce is scoped to the company's only storefront.  Always resolving
+    // the canonical first row also clears any selector saved by older builds.
+    const selectedId = storefronts[0]?.id || '';
     this.setSelectedStorefrontId(selectedId);
     return selectedId;
   }

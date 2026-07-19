@@ -201,6 +201,12 @@ const routes: Routes = [
         loadComponent: () => import('./modules/apps/app-admin-catalog.component').then((c) => c.AppAdminCatalogComponent)
       },
       {
+        path: 'commerce',
+        canActivate: [TenantGuard, AppAccessGuard],
+        data: { appSlug: 'ecommerce', requiredPermission: 'manage_company' },
+        loadChildren: () => import('./modules/apps/ecommerce.routes').then((m) => m.routes)
+      },
+      {
         path: 'apps/ecommerce',
         canActivate: [TenantGuard, AppAccessGuard],
         data: { appSlug: 'ecommerce', requiredPermission: 'manage_company' },
