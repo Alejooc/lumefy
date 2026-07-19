@@ -58,6 +58,9 @@
                         Genérica' }}</h6>
                         <p class="card-text mb-1"><small>Tracking: {{ pkg.tracking_number || 'N/A'
                         }}</small></p>
+                        @if (pkg.carrier) {
+                          <p class="card-text mb-1"><small>{{ pkg.carrier }}{{ pkg.service_level ? ' · ' + pkg.service_level : '' }}</small></p>
+                        }
                         <ul class="list-unstyled">
                           @for (pItem of pkg.items; track pItem) {
                             <li>
@@ -96,6 +99,14 @@
             </option>
           }
         </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Transportadora</label>
+        <input type="text" class="form-control" formControlName="carrier" placeholder="Ej. Coordinadora, Servientrega, DHL">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Servicio</label>
+        <input type="text" class="form-control" formControlName="service_level" placeholder="Ej. Nacional, Express">
       </div>
       <div class="mb-3">
         <label class="form-label">Número de Rastreo (Opcional)</label>

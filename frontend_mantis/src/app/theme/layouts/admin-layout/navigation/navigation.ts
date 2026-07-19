@@ -212,6 +212,16 @@ export const NavigationItems: NavigationItem[] = [
         permissions: ['view_inventory']
       },
       {
+        id: 'inventory-lots',
+        title: 'Lotes y Seriales',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/inventory/lots',
+        icon: 'barcode',
+        breadcrumbs: true,
+        permissions: ['view_inventory']
+      },
+      {
         id: 'stock-take',
         title: 'Toma de Inventario',
         type: 'item',
@@ -243,6 +253,16 @@ export const NavigationItems: NavigationItem[] = [
         permissions: ['manage_inventory']
       },
       {
+        id: 'purchase-requests',
+        title: 'Solicitudes y Cotizaciones',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/purchasing/requests',
+        icon: 'clipboard-list',
+        breadcrumbs: false,
+        permissions: ['manage_inventory']
+      },
+      {
         id: 'orders',
         title: 'Órdenes de Compra',
         type: 'item',
@@ -267,13 +287,20 @@ export const NavigationItems: NavigationItem[] = [
 
   // ──────────────────── Ventas ────────────────────
   {
+    id: 'manufacturing', title: 'Producción', type: 'group', icon: 'icon-navigation', permissions: ['manage_inventory'], children: [
+      { id: 'manufacturing-orders', title: 'Fabricación', type: 'item', classes: 'nav-item', url: '/manufacturing', icon: 'tool', breadcrumbs: false, permissions: ['manage_inventory'] }
+    ]
+  },
+
+  // ──────────────────── Ventas ────────────────────
+  {
     id: 'sales',
     title: 'Ventas',
     type: 'group',
     icon: 'icon-navigation',
     // A sales representative may manage orders without operating the POS.
     // Groups use "any" permission, so include every capability exposed below.
-    permissions: ['pos_access', 'view_sales', 'manage_sales'],
+    permissions: ['pos_access', 'view_sales', 'manage_sales', 'manage_inventory'],
     children: [
       {
         id: 'pos',
@@ -302,6 +329,15 @@ export const NavigationItems: NavigationItem[] = [
         url: '/returns',
         icon: 'rollback',
         permissions: ['manage_sales']
+      },
+      {
+        id: 'invoices',
+        title: 'Facturas y Cartera',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/invoices',
+        icon: 'file-invoice',
+        permissions: ['manage_sales', 'manage_inventory']
       },
     ]
   },
@@ -510,6 +546,16 @@ export const NavigationItems: NavigationItem[] = [
         classes: 'nav-item',
         url: '/clients',
         icon: 'user',
+        breadcrumbs: false,
+        permissions: ['view_clients']
+      },
+      {
+        id: 'crm',
+        title: 'CRM comercial',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/crm',
+        icon: 'chart-line',
         breadcrumbs: false,
         permissions: ['view_clients']
       },

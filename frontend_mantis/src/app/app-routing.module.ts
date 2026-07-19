@@ -106,6 +106,12 @@ const routes: Routes = [
         loadChildren: () => import('./modules/clients/clients-module').then((m) => m.ClientsModule)
       },
       {
+        path: 'crm',
+        canActivate: [TenantGuard],
+        loadComponent: () => import('./modules/crm/crm-pipeline.component').then((c) => c.CrmPipelineComponent)
+      },
+      { path: 'manufacturing', canActivate: [TenantGuard], loadComponent: () => import('./modules/manufacturing/manufacturing.component').then(c => c.ManufacturingComponent) },
+      {
         path: 'users',
         canActivate: [TenantGuard],
         loadChildren: () => import('./modules/users/users-module').then((m) => m.UsersModule)
@@ -124,6 +130,11 @@ const routes: Routes = [
         path: 'returns',
         canActivate: [TenantGuard],
         loadChildren: () => import('./modules/returns/returns.routes').then(m => m.routes)
+      },
+      {
+        path: 'invoices',
+        canActivate: [TenantGuard],
+        loadComponent: () => import('./modules/invoices/invoice-list.component').then(c => c.InvoiceListComponent)
       },
       {
         path: 'logistics',

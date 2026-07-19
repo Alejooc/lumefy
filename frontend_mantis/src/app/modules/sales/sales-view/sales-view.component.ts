@@ -5,6 +5,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { SaleService, Sale } from '../../../core/services/sale.service';
 import Swal from 'sweetalert2';
 import { LogisticsService } from '../../logistics/logistics.service';
+import { InvoiceService } from '../../../core/services/invoice.service';
 
 @Component({
     selector: 'app-sales-view',
@@ -25,6 +26,7 @@ export class SalesViewComponent implements OnInit {
     private router = inject(Router);
     private saleService = inject(SaleService);
     private logisticsService = inject(LogisticsService);
+    private invoiceService = inject(InvoiceService);
     private cdr = inject(ChangeDetectorRef);
     private fb = inject(FormBuilder);
 
@@ -213,6 +215,24 @@ export class SalesViewComponent implements OnInit {
             case 'CANCELLED': return 'badge bg-danger';
             default: return 'badge bg-secondary';
         }
+    }
+
+    createInvoice() {
+        if (!this.sale) return;
+        this.loading = true;
+        this.invoiceService.createFromSource({ type: 'SALE', sale_id: this.sale.id }).subscribe({
+            next: (invoice) => {
+                this.loading = false;
+                this.cdr.detectChanges();
+                Swal.fire('Factura creada', `${invoice.number} quedó lista para contabilizar.`, 'success')
+                    .then(() => this.router.navigate(['/invoices']));
+            },
+            error: (error) => {
+                this.loading = false;
+                this.cdr.detectChanges();
+                Swal.fire('No se pudo crear la factura', error?.error?.detail || 'Intenta de nuevo.', 'error');
+            }
+        });
     }
 
     // --- Delivery Modal Flow ---

@@ -16,6 +16,11 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
+@app.get("/healthz", tags=["health"])
+async def liveness_probe():
+    """Una sonda pública y mínima para Docker/orquestadores; no expone métricas."""
+    return {"status": "ok"}
+
 # Rate Limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

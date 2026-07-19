@@ -404,7 +404,7 @@ const Header = () => {
               <Link className="flex-shrink-0" href="/">
                 <Image
                   src={logoUrl || "/images/logo/logo.svg"}
-                  alt="Logo"
+                  alt="Lumefy"
                   width={182}
                   height={30}
                   className="h-auto w-[150px] sm:w-[170px] lg:w-[182px]"

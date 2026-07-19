@@ -13,12 +13,36 @@ from app.models.branch import Branch
 from app.models.supplier import Supplier
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.inventory import Inventory
+from app.models.inventory_lot import InventoryLot
 from app.models.user import User
 from app.core.permissions import PermissionChecker
 from app.core.audit import log_activity
 from app.schemas import purchase as schemas
 
 router = APIRouter()
+
+
+def _validate_purchase_status_transition(previous: PurchaseStatus, target: PurchaseStatus) -> None:
+    """Validate administrative PO transitions; stock is handled only by /receive."""
+    allowed_transitions = {
+        PurchaseStatus.DRAFT: {PurchaseStatus.VALIDATION, PurchaseStatus.CANCELLED},
+        PurchaseStatus.VALIDATION: {PurchaseStatus.CONFIRMED, PurchaseStatus.CANCELLED},
+        PurchaseStatus.CONFIRMED: {PurchaseStatus.CANCELLED},
+        PurchaseStatus.PARTIAL: set(),
+        PurchaseStatus.RECEIVED: set(),
+        PurchaseStatus.CANCELLED: set(),
+    }
+
+    if target == PurchaseStatus.RECEIVED:
+        raise HTTPException(
+            status_code=400,
+            detail="La recepción debe registrarse desde 'Recibir productos' para actualizar cantidades e inventario.",
+        )
+    if target not in allowed_transitions.get(previous, set()):
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede cambiar una orden de {previous.value} a {target.value}",
+        )
 
 
 async def _validate_purchase_relations(
@@ -194,28 +218,8 @@ async def create_purchase(
         purchase.total_amount = total
         purchase.payment_method = purchase_in.payment_method if purchase_in.payment_method else "CASH"
 
-        # CRM: Register debt if this is a CREDIT purchase and a supplier is attached
-        if purchase.payment_method == "CREDIT" and purchase.supplier_id:
-            from app.models.supplier import Supplier
-            from app.models.account_ledger import AccountLedger, LedgerType, PartnerType
-            
-            supplier_result = await db.execute(select(Supplier).where(Supplier.id == purchase.supplier_id))
-            supplier = supplier_result.scalar_one_or_none()
-            if supplier:
-                new_balance = supplier.current_balance + total
-                supplier.current_balance = new_balance
-                db.add(supplier)
-                
-                ledger = AccountLedger(
-                    partner_id=supplier.id,
-                    partner_type=PartnerType.SUPPLIER,
-                    type=LedgerType.CHARGE,
-                    amount=total,
-                    balance_after=new_balance,
-                    reference_id=str(purchase.id),
-                    description=f"Compra a crédito"
-                )
-                db.add(ledger)
+        # Las cuentas por pagar nacen al contabilizar la factura del proveedor,
+        # no al crear una orden de compra que todavía puede cambiar o cancelarse.
 
         await db.commit()
         
@@ -252,8 +256,10 @@ async def update_purchase_status(
     status: PurchaseStatus,
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
-    """
-    Update PO Status. Handling RECEIVED triggers inventory update.
+    """Update the administrative state of a purchase order.
+
+    Inventory is deliberately not touched here. It is updated exclusively by the
+    receipt endpoint, which records the received quantity per line.
     """
     query = select(PurchaseOrder).where(
         PurchaseOrder.id == purchase_id, 
@@ -277,53 +283,8 @@ async def update_purchase_status(
     if not purchase:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
         
-    previous_status = purchase.status
+    _validate_purchase_status_transition(purchase.status, status)
     purchase.status = status
-    
-    # Logic for Receiving Stock
-    if status == PurchaseStatus.RECEIVED and previous_status != PurchaseStatus.RECEIVED:
-        if not purchase.branch_id:
-             raise HTTPException(status_code=400, detail="Cannot receive without a destination Branch")
-             
-        for item in purchase.items:
-            # 1. Update Inventory (Per Branch)
-            # Check if inventory exists for this product and branch
-            inv_query = select(Inventory).where(
-                Inventory.product_id == item.product_id,
-                Inventory.branch_id == purchase.branch_id
-            )
-            inv_result = await db.execute(inv_query)
-            inventory = inv_result.scalars().first()
-            
-            original_stock = 0.0
-            
-            if inventory:
-                original_stock = inventory.quantity
-                inventory.quantity += item.quantity
-                db.add(inventory)
-            else:
-                # Create new inventory record
-                inventory = Inventory(
-                    product_id=item.product_id,
-                    branch_id=purchase.branch_id,
-                    quantity=item.quantity,
-                    location="Main" # Default
-                )
-                db.add(inventory)
-                
-            # 2. Create Movement
-            movement = InventoryMovement(
-                product_id=item.product_id,
-                branch_id=purchase.branch_id,
-                user_id=current_user.id,
-                type=MovementType.IN,
-                quantity=item.quantity,
-                previous_stock=original_stock,
-                new_stock=original_stock + item.quantity,
-                reference_id=str(purchase.id),
-                reason="Purchase Received"
-            )
-            db.add(movement)
     
     await db.commit()
     await log_activity(db, "UPDATE_STATUS", "PurchaseOrder", purchase.id, current_user.id, current_user.company_id, {"status": status})
@@ -470,7 +431,7 @@ async def receive_purchase(
         PurchaseOrder.id == purchase_id,
         PurchaseOrder.company_id == current_user.company_id
     ).options(
-        selectinload(PurchaseOrder.items)
+        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product)
     )
     result = await db.execute(query)
     purchase = result.scalars().first()
@@ -479,7 +440,12 @@ async def receive_purchase(
 
     if purchase.status in (PurchaseStatus.RECEIVED, PurchaseStatus.CANCELLED):
         raise HTTPException(status_code=400, detail="Purchase Order already received or cancelled")
+    if purchase.status not in (PurchaseStatus.CONFIRMED, PurchaseStatus.PARTIAL):
+        raise HTTPException(status_code=400, detail="La orden debe estar Confirmada antes de recibir productos")
+    if not purchase.branch_id:
+        raise HTTPException(status_code=400, detail="La orden requiere una sucursal de destino para recibir productos")
 
+    processed_items = 0
     for ri in receive_in.items:
         # Find item
         item = next((i for i in purchase.items if i.id == ri.item_id), None)
@@ -489,11 +455,25 @@ async def receive_purchase(
             continue
 
         remaining = item.quantity - item.received_qty
-        qty_to_receive = min(ri.qty_received, remaining)
-        if qty_to_receive <= 0:
-            continue
+        if remaining <= 0:
+            raise HTTPException(status_code=400, detail="Uno de los productos ya fue recibido en su totalidad")
+        if ri.qty_received > remaining:
+            raise HTTPException(status_code=400, detail="La cantidad a recibir supera lo pendiente en una línea de la orden")
+        qty_to_receive = ri.qty_received
+
+        tracking_type = (item.product.tracking_type if item.product else "NONE").upper()
+        if tracking_type == "LOT" and not (ri.lot_number or "").strip():
+            raise HTTPException(status_code=400, detail=f"El producto '{item.product.name}' requiere número de lote")
+        if tracking_type == "SERIAL":
+            serials = [serial.strip() for serial in (ri.serial_numbers or []) if serial and serial.strip()]
+            if qty_to_receive != int(qty_to_receive) or len(serials) != int(qty_to_receive) or len(set(serials)) != len(serials):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"El producto '{item.product.name}' requiere un serial único por cada unidad recibida",
+                )
 
         item.received_qty += qty_to_receive
+        processed_items += 1
 
         # Update inventory
         inv_result = await db.execute(
@@ -509,11 +489,16 @@ async def receive_purchase(
 
         if inv:
             inv.quantity = new_stock
+            inv.average_cost = (
+                (previous_stock * inv.average_cost) + (qty_to_receive * item.unit_cost)
+            ) / new_stock
         else:
             inv = Inventory(
                 product_id=item.product_id,
                 branch_id=purchase.branch_id,
-                quantity=new_stock
+                quantity=new_stock,
+                average_cost=item.unit_cost,
+                company_id=current_user.company_id,
             )
             db.add(inv)
 
@@ -527,9 +512,66 @@ async def receive_purchase(
             previous_stock=previous_stock,
             new_stock=new_stock,
             reason=f"PO Receipt (Order #{str(purchase.id)[:8]})",
-            reference_id=str(purchase.id)
+            reference_id=str(purchase.id),
+            unit_cost=item.unit_cost,
+            company_id=current_user.company_id,
         )
         db.add(movement)
+
+        if tracking_type == "LOT":
+            lot_number = ri.lot_number.strip()
+            lot_result = await db.execute(
+                select(InventoryLot).where(
+                    InventoryLot.product_id == item.product_id,
+                    InventoryLot.branch_id == purchase.branch_id,
+                    InventoryLot.lot_number == lot_number,
+                    InventoryLot.serial_number.is_(None),
+                    InventoryLot.company_id == current_user.company_id,
+                )
+            )
+            lot = lot_result.scalars().first()
+            if lot:
+                lot.quantity += qty_to_receive
+                lot.expiry_date = ri.expiry_date or lot.expiry_date
+                lot.unit_cost = item.unit_cost
+            else:
+                db.add(InventoryLot(
+                    product_id=item.product_id,
+                    branch_id=purchase.branch_id,
+                    lot_number=lot_number,
+                    quantity=qty_to_receive,
+                    expiry_date=ri.expiry_date,
+                    unit_cost=item.unit_cost,
+                    source_reference=str(purchase.id),
+                    company_id=current_user.company_id,
+                    created_by_id=current_user.id,
+                ))
+        elif tracking_type == "SERIAL":
+            serials = [serial.strip() for serial in (ri.serial_numbers or []) if serial and serial.strip()]
+            existing_result = await db.execute(
+                select(InventoryLot.serial_number).where(
+                    InventoryLot.product_id == item.product_id,
+                    InventoryLot.serial_number.in_(serials),
+                    InventoryLot.company_id == current_user.company_id,
+                )
+            )
+            if existing_result.scalars().first():
+                raise HTTPException(status_code=409, detail="Uno de los seriales ya existe para este producto")
+            for serial in serials:
+                db.add(InventoryLot(
+                    product_id=item.product_id,
+                    branch_id=purchase.branch_id,
+                    serial_number=serial,
+                    quantity=1,
+                    expiry_date=ri.expiry_date,
+                    unit_cost=item.unit_cost,
+                    source_reference=str(purchase.id),
+                    company_id=current_user.company_id,
+                    created_by_id=current_user.id,
+                ))
+
+    if not processed_items:
+        raise HTTPException(status_code=400, detail="Indica al menos una cantidad válida para recibir")
 
     # Determine status
     all_received = all(i.received_qty >= i.quantity for i in purchase.items)
@@ -541,6 +583,15 @@ async def receive_purchase(
         purchase.status = PurchaseStatus.PARTIAL
     # else keep current status
 
+    await log_activity(
+        db,
+        "RECEIVE",
+        "PurchaseOrder",
+        purchase.id,
+        current_user.id,
+        current_user.company_id,
+        {"status": purchase.status.value, "received_lines": processed_items},
+    )
     await db.commit()
 
     # Reload with full relationships
@@ -558,6 +609,7 @@ async def _load_purchase_detail(db: AsyncSession, purchase_id: UUID, company_id:
             selectinload(Product.variants),
             selectinload(Product.brand),
             selectinload(Product.unit_of_measure),
+            selectinload(Product.purchase_uom),
             selectinload(Product.category)
         ),
         selectinload(PurchaseOrder.supplier),

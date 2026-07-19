@@ -128,7 +128,7 @@ async def read_client(
     
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-        
+
     return client
 
 @router.put("/{client_id}", response_model=schemas.Client)
@@ -242,6 +242,9 @@ async def register_client_payment(
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
 
+    if payment_in.amount > client.current_balance + 0.000001:
+        raise HTTPException(status_code=400, detail="El pago supera el saldo pendiente del cliente")
+
     # Lower the current balance (debt)
     new_balance = client.current_balance - payment_in.amount
     client.current_balance = new_balance
@@ -255,6 +258,8 @@ async def register_client_payment(
         balance_after=new_balance,
         reference_id=payment_in.reference_id,
         description=payment_in.description,
+        company_id=current_user.company_id,
+        created_by_id=current_user.id,
     )
     db.add(ledger_entry)
     await db.commit()

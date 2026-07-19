@@ -24,6 +24,8 @@ class SalePackage(BaseModel):
     package_type_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("package_types.id"), nullable=True)
     
     tracking_number: Mapped[str] = mapped_column(String, nullable=True)
+    carrier: Mapped[str] = mapped_column(String, nullable=True)
+    service_level: Mapped[str] = mapped_column(String, nullable=True)
     weight: Mapped[float] = mapped_column(Float, default=0.0)
     shipping_label_url: Mapped[str] = mapped_column(String, nullable=True)
     

@@ -24,6 +24,8 @@ export interface Product {
     weight?: number;
     volume?: number;
     track_inventory: boolean;
+    tracking_type?: 'NONE' | 'LOT' | 'SERIAL';
+    purchase_ok?: boolean;
     min_stock: number;
     category_id?: string;
     brand_id?: string;

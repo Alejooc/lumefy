@@ -1,6 +1,6 @@
 import hashlib
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, List
 import requests
 
@@ -18,7 +18,6 @@ from app.core.rate_limit import limiter
 from app.models.branch import Branch
 from app.models.company import Company
 from app.models.inventory import Inventory
-from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.sale import Payment, Sale, SaleItem, SaleStatus
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
@@ -35,6 +34,7 @@ from app.models.storefront import (
     StorefrontDomain,
     StorefrontOrder,
 )
+from app.models.storefront_coupon import StorefrontCoupon
 from app.schemas import storefront as schemas
 
 router = APIRouter()
@@ -54,20 +54,45 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def _resolve_public_checkout_adjustments(payload: Any) -> tuple[float, float]:
-    """Reject client-priced shipping, discounts and coupons until server rules exist."""
+async def _resolve_public_checkout_adjustments(
+    db: AsyncSession,
+    storefront: Storefront,
+    payload: Any,
+    subtotal: float,
+) -> tuple[float, float]:
+    """Calculate checkout adjustments exclusively from storefront server settings."""
     discount = _safe_float(getattr(payload, "discount_amount", 0))
     shipping = _safe_float(getattr(payload, "shipping_amount", 0))
     coupon_code = _safe_string(getattr(payload, "coupon_code", None))
 
     if discount < 0 or shipping < 0:
         raise HTTPException(status_code=400, detail="Checkout adjustments cannot be negative")
-    if discount > 0 or shipping > 0 or coupon_code:
+    if discount > 0 or shipping > 0:
         raise HTTPException(
             status_code=400,
-            detail="Shipping, discounts and coupons must be calculated by configured server-side rules",
+            detail="Descuentos, cupones y envío deben calcularse con las reglas configuradas de la tienda",
         )
-    return 0.0, 0.0
+    calculated_discount = 0.0
+    if coupon_code:
+        now = datetime.now(timezone.utc)
+        coupon = await db.scalar(select(StorefrontCoupon).where(
+            StorefrontCoupon.storefront_id == storefront.id,
+            StorefrontCoupon.code == coupon_code.upper(),
+            StorefrontCoupon.company_id == storefront.company_id,
+            StorefrontCoupon.is_active == True,
+            StorefrontCoupon.is_enabled == True,
+        ))
+        if not coupon or (coupon.starts_at and coupon.starts_at > now) or (coupon.ends_at and coupon.ends_at < now):
+            raise HTTPException(status_code=400, detail="Cupón inválido o vencido")
+        if subtotal < coupon.minimum_amount:
+            raise HTTPException(status_code=400, detail=f"El cupón requiere una compra mínima de {coupon.minimum_amount:g}")
+        calculated_discount = subtotal * coupon.value / 100 if coupon.discount_type == "PERCENT" else coupon.value
+        calculated_discount = min(subtotal, calculated_discount)
+    settings = storefront.checkout_settings or {}
+    flat_shipping = max(0.0, _safe_float(settings.get("flat_shipping_rate")))
+    free_shipping_threshold = max(0.0, _safe_float(settings.get("free_shipping_threshold")))
+    calculated_shipping = 0.0 if free_shipping_threshold and subtotal >= free_shipping_threshold else flat_shipping
+    return calculated_discount, calculated_shipping
 
 
 def _safe_string(value: Any) -> str | None:
@@ -703,12 +728,15 @@ async def _get_storefront_stock_map(
         return {}
     branch = await _resolve_default_branch_for_company(db, storefront.company_id)
     result = await db.execute(
-        select(Inventory.product_id, Inventory.quantity).where(
+        select(Inventory.product_id, Inventory.quantity, Inventory.reserved_quantity).where(
             Inventory.branch_id == branch.id,
             Inventory.product_id.in_(product_ids),
         )
     )
-    return {product_id: _safe_float(quantity) for product_id, quantity in result.all()}
+    return {
+        product_id: max(0.0, _safe_float(quantity) - _safe_float(reserved_quantity))
+        for product_id, quantity, reserved_quantity in result.all()
+    }
 
 
 async def _resolve_default_user_for_company(db: AsyncSession, company_id: uuid.UUID) -> User:
@@ -798,12 +826,13 @@ async def _validate_checkout_inventory(
             continue
 
         inventory_result = await db.execute(
-            select(Inventory.quantity).where(
+            select(Inventory.quantity, Inventory.reserved_quantity).where(
                 Inventory.product_id == product.id,
                 Inventory.branch_id == branch_id,
             )
         )
-        available = _safe_float(inventory_result.scalar_one_or_none())
+        inventory_row = inventory_result.one_or_none()
+        available = (_safe_float(inventory_row[0]) - _safe_float(inventory_row[1])) if inventory_row else 0.0
         if available < row.quantity:
             raise HTTPException(
                 status_code=400,
@@ -818,44 +847,33 @@ async def _confirm_paid_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
     if sale.status not in {SaleStatus.DRAFT, SaleStatus.QUOTE}:
         return False
 
-    inventories: dict[uuid.UUID, Inventory] = {}
+    requested_by_product: dict[uuid.UUID, float] = {}
     for item in sale.items:
         if not item.product or not item.product.track_inventory:
             continue
+        requested_by_product[item.product_id] = requested_by_product.get(item.product_id, 0.0) + item.quantity
+
+    inventories: dict[uuid.UUID, Inventory] = {}
+    for product_id, requested_quantity in requested_by_product.items():
         result = await db.execute(
             select(Inventory)
             .where(
-                Inventory.product_id == item.product_id,
+                Inventory.product_id == product_id,
                 Inventory.branch_id == sale.branch_id,
             )
             .with_for_update()
         )
         inventory = result.scalars().first()
-        available = inventory.quantity if inventory else 0
-        if available < item.quantity:
+        available = (inventory.quantity - inventory.reserved_quantity) if inventory else 0
+        if available < requested_quantity:
             return False
-        if inventory:
-            inventories[item.product_id] = inventory
+        inventories[product_id] = inventory
 
     for item in sale.items:
         if not item.product or not item.product.track_inventory:
             continue
         inventory = inventories[item.product_id]
-        previous_stock = inventory.quantity
-        inventory.quantity -= item.quantity
-        db.add(
-            InventoryMovement(
-                product_id=item.product_id,
-                branch_id=sale.branch_id,
-                user_id=sale.user_id or sale.created_by_id,
-                type=MovementType.OUT,
-                quantity=-item.quantity,
-                previous_stock=previous_stock,
-                new_stock=inventory.quantity,
-                reference_id=str(sale.id),
-                reason="Ecommerce payment approved",
-            )
-        )
+        inventory.reserved_quantity += item.quantity
 
     sale.status = SaleStatus.CONFIRMED
     return True
@@ -2162,7 +2180,7 @@ async def preview_public_checkout(
     storefront = await _get_public_storefront_by_id(db, storefront_id)
     rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
 
-    discount, shipping = _resolve_public_checkout_adjustments(payload)
+    discount, shipping = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal)
     tax = 0.0
     total = max(0.0, subtotal - discount + shipping + tax)
 
@@ -2221,7 +2239,7 @@ async def create_public_checkout_order(
     gateway = await _get_enabled_gateway_for_storefront(db, storefront_id, payment_provider)
     rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
 
-    discount, shipping = _resolve_public_checkout_adjustments(payload)
+    discount, shipping = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal)
     tax = 0.0
     total = max(0.0, subtotal - discount + shipping + tax)
 

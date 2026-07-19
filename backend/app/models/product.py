@@ -34,6 +34,7 @@ class Product(BaseModel):
 
     # Inventory Config
     track_inventory: Mapped[bool] = mapped_column(Boolean, default=True)
+    tracking_type: Mapped[str] = mapped_column(String, default="NONE")  # NONE, LOT, SERIAL
     min_stock: Mapped[float] = mapped_column(Float, default=0.0)
     sale_ok: Mapped[bool] = mapped_column(Boolean, default=True)      # Can be sold
     purchase_ok: Mapped[bool] = mapped_column(Boolean, default=True)   # Can be purchased

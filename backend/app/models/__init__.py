@@ -31,6 +31,14 @@ from .app_webhook_delivery import AppWebhookDelivery
 from .stock_take import StockTake, StockTakeItem, StockTakeStatus
 from .return_order import ReturnOrder, ReturnOrderItem, ReturnStatus, ReturnType
 from .account_ledger import AccountLedger, LedgerType, PartnerType
+from .invoice import Invoice, InvoiceItem, InvoicePayment, InvoiceStatus, InvoiceType
+from .procurement import PurchaseRequest, PurchaseRequestItem, PurchaseRequestStatus, SupplierQuote, SupplierQuoteItem, SupplierQuoteStatus
+from .inventory_lot import InventoryLot
+from .opportunity import Opportunity, OpportunityStage
+from .manufacturing import BillOfMaterials, BillOfMaterialsLine, ManufacturingOrder, ManufacturingStatus
+from .accounting import ChartAccount, JournalEntry, JournalEntryLine, AccountType, JournalEntryStatus
+from .inventory_location import InventoryLocation
+from .storefront_coupon import StorefrontCoupon
 from .pos_session import POSSession, POSSessionStatus
 from .storefront import (
     Storefront,

@@ -101,6 +101,7 @@ export class ProductFormComponent implements OnInit {
 
             // Inventory
             track_inventory: [true],
+            tracking_type: ['NONE'],
             min_stock: [0],
             sale_ok: [true],
             purchase_ok: [true],

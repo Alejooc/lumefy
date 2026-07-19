@@ -22,6 +22,8 @@ export interface SalePackage {
     sale_id: string;
     package_type_id?: string;
     tracking_number?: string;
+    carrier?: string;
+    service_level?: string;
     weight: number;
     shipping_label_url?: string;
     items: SalePackageItem[];
@@ -40,6 +42,8 @@ export interface CreatePackageRequest {
     sale_id: string;
     package_type_id?: string;
     tracking_number?: string;
+    carrier?: string;
+    service_level?: string;
     weight: number;
     shipping_label_url?: string;
     items: {

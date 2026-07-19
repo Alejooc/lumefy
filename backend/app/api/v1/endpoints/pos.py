@@ -646,6 +646,71 @@ async def pos_checkout(
     3. Registers Payment.
     """
     try:
+        if not checkout_in.items:
+            raise HTTPException(status_code=400, detail="Agrega al menos un producto para cobrar")
+
+        payment_method = checkout_in.payment_method.upper().strip()
+        if payment_method not in {"CASH", "CARD", "CREDIT"}:
+            raise HTTPException(status_code=400, detail="Método de pago no válido para POS")
+        if payment_method == "CREDIT" and not checkout_in.client_id:
+            raise HTTPException(status_code=400, detail="Selecciona un cliente para una venta a crédito")
+
+        branch_result = await db.execute(
+            select(Branch.id).where(
+                Branch.id == checkout_in.branch_id,
+                Branch.company_id == current_user.company_id,
+            )
+        )
+        if not branch_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Sucursal no encontrada")
+
+        if checkout_in.client_id:
+            from app.models.client import Client
+            client_result = await db.execute(
+                select(Client.id).where(
+                    Client.id == checkout_in.client_id,
+                    Client.company_id == current_user.company_id,
+                )
+            )
+            if not client_result.scalar_one_or_none():
+                raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+        quantities_by_product = {}
+        for item in checkout_in.items:
+            if item.quantity <= 0 or item.price < 0 or item.discount < 0:
+                raise HTTPException(status_code=400, detail="Las cantidades, precios y descuentos deben ser válidos")
+            if item.discount > item.price * item.quantity:
+                raise HTTPException(status_code=400, detail="El descuento no puede superar el valor del artículo")
+            quantities_by_product[item.product_id] = quantities_by_product.get(item.product_id, 0) + item.quantity
+
+        product_result = await db.execute(
+            select(Product).where(
+                Product.id.in_(quantities_by_product.keys()),
+                Product.company_id == current_user.company_id,
+            )
+        )
+        products = {product.id: product for product in product_result.scalars().all()}
+        if len(products) != len(quantities_by_product):
+            raise HTTPException(status_code=404, detail="Uno o más productos no pertenecen a la empresa")
+        for product_id, quantity in quantities_by_product.items():
+            product = products[product_id]
+            if not product.sale_ok:
+                raise HTTPException(status_code=400, detail=f"El producto '{product.name}' no está habilitado para venta")
+            if not product.track_inventory:
+                continue
+            inventory_result = await db.execute(
+                select(Inventory)
+                .where(Inventory.product_id == product_id, Inventory.branch_id == checkout_in.branch_id)
+                .with_for_update()
+            )
+            inventory = inventory_result.scalars().first()
+            available = (inventory.quantity - inventory.reserved_quantity) if inventory else 0
+            if available < quantity:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Stock insuficiente para '{product.name}'. Disponible: {available:g}",
+                )
+
         session_result = await db.execute(
             select(POSSession).where(
                 POSSession.company_id == current_user.company_id,
@@ -665,7 +730,7 @@ async def pos_checkout(
             pos_session_id=open_session.id,
             client_id=checkout_in.client_id,
             status=SaleStatus.COMPLETED, # Instantly completed
-            payment_method=checkout_in.payment_method,
+            payment_method=payment_method,
             notes=checkout_in.notes or "Venta POS",
             subtotal=0.0,
             tax=0.0,
@@ -697,6 +762,10 @@ async def pos_checkout(
             )
             db.add(sale_item)
             
+            product = products[item_in.product_id]
+            if not product.track_inventory:
+                continue
+
             # Inventory Deduction
             inv_result = await db.execute(
                 select(Inventory).where(
@@ -705,14 +774,6 @@ async def pos_checkout(
                 )
             )
             inventory = inv_result.scalars().first()
-            if not inventory:
-                inventory = Inventory(
-                    product_id=item_in.product_id,
-                    branch_id=checkout_in.branch_id,
-                    quantity=0.0
-                )
-                db.add(inventory)
-            
             # Capture stock BEFORE deduction for the kardex
             prev_qty = inventory.quantity
             inventory.quantity -= item_in.quantity
@@ -727,19 +788,24 @@ async def pos_checkout(
                 quantity=-item_in.quantity,
                 previous_stock=prev_qty,
                 new_stock=new_qty,
+                unit_cost=inventory.average_cost,
                 reference_id=str(sale.id),
-                reason=f"Venta POS \u2014 {current_user.full_name or current_user.email}"
+                reason=f"Venta POS \u2014 {current_user.full_name or current_user.email}",
+                company_id=current_user.company_id,
             )
             db.add(movement)
             
         # 3. Finalize Sale
         sale.subtotal = total_amount
         sale.total = total_amount
+
+        if payment_method != "CREDIT" and checkout_in.amount_paid < total_amount:
+            raise HTTPException(status_code=400, detail="El monto pagado no puede ser menor al total")
         
         # 4. Register Payment
         payment = Payment(
             sale_id=sale.id,
-            method=checkout_in.payment_method,
+            method=payment_method,
             amount=checkout_in.amount_paid
         )
         db.add(payment)
@@ -763,14 +829,21 @@ async def pos_checkout(
                     amount=sale.total,
                     balance_after=new_balance,
                     reference_id=str(sale.id),
-                    description=f"Venta POS a crédito"
+                    description=f"Venta POS a crédito",
+                    company_id=current_user.company_id,
+                    created_by_id=current_user.id,
                 )
                 db.add(ledger)
 
         await db.commit()
         await db.refresh(sale)
         
-        return {"success": True, "sale_id": sale.id, "total": sale.total, "change": checkout_in.amount_paid - sale.total}
+        return {
+            "success": True,
+            "sale_id": sale.id,
+            "total": sale.total,
+            "change": max(0, checkout_in.amount_paid - sale.total),
+        }
 
     except HTTPException:
         raise

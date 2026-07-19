@@ -1,0 +1,27 @@
+<div class="row">
+  <div class="col-12">
+    <div class="card mb-3">
+      <div class="card-header"><h5 class="mb-0">Facturación y cartera</h5></div>
+      <div class="card-body">
+        <p class="text-muted">Crea el documento desde una venta confirmada o una compra totalmente recibida. La cartera solo se afecta al contabilizarlo.</p>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-2"><label class="form-label">Tipo</label><select class="form-select" [(ngModel)]="sourceType"><option value="SALE">Factura de venta</option><option value="PURCHASE">Factura de compra</option></select></div>
+          <div class="col-md-5"><label class="form-label">ID del documento origen</label><input class="form-control" [(ngModel)]="sourceId" placeholder="ID de venta u orden de compra"></div>
+          <div class="col-md-3"><label class="form-label">Vencimiento</label><input type="date" class="form-control" [(ngModel)]="dueDate"></div>
+          <div class="col-md-2"><button class="btn btn-primary w-100" (click)="createFromSource()"><i class="ti ti-file-invoice"></i> Crear factura</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center"><h5 class="mb-0">Documentos</h5><button class="btn btn-light btn-sm" (click)="loadInvoices()"><i class="ti ti-refresh"></i> Actualizar</button></div>
+      <div class="card-body">
+        <div class="row g-2 mb-3"><div class="col-md-3"><select class="form-select" [(ngModel)]="filterType" (change)="loadInvoices()"><option value="">Todos los tipos</option><option value="SALE">Ventas</option><option value="PURCHASE">Compras</option></select></div><div class="col-md-3"><select class="form-select" [(ngModel)]="filterStatus" (change)="loadInvoices()"><option value="">Todos los estados</option><option value="DRAFT">Borrador</option><option value="POSTED">Contabilizada</option><option value="PARTIALLY_PAID">Pago parcial</option><option value="PAID">Pagada</option><option value="CANCELLED">Cancelada</option></select></div></div>
+        @if (!loading && invoices.length) {
+          <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Número</th><th>Tipo</th><th>Emisión</th><th class="text-end">Total</th><th class="text-end">Pagado</th><th>Estado</th><th></th></tr></thead><tbody>@for (invoice of invoices; track invoice.id) {<tr><td class="fw-semibold">{{ invoice.number }}</td><td>{{ invoice.type === 'SALE' ? 'Venta' : 'Compra' }}</td><td>{{ invoice.issue_date | date:'mediumDate' }}</td><td class="text-end">{{ invoice.total | currency }}</td><td class="text-end">{{ invoice.amount_paid | currency }}</td><td><span class="badge" [ngClass]="statusClass(invoice.status)">{{ invoice.status }}</span></td><td class="text-end">@if (invoice.status === 'DRAFT') {<button class="btn btn-sm btn-primary me-1" (click)="post(invoice)">Contabilizar</button><button class="btn btn-sm btn-outline-danger" (click)="cancel(invoice)">Cancelar</button>} @if (invoice.status === 'POSTED' || invoice.status === 'PARTIALLY_PAID') {<button class="btn btn-sm btn-success" (click)="pay(invoice)">Registrar pago</button>}</td></tr>}</tbody></table></div>
+        } @else if (!loading) {<div class="text-center text-muted py-4">Aún no hay facturas para estos filtros.</div>}
+        @if (loading) {<app-skeleton type="table" [rowCount]="5" [colCount]="7"></app-skeleton>}
+      </div>
+    </div>
+  </div>
+</div>

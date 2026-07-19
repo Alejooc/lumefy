@@ -45,6 +45,7 @@ export class PurchaseListComponent implements OnInit {
             case 'DRAFT': return 'badge bg-secondary';
             case 'VALIDATION': return 'badge bg-warning text-dark';
             case 'CONFIRMED': return 'badge bg-primary';
+            case 'PARTIAL': return 'badge bg-info text-dark';
             case 'RECEIVED': return 'badge bg-success';
             case 'CANCELLED': return 'badge bg-danger';
             default: return 'badge bg-light text-dark';
@@ -56,6 +57,7 @@ export class PurchaseListComponent implements OnInit {
             case 'DRAFT': return 'Borrador';
             case 'VALIDATION': return 'Validación';
             case 'CONFIRMED': return 'Confirmada';
+            case 'PARTIAL': return 'Parcialmente recibida';
             case 'RECEIVED': return 'Recibida';
             case 'CANCELLED': return 'Cancelada';
             default: return status;

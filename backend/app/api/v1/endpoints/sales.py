@@ -1,7 +1,7 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
@@ -11,8 +11,10 @@ from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.product import Product
 from app.models.branch import Branch
 from app.models.client import Client
+from app.models.logistics import SalePackage, SalePackageItem
 from app.models.user import User
 from app.core.permissions import PermissionChecker
+from app.services.inventory_consumption import consume_fifo_lots
 from app.schemas import sale as schemas
 import uuid
 from datetime import datetime
@@ -222,32 +224,8 @@ async def create_sale(
         sale.subtotal = total_amount
         sale.total = total_amount # + tax + shipping
         
-        # CRM: Register debt if this is a CREDIT sale and a client is attached
-        if sale.payment_method == "CREDIT" and sale.client_id:
-            from app.models.client import Client
-            from app.models.account_ledger import AccountLedger, LedgerType, PartnerType
-            
-            client_result = await db.execute(select(Client).where(Client.id == sale.client_id))
-            client = client_result.scalar_one_or_none()
-            if client:
-                new_balance = client.current_balance + sale.total
-                client.current_balance = new_balance
-                db.add(client)
-                
-                # Check credit limit if necessary (Optional feature)
-                if client.credit_limit > 0 and new_balance > client.credit_limit:
-                    raise ValueError(f"El cliente excedió su límite de crédito. Máximo: {client.credit_limit}, Saldo Intentado: {new_balance}")
-
-                ledger = AccountLedger(
-                    partner_id=client.id,
-                    partner_type=PartnerType.CLIENT,
-                    type=LedgerType.CHARGE,
-                    amount=sale.total,
-                    balance_after=new_balance,
-                    reference_id=str(sale.id),
-                    description=f"Venta a crédito"
-                )
-                db.add(ledger)
+        # Las cuentas por cobrar se generan al contabilizar una factura. Una
+        # orden comercial por sí sola no debe modificar el saldo del cliente.
 
         await db.commit()
 
@@ -361,21 +339,21 @@ async def update_status(
         
     
     # LOGIC:
-    # 1. DRAFT/QUOTE -> CONFIRMED (Deduct Inventory)
+    # 1. DRAFT/QUOTE -> CONFIRMED (Reserve Inventory)
     # 2. CONFIRMED -> PICKING
     # 3. PICKING -> PACKING
     # 4. PACKING -> DISPATCHED
     # 5. DISPATCHED -> DELIVERED
-    # 6. ANY -> CANCELLED (Restore Inventory if previously deducted)
+    # 6. Pre-dispatch -> CANCELLED (Release reservations)
     
     # Allow flow
     valid_transitions = {
         SaleStatus.DRAFT: [SaleStatus.CONFIRMED, SaleStatus.CANCELLED],
         SaleStatus.QUOTE: [SaleStatus.CONFIRMED, SaleStatus.CANCELLED],
-        SaleStatus.CONFIRMED: [SaleStatus.PICKING, SaleStatus.PACKING, SaleStatus.DISPATCHED, SaleStatus.CANCELLED],
-        SaleStatus.PICKING: [SaleStatus.PACKING, SaleStatus.DISPATCHED, SaleStatus.CANCELLED],
+        SaleStatus.CONFIRMED: [SaleStatus.PICKING, SaleStatus.CANCELLED],
+        SaleStatus.PICKING: [SaleStatus.PACKING, SaleStatus.CANCELLED],
         SaleStatus.PACKING: [SaleStatus.DISPATCHED, SaleStatus.CANCELLED],
-        SaleStatus.DISPATCHED: [SaleStatus.DELIVERED, SaleStatus.CANCELLED],
+        SaleStatus.DISPATCHED: [SaleStatus.DELIVERED],
         SaleStatus.DELIVERED: [SaleStatus.COMPLETED],
         SaleStatus.COMPLETED: [],
         SaleStatus.CANCELLED: [], # Final state (unless we allow re-drafting later)
@@ -384,9 +362,74 @@ async def update_status(
     if new_status not in valid_transitions.get(old_status, []):
         raise HTTPException(status_code=400, detail=f"Transición no permitida: {old_status.value} a {new_status.value}")
 
+    physical_items = [
+        item for item in sale.items
+        if not item.product or item.product.product_type != "SERVICE"
+    ]
+    if new_status == SaleStatus.PACKING:
+        incomplete = [item for item in physical_items if item.quantity_picked < item.quantity]
+        if incomplete:
+            raise HTTPException(
+                status_code=400,
+                detail="Finaliza el picking de todas las unidades antes de pasar a empaque",
+            )
+
+    if new_status == SaleStatus.DISPATCHED:
+        packed_result = await db.execute(
+            select(
+                SalePackageItem.sale_item_id,
+                func.coalesce(func.sum(SalePackageItem.quantity), 0),
+            )
+            .join(SalePackage, SalePackage.id == SalePackageItem.package_id)
+            .where(SalePackage.sale_id == sale.id)
+            .group_by(SalePackageItem.sale_item_id)
+        )
+        packed_by_item = {sale_item_id: quantity for sale_item_id, quantity in packed_result.all()}
+        incomplete = [
+            item for item in physical_items
+            if float(packed_by_item.get(item.id, 0)) < item.quantity
+        ]
+        if incomplete:
+            raise HTTPException(
+                status_code=400,
+                detail="Empaca todas las unidades antes de despachar la orden",
+            )
+
     if new_status == SaleStatus.CONFIRMED and old_status in [SaleStatus.DRAFT, SaleStatus.QUOTE]:
-        # Validate every tracked item before applying a single deduction. This keeps
-        # confirmations atomic and prevents ecommerce orders from creating negative stock.
+        # Confirmation reserves stock; the physical exit is recorded only on dispatch.
+        # This keeps availability accurate without lowering on-hand stock prematurely.
+        required_by_product = {}
+        for item in sale.items:
+            if not item.product or not item.product.track_inventory:
+                continue
+            required_by_product[item.product_id] = required_by_product.get(item.product_id, 0.0) + item.quantity
+
+        for product_id, requested_quantity in required_by_product.items():
+            product = next(item.product for item in sale.items if item.product_id == product_id)
+            inv_result = await db.execute(select(Inventory).where(
+                Inventory.product_id == product_id,
+                Inventory.branch_id == sale.branch_id,
+            ).with_for_update())
+            inventory = inv_result.scalars().first()
+            available = (inventory.quantity - inventory.reserved_quantity) if inventory else 0
+            if available < requested_quantity:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Stock insuficiente para confirmar '{product.name}'. Disponible: {available:g}",
+                )
+
+        for item in sale.items:
+            if item.product and item.product.track_inventory:
+                inv_result = await db.execute(select(Inventory).where(
+                    Inventory.product_id == item.product_id,
+                    Inventory.branch_id == sale.branch_id
+                ))
+                inventory = inv_result.scalars().first()
+                # The first pass guarantees that an inventory row and free stock exist.
+                inventory.reserved_quantity += item.quantity
+
+    elif new_status == SaleStatus.DISPATCHED and old_status == SaleStatus.PACKING:
+        # Dispatch is the inventory event: consume the reservation and record kardex.
         for item in sale.items:
             if not item.product or not item.product.track_inventory:
                 continue
@@ -395,96 +438,53 @@ async def update_status(
                 Inventory.branch_id == sale.branch_id,
             ))
             inventory = inv_result.scalars().first()
-            available = inventory.quantity if inventory else 0
-            if available < item.quantity:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Stock insuficiente para confirmar '{item.product.name}'. Disponible: {available:g}",
-                )
-
-        # Deduct Inventory
+            if not inventory or inventory.reserved_quantity < item.quantity or inventory.quantity < item.quantity:
+                raise HTTPException(status_code=400, detail=f"La reserva de '{item.product.name}' no está disponible para despachar")
+            previous_stock = inventory.quantity
+            inventory.reserved_quantity -= item.quantity
+            inventory.quantity -= item.quantity
+            fifo_unit_cost = await consume_fifo_lots(
+                db,
+                product=item.product,
+                branch_id=sale.branch_id,
+                company_id=current_user.company_id,
+                quantity=item.quantity,
+            )
+            db.add(InventoryMovement(
+                product_id=item.product_id,
+                branch_id=sale.branch_id,
+                user_id=current_user.id,
+                type=MovementType.OUT,
+                quantity=-item.quantity,
+                previous_stock=previous_stock,
+                new_stock=inventory.quantity,
+                unit_cost=fifo_unit_cost if fifo_unit_cost is not None else inventory.average_cost,
+                reference_id=str(sale.id),
+                reason="Sale Order Dispatched",
+                company_id=current_user.company_id,
+            ))
+                
+    elif new_status == SaleStatus.CANCELLED and old_status in [SaleStatus.CONFIRMED, SaleStatus.PICKING, SaleStatus.PACKING]:
         for item in sale.items:
             if item.product and item.product.track_inventory:
-                # Find Inventory
                 inv_result = await db.execute(select(Inventory).where(
                     Inventory.product_id == item.product_id,
                     Inventory.branch_id == sale.branch_id
                 ))
                 inventory = inv_result.scalars().first()
                 
-                prev_stock = inventory.quantity if inventory else 0
-                if inventory:
-                    inventory.quantity -= item.quantity
-                else:
+                if not inventory:
                     inventory = Inventory(
                         product_id=item.product_id,
                         branch_id=sale.branch_id,
-                        quantity=-item.quantity
+                        quantity=0.0,
+                        company_id=current_user.company_id,
                     )
                     db.add(inventory)
-                
-                # Log Movement
-                movement = InventoryMovement(
-                    product_id=item.product_id,
-                    branch_id=sale.branch_id,
-                    user_id=current_user.id,
-                    type=MovementType.OUT,
-                    quantity=-item.quantity,
-                    previous_stock=prev_stock,
-                    new_stock=inventory.quantity,
-                    reference_id=str(sale.id),
-                    reason="Sale Order Confirmed"
-                )
-                db.add(movement)
-
-                # --- Low Stock Warning ---
-                if inventory.quantity <= item.product.min_stock:
-                    from app.models.notification import Notification
-                    from app.schemas.notification import NotificationType
-
-                    users_result = await db.execute(select(User).where(User.company_id == current_user.company_id))
-                    users_list = users_result.scalars().all()
-
-                    for user in users_list:
-                        notif = Notification(
-                            user_id=user.id,
-                            type=NotificationType.WARNING,
-                            title="⚠️ Stock Bajo",
-                            message=f"El producto '{item.product.name}' ha llegado a su stock mínimo ({inventory.quantity} restantes).",
-                            link=f"/inventory"
-                        )
-                        db.add(notif)
-                # -------------------------
-                
-    elif new_status == SaleStatus.CANCELLED and old_status in [SaleStatus.CONFIRMED, SaleStatus.PICKING, SaleStatus.PACKING, SaleStatus.DISPATCHED]:
-        # Restore Inventory if it was deducted (CONFIRMED or later)
-        # Note: If we move deduction to DISPATCHED, this needs change.
-        # Current Logic: Deduction at CONFIRMED.
-        for item in sale.items:
-            if item.product and item.product.track_inventory:
-                inv_result = await db.execute(select(Inventory).where(
-                    Inventory.product_id == item.product_id,
-                    Inventory.branch_id == sale.branch_id
-                ))
-                inventory = inv_result.scalars().first()
-                
-                prev_stock = inventory.quantity if inventory else 0
-                if inventory:
-                    inventory.quantity += item.quantity
-                
-                # Log Movement
-                movement = InventoryMovement(
-                    product_id=item.product_id,
-                    branch_id=sale.branch_id,
-                    user_id=current_user.id,
-                    type=MovementType.IN,
-                    quantity=item.quantity,
-                    previous_stock=prev_stock,
-                    new_stock=inventory.quantity,
-                    reference_id=str(sale.id),
-                    reason="Sale Order Cancelled"
-                )
-                db.add(movement)
+                if inventory.reserved_quantity < item.quantity:
+                    raise HTTPException(status_code=400, detail=f"La reserva de '{item.product.name}' no puede liberarse")
+                else:
+                    inventory.reserved_quantity -= item.quantity
     
     sale.status = new_status
     await db.commit()
@@ -628,6 +628,10 @@ async def confirm_delivery(
             selectinload(Sale.items).selectinload(SaleItem.product).options(
                 selectinload(Product.images),
                 selectinload(Product.variants),
+                selectinload(Product.brand),
+                selectinload(Product.unit_of_measure),
+                selectinload(Product.purchase_uom),
+                selectinload(Product.category),
             ),
             selectinload(Sale.payments),
             selectinload(Sale.user),
@@ -669,6 +673,10 @@ async def complete_sale(
             selectinload(Sale.items).selectinload(SaleItem.product).options(
                 selectinload(Product.images),
                 selectinload(Product.variants),
+                selectinload(Product.brand),
+                selectinload(Product.unit_of_measure),
+                selectinload(Product.purchase_uom),
+                selectinload(Product.category),
             ),
             selectinload(Sale.payments),
             selectinload(Sale.user),

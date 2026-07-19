@@ -210,8 +210,21 @@ async def approve_return(
     if not sale:
         raise HTTPException(status_code=404, detail="Related sale not found")
     
-    # Restore inventory for each returned item
+    product_result = await db.execute(
+        select(Product).where(
+            Product.id.in_({item.product_id for item in ret.items}),
+            Product.company_id == current_user.company_id,
+        )
+    )
+    products = {product.id: product for product in product_result.scalars().all()}
+
+    # Restore inventory only for products that are actually tracked.
     for item in ret.items:
+        product = products.get(item.product_id)
+        if not product:
+            raise HTTPException(status_code=400, detail="Un producto de la devolución no pertenece a la empresa")
+        if not product.track_inventory:
+            continue
         # Get current inventory
         inv_result = await db.execute(
             select(Inventory).where(
@@ -271,7 +284,9 @@ async def approve_return(
                     amount=float(ret.total_refund or 0.0),
                     balance_after=new_balance,
                     reference_id=str(ret.id),
-                    description=f"Devolucion aprobada de venta {str(sale.id)[:8]}"
+                    description=f"Devolucion aprobada de venta {str(sale.id)[:8]}",
+                    company_id=current_user.company_id,
+                    created_by_id=current_user.id,
                 )
             )
     

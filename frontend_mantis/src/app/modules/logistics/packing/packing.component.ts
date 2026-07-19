@@ -54,6 +54,8 @@ export class PackingComponent implements OnInit {
     constructor() {
         this.packageForm = this.fb.group({
             package_type_id: [null, Validators.required],
+            carrier: [''],
+            service_level: [''],
             tracking_number: [''],
             weight: [0],
             items: this.fb.array<PackageItemFormGroup>([])
@@ -137,6 +139,8 @@ export class PackingComponent implements OnInit {
         if (!this.saleId) return;
         const formVal = this.packageForm.value as {
             package_type_id: string | null;
+            carrier: string;
+            service_level: string;
             tracking_number: string;
             weight: number;
             items: PackageItemFormValue[];
@@ -157,6 +161,8 @@ export class PackingComponent implements OnInit {
         const payload: CreatePackageRequest = {
             sale_id: this.saleId,
             package_type_id: formVal.package_type_id || undefined,
+            carrier: formVal.carrier || undefined,
+            service_level: formVal.service_level || undefined,
             tracking_number: formVal.tracking_number || undefined,
             weight: Number(formVal.weight || 0),
             items: selectedItems
@@ -179,12 +185,18 @@ export class PackingComponent implements OnInit {
     finishPacking() {
         if (!this.saleId) return;
         const unpacked = this.getUnpackedItems();
-        const message =
-            unpacked.length > 0 ? 'Aun quedan productos sin empacar. Deseas despachar igual?' : 'Marcar como despachado?';
+        if (unpacked.length > 0) {
+            Swal.fire(
+                'Empaque incompleto',
+                'Empaca todas las unidades antes de despachar la orden.',
+                'warning'
+            );
+            return;
+        }
 
         Swal.fire({
             title: 'Finalizar Empaque',
-            text: message,
+            text: 'Marcar como despachado?',
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Si, despachar'
@@ -197,9 +209,9 @@ export class PackingComponent implements OnInit {
                         this.router.navigate(['/sales/view', this.saleId]);
                     });
                 },
-                error: () => {
-                    this.cdr.detectChanges();
-                    Swal.fire('Error', 'No se pudo actualizar estado', 'error');
+            error: (error) => {
+                this.cdr.detectChanges();
+                Swal.fire('Error', error?.error?.detail || 'No se pudo actualizar estado', 'error');
                 }
             });
         });

@@ -13,6 +13,8 @@ type CheckoutSettings = {
   enable_order_notes: boolean;
   require_phone: boolean;
   show_delivery_estimate: boolean;
+  flat_shipping_rate: number;
+  free_shipping_threshold: number;
 };
 
 @Component({
@@ -105,6 +107,8 @@ export class EcommerceCheckoutComponent implements OnInit {
       enable_order_notes: true,
       require_phone: false,
       show_delivery_estimate: true,
+      flat_shipping_rate: 0,
+      free_shipping_threshold: 0,
       ...(settings || {})
     } as CheckoutSettings;
   }

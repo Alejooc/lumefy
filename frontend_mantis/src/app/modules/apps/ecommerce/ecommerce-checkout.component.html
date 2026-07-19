@@ -63,6 +63,19 @@
           </div>
         </div>
 
+        <div class="row g-3 mt-1">
+          <div class="col-md-6">
+            <label class="form-label">Tarifa fija de envío</label>
+            <input type="number" min="0" class="form-control" [(ngModel)]="form.flat_shipping_rate">
+            <small class="text-muted">Se calcula en el servidor; usa 0 para envío gratis.</small>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Envío gratis desde</label>
+            <input type="number" min="0" class="form-control" [(ngModel)]="form.free_shipping_threshold">
+            <small class="text-muted">Usa 0 para no aplicar un umbral.</small>
+          </div>
+        </div>
+
         <div class="d-flex justify-content-end mt-3">
           <button class="btn btn-primary" (click)="save()" [disabled]="saving">Guardar checkout</button>
         </div>

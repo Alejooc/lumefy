@@ -62,7 +62,7 @@ async def update_supplier(
     supplier = result.scalars().first()
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
-        
+
     update_data = supplier_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(supplier, field, value)
@@ -152,6 +152,9 @@ async def register_supplier_payment(
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
 
+    if payment_in.amount > supplier.current_balance + 0.000001:
+        raise HTTPException(status_code=400, detail="El pago supera el saldo pendiente con el proveedor")
+
     # Lower the current balance (debt we owe)
     new_balance = supplier.current_balance - payment_in.amount
     supplier.current_balance = new_balance
@@ -165,6 +168,8 @@ async def register_supplier_payment(
         balance_after=new_balance,
         reference_id=payment_in.reference_id,
         description=payment_in.description,
+        company_id=current_user.company_id,
+        created_by_id=current_user.id,
     )
     db.add(ledger_entry)
     await db.commit()

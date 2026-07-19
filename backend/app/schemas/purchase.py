@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from uuid import UUID
 from typing import Optional, List
-from datetime import datetime
+from datetime import date, datetime
 from app.models.purchase import PurchaseStatus
 from app.schemas.supplier import Supplier
 from app.schemas.branch import Branch
@@ -20,6 +20,9 @@ class PurchaseOrderItemCreate(PurchaseOrderItemBase):
 class ReceiveItemInput(BaseModel):
     item_id: UUID
     qty_received: float
+    lot_number: Optional[str] = None
+    serial_numbers: Optional[List[str]] = None
+    expiry_date: Optional[date] = None
 
 class PurchaseOrderItem(PurchaseOrderItemBase):
     id: UUID

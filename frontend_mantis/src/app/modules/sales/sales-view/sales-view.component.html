@@ -60,6 +60,11 @@
                 <i class="ti ti-circle-check me-1"></i>Cerrar Venta
               </button>
             }
+            @if (sale.client_id && ['CONFIRMED', 'PICKING', 'PACKING', 'DISPATCHED', 'DELIVERED', 'COMPLETED'].includes(sale.status)) {
+              <button class="btn btn-outline-primary btn-sm me-2" (click)="createInvoice()">
+                <i class="ti ti-file-invoice me-1"></i>Crear factura
+              </button>
+            }
             <!-- Create Return directly from the Sale -->
             @if (sale.status === 'DELIVERED' || sale.status === 'COMPLETED') {
               <button

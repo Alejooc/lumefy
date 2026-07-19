@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
-    login, products, categories, inventory, pos, companies, reports, clients, users, roles, audit, suppliers, purchases, pricelists, sales, admin, branches, logistics, plans, brands, units_of_measure, upload, dashboard, admin_users, system, notifications, notification_admin, apps, search, stock_take, returns, storefront
+    login, products, categories, inventory, pos, companies, reports, clients, users, roles, audit, suppliers, purchases, pricelists, sales, admin, branches, logistics, plans, brands, units_of_measure, upload, dashboard, admin_users, system, notifications, notification_admin, apps, search, stock_take, returns, storefront, invoices, procurement, opportunities, manufacturing, accounting, inventory_locations, storefront_coupons
 )
 api_router = APIRouter()
 api_router.include_router(login.router, tags=["login"])
@@ -35,3 +35,10 @@ api_router.include_router(apps.router, prefix="/apps", tags=["apps"])
 api_router.include_router(storefront.router, prefix="/storefront", tags=["storefront"])
 api_router.include_router(stock_take.router, prefix="/stock-take", tags=["stock_take"])
 api_router.include_router(returns.router, prefix="/returns", tags=["returns"])
+api_router.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
+api_router.include_router(procurement.router, prefix="/procurement", tags=["procurement"])
+api_router.include_router(opportunities.router, prefix="/crm/opportunities", tags=["crm"])
+api_router.include_router(manufacturing.router, prefix="/manufacturing", tags=["manufacturing"])
+api_router.include_router(accounting.router, prefix="/accounting", tags=["accounting"])
+api_router.include_router(inventory_locations.router, prefix="/inventory/locations", tags=["inventory locations"])
+api_router.include_router(storefront_coupons.router, prefix="/storefront/coupons", tags=["storefront coupons"])

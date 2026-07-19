@@ -63,7 +63,7 @@ async def create_stock_take(
 ) -> Any:
     """
     Create a new stock take for a branch.
-    Automatically loads all current inventory for that branch.
+    Includes every tracked product, even if its current system stock is zero.
     """
     branch_result = await db.execute(
         select(Branch.id).where(
@@ -85,19 +85,29 @@ async def create_stock_take(
     db.add(stock_take)
     await db.flush()
 
-    # Load all inventory for this branch
+    # Load all tracked products and map their current stock at this branch.  A
+    # zero-stock product must be countable too: it is how an operator records
+    # stock that was found but never registered in the system.
     inv_query = select(Inventory).where(
         Inventory.branch_id == stock_take_in.branch_id,
-        Inventory.quantity > 0
     )
     inv_result = await db.execute(inv_query)
-    inventories = inv_result.scalars().all()
+    quantities_by_product = {
+        inventory.product_id: inventory.quantity
+        for inventory in inv_result.scalars().all()
+    }
+    product_result = await db.execute(
+        select(Product.id).where(
+            Product.company_id == current_user.company_id,
+            Product.track_inventory.is_(True),
+        )
+    )
 
-    for inv in inventories:
+    for product_id in product_result.scalars().all():
         item = StockTakeItem(
             stock_take_id=stock_take.id,
-            product_id=inv.product_id,
-            system_qty=inv.quantity,
+            product_id=product_id,
+            system_qty=quantities_by_product.get(product_id, 0.0),
             counted_qty=None,
             difference=0.0,
             company_id=current_user.company_id,
@@ -143,6 +153,8 @@ async def update_counts(
         raise HTTPException(status_code=400, detail="Stock take is not in progress")
 
     for item_update in count_in.items:
+        if item_update.counted_qty is not None and item_update.counted_qty < 0:
+            raise HTTPException(status_code=400, detail="La cantidad contada no puede ser negativa")
         item_result = await db.execute(
             select(StockTakeItem).where(
                 StockTakeItem.id == item_update.id,
@@ -186,9 +198,6 @@ async def apply_stock_take(
     for item in items:
         if item.counted_qty is None:
             continue  # Skip uncounted items
-        if item.difference == 0:
-            continue  # No adjustment needed
-
         # Get current inventory
         inv_result = await db.execute(
             select(Inventory).where(
@@ -200,6 +209,15 @@ async def apply_stock_take(
 
         previous_stock = inv.quantity if inv else 0.0
         new_stock = item.counted_qty
+        reserved_quantity = inv.reserved_quantity if inv else 0.0
+        if new_stock < reserved_quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El conteo de '{item.product.name}' queda por debajo de las unidades reservadas ({reserved_quantity:g})",
+            )
+        adjustment_qty = new_stock - previous_stock
+        if adjustment_qty == 0:
+            continue  # No adjustment needed
 
         # Update inventory
         if inv:
@@ -208,7 +226,8 @@ async def apply_stock_take(
             inv = Inventory(
                 product_id=item.product_id,
                 branch_id=stock_take.branch_id,
-                quantity=new_stock
+                quantity=new_stock,
+                company_id=current_user.company_id,
             )
             db.add(inv)
 
@@ -218,11 +237,12 @@ async def apply_stock_take(
             branch_id=stock_take.branch_id,
             user_id=current_user.id,
             type=MovementType.ADJ,
-            quantity=item.difference,
+            quantity=adjustment_qty,
             previous_stock=previous_stock,
             new_stock=new_stock,
             reason=f"Stock Take Adjustment (Take #{str(stock_take.id)[:8]})",
-            reference_id=str(stock_take.id)
+            reference_id=str(stock_take.id),
+            company_id=current_user.company_id,
         )
         db.add(movement)
 

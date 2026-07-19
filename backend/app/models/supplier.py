@@ -25,4 +25,4 @@ class Supplier(BaseModel):
     # Relationships
     company = relationship("Company")
     price_list = relationship("PriceList")
-    ledger_entries = relationship("AccountLedger", primaryjoin="and_(AccountLedger.partner_id==Supplier.id, AccountLedger.partner_type=='SUPPLIER')", foreign_keys="[AccountLedger.partner_id]", lazy="select", back_populates="supplier")
+    ledger_entries = relationship("AccountLedger", primaryjoin="and_(AccountLedger.partner_id==Supplier.id, AccountLedger.partner_type=='SUPPLIER')", foreign_keys="[AccountLedger.partner_id]", lazy="select", viewonly=True, back_populates="supplier")

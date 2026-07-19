@@ -1,9 +1,11 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from app.core.database import get_db
 from app.models.inventory import Inventory
+from app.models.inventory_lot import InventoryLot
+from app.models.inventory_location import InventoryLocation
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.branch import Branch
 from app.models.user import User
@@ -37,6 +39,18 @@ async def _validate_company_product_and_branch(
     )
     if not branch_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Sucursal no encontrada")
+
+async def _validate_location(db: AsyncSession, branch_id: str, location: str | None, company_id: str) -> None:
+    if not location:
+        return
+    found = await db.scalar(select(InventoryLocation.id).where(
+        InventoryLocation.branch_id == branch_id,
+        InventoryLocation.code == location,
+        InventoryLocation.company_id == company_id,
+        InventoryLocation.is_active.is_(True),
+    ))
+    if not found:
+        raise HTTPException(status_code=404, detail=f"Ubicación '{location}' no encontrada en la sucursal")
 
 @router.get("/", response_model=List[schemas.Inventory])
 async def read_inventory(
@@ -116,6 +130,126 @@ async def export_inventory(
         return ExportService.to_csv_response(rows, columns, filename="inventario")
     return ExportService.to_excel_response(rows, columns, filename="inventario")
 
+
+@router.get("/replenishment")
+async def get_replenishment_suggestions(
+    db: AsyncSession = Depends(get_db),
+    branch_id: str = None,
+    current_user: User = Depends(PermissionChecker("view_inventory")),
+) -> Any:
+    """List tracked products that have reached their configured minimum stock."""
+    query = (
+        select(Product, Branch, func.coalesce(Inventory.quantity, 0.0))
+        .select_from(Product)
+        .join(Branch, Branch.company_id == Product.company_id)
+        .outerjoin(
+            Inventory,
+            (Inventory.product_id == Product.id) & (Inventory.branch_id == Branch.id),
+        )
+        .where(
+            Product.company_id == current_user.company_id,
+            Product.track_inventory.is_(True),
+            Product.min_stock > 0,
+        )
+        .order_by(Product.name, Branch.name)
+    )
+    if branch_id:
+        query = query.where(Branch.id == branch_id)
+    result = await db.execute(query)
+    suggestions = []
+    for product, branch, quantity in result.all():
+        current_qty = float(quantity or 0)
+        if current_qty > product.min_stock:
+            continue
+        target_qty = float(product.min_stock) * 2
+        suggestions.append({
+            "product_id": str(product.id),
+            "product_name": product.name,
+            "sku": product.sku,
+            "branch_id": str(branch.id),
+            "branch_name": branch.name,
+            "current_quantity": current_qty,
+            "minimum_quantity": float(product.min_stock),
+            "suggested_quantity": max(float(product.min_stock) - current_qty, target_qty - current_qty),
+        })
+    return suggestions
+
+
+@router.get("/valuation")
+async def get_inventory_valuation(
+    db: AsyncSession = Depends(get_db),
+    branch_id: str = None,
+    current_user: User = Depends(PermissionChecker("view_inventory")),
+) -> Any:
+    """Return inventory value by branch using the current weighted-average cost."""
+    query = (
+        select(
+            Branch.id,
+            Branch.name,
+            func.coalesce(func.sum(Inventory.quantity * Inventory.average_cost), 0.0),
+            func.coalesce(func.sum(Inventory.quantity), 0.0),
+        )
+        .select_from(Branch)
+        .outerjoin(Inventory, Inventory.branch_id == Branch.id)
+        .where(Branch.company_id == current_user.company_id)
+        .group_by(Branch.id, Branch.name)
+        .order_by(Branch.name)
+    )
+    if branch_id:
+        query = query.where(Branch.id == branch_id)
+    result = await db.execute(query)
+    branches = [
+        {
+            "branch_id": str(id),
+            "branch_name": name,
+            "stock_quantity": float(quantity or 0),
+            "inventory_value": float(value or 0),
+        }
+        for id, name, value, quantity in result.all()
+    ]
+    return {
+        "branches": branches,
+        "total_value": sum(branch["inventory_value"] for branch in branches),
+    }
+
+
+@router.get("/lots")
+async def read_inventory_lots(
+    db: AsyncSession = Depends(get_db),
+    branch_id: str = None,
+    product_id: str = None,
+    current_user: User = Depends(PermissionChecker("view_inventory")),
+) -> Any:
+    """Traceable lot and serial balances, including expiry information."""
+    query = select(InventoryLot).options(
+        selectinload(InventoryLot.product),
+        selectinload(InventoryLot.branch),
+    ).join(Branch, InventoryLot.branch_id == Branch.id).where(
+        InventoryLot.company_id == current_user.company_id,
+        InventoryLot.quantity > 0,
+    ).order_by(InventoryLot.expiry_date.asc().nullslast(), InventoryLot.created_at.asc())
+    if branch_id:
+        query = query.where(InventoryLot.branch_id == branch_id)
+    if product_id:
+        query = query.where(InventoryLot.product_id == product_id)
+    result = await db.execute(query)
+    return [
+        {
+            "id": str(lot.id),
+            "product_id": str(lot.product_id),
+            "product_name": lot.product.name if lot.product else "",
+            "branch_id": str(lot.branch_id),
+            "branch_name": lot.branch.name if lot.branch else "",
+            "lot_number": lot.lot_number,
+            "serial_number": lot.serial_number,
+            "quantity": lot.quantity,
+            "expiry_date": lot.expiry_date.isoformat() if lot.expiry_date else None,
+            "unit_cost": lot.unit_cost,
+            "source_reference": lot.source_reference,
+        }
+        for lot in result.scalars().all()
+    ]
+
 @router.post("/movement", response_model=schemas.Movement)
 async def create_movement(
     *,
@@ -133,6 +267,20 @@ async def create_movement(
         branch_id=str(movement_in.branch_id),
         company_id=str(current_user.company_id),
     )
+    await _validate_location(db, str(movement_in.branch_id), movement_in.location, str(current_user.company_id))
+
+    if movement_in.quantity == 0:
+        raise HTTPException(status_code=400, detail="La cantidad del movimiento debe ser distinta de cero")
+    if movement_in.unit_cost is not None and movement_in.unit_cost < 0:
+        raise HTTPException(status_code=400, detail="El costo unitario no puede ser negativo")
+
+    product_result = await db.execute(
+        select(Product).where(
+            Product.id == movement_in.product_id,
+            Product.company_id == current_user.company_id,
+        )
+    )
+    product = product_result.scalars().first()
     
     # 1. Get current inventory record
     result = await db.execute(
@@ -146,15 +294,6 @@ async def create_movement(
     previous_stock = 0.0
     if inventory_item:
         previous_stock = inventory_item.quantity
-    else:
-        # Create new inventory record if not exists
-        inventory_item = Inventory(
-            product_id=movement_in.product_id,
-            branch_id=movement_in.branch_id,
-            quantity=0.0
-        )
-        db.add(inventory_item)
-        
     # 2. Calculate new stock
     change_qty = movement_in.quantity
     
@@ -178,13 +317,23 @@ async def create_movement(
             branch_id=str(movement_in.destination_branch_id),
             company_id=str(current_user.company_id),
         )
+        await _validate_location(db, str(movement_in.destination_branch_id), movement_in.destination_location, str(current_user.company_id))
              
+        available = (inventory_item.quantity - inventory_item.reserved_quantity) if inventory_item else 0
+        if available < abs(change_qty):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Stock insuficiente para transferir. Disponible: {available:g}",
+            )
+
         # 1. OUT from Source
         # (inventory_item already fetched above)
         previous_stock_src = inventory_item.quantity
         final_change_src = -abs(change_qty)
         new_stock_src = previous_stock_src + final_change_src
         inventory_item.quantity = new_stock_src
+        if movement_in.location:
+            inventory_item.location = movement_in.location
         
         movement_src = InventoryMovement(
             product_id=movement_in.product_id,
@@ -195,7 +344,9 @@ async def create_movement(
             previous_stock=previous_stock_src,
             new_stock=new_stock_src,
             reason=f"Transfer OUT to Branch {movement_in.destination_branch_id}",
-            reference_id=movement_in.reference_id
+            reference_id=movement_in.reference_id,
+            company_id=current_user.company_id,
+            unit_cost=inventory_item.average_cost,
         )
         db.add(movement_src)
         
@@ -216,13 +367,22 @@ async def create_movement(
             inv_dest = Inventory(
                 product_id=movement_in.product_id,
                 branch_id=movement_in.destination_branch_id,
-                quantity=0.0
+                quantity=0.0,
+                average_cost=0.0,
+                company_id=current_user.company_id,
             )
             db.add(inv_dest)
             
         final_change_dest = abs(change_qty)
         new_stock_dest = previous_stock_dest + final_change_dest
         inv_dest.quantity = new_stock_dest
+        if movement_in.destination_location:
+            inv_dest.location = movement_in.destination_location
+        transferred_cost = inventory_item.average_cost
+        if new_stock_dest > 0:
+            inv_dest.average_cost = (
+                (previous_stock_dest * inv_dest.average_cost) + (final_change_dest * transferred_cost)
+            ) / new_stock_dest
         
         movement_dest = InventoryMovement(
             product_id=movement_in.product_id,
@@ -233,7 +393,9 @@ async def create_movement(
             previous_stock=previous_stock_dest,
             new_stock=new_stock_dest,
             reason=f"Transfer IN from Branch {movement_in.branch_id}",
-            reference_id=movement_in.reference_id
+            reference_id=movement_in.reference_id,
+            company_id=current_user.company_id,
+            unit_cost=transferred_cost,
         )
         db.add(movement_dest)
         
@@ -258,9 +420,36 @@ async def create_movement(
             final_change = change_qty 
             
         new_stock = previous_stock + final_change
+
+        reserved_quantity = inventory_item.reserved_quantity if inventory_item else 0.0
+        if new_stock < reserved_quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El movimiento usaría stock reservado. Disponible: {previous_stock - reserved_quantity:g}",
+            )
+
+        if not inventory_item:
+            inventory_item = Inventory(
+                product_id=movement_in.product_id,
+                branch_id=movement_in.branch_id,
+                quantity=0.0,
+                average_cost=0.0,
+                company_id=current_user.company_id,
+            )
+            db.add(inventory_item)
         
+        movement_cost = inventory_item.average_cost
+        if final_change > 0:
+            movement_cost = movement_in.unit_cost if movement_in.unit_cost is not None else product.cost
+            if new_stock > 0:
+                inventory_item.average_cost = (
+                    (previous_stock * inventory_item.average_cost) + (final_change * movement_cost)
+                ) / new_stock
+
         # 3. Update Inventory
         inventory_item.quantity = new_stock
+        if movement_in.location:
+            inventory_item.location = movement_in.location
         
         # 4. Create Movement Record
         movement = InventoryMovement(
@@ -272,7 +461,9 @@ async def create_movement(
             previous_stock=previous_stock,
             new_stock=new_stock,
             reason=movement_in.reason,
-            reference_id=movement_in.reference_id
+            reference_id=movement_in.reference_id,
+            company_id=current_user.company_id,
+            unit_cost=movement_cost,
         )
         
         db.add(movement)

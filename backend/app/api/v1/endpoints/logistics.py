@@ -1,16 +1,18 @@
 from typing import Any, List
-from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.logistics import PackageType, SalePackage, SalePackageItem
+from app.models.inventory import Inventory
+from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.sale import Sale, SaleItem, SaleStatus
 from app.models.user import User
 from app.core.permissions import PermissionChecker
+from app.services.inventory_consumption import consume_fifo_lots
 from app.schemas import logistics as schemas
 import uuid
 
@@ -163,36 +165,63 @@ async def create_package(
         if not package_type_result.scalars().first():
             raise HTTPException(status_code=404, detail="Package type not found")
 
-    requested_items = {item.sale_item_id: item.quantity for item in package_in.items}
+    if not package_in.items:
+        raise HTTPException(status_code=400, detail="Agrega al menos un artículo al paquete")
+
+    requested_items = {}
+    for item in package_in.items:
+        if item.quantity <= 0:
+            raise HTTPException(status_code=400, detail="La cantidad empacada debe ser mayor a cero")
+        requested_items[item.sale_item_id] = requested_items.get(item.sale_item_id, 0) + item.quantity
+
     if any(quantity <= 0 for quantity in requested_items.values()):
         raise HTTPException(status_code=400, detail="La cantidad empacada debe ser mayor a cero")
 
-    if requested_items:
-        sale_items_result = await db.execute(select(SaleItem).where(SaleItem.sale_id == sale.id))
-        sale_items = {item.id: item for item in sale_items_result.scalars().all()}
-        for sale_item_id, quantity in requested_items.items():
-            sale_item = sale_items.get(sale_item_id)
-            if not sale_item:
-                raise HTTPException(status_code=400, detail="Un artículo no pertenece a este pedido")
-            if quantity > sale_item.quantity:
-                raise HTTPException(status_code=400, detail="La cantidad empacada no puede superar la solicitada")
+    sale_items_result = await db.execute(select(SaleItem).where(SaleItem.sale_id == sale.id))
+    sale_items = {item.id: item for item in sale_items_result.scalars().all()}
+    packed_result = await db.execute(
+        select(
+            SalePackageItem.sale_item_id,
+            func.coalesce(func.sum(SalePackageItem.quantity), 0),
+        )
+        .join(SalePackage, SalePackage.id == SalePackageItem.package_id)
+        .where(
+            SalePackage.sale_id == sale.id,
+            SalePackageItem.sale_item_id.in_(requested_items.keys()),
+        )
+        .group_by(SalePackageItem.sale_item_id)
+    )
+    already_packed = {sale_item_id: quantity for sale_item_id, quantity in packed_result.all()}
+
+    for sale_item_id, quantity in requested_items.items():
+        sale_item = sale_items.get(sale_item_id)
+        if not sale_item:
+            raise HTTPException(status_code=400, detail="Un artículo no pertenece a este pedido")
+        if quantity > sale_item.quantity_picked:
+            raise HTTPException(status_code=400, detail="No puedes empacar más unidades de las que fueron preparadas")
+        if float(already_packed.get(sale_item_id, 0)) + quantity > sale_item.quantity_picked:
+            raise HTTPException(status_code=400, detail="La cantidad ya empacada supera las unidades preparadas")
         
     package = SalePackage(
         sale_id=package_in.sale_id,
         package_type_id=package_in.package_type_id,
         tracking_number=package_in.tracking_number,
+        carrier=package_in.carrier,
+        service_level=package_in.service_level,
         weight=package_in.weight,
-        shipping_label_url=package_in.shipping_label_url
+        shipping_label_url=package_in.shipping_label_url,
+        company_id=current_user.company_id,
     )
     db.add(package)
     await db.flush()
     
     # Add items if any
-    for item_in in package_in.items:
+    for sale_item_id, quantity in requested_items.items():
         pkg_item = SalePackageItem(
             package_id=package.id,
-            sale_item_id=item_in.sale_item_id,
-            quantity=item_in.quantity
+            sale_item_id=sale_item_id,
+            quantity=quantity,
+            company_id=current_user.company_id,
         )
         db.add(pkg_item)
         
@@ -283,7 +312,9 @@ async def move_sale_stage(
         raise HTTPException(status_code=400, detail=f"Invalid status: {new_status}")
 
     result = await db.execute(
-        select(Sale).where(
+        select(Sale).options(
+            selectinload(Sale.items).selectinload(SaleItem.product),
+        ).where(
             Sale.id == sale_id,
             Sale.company_id == current_user.company_id
         )
@@ -304,6 +335,66 @@ async def move_sale_stage(
             status_code=400,
             detail=f"Transición no permitida: {sale.status.value} a {target_status.value}",
         )
+
+    physical_items = [
+        item for item in sale.items
+        if not item.product or item.product.product_type != "SERVICE"
+    ]
+    if target_status == SaleStatus.PACKING:
+        if any(item.quantity_picked < item.quantity for item in physical_items):
+            raise HTTPException(
+                status_code=400,
+                detail="Finaliza el picking de todas las unidades antes de pasar a empaque",
+            )
+    if target_status == SaleStatus.DISPATCHED:
+        packed_result = await db.execute(
+            select(
+                SalePackageItem.sale_item_id,
+                func.coalesce(func.sum(SalePackageItem.quantity), 0),
+            )
+            .join(SalePackage, SalePackage.id == SalePackageItem.package_id)
+            .where(SalePackage.sale_id == sale.id)
+            .group_by(SalePackageItem.sale_item_id)
+        )
+        packed_by_item = {sale_item_id: quantity for sale_item_id, quantity in packed_result.all()}
+        if any(float(packed_by_item.get(item.id, 0)) < item.quantity for item in physical_items):
+            raise HTTPException(
+                status_code=400,
+                detail="Empaca todas las unidades antes de despachar la orden",
+            )
+        for item in sale.items:
+            if not item.product or not item.product.track_inventory:
+                continue
+            inv_result = await db.execute(select(Inventory).where(
+                Inventory.product_id == item.product_id,
+                Inventory.branch_id == sale.branch_id,
+            ))
+            inventory = inv_result.scalars().first()
+            if not inventory or inventory.reserved_quantity < item.quantity or inventory.quantity < item.quantity:
+                raise HTTPException(status_code=400, detail=f"La reserva de '{item.product.name}' no está disponible para despachar")
+            previous_stock = inventory.quantity
+            inventory.reserved_quantity -= item.quantity
+            inventory.quantity -= item.quantity
+            fifo_unit_cost = await consume_fifo_lots(
+                db,
+                product=item.product,
+                branch_id=sale.branch_id,
+                company_id=current_user.company_id,
+                quantity=item.quantity,
+            )
+            db.add(InventoryMovement(
+                product_id=item.product_id,
+                branch_id=sale.branch_id,
+                user_id=current_user.id,
+                type=MovementType.OUT,
+                quantity=-item.quantity,
+                previous_stock=previous_stock,
+                new_stock=inventory.quantity,
+                unit_cost=fifo_unit_cost if fifo_unit_cost is not None else inventory.average_cost,
+                reference_id=str(sale.id),
+                reason="Sale Order Dispatched",
+                company_id=current_user.company_id,
+            ))
 
     sale.status = target_status
     await db.commit()

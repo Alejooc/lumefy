@@ -9,6 +9,7 @@ import { PriceListListComponent } from './pricelist-list/pricelist-list.componen
 import { PriceListFormComponent } from './pricelist-form/pricelist-form.component';
 
 import { SupplierViewComponent } from './supplier-view/supplier-view.component';
+import { PurchaseRequestsComponent } from './purchase-requests/purchase-requests.component';
 
 const routes: Routes = [
     {
@@ -29,6 +30,10 @@ const routes: Routes = [
             {
                 path: 'suppliers/view/:id',
                 component: SupplierViewComponent
+            },
+            {
+                path: 'requests',
+                component: PurchaseRequestsComponent
             },
             {
                 path: 'orders',

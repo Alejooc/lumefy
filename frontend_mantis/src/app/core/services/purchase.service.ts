@@ -10,7 +10,7 @@ export interface PurchaseOrderItem {
     received_qty?: number;
     unit_cost: number;
     subtotal?: number;
-    product?: { name: string; sku: string };
+    product?: { name: string; sku: string; tracking_type?: 'NONE' | 'LOT' | 'SERIAL' };
     variant?: { name: string; sku?: string };
 }
 
@@ -89,7 +89,7 @@ export class PurchaseService {
         return this.http.get(`${this.apiUrl}/${id}/pdf/order`, { responseType: 'blob' });
     }
 
-    receivePurchase(id: string, items: { item_id: string; qty_received: number }[]): Observable<PurchaseOrder> {
+    receivePurchase(id: string, items: { item_id: string; qty_received: number; lot_number?: string; serial_numbers?: string[]; expiry_date?: string }[]): Observable<PurchaseOrder> {
         return this.http.post<PurchaseOrder>(`${this.apiUrl}/${id}/receive`, { items });
     }
 }

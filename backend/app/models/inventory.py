@@ -13,6 +13,8 @@ class Inventory(BaseModel):
     branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id"), index=True)
     
     quantity: Mapped[float] = mapped_column(Float, default=0.0)
+    reserved_quantity: Mapped[float] = mapped_column(Float, default=0.0)
+    average_cost: Mapped[float] = mapped_column(Float, default=0.0)
     
     # Optional location tracking
     location: Mapped[str] = mapped_column(String, nullable=True)

@@ -37,6 +37,8 @@ class SalePackageBase(BaseModel):
     sale_id: UUID
     package_type_id: Optional[UUID] = None
     tracking_number: Optional[str] = None
+    carrier: Optional[str] = None
+    service_level: Optional[str] = None
     weight: float = 0.0
     shipping_label_url: Optional[str] = None
 

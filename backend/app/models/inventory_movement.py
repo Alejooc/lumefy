@@ -28,6 +28,7 @@ class InventoryMovement(BaseModel):
 
     previous_stock: Mapped[float] = mapped_column(Float, default=0.0)
     new_stock: Mapped[float] = mapped_column(Float, default=0.0)
+    unit_cost: Mapped[float] = mapped_column(Float, default=0.0)
     
     reference_id: Mapped[str] = mapped_column(String, nullable=True) # ID of Sale, Purchase, etc.
     reason: Mapped[str] = mapped_column(String, nullable=True) # "Expired", "Gift", "Correction"

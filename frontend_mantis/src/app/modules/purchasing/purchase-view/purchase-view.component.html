@@ -122,6 +122,13 @@
                           <input type="number" class="form-control form-control-sm text-center"
                             [(ngModel)]="receiveQuantities[item.id!]" [max]="getRemainingQty(item)" min="0"
                             step="1" [disabled]="getRemainingQty(item) <= 0">
+                          @if (item.product?.tracking_type === 'LOT') {
+                            <input type="text" class="form-control form-control-sm mt-1" [(ngModel)]="receiveDetails[item.id!].lot_number" placeholder="Número de lote">
+                            <input type="date" class="form-control form-control-sm mt-1" [(ngModel)]="receiveDetails[item.id!].expiry_date" title="Vencimiento">
+                          }
+                          @if (item.product?.tracking_type === 'SERIAL') {
+                            <textarea class="form-control form-control-sm mt-1" rows="2" [(ngModel)]="receiveDetails[item.id!].serial_numbers" placeholder="Un serial por línea o separado por coma"></textarea>
+                          }
                           </td>
                         }
                         <td class="text-end">{{ item.unit_cost | currency }}</td>
@@ -168,6 +175,11 @@
                       <button class="btn btn-outline-danger" (click)="updateStatus('CANCELLED')"
                       [disabled]="loading">Cancelar</button>
                     }
+                  }
+                  @if (purchase.status === 'RECEIVED') {
+                    <button class="btn btn-outline-primary" (click)="createSupplierInvoice()" [disabled]="loading">
+                      <i class="ti ti-file-invoice me-1"></i>Crear factura de proveedor
+                    </button>
                   }
                 </div>
               </div>

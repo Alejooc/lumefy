@@ -31,5 +31,5 @@ class Client(BaseModel):
     
     # Relationships
     price_list = relationship("PriceList")
-    ledger_entries = relationship("AccountLedger", primaryjoin="and_(AccountLedger.partner_id==Client.id, AccountLedger.partner_type=='CLIENT')", foreign_keys="[AccountLedger.partner_id]", lazy="select", back_populates="client")
+    ledger_entries = relationship("AccountLedger", primaryjoin="and_(AccountLedger.partner_id==Client.id, AccountLedger.partner_type=='CLIENT')", foreign_keys="[AccountLedger.partner_id]", lazy="select", viewonly=True, back_populates="client")
     activities = relationship("ClientActivity", back_populates="client", cascade="all, delete-orphan")

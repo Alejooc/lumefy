@@ -1,8 +1,9 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PurchaseService, PurchaseOrder } from '../../../core/services/purchase.service';
+import { InvoiceService } from '../../../core/services/invoice.service';
 import Swal from 'sweetalert2';
 
 @Component({
@@ -19,9 +20,12 @@ export class PurchaseViewComponent implements OnInit {
     loading = false;
     receiveMode = false;
     receiveQuantities: { [itemId: string]: number } = {};
+    receiveDetails: { [itemId: string]: { lot_number: string; expiry_date: string; serial_numbers: string } } = {};
 
     private route = inject(ActivatedRoute);
+    private router = inject(Router);
     private purchaseService = inject(PurchaseService);
+    private invoiceService = inject(InvoiceService);
 
     ngOnInit() {
         this.route.paramMap.subscribe(params => {
@@ -51,9 +55,11 @@ export class PurchaseViewComponent implements OnInit {
         this.receiveMode = !this.receiveMode;
         if (this.receiveMode && this.purchase?.items) {
             this.receiveQuantities = {};
+            this.receiveDetails = {};
             for (const item of this.purchase.items) {
                 const remaining = item.quantity - (item.received_qty || 0);
                 this.receiveQuantities[item.id!] = remaining > 0 ? remaining : 0;
+                this.receiveDetails[item.id!] = { lot_number: '', expiry_date: '', serial_numbers: '' };
             }
         }
     }
@@ -63,7 +69,18 @@ export class PurchaseViewComponent implements OnInit {
 
         const items = Object.entries(this.receiveQuantities)
             .filter((entry) => entry[1] > 0)
-            .map(([item_id, qty_received]) => ({ item_id, qty_received }));
+            .map(([item_id, qty_received]) => {
+                const details = this.receiveDetails[item_id];
+                return {
+                    item_id,
+                    qty_received,
+                    lot_number: details?.lot_number || undefined,
+                    expiry_date: details?.expiry_date || undefined,
+                    serial_numbers: details?.serial_numbers
+                        ? details.serial_numbers.split(/[\n,]+/).map(serial => serial.trim()).filter(Boolean)
+                        : undefined
+                };
+            });
 
         if (items.length === 0) {
             Swal.fire('Aviso', 'No hay cantidades para recibir', 'warning');
@@ -107,13 +124,8 @@ export class PurchaseViewComponent implements OnInit {
         return ((item.received_qty || 0) / item.quantity) * 100;
     }
 
-    updateStatus(status: 'VALIDATION' | 'CONFIRMED' | 'RECEIVED' | 'CANCELLED') {
+    updateStatus(status: 'VALIDATION' | 'CONFIRMED' | 'CANCELLED') {
         if (!this.purchase) return;
-
-        if (status === 'RECEIVED' && !this.purchase.branch_id) {
-            Swal.fire('Error', 'No se puede recibir una orden sin una Sucursal de destino.', 'error');
-            return;
-        }
 
         let confirmText = '';
         let buttonText = '';
@@ -121,7 +133,6 @@ export class PurchaseViewComponent implements OnInit {
         switch (status) {
             case 'VALIDATION': confirmText = '¿Enviar a validación?'; buttonText = 'Sí, enviar'; break;
             case 'CONFIRMED': confirmText = '¿Aprobar y Confirmar Orden?'; buttonText = 'Sí, confirmar'; break;
-            case 'RECEIVED': confirmText = '¿Confirmar recepción de mercancía? Esto aumentará el stock.'; buttonText = 'Sí, recibir'; break;
             case 'CANCELLED': confirmText = '¿Cancelar esta orden?'; buttonText = 'Sí, cancelar'; break;
         }
 
@@ -148,6 +159,24 @@ export class PurchaseViewComponent implements OnInit {
                         Swal.fire('Error', 'No se pudo actualizar el estado: ' + (err.error?.detail || err.message), 'error');
                     }
                 });
+            }
+        });
+    }
+
+    createSupplierInvoice() {
+        if (!this.purchase) return;
+        this.loading = true;
+        this.invoiceService.createFromSource({ type: 'PURCHASE', purchase_id: this.purchase.id }).subscribe({
+            next: (invoice) => {
+                this.loading = false;
+                this.cdr.detectChanges();
+                Swal.fire('Factura de proveedor creada', `${invoice.number} quedó en borrador.`, 'success')
+                    .then(() => this.router.navigate(['/invoices']));
+            },
+            error: (error) => {
+                this.loading = false;
+                this.cdr.detectChanges();
+                Swal.fire('No se pudo crear la factura', error?.error?.detail || 'Intenta de nuevo.', 'error');
             }
         });
     }

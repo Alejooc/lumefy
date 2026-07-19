@@ -16,10 +16,14 @@ router = APIRouter()
 @router.get("/me", response_model=schemas.Company)
 async def read_current_company(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(PermissionChecker("manage_company")),
+    current_user: User = Depends(auth.get_current_user),
 ) -> Any:
     """
-    Get current user's company details.
+    Get the company context for the current tenant user.
+
+    Every company user needs this read-only data during login to initialize the
+    panel and its role-based navigation. Editing the company remains protected
+    by ``manage_company`` in the endpoint below.
     """
     if not current_user.company_id:
         raise HTTPException(status_code=404, detail="User does not belong to any company")

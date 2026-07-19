@@ -1,5 +1,5 @@
 import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
-import { InventoryService, InventoryItem } from '../inventory.service';
+import { InventoryService, InventoryItem, InventoryValuation, ReplenishmentSuggestion } from '../inventory.service';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { ApiService } from '../../../core/services/api.service';
 import { ExportService } from '../../../core/services/export.service';
@@ -19,6 +19,8 @@ export class InventoryListComponent implements OnInit {
     private exportService = inject(ExportService);
 
     inventoryItems: InventoryItem[] = [];
+    replenishmentSuggestions: ReplenishmentSuggestion[] = [];
+    valuation: InventoryValuation | null = null;
     branches: Branch[] = [];
     selectedBranchId: string = '';
     isLoading = false;
@@ -56,6 +58,28 @@ export class InventoryListComponent implements OnInit {
                 this.isLoading = false;
                 this.cdr.detectChanges();
             }
+        });
+        this.loadReplenishmentSuggestions();
+        this.loadValuation();
+    }
+
+    loadValuation() {
+        this.inventoryService.getValuation(this.selectedBranchId || undefined).subscribe({
+            next: (data) => {
+                this.valuation = data;
+                this.cdr.detectChanges();
+            },
+            error: (error: unknown) => console.error('Error loading inventory valuation', error)
+        });
+    }
+
+    loadReplenishmentSuggestions() {
+        this.inventoryService.getReplenishmentSuggestions(this.selectedBranchId || undefined).subscribe({
+            next: (data) => {
+                this.replenishmentSuggestions = data;
+                this.cdr.detectChanges();
+            },
+            error: (error: unknown) => console.error('Error loading replenishment suggestions', error)
         });
     }
 

@@ -279,7 +279,9 @@ export class EcommerceSettingsComponent implements OnInit {
         checkout_mode: 'guest',
         enable_order_notes: true,
         require_phone: false,
-        show_delivery_estimate: true
+        show_delivery_estimate: true,
+        flat_shipping_rate: 0,
+        free_shipping_threshold: 0
       },
       seo_settings: {
         meta_title: '',

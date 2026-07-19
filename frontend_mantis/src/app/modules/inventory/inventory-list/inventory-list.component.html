@@ -25,12 +25,30 @@
       </ng-template>
 
       <div class="table-responsive">
+        @if (valuation) {
+          <div class="alert alert-info d-flex justify-content-between align-items-center mb-3">
+            <span><i class="ti ti-currency-dollar me-1"></i>Valor del inventario {{ selectedBranchId ? 'en la sucursal' : 'total' }}</span>
+            <strong>{{ valuation.total_value | currency }}</strong>
+          </div>
+        }
+        @if (replenishmentSuggestions.length) {
+          <div class="alert alert-warning d-flex align-items-start gap-2 mb-3">
+            <i class="ti ti-alert-triangle fs-4"></i>
+            <div><strong>Reabastecimiento recomendado</strong><br>
+              @for (suggestion of replenishmentSuggestions; track suggestion.product_id + suggestion.branch_id) {
+                <span class="d-block small">{{ suggestion.product_name }} · {{ suggestion.branch_name }}: disponible {{ suggestion.current_quantity }}, mínimo {{ suggestion.minimum_quantity }}, sugerido {{ suggestion.suggested_quantity }}.</span>
+              }
+            </div>
+          </div>
+        }
         <table class="table table-hover">
           <thead>
             <tr>
               <th>Producto</th>
               <th>Sucursal</th>
               <th>Stock Actual</th>
+              <th>Costo Promedio</th>
+              <th>Valor</th>
               <th>Ubicación</th>
               <th>Lote</th>
               <th>Caducidad</th>
@@ -47,7 +65,12 @@
                     [ngClass]="{'bg-success': item.quantity > 10, 'bg-warning text-dark': item.quantity > 0 && item.quantity <= 10, 'bg-danger': item.quantity <= 0}">
                     {{ item.quantity }}
                   </span>
+                  @if (item.reserved_quantity > 0) {
+                    <small class="d-block text-muted mt-1">Reservado: {{ item.reserved_quantity }} · Disponible: {{ item.quantity - item.reserved_quantity }}</small>
+                  }
                 </td>
+                <td>{{ item.average_cost | currency }}</td>
+                <td>{{ (item.quantity * item.average_cost) | currency }}</td>
                 <td>{{ item.location || '-' }}</td>
                 <td>{{ item.batch_number || '-' }}</td>
                 <td>{{ item.expiry_date || '-' }}</td>
@@ -62,7 +85,7 @@
             }
             @if (inventoryItems.length === 0 && !isLoading) {
               <tr>
-                <td colspan="7" class="text-center text-muted py-4">
+                <td colspan="9" class="text-center text-muted py-4">
                   No hay registros de inventario.
                   <br>
                     <small>Crea un movimiento de entrada para comenzar.</small>

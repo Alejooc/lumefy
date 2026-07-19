@@ -15,6 +15,8 @@ export interface InventoryItem {
     product_id: string;
     branch_id: string;
     quantity: number;
+    reserved_quantity: number;
+    average_cost: number;
     location?: string;
     batch_number?: string;
     expiry_date?: string;
@@ -28,6 +30,7 @@ export interface InventoryMovement {
     branch_id: string;
     type: 'IN' | 'OUT' | 'ADJ' | 'TRF';
     quantity: number;
+    unit_cost?: number;
     reason?: string;
     reference_id?: string;
     created_at?: string;
@@ -56,6 +59,36 @@ export interface StockTake {
     items: StockTakeItem[];
 }
 
+export interface ReplenishmentSuggestion {
+    product_id: string;
+    product_name: string;
+    sku?: string;
+    branch_id: string;
+    branch_name: string;
+    current_quantity: number;
+    minimum_quantity: number;
+    suggested_quantity: number;
+}
+
+export interface InventoryValuation {
+    branches: Array<{ branch_id: string; branch_name: string; stock_quantity: number; inventory_value: number }>;
+    total_value: number;
+}
+
+export interface InventoryLot {
+    id: string;
+    product_id: string;
+    product_name: string;
+    branch_id: string;
+    branch_name: string;
+    lot_number?: string;
+    serial_number?: string;
+    quantity: number;
+    expiry_date?: string;
+    unit_cost: number;
+    source_reference?: string;
+}
+
 @Injectable({
     providedIn: 'root'
 })
@@ -75,6 +108,24 @@ export class InventoryService {
         if (branchId) params = params.set('branch_id', branchId);
         if (productId) params = params.set('product_id', productId);
         return this.api.get<InventoryMovement[]>('/inventory/movements', params);
+    }
+
+    getReplenishmentSuggestions(branchId?: string): Observable<ReplenishmentSuggestion[]> {
+        let params = new HttpParams();
+        if (branchId) params = params.set('branch_id', branchId);
+        return this.api.get<ReplenishmentSuggestion[]>('/inventory/replenishment', params);
+    }
+
+    getValuation(branchId?: string): Observable<InventoryValuation> {
+        let params = new HttpParams();
+        if (branchId) params = params.set('branch_id', branchId);
+        return this.api.get<InventoryValuation>('/inventory/valuation', params);
+    }
+
+    getLots(branchId?: string): Observable<InventoryLot[]> {
+        let params = new HttpParams();
+        if (branchId) params = params.set('branch_id', branchId);
+        return this.api.get<InventoryLot[]>('/inventory/lots', params);
     }
 
     createMovement(movement: InventoryMovement): Observable<InventoryMovement> {

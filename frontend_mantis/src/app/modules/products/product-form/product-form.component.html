@@ -276,6 +276,14 @@
                   <label class="form-label">Stock Minimo</label>
                   <input type="number" class="form-control" formControlName="min_stock" min="0">
                 </div>
+                <div class="col-md-3">
+                  <label class="form-label">Trazabilidad</label>
+                  <select class="form-select" formControlName="tracking_type">
+                    <option value="NONE">Sin seguimiento</option>
+                    <option value="LOT">Por lote</option>
+                    <option value="SERIAL">Por serial</option>
+                  </select>
+                </div>
               </div>
             </div>
           }

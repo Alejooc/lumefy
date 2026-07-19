@@ -15,6 +15,8 @@ class InventoryBase(BaseModel):
     product_id: UUID
     branch_id: UUID
     quantity: float
+    reserved_quantity: float = 0.0
+    average_cost: float = 0.0
     location: Optional[str] = None
     batch_number: Optional[str] = None
     expiry_date: Optional[date] = None
@@ -41,7 +43,10 @@ class MovementBase(BaseModel):
     quantity: float
     reason: Optional[str] = None
     reference_id: Optional[str] = None
+    unit_cost: Optional[float] = None
     destination_branch_id: Optional[UUID] = None # Added for Transfers
+    location: Optional[str] = None
+    destination_location: Optional[str] = None
 
 class MovementCreate(MovementBase):
     pass # user_id will be injected by backend
@@ -53,6 +58,7 @@ class Movement(MovementBase):
     user_id: Optional[UUID] = None
     previous_stock: float
     new_stock: float
+    unit_cost: float = 0.0
     created_at: datetime
     
     # Nested objects for display

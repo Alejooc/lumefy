@@ -26,6 +26,7 @@ class ProductBase(BaseModel):
 
     # Inventory
     track_inventory: bool = True
+    tracking_type: str = "NONE"
     min_stock: float = 0.0
     sale_ok: bool = True
     purchase_ok: bool = True
@@ -66,6 +67,7 @@ class ProductUpdate(BaseModel):
     weight: Optional[float] = None
     volume: Optional[float] = None
     track_inventory: Optional[bool] = None
+    tracking_type: Optional[str] = None
     min_stock: Optional[float] = None
     sale_ok: Optional[bool] = None
     purchase_ok: Optional[bool] = None
