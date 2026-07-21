@@ -3,11 +3,11 @@ import Image from "next/image";
 import { HomeNewsletter } from "@/types/home";
 
 const defaultContent: HomeNewsletter = {
-  enabled: true,
-  title: "Don't Miss Out Latest Trends & Offers",
-  description: "Register to receive news about the latest offers & discount codes",
-  placeholder: "Enter your email",
-  buttonLabel: "Subscribe",
+  enabled: false,
+  title: "Recibe novedades y ofertas",
+  description: "Regístrate para recibir lanzamientos, descuentos y contenido de la tienda.",
+  placeholder: "Tu correo electrónico",
+  buttonLabel: "Registrarme",
   backgroundImageUrl: "/images/shapes/newsletter-bg.jpg",
 };
 
@@ -47,14 +47,14 @@ const Newsletter = ({ content = defaultContent }: { content?: HomeNewsletter }) 
                     type="email"
                     name="email"
                     id="email"
-                    placeholder={content.placeholder || "Enter your email"}
+                    placeholder={content.placeholder || "Tu correo electrónico"}
                     className="w-full bg-gray-1 border border-gray-3 outline-none rounded-md placeholder:text-dark-4 py-3 px-5"
                   />
                   <button
                     type="submit"
                     className="inline-flex justify-center py-3 px-7 text-white bg-blue font-medium rounded-md ease-out duration-200 hover:bg-blue-dark"
                   >
-                    {content.buttonLabel || "Subscribe"}
+                    {content.buttonLabel || "Registrarme"}
                   </button>
                 </div>
               </form>

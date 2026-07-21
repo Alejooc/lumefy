@@ -136,10 +136,14 @@ export type PublicCatalogProductType = {
 export type PublicCatalogResponse = {
   items: PublicProduct[];
   categories: PublicCatalogCategory[];
+  collections: PublicCatalogCategory[];
+  brands: PublicCatalogFacet[];
   product_types: PublicCatalogProductType[];
   sizes: PublicCatalogFacet[];
   colors: PublicCatalogFacet[];
   total_products: number;
+  min_price: number;
+  max_price: number;
   current_page: number;
   page_size: number;
   total_pages: number;

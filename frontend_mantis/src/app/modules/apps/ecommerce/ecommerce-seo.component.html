@@ -13,46 +13,73 @@
     <div class="card-body">
       @if (!storefront) {
         <div class="empty-state border rounded p-4 text-center text-muted">
-          <p class="mb-1">Selecciona una tienda</p>
-          <small>Necesitas elegir una tienda para configurar SEO.</small>
+          <p class="mb-1">No hay una tienda disponible</p>
+          <small>Crea y activa la tienda de la empresa antes de configurar SEO.</small>
         </div>
       }
 
       @if (storefront) {
-        <div class="settings-block__header">
+        <div class="seo-overview">
           <div>
-            <h5 class="mb-1">Metadatos del storefront</h5>
-            <small class="text-muted">Define los datos base que usara la tienda en buscadores y redes.</small>
+            <span class="settings-hero__eyebrow">Visibilidad de la tienda</span>
+            <h5 class="mb-1">{{ form.meta_title || storefront.name }}</h5>
+            <p class="text-muted mb-0">{{ form.meta_description || 'Aún no has definido la descripción que verán buscadores y redes.' }}</p>
           </div>
-          <span class="settings-pill">{{ storefront.name }}</span>
+          <div class="seo-overview__meta">
+            <span class="settings-pill">{{ form.index_storefront ? 'Indexable' : 'No indexable' }}</span>
+            <button class="btn btn-primary" type="button" (click)="openEditor()">Editar SEO</button>
+          </div>
         </div>
 
-        <div class="row g-3 seo-fields">
-          <div class="col-12">
-            <label class="form-label">Meta titulo</label>
-            <input class="form-control" [(ngModel)]="form.meta_title" placeholder="Titulo SEO principal de la tienda" />
-            <small class="form-hint">Si lo dejas vacio, luego puedes usar el nombre base de la tienda como fallback.</small>
-          </div>
-          <div class="col-12">
-            <label class="form-label">Meta descripcion</label>
-            <textarea
-              class="form-control"
-              rows="4"
-              [(ngModel)]="form.meta_description"
-              placeholder="Descripcion corta para buscadores y vistas previas"
-            ></textarea>
-          </div>
-          <div class="col-12">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" [(ngModel)]="form.index_storefront" />
-              <label class="form-check-label">Permitir indexacion en buscadores</label>
+        <div class="seo-preview mt-4">
+          <small class="text-muted d-block mb-2">Vista previa aproximada en buscadores</small>
+          <strong>{{ form.meta_title || storefront.name }}</strong>
+          <span>{{ storefront.subdomain ? storefront.subdomain + '.lumefy.shop' : storefront.name }}</span>
+          <p class="mb-0">{{ form.meta_description || 'Agrega una descripción clara de tu tienda para mejorar cómo aparece en resultados de búsqueda.' }}</p>
+        </div>
+
+        @if (editing) {
+          <div class="modal-backdrop-soft" (click)="closeEditor()"></div>
+          <div class="collection-modal" role="dialog" aria-modal="true" aria-label="Editar SEO">
+            <div class="card collection-modal__card seo-editor" (click)="$event.stopPropagation()">
+              <div class="seo-editor__header">
+                <div>
+                  <span class="settings-hero__eyebrow">Editor SEO</span>
+                  <h5 class="mb-1">Metadatos de {{ storefront.name }}</h5>
+                  <small class="text-muted">Los cambios se aplican al storefront al guardar.</small>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" type="button" (click)="closeEditor()" [disabled]="saving">Cerrar</button>
+              </div>
+              <div class="seo-editor__body">
+                <div class="row g-3 seo-fields">
+                  <div class="col-12">
+                    <label class="form-label">Título SEO</label>
+                    <input class="form-control" [(ngModel)]="form.meta_title" placeholder="Ej. Lumefy | Productos para tu hogar" maxlength="70" />
+                    <small class="form-hint">{{ form.meta_title.length }}/70 · Ideal: entre 50 y 60 caracteres.</small>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Descripción SEO</label>
+                    <textarea class="form-control" rows="5" [(ngModel)]="form.meta_description" placeholder="Describe qué vendes y por qué elegir tu tienda." maxlength="170"></textarea>
+                    <small class="form-hint">{{ form.meta_description.length }}/170 · Ideal: entre 140 y 160 caracteres.</small>
+                  </div>
+                  <div class="col-12">
+                    <div class="settings-switch-grid">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" [(ngModel)]="form.index_storefront" />
+                        <label class="form-check-label">Permitir indexación en buscadores</label>
+                        <small class="form-hint d-block mt-1">Déjalo apagado mientras la tienda esté en pruebas privadas.</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="seo-editor__footer">
+                <button class="btn btn-outline-secondary" type="button" (click)="closeEditor()" [disabled]="saving">Cancelar</button>
+                <button class="btn btn-primary" type="button" (click)="save()" [disabled]="saving">{{ saving ? 'Guardando...' : 'Guardar SEO' }}</button>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div class="d-flex justify-content-end mt-3">
-          <button class="btn btn-primary" (click)="save()" [disabled]="saving">Guardar SEO</button>
-        </div>
+        }
       }
     </div>
   </div>

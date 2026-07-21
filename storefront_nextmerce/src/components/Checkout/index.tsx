@@ -36,6 +36,7 @@ type CheckoutFormState = {
   state: string;
   postal_code: string;
   phone: string;
+  document_id: string;
   email: string;
   notes: string;
   payment_provider: string;
@@ -52,6 +53,7 @@ const initialForm: CheckoutFormState = {
   state: "",
   postal_code: "",
   phone: "",
+  document_id: "",
   email: "",
   notes: "",
   payment_provider: "manual_transfer",
@@ -151,7 +153,8 @@ const Checkout = ({ storefrontId, currency }: Props) => {
     Boolean(form.email.trim()) &&
     Boolean(form.address_line1.trim()) &&
     Boolean(form.city.trim()) &&
-    Boolean(form.state.trim());
+    Boolean(form.state.trim()) &&
+    (form.payment_provider !== "addi" || (Boolean(form.phone.trim()) && Boolean(form.document_id.trim())));
 
   useEffect(() => {
     let active = true;
@@ -217,7 +220,7 @@ const Checkout = ({ storefrontId, currency }: Props) => {
           full_name: `${form.first_name} ${form.last_name}`.replace(/\s+/g, " ").trim(),
           email: form.email,
           phone: form.phone || null,
-          document_id: null,
+          document_id: form.document_id || null,
         },
         address: {
           line1: form.address_line2
@@ -376,6 +379,26 @@ const Checkout = ({ storefrontId, currency }: Props) => {
                         className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
                       />
                     </div>
+
+                    {form.payment_provider === "addi" ? (
+                      <div className="mb-5">
+                        <label htmlFor="documentId" className="block mb-2.5">
+                          Cédula de ciudadanía <span className="text-red">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          id="documentId"
+                          value={form.document_id}
+                          onChange={(event) =>
+                            setForm({ ...form, document_id: event.target.value.replace(/\D/g, "") })
+                          }
+                          placeholder="Número de cédula"
+                          className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                        />
+                        <p className="mt-2 text-xs text-dark-5">Addi usa este dato únicamente para solicitar el crédito.</p>
+                      </div>
+                    ) : null}
 
                     <div className="mb-5">
                       <label htmlFor="countryName" className="block mb-2.5">

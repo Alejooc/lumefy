@@ -28,7 +28,7 @@ export interface InventoryMovement {
     id?: string;
     product_id: string;
     branch_id: string;
-    type: 'IN' | 'OUT' | 'ADJ' | 'TRF';
+    type: 'IN' | 'OUT' | 'ADJ' | 'TRF' | 'RESERVE' | 'RELEASE';
     quantity: number;
     unit_cost?: number;
     reason?: string;

@@ -8,6 +8,7 @@ from app.models.inventory_lot import InventoryLot
 from app.models.inventory_location import InventoryLocation
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.branch import Branch
+from app.models.warehouse import Warehouse
 from app.models.user import User
 from app.core import auth
 from app.core.permissions import PermissionChecker
@@ -40,22 +41,40 @@ async def _validate_company_product_and_branch(
     if not branch_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Sucursal no encontrada")
 
-async def _validate_location(db: AsyncSession, branch_id: str, location: str | None, company_id: str) -> None:
+async def _validate_location(db: AsyncSession, branch_id: str, warehouse_id: str, location: str | None, company_id: str) -> None:
     if not location:
         return
     found = await db.scalar(select(InventoryLocation.id).where(
         InventoryLocation.branch_id == branch_id,
+        InventoryLocation.warehouse_id == warehouse_id,
         InventoryLocation.code == location,
         InventoryLocation.company_id == company_id,
         InventoryLocation.is_active.is_(True),
     ))
     if not found:
-        raise HTTPException(status_code=404, detail=f"Ubicación '{location}' no encontrada en la sucursal")
+        raise HTTPException(status_code=404, detail=f"Ubicación '{location}' no encontrada en la bodega")
+
+
+async def _resolve_warehouse(db: AsyncSession, branch_id: str, warehouse_id: str | None, company_id: str) -> Warehouse:
+    query = select(Warehouse).where(
+        Warehouse.branch_id == branch_id,
+        Warehouse.company_id == company_id,
+        Warehouse.is_active.is_(True),
+    )
+    if warehouse_id:
+        query = query.where(Warehouse.id == warehouse_id)
+    else:
+        query = query.where(Warehouse.is_default.is_(True))
+    warehouse = await db.scalar(query)
+    if not warehouse:
+        raise HTTPException(status_code=404, detail="Bodega no encontrada para la sucursal")
+    return warehouse
 
 @router.get("/", response_model=List[schemas.Inventory])
 async def read_inventory(
     db: AsyncSession = Depends(get_db),
     branch_id: str = None,
+    warehouse_id: str = None,
     product_id: str = None,
     current_user: User = Depends(PermissionChecker("view_inventory")),
 ) -> Any:
@@ -78,6 +97,8 @@ async def read_inventory(
     
     if branch_id:
         query = query.where(Inventory.branch_id == branch_id)
+    if warehouse_id:
+        query = query.where(Inventory.warehouse_id == warehouse_id)
     if product_id:
         query = query.where(Inventory.product_id == product_id)
     
@@ -267,7 +288,13 @@ async def create_movement(
         branch_id=str(movement_in.branch_id),
         company_id=str(current_user.company_id),
     )
-    await _validate_location(db, str(movement_in.branch_id), movement_in.location, str(current_user.company_id))
+    source_warehouse = await _resolve_warehouse(
+        db,
+        str(movement_in.branch_id),
+        str(movement_in.warehouse_id) if movement_in.warehouse_id else None,
+        str(current_user.company_id),
+    )
+    await _validate_location(db, str(movement_in.branch_id), str(source_warehouse.id), movement_in.location, str(current_user.company_id))
 
     if movement_in.quantity == 0:
         raise HTTPException(status_code=400, detail="La cantidad del movimiento debe ser distinta de cero")
@@ -286,7 +313,8 @@ async def create_movement(
     result = await db.execute(
         select(Inventory).where(
             Inventory.product_id == movement_in.product_id,
-            Inventory.branch_id == movement_in.branch_id
+            Inventory.branch_id == movement_in.branch_id,
+            Inventory.warehouse_id == source_warehouse.id,
         )
     )
     inventory_item = result.scalars().first()
@@ -308,16 +336,21 @@ async def create_movement(
         # Transfer Logic
         if not movement_in.destination_branch_id:
              raise HTTPException(status_code=400, detail="Destination branch required for transfer")
-        if movement_in.destination_branch_id == movement_in.branch_id:
-             raise HTTPException(status_code=400, detail="Source and Destination branch cannot be the same")
-
         await _validate_company_product_and_branch(
             db,
             product_id=str(movement_in.product_id),
             branch_id=str(movement_in.destination_branch_id),
             company_id=str(current_user.company_id),
         )
-        await _validate_location(db, str(movement_in.destination_branch_id), movement_in.destination_location, str(current_user.company_id))
+        destination_warehouse = await _resolve_warehouse(
+            db,
+            str(movement_in.destination_branch_id),
+            str(movement_in.destination_warehouse_id) if movement_in.destination_warehouse_id else None,
+            str(current_user.company_id),
+        )
+        if destination_warehouse.id == source_warehouse.id:
+            raise HTTPException(status_code=400, detail="La bodega origen y destino no pueden ser la misma")
+        await _validate_location(db, str(movement_in.destination_branch_id), str(destination_warehouse.id), movement_in.destination_location, str(current_user.company_id))
              
         available = (inventory_item.quantity - inventory_item.reserved_quantity) if inventory_item else 0
         if available < abs(change_qty):
@@ -338,6 +371,7 @@ async def create_movement(
         movement_src = InventoryMovement(
             product_id=movement_in.product_id,
             branch_id=movement_in.branch_id,
+            warehouse_id=source_warehouse.id,
             user_id=current_user.id,
             type=MovementType.TRF,
             quantity=final_change_src, 
@@ -355,7 +389,8 @@ async def create_movement(
         result_dest = await db.execute(
             select(Inventory).where(
                 Inventory.product_id == movement_in.product_id,
-                Inventory.branch_id == movement_in.destination_branch_id
+                Inventory.branch_id == movement_in.destination_branch_id,
+                Inventory.warehouse_id == destination_warehouse.id,
             )
         )
         inv_dest = result_dest.scalars().first()
@@ -367,6 +402,7 @@ async def create_movement(
             inv_dest = Inventory(
                 product_id=movement_in.product_id,
                 branch_id=movement_in.destination_branch_id,
+                warehouse_id=destination_warehouse.id,
                 quantity=0.0,
                 average_cost=0.0,
                 company_id=current_user.company_id,
@@ -387,6 +423,7 @@ async def create_movement(
         movement_dest = InventoryMovement(
             product_id=movement_in.product_id,
             branch_id=movement_in.destination_branch_id,
+            warehouse_id=destination_warehouse.id,
             user_id=current_user.id,
             type=MovementType.TRF,
             quantity=final_change_dest,
@@ -432,6 +469,7 @@ async def create_movement(
             inventory_item = Inventory(
                 product_id=movement_in.product_id,
                 branch_id=movement_in.branch_id,
+                warehouse_id=source_warehouse.id,
                 quantity=0.0,
                 average_cost=0.0,
                 company_id=current_user.company_id,
@@ -455,6 +493,7 @@ async def create_movement(
         movement = InventoryMovement(
             product_id=movement_in.product_id,
             branch_id=movement_in.branch_id,
+            warehouse_id=source_warehouse.id,
             user_id=current_user.id,
             type=movement_in.type,
             quantity=final_change, # Store the actual signed change

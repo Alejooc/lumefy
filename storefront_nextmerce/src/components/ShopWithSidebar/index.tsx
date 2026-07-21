@@ -16,15 +16,21 @@ import { ShopFilterCategory, ShopFilterFacet, ShopFilterType } from "@/lib/shop-
 const ShopWithSidebar = ({
   items,
   categories,
+  collections,
+  brands,
   productTypes,
   sizes,
   colors,
   selectedCollectionName,
   searchTerm,
+  priceRangeMin,
+  priceRangeMax,
   minPrice,
   maxPrice,
   activeSort,
   activeCollections,
+  activeCategories,
+  activeBrands,
   activeTypes,
   activeSizes,
   activeColors,
@@ -36,15 +42,21 @@ const ShopWithSidebar = ({
 }: {
   items: Product[];
   categories: ShopFilterCategory[];
+  collections: ShopFilterCategory[];
+  brands: ShopFilterFacet[];
   productTypes: ShopFilterType[];
   sizes: ShopFilterFacet[];
   colors: ShopFilterFacet[];
   selectedCollectionName?: string;
   searchTerm?: string;
+  priceRangeMin: number;
+  priceRangeMax: number;
   minPrice: number;
   maxPrice: number;
   activeSort: string;
   activeCollections: string[];
+  activeCategories: string[];
+  activeBrands: string[];
   activeTypes: string[];
   activeSizes: string[];
   activeColors: string[];
@@ -144,7 +156,7 @@ const ShopWithSidebar = ({
 
   const clearAllFilters = () => {
     const params = new URLSearchParams(searchParams.toString());
-    ["collection", "type", "size", "color", "minPrice", "maxPrice", "page"].forEach((key) =>
+    ["collection", "category", "brand", "type", "size", "color", "minPrice", "maxPrice", "page"].forEach((key) =>
       params.delete(key),
     );
     router.push(`${pathname}?${params.toString()}`);
@@ -165,13 +177,25 @@ const ShopWithSidebar = ({
       ),
     ),
   );
-  const collectionLabelMap = new Map(categories.map((item) => [item.slug, item.name]));
+  const categoryLabelMap = new Map(categories.map((item) => [item.slug, item.name]));
+  const collectionLabelMap = new Map(collections.map((item) => [item.slug, item.name]));
+  const brandLabelMap = new Map(brands.map((item) => [item.value.toLowerCase(), item.value]));
   const typeLabelMap = new Map(productTypes.map((item) => [item.value, item.name]));
   const activeFilterChips = [
+    ...activeCategories.map((value) => ({
+      key: `category:${value}`,
+      label: categoryLabelMap.get(value) || value,
+      onRemove: () => removeFilterValue("category", value),
+    })),
     ...activeCollections.map((value) => ({
       key: `collection:${value}`,
       label: collectionLabelMap.get(value) || value,
       onRemove: () => removeFilterValue("collection", value),
+    })),
+    ...activeBrands.map((value) => ({
+      key: `brand:${value}`,
+      label: brandLabelMap.get(value.toLowerCase()) || value,
+      onRemove: () => removeFilterValue("brand", value),
     })),
     ...activeTypes.map((value) => ({
       key: `type:${value}`,
@@ -263,8 +287,31 @@ const ShopWithSidebar = ({
                   {/* <!-- category box --> */}
                   <CategoryDropdown
                     categories={categories}
-                    onSelect={(slug) => toggleMultiFilter("collection", slug)}
+                    onSelect={(slug) => toggleMultiFilter("category", slug)}
                   />
+
+                  {!!collections.length && (
+                    <CategoryDropdown
+                      title="Colecciones"
+                      allLabel="Todas las colecciones"
+                      categories={collections}
+                      onSelect={(slug) => toggleMultiFilter("collection", slug)}
+                    />
+                  )}
+
+                  {!!brands.length && (
+                    <CategoryDropdown
+                      title="Marca"
+                      allLabel="Todas las marcas"
+                      categories={brands.map((brand) => ({
+                        name: brand.value,
+                        slug: brand.value,
+                        products: brand.products,
+                        isRefined: brand.isRefined,
+                      }))}
+                      onSelect={(value) => toggleMultiFilter("brand", value)}
+                    />
+                  )}
 
                   <GenderDropdown
                     types={productTypes}
@@ -289,8 +336,8 @@ const ShopWithSidebar = ({
 
                   {/* // <!-- price range box --> */}
                   <PriceDropdown
-                    min={0}
-                    max={Math.max(maxPrice, 1)}
+                    min={priceRangeMin}
+                    max={Math.max(priceRangeMax, priceRangeMin + 1)}
                     selectedMin={minPrice}
                     selectedMax={maxPrice}
                     onApply={(nextMin, nextMax) =>

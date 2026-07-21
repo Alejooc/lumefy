@@ -35,6 +35,7 @@ export class EcommerceHomeComponent implements OnInit {
 
   loading = false;
   saving = false;
+  editing = false;
   storefronts: Storefront[] = [];
   selectedStorefrontId = '';
   storefront: Storefront | null = null;
@@ -82,7 +83,7 @@ export class EcommerceHomeComponent implements OnInit {
         image_position: 'center',
         content_alignment: 'left',
         text_color: '#1C274C',
-        button_label: 'Shop Now',
+        button_label: 'Ver productos',
         button_color: '#1C274C'
       }
     ];
@@ -98,7 +99,7 @@ export class EcommerceHomeComponent implements OnInit {
       {
         id: `hero-promo-${Date.now()}`,
         title: '',
-        offer_label: 'limited time offer',
+        offer_label: 'Oferta por tiempo limitado',
         href: '/products',
         price_label: '',
         compare_price_label: '',
@@ -167,6 +168,17 @@ export class EcommerceHomeComponent implements OnInit {
     this.form.testimonials.items = (this.form.testimonials.items || []).filter((_, currentIndex) => currentIndex !== index);
   }
 
+  openEditor(): void {
+    this.editing = true;
+  }
+
+  closeEditor(): void {
+    if (!this.saving) {
+      this.applySelectedStorefront();
+      this.editing = false;
+    }
+  }
+
   save(): void {
     if (!this.storefront) {
       return;
@@ -184,6 +196,7 @@ export class EcommerceHomeComponent implements OnInit {
       .subscribe({
         next: () => {
           this.saving = false;
+          this.editing = false;
           this.swal.success('Home guardado');
           this.loadStorefronts();
         },
@@ -204,18 +217,18 @@ export class EcommerceHomeComponent implements OnInit {
     return {
       hero_slides: [],
       hero_promos: [],
-      category_section: this.createSectionCopy('Categories', 'Browse by Category'),
+      category_section: this.createSectionCopy('Explora', 'Compra por categoría'),
       category_cards: [],
-      new_arrivals_section: this.createSectionCopy("This Week's", 'New Arrivals', 'View All', '/products'),
-      best_sellers_section: this.createSectionCopy('This Month', 'Best Sellers', 'View All', '/products'),
+      new_arrivals_section: this.createSectionCopy('Recién llegados', 'Novedades', 'Ver todos', '/products'),
+      best_sellers_section: this.createSectionCopy('Lo más elegido', 'Productos destacados', 'Ver todos', '/products'),
       features: this.createDefaultFeatures(),
       promo_banners: [],
       countdown: {
-        enabled: true,
-        eyebrow: "Don't Miss!!",
-        title: 'Enhance Your Music Experience',
-        description: 'The Havit H206d is a wired PC headphone.',
-        cta_label: 'Check it Out!',
+        enabled: false,
+        eyebrow: 'Oferta especial',
+        title: 'No te pierdas esta oportunidad',
+        description: 'Descubre productos seleccionados para ti.',
+        cta_label: 'Ver oferta',
         cta_href: '/products',
         deadline: '2026-12-31T23:59:59',
         background_color: '#D0E9F3',
@@ -223,11 +236,11 @@ export class EcommerceHomeComponent implements OnInit {
         product_image_url: ''
       },
       newsletter: {
-        enabled: true,
-        title: "Don't Miss Out Latest Trends & Offers",
-        description: 'Register to receive news about the latest offers & discount codes',
-        placeholder: 'Enter your email',
-        button_label: 'Subscribe',
+        enabled: false,
+        title: 'Recibe novedades y ofertas',
+        description: 'Regístrate para recibir lanzamientos, descuentos y contenido de la tienda.',
+        placeholder: 'Tu correo electrónico',
+        button_label: 'Registrarme',
         background_image_url: ''
       },
       testimonials: this.createTestimonials()
@@ -262,14 +275,14 @@ export class EcommerceHomeComponent implements OnInit {
             .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
             .map((item, index) => this.normalizeHeroPromo(item, index))
         : [],
-      category_section: this.normalizeSectionCopy(home['category_section'], 'Categories', 'Browse by Category'),
+      category_section: this.normalizeSectionCopy(home['category_section'], 'Explora', 'Compra por categoría'),
       category_cards: Array.isArray(home['category_cards'])
         ? home['category_cards']
             .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
             .map((item, index) => this.normalizeCategoryCard(item, index))
         : [],
-      new_arrivals_section: this.normalizeSectionCopy(home['new_arrivals_section'], "This Week's", 'New Arrivals', 'View All', '/products'),
-      best_sellers_section: this.normalizeSectionCopy(home['best_sellers_section'], 'This Month', 'Best Sellers', 'View All', '/products'),
+      new_arrivals_section: this.normalizeSectionCopy(home['new_arrivals_section'], 'Recién llegados', 'Novedades', 'Ver todos', '/products'),
+      best_sellers_section: this.normalizeSectionCopy(home['best_sellers_section'], 'Lo más elegido', 'Productos destacados', 'Ver todos', '/products'),
       features: Array.isArray(home['features'])
         ? home['features']
             .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
@@ -297,7 +310,7 @@ export class EcommerceHomeComponent implements OnInit {
       image_position: String(input['image_position'] || 'center'),
       content_alignment: String(input['content_alignment'] || 'left'),
       text_color: String(input['text_color'] || '#1C274C'),
-      button_label: String(input['button_label'] || 'Shop Now'),
+      button_label: String(input['button_label'] || 'Ver productos'),
       button_color: String(input['button_color'] || '#1C274C')
     };
   }
@@ -306,7 +319,7 @@ export class EcommerceHomeComponent implements OnInit {
     return {
       id: String(input['id'] || `hero-promo-${index + 1}`),
       title: String(input['title'] || ''),
-      offer_label: String(input['offer_label'] || 'limited time offer'),
+      offer_label: String(input['offer_label'] || 'Oferta por tiempo limitado'),
       href: String(input['href'] || '/products'),
       price_label: String(input['price_label'] || ''),
       compare_price_label: String(input['compare_price_label'] || ''),
@@ -371,10 +384,10 @@ export class EcommerceHomeComponent implements OnInit {
     const value = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
     return {
       enabled: value['enabled'] !== false,
-      eyebrow: String(value['eyebrow'] || "Don't Miss!!"),
-      title: String(value['title'] || 'Enhance Your Music Experience'),
-      description: String(value['description'] || 'The Havit H206d is a wired PC headphone.'),
-      cta_label: String(value['cta_label'] || 'Check it Out!'),
+      eyebrow: String(value['eyebrow'] || 'Oferta especial'),
+      title: String(value['title'] || 'No te pierdas esta oportunidad'),
+      description: String(value['description'] || 'Descubre productos seleccionados para ti.'),
+      cta_label: String(value['cta_label'] || 'Ver oferta'),
       cta_href: String(value['cta_href'] || '/products'),
       deadline: String(value['deadline'] || '2026-12-31T23:59:59'),
       background_color: String(value['background_color'] || '#D0E9F3'),
@@ -387,10 +400,10 @@ export class EcommerceHomeComponent implements OnInit {
     const value = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
     return {
       enabled: value['enabled'] !== false,
-      title: String(value['title'] || "Don't Miss Out Latest Trends & Offers"),
-      description: String(value['description'] || 'Register to receive news about the latest offers & discount codes'),
-      placeholder: String(value['placeholder'] || 'Enter your email'),
-      button_label: String(value['button_label'] || 'Subscribe'),
+      title: String(value['title'] || 'Recibe novedades y ofertas'),
+      description: String(value['description'] || 'Regístrate para recibir lanzamientos, descuentos y contenido de la tienda.'),
+      placeholder: String(value['placeholder'] || 'Tu correo electrónico'),
+      button_label: String(value['button_label'] || 'Registrarme'),
       background_image_url: String(value['background_image_url'] || '')
     };
   }
@@ -411,8 +424,8 @@ export class EcommerceHomeComponent implements OnInit {
 
     return {
       enabled: value['enabled'] !== false,
-      eyebrow: String(value['eyebrow'] || 'Testimonials'),
-      title: String(value['title'] || 'User Feedbacks'),
+      eyebrow: String(value['eyebrow'] || 'Testimonios'),
+      title: String(value['title'] || 'Lo que dicen nuestros clientes'),
       items
     };
   }
@@ -444,26 +457,26 @@ export class EcommerceHomeComponent implements OnInit {
     return [
       {
         id: 'feature-1',
-        title: 'Free Shipping',
-        description: 'For all orders $200',
+        title: 'Envíos confiables',
+        description: 'Consulta condiciones de entrega',
         image: '/images/icons/icon-01.svg'
       },
       {
         id: 'feature-2',
-        title: '1 & 1 Returns',
-        description: 'Cancellation after 1 day',
+        title: 'Cambios y devoluciones',
+        description: 'Compra con tranquilidad',
         image: '/images/icons/icon-02.svg'
       },
       {
         id: 'feature-3',
-        title: '100% Secure Payments',
-        description: 'Gurantee secure payments',
+        title: 'Pagos seguros',
+        description: 'Tus datos siempre protegidos',
         image: '/images/icons/icon-03.svg'
       },
       {
         id: 'feature-4',
-        title: '24/7 Dedicated Support',
-        description: 'Anywhere & anytime',
+        title: 'Atención al cliente',
+        description: 'Estamos para ayudarte',
         image: '/images/icons/icon-04.svg'
       }
     ];
@@ -471,9 +484,9 @@ export class EcommerceHomeComponent implements OnInit {
 
   private createTestimonials(): StorefrontHomeTestimonialsSettings {
     return {
-      enabled: true,
-      eyebrow: 'Testimonials',
-      title: 'User Feedbacks',
+      enabled: false,
+      eyebrow: 'Testimonios',
+      title: 'Lo que dicen nuestros clientes',
       items: this.createDefaultTestimonials()
     };
   }

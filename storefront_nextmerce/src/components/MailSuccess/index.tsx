@@ -19,6 +19,27 @@ const MailSuccess = ({
   paymentStatus?: string;
   paymentMessage?: string;
 }) => {
+  const normalizedPaymentStatus = (paymentStatus || "pending").toLowerCase();
+  const isApproved = ["approved", "approved_partial", "paid"].includes(normalizedPaymentStatus);
+  const isFailed = [
+    "declined",
+    "rejected",
+    "cancelled",
+    "expired",
+    "error",
+    "voided",
+  ].includes(normalizedPaymentStatus);
+  const heading = isApproved
+    ? "Pago aprobado"
+    : isFailed
+      ? "Pago no completado"
+      : "Pedido recibido";
+  const eyebrow = isApproved ? "Listo" : isFailed ? "Revisa el pago" : "En confirmación";
+  const description = isApproved
+    ? "Tu pago fue aprobado. Prepararemos el pedido y te avisaremos cuando avance."
+    : isFailed
+      ? "No pudimos confirmar el pago. Puedes volver al carrito y elegir otro método de pago."
+      : "Registramos tu pedido. Estamos esperando la confirmación del método de pago seleccionado.";
   return (
     <>
       <Breadcrumb title={"Pedido confirmado"} pages={["Pedido confirmado"]} />
@@ -27,15 +48,15 @@ const MailSuccess = ({
           <div className="bg-white rounded-xl shadow-1 px-4 py-10 sm:py-15 lg:py-20 xl:py-25">
             <div className="text-center">
               <h2 className="font-bold text-blue text-4xl lg:text-[45px] lg:leading-[57px] mb-5">
-                Exito
+                {eyebrow}
               </h2>
 
               <h3 className="font-medium text-dark text-xl sm:text-2xl mb-3">
-                Tu pedido fue creado con exito
+                {heading}
               </h3>
 
               <p className="max-w-[491px] w-full mx-auto mb-7.5">
-                Gracias por tu compra. Registramos tu pedido y el siguiente paso depende del metodo de pago seleccionado.
+                {description}
               </p>
 
               {orderCode || paymentMessage ? (
@@ -74,7 +95,7 @@ const MailSuccess = ({
               ) : null}
 
               <Link
-                href="/"
+                href={isFailed ? "/cart" : "/"}
                 className="inline-flex items-center gap-2 font-medium text-white bg-blue py-3 px-6 rounded-md ease-out duration-200 hover:bg-blue-dark"
               >
                 <svg
@@ -90,7 +111,7 @@ const MailSuccess = ({
                     fill=""
                   />
                 </svg>
-                Volver al inicio
+                {isFailed ? "Volver al carrito" : "Volver al inicio"}
               </Link>
             </div>
           </div>

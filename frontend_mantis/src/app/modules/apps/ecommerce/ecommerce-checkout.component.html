@@ -71,6 +71,26 @@
           </div>
         </div>
 
+        <div class="row g-3 mt-1">
+          <div class="col-md-4">
+            <label class="form-label">Impuesto (%)</label>
+            <input type="number" min="0" max="100" step="0.01" class="form-control" [(ngModel)]="form.tax_rate">
+            <small class="text-muted">Se calcula en el servidor sobre el subtotal con descuento.</small>
+          </div>
+          <div class="col-md-8">
+            <div class="settings-switch-grid checkout-switches">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" [(ngModel)]="form.tax_included" />
+                <label class="form-check-label">El precio ya incluye impuesto</label>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" [(ngModel)]="form.tax_shipping" />
+                <label class="form-check-label">Aplicar impuesto al envío</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="d-flex justify-content-end mt-3">
           <button class="btn btn-primary" (click)="save()" [disabled]="saving">Guardar checkout</button>
         </div>

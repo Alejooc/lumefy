@@ -593,7 +593,7 @@ const Header = () => {
                       {accountHeading}
                     </span>
                     <p className="font-medium text-custom-sm text-dark">
-                      {session ? (session.user.full_name || "My Account") : guestAccountLabel}
+                      {session ? (session.user.full_name || "Mi cuenta") : guestAccountLabel}
                     </p>
                   </div>
                 </Link>

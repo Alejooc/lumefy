@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.models.sale import Sale, SaleItem, SaleStatus, Payment
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
+from app.services.outbox import enqueue_outbox_event
 from app.models.product import Product
 from app.models.branch import Branch
 from app.models.client import Client
@@ -409,6 +410,7 @@ async def update_status(
             inv_result = await db.execute(select(Inventory).where(
                 Inventory.product_id == product_id,
                 Inventory.branch_id == sale.branch_id,
+                Inventory.warehouse_id == sale.warehouse_id,
             ).with_for_update())
             inventory = inv_result.scalars().first()
             available = (inventory.quantity - inventory.reserved_quantity) if inventory else 0
@@ -422,11 +424,26 @@ async def update_status(
             if item.product and item.product.track_inventory:
                 inv_result = await db.execute(select(Inventory).where(
                     Inventory.product_id == item.product_id,
-                    Inventory.branch_id == sale.branch_id
+                    Inventory.branch_id == sale.branch_id,
+                    Inventory.warehouse_id == sale.warehouse_id,
                 ))
                 inventory = inv_result.scalars().first()
                 # The first pass guarantees that an inventory row and free stock exist.
                 inventory.reserved_quantity += item.quantity
+                db.add(InventoryMovement(
+                    product_id=item.product_id,
+                    branch_id=sale.branch_id,
+                    warehouse_id=sale.warehouse_id,
+                    user_id=current_user.id,
+                    type=MovementType.RESERVE,
+                    quantity=0.0,
+                    previous_stock=inventory.quantity,
+                    new_stock=inventory.quantity,
+                    unit_cost=inventory.average_cost,
+                    reference_id=str(sale.id),
+                    reason=f"Reserva de orden de venta ({item.quantity:g} unidades)",
+                    company_id=current_user.company_id,
+                ))
 
     elif new_status == SaleStatus.DISPATCHED and old_status == SaleStatus.PACKING:
         # Dispatch is the inventory event: consume the reservation and record kardex.
@@ -436,6 +453,7 @@ async def update_status(
             inv_result = await db.execute(select(Inventory).where(
                 Inventory.product_id == item.product_id,
                 Inventory.branch_id == sale.branch_id,
+                Inventory.warehouse_id == sale.warehouse_id,
             ))
             inventory = inv_result.scalars().first()
             if not inventory or inventory.reserved_quantity < item.quantity or inventory.quantity < item.quantity:
@@ -453,6 +471,7 @@ async def update_status(
             db.add(InventoryMovement(
                 product_id=item.product_id,
                 branch_id=sale.branch_id,
+                warehouse_id=sale.warehouse_id,
                 user_id=current_user.id,
                 type=MovementType.OUT,
                 quantity=-item.quantity,
@@ -469,7 +488,8 @@ async def update_status(
             if item.product and item.product.track_inventory:
                 inv_result = await db.execute(select(Inventory).where(
                     Inventory.product_id == item.product_id,
-                    Inventory.branch_id == sale.branch_id
+                    Inventory.branch_id == sale.branch_id,
+                    Inventory.warehouse_id == sale.warehouse_id,
                 ))
                 inventory = inv_result.scalars().first()
                 
@@ -477,6 +497,7 @@ async def update_status(
                     inventory = Inventory(
                         product_id=item.product_id,
                         branch_id=sale.branch_id,
+                        warehouse_id=sale.warehouse_id,
                         quantity=0.0,
                         company_id=current_user.company_id,
                     )
@@ -485,8 +506,40 @@ async def update_status(
                     raise HTTPException(status_code=400, detail=f"La reserva de '{item.product.name}' no puede liberarse")
                 else:
                     inventory.reserved_quantity -= item.quantity
+                    db.add(InventoryMovement(
+                        product_id=item.product_id,
+                        branch_id=sale.branch_id,
+                        warehouse_id=sale.warehouse_id,
+                        user_id=current_user.id,
+                        type=MovementType.RELEASE,
+                        quantity=0.0,
+                        previous_stock=inventory.quantity,
+                        new_stock=inventory.quantity,
+                        unit_cost=inventory.average_cost,
+                        reference_id=str(sale.id),
+                        reason=f"Reserva liberada por cancelación ({item.quantity:g} unidades)",
+                        company_id=current_user.company_id,
+                    ))
     
     sale.status = new_status
+    if new_status == SaleStatus.CONFIRMED:
+        enqueue_outbox_event(
+            db, event_type="inventory.reserved", aggregate_type="sale", aggregate_id=sale.id,
+            company_id=current_user.company_id,
+            payload={"sale_id": str(sale.id), "warehouse_id": str(sale.warehouse_id) if sale.warehouse_id else None, "source": "sales"},
+        )
+    elif new_status == SaleStatus.CANCELLED:
+        enqueue_outbox_event(
+            db, event_type="inventory.released", aggregate_type="sale", aggregate_id=sale.id,
+            company_id=current_user.company_id,
+            payload={"sale_id": str(sale.id), "warehouse_id": str(sale.warehouse_id) if sale.warehouse_id else None, "source": "sales"},
+        )
+    elif new_status == SaleStatus.DISPATCHED:
+        enqueue_outbox_event(
+            db, event_type="inventory.dispatched", aggregate_type="sale", aggregate_id=sale.id,
+            company_id=current_user.company_id,
+            payload={"sale_id": str(sale.id), "warehouse_id": str(sale.warehouse_id) if sale.warehouse_id else None, "source": "sales"},
+        )
     await db.commit()
     
     # Reload with eager relationships for response

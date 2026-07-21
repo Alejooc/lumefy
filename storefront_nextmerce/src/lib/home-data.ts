@@ -104,52 +104,33 @@ function defaultHomeFeatures() {
   return [
     {
       id: "feature-1",
-      title: "Free Shipping",
-      description: "For all orders $200",
+      title: "Envíos confiables",
+      description: "Consulta las condiciones de entrega",
       image: "/images/icons/icon-01.svg",
     },
     {
       id: "feature-2",
-      title: "1 & 1 Returns",
-      description: "Cancellation after 1 day",
+      title: "Cambios y devoluciones",
+      description: "Compra con tranquilidad",
       image: "/images/icons/icon-02.svg",
     },
     {
       id: "feature-3",
-      title: "100% Secure Payments",
-      description: "Gurantee secure payments",
+      title: "Pagos seguros",
+      description: "Tus datos siempre protegidos",
       image: "/images/icons/icon-03.svg",
     },
     {
       id: "feature-4",
-      title: "24/7 Dedicated Support",
-      description: "Anywhere & anytime",
+      title: "Atención al cliente",
+      description: "Estamos para ayudarte",
       image: "/images/icons/icon-04.svg",
     },
   ];
 }
 
 function defaultTestimonials(): Testimonial[] {
-  return [
-    {
-      review: "Lorem ipsum dolor sit amet, adipiscing elit. Donec malesuada justo vitaeaugue suscipit beautiful vehicula",
-      authorName: "Davis Dorwart",
-      authorImg: "/images/users/user-01.jpg",
-      authorRole: "Serial Entrepreneur",
-    },
-    {
-      review: "Lorem ipsum dolor sit amet, adipiscing elit. Donec malesuada justo vitaeaugue suscipit beautiful vehicula",
-      authorName: "Wilson Dias",
-      authorImg: "/images/users/user-02.jpg",
-      authorRole: "Backend Developer",
-    },
-    {
-      review: "Lorem ipsum dolor sit amet, adipiscing elit. Donec malesuada justo vitaeaugue suscipit beautiful vehicula",
-      authorName: "Miracle Exterm",
-      authorImg: "/images/users/user-03.jpg",
-      authorRole: "Serial Entrepreneur",
-    },
-  ];
+  return [];
 }
 
 export async function loadHomeViewModel(): Promise<HomeViewModel> {
@@ -188,14 +169,14 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
     return {
       id: product.id,
       title: product.title,
-      description: product.description || `Explore ${product.title} in the online storefront of ${storefront.name}.`,
+      description: product.description || `Conoce ${product.title} en la tienda online de ${storefront.name}.`,
       ctaHref: `/products/${encodeURIComponent(product.slug)}`,
       image: product.image_url || product.gallery[0] || fallbackImage(product.slug),
       overlayOpacity: 0.72,
       imagePosition: "center",
       contentAlignment: "left" as const,
       textColor: "#1C274C",
-      buttonLabel: "Shop Now",
+      buttonLabel: "Ver producto",
       buttonColor: "#1C274C",
     };
   });
@@ -206,9 +187,9 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
     return {
       id: collection.id,
       title: collection.name,
-      offerLabel: "limited time offer",
+      offerLabel: "Oferta especial",
       href: `/products?collection=${encodeURIComponent(collection.slug)}`,
-      priceLabel: sourceProduct ? moneyLabel(storefront.currency, sourceProduct.price) : "New",
+      priceLabel: sourceProduct ? moneyLabel(storefront.currency, sourceProduct.price) : "Nuevo",
       comparePriceLabel: compare && sourceProduct && compare > sourceProduct.price ? moneyLabel(storefront.currency, compare) : undefined,
       image: collection.image_url || sourceProduct?.image_url || sourceProduct?.gallery?.[0] || fallbackImage(collection.slug),
       backgroundColor: "#FFFFFF",
@@ -228,7 +209,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
           imagePosition: stringOrUndefined(slide["image_position"]) || "center",
           contentAlignment: stringOrUndefined(slide["content_alignment"]) === "center" ? "center" as const : "left" as const,
           textColor: stringOrUndefined(slide["text_color"]) || "#1C274C",
-          buttonLabel: stringOrUndefined(slide["button_label"]) || "Shop Now",
+          buttonLabel: stringOrUndefined(slide["button_label"]) || "Ver productos",
           buttonColor: stringOrUndefined(slide["button_color"]) || "#1C274C",
         }))
         .filter((slide) => slide.title)
@@ -239,9 +220,9 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         .map((promo, index) => ({
           id: String(promo["id"] || `hero-promo-${index + 1}`),
           title: stringOrUndefined(promo["title"]) || "",
-          offerLabel: stringOrUndefined(promo["offer_label"]) || "limited time offer",
+          offerLabel: stringOrUndefined(promo["offer_label"]) || "Oferta especial",
           href: stringOrUndefined(promo["href"]) || "/products",
-          priceLabel: stringOrUndefined(promo["price_label"]) || "New",
+          priceLabel: stringOrUndefined(promo["price_label"]) || "Nuevo",
           comparePriceLabel: stringOrUndefined(promo["compare_price_label"]),
           image: stringOrUndefined(promo["image"]) || fallbackImage(`hero-promo-${index + 1}`),
           backgroundColor: stringOrUndefined(promo["background_color"]) || "#FFFFFF",
@@ -278,7 +259,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         title: stringOrUndefined(banner["title"]) || "",
         subtitle: stringOrUndefined(banner["subtitle"]),
         description: stringOrUndefined(banner["description"]),
-        ctaLabel: stringOrUndefined(banner["cta_label"]) || "Buy Now",
+        ctaLabel: stringOrUndefined(banner["cta_label"]) || "Ver productos",
         ctaHref: stringOrUndefined(banner["cta_href"]) || "/products",
         image: stringOrUndefined(banner["image_url"]),
         backgroundColor: stringOrUndefined(banner["background_color"]),
@@ -290,47 +271,13 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         title: banner.title,
         subtitle: banner.subtitle || undefined,
         description: banner.description || undefined,
-        ctaLabel: banner.cta_label?.trim() || "Buy Now",
+        ctaLabel: banner.cta_label?.trim() || "Ver productos",
         ctaHref: banner.cta_href?.trim() || "#",
         image: banner.image_url?.trim() || undefined,
         backgroundColor: banner.background_color?.trim() || undefined,
         accentColor: banner.accent_color?.trim() || undefined,
       }))
-    : [
-        {
-          id: "promo-1",
-          title: "Apple iPhone 14 Plus",
-          description:
-            "iPhone 14 has the same superspeedy chip that's in iPhone 13 Pro, A15 Bionic, with a 5-core GPU, powers all the latest features.",
-          ctaLabel: "Buy Now",
-          ctaHref: "/products",
-          image: "/images/promo/promo-01.png",
-          backgroundColor: "#F5F5F7",
-        },
-        {
-          id: "promo-2",
-          title: "Workout At Home",
-          subtitle: "Foldable Motorised Treadmill",
-          description: "Flat 20% off",
-          ctaLabel: "Grab Now",
-          ctaHref: "/products",
-          image: "/images/promo/promo-02.png",
-          backgroundColor: "#DBF4F3",
-          accentColor: "#10B981",
-        },
-        {
-          id: "promo-3",
-          title: "Up to 40% off",
-          subtitle: "Apple Watch Ultra",
-          description:
-            "The aerospace-grade titanium case strikes the perfect balance of everything.",
-          ctaLabel: "Buy Now",
-          ctaHref: "/products",
-          image: "/images/promo/promo-03.png",
-          backgroundColor: "#FFECE1",
-          accentColor: "#FB923C",
-        },
-      ];
+    : [];
 
   return {
       storeName: storefront.name,
@@ -340,8 +287,8 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
       features,
       promoBanners,
       categorySection: {
-        eyebrow: stringOrUndefined(categorySection["eyebrow"]) || "Categories",
-        title: stringOrUndefined(categorySection["title"]) || "Browse by Category",
+        eyebrow: stringOrUndefined(categorySection["eyebrow"]) || "Explora",
+        title: stringOrUndefined(categorySection["title"]) || "Compra por categoría",
       },
       categories: configuredCategoryCards.length
         ? configuredCategoryCards
@@ -357,25 +304,25 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
             .filter((card) => card.title)
         : categoryFallbackItems,
       newArrivalsSection: {
-        eyebrow: stringOrUndefined(newArrivalsSection["eyebrow"]) || "This Week's",
-        title: stringOrUndefined(newArrivalsSection["title"]) || "New Arrivals",
-        ctaLabel: stringOrUndefined(newArrivalsSection["cta_label"]) || "View All",
+        eyebrow: stringOrUndefined(newArrivalsSection["eyebrow"]) || "Recién llegados",
+        title: stringOrUndefined(newArrivalsSection["title"]) || "Novedades",
+        ctaLabel: stringOrUndefined(newArrivalsSection["cta_label"]) || "Ver todos",
         ctaHref: stringOrUndefined(newArrivalsSection["cta_href"]) || "/products",
       },
       newArrivals: uniqueProducts.slice(0, 8).map(toTemplateProduct),
       bestSellersSection: {
-        eyebrow: stringOrUndefined(bestSellersSection["eyebrow"]) || "This Month",
-        title: stringOrUndefined(bestSellersSection["title"]) || "Best Sellers",
-        ctaLabel: stringOrUndefined(bestSellersSection["cta_label"]) || "View All",
+        eyebrow: stringOrUndefined(bestSellersSection["eyebrow"]) || "Lo más elegido",
+        title: stringOrUndefined(bestSellersSection["title"]) || "Productos destacados",
+        ctaLabel: stringOrUndefined(bestSellersSection["cta_label"]) || "Ver todos",
         ctaHref: stringOrUndefined(bestSellersSection["cta_href"]) || "/products",
       },
       bestSellers: (featuredProducts.length ? featuredProducts : uniqueProducts).slice(0, 6).map(toTemplateProduct),
       countdown: {
-        enabled: booleanOrDefault(countdown["enabled"], true),
-        eyebrow: stringOrUndefined(countdown["eyebrow"]) || "Don't Miss!!",
-        title: stringOrUndefined(countdown["title"]) || "Enhance Your Music Experience",
-        description: stringOrUndefined(countdown["description"]) || "The Havit H206d is a wired PC headphone.",
-        ctaLabel: stringOrUndefined(countdown["cta_label"]) || "Check it Out!",
+        enabled: booleanOrDefault(countdown["enabled"], false),
+        eyebrow: stringOrUndefined(countdown["eyebrow"]) || "Oferta especial",
+        title: stringOrUndefined(countdown["title"]) || "No te pierdas esta oportunidad",
+        description: stringOrUndefined(countdown["description"]) || "Descubre productos seleccionados para ti.",
+        ctaLabel: stringOrUndefined(countdown["cta_label"]) || "Ver oferta",
         ctaHref: stringOrUndefined(countdown["cta_href"]) || "/products",
         deadline: stringOrUndefined(countdown["deadline"]) || "2026-12-31T23:59:59",
         backgroundColor: stringOrUndefined(countdown["background_color"]) || "#D0E9F3",
@@ -383,20 +330,20 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         productImageUrl: stringOrUndefined(countdown["product_image_url"]) || "/images/countdown/countdown-01.png",
       },
       newsletter: {
-        enabled: booleanOrDefault(newsletter["enabled"], true),
-        title: stringOrUndefined(newsletter["title"]) || "Don't Miss Out Latest Trends & Offers",
+        enabled: booleanOrDefault(newsletter["enabled"], false),
+        title: stringOrUndefined(newsletter["title"]) || "Recibe novedades y ofertas",
         description:
           stringOrUndefined(newsletter["description"]) ||
-          "Register to receive news about the latest offers & discount codes",
-        placeholder: stringOrUndefined(newsletter["placeholder"]) || "Enter your email",
-        buttonLabel: stringOrUndefined(newsletter["button_label"]) || "Subscribe",
+          "Regístrate para recibir lanzamientos, descuentos y contenido de la tienda.",
+        placeholder: stringOrUndefined(newsletter["placeholder"]) || "Tu correo electrónico",
+        buttonLabel: stringOrUndefined(newsletter["button_label"]) || "Registrarme",
         backgroundImageUrl:
           stringOrUndefined(newsletter["background_image_url"]) || "/images/shapes/newsletter-bg.jpg",
       },
       testimonialsSection: {
-        enabled: booleanOrDefault(testimonials["enabled"], true),
-        eyebrow: stringOrUndefined(testimonials["eyebrow"]) || "Testimonials",
-        title: stringOrUndefined(testimonials["title"]) || "User Feedbacks",
+        enabled: booleanOrDefault(testimonials["enabled"], false),
+        eyebrow: stringOrUndefined(testimonials["eyebrow"]) || "Testimonios",
+        title: stringOrUndefined(testimonials["title"]) || "Lo que dicen nuestros clientes",
       },
       testimonials: testimonialItems,
   };

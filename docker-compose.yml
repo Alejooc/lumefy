@@ -16,6 +16,18 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     restart: always
@@ -27,8 +39,10 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/lumefy_db
       - POSTGRES_SERVER=db
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       - db
+      - redis
     volumes:
       - ./backend:/app
     healthcheck:
@@ -36,6 +50,38 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+
+  outbox-relay:
+    build: ./backend
+    restart: unless-stopped
+    command: python -m app.workers.outbox_relay
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/lumefy_db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
+  operations-consumer:
+    build: ./backend
+    restart: unless-stopped
+    command: python -m app.workers.operations_consumer
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/lumefy_db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      outbox-relay:
+        condition: service_started
+    volumes:
+      - ./backend:/app
 
   storefront:
     build:
@@ -64,3 +110,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

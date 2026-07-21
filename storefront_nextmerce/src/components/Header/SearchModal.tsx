@@ -6,11 +6,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
-  getPublicCollectionBySlug,
   getPublicCollections,
+  getPublicProducts,
   resolveStorefront,
 } from "@/lib/storefront-api";
-import { PublicCollection, PublicProduct } from "@/types/storefront";
+import { PublicCatalogFacet, PublicCollection, PublicProduct } from "@/types/storefront";
 
 type SearchModalProps = {
   isOpen: boolean;
@@ -85,6 +85,8 @@ export default function SearchModal({
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [collections, setCollections] = useState<PublicCollection[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<PublicProduct[]>([]);
+  const [catalogBrands, setCatalogBrands] = useState<PublicCatalogFacet[]>([]);
   const [loading, setLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
@@ -130,17 +132,8 @@ export default function SearchModal({
       try {
         const storefront = await resolveStorefront();
         const collections = await getPublicCollections(storefront.id);
-        const data = await Promise.all(
-          collections.map(async (collection) => {
-            try {
-              return await getPublicCollectionBySlug(storefront.id, collection.slug);
-            } catch {
-              return collection;
-            }
-          }),
-        );
         if (active) {
-          setCollections(data);
+          setCollections(collections);
         }
       } finally {
         if (active) {
@@ -185,58 +178,50 @@ export default function SearchModal({
 
   const normalizedQuery = normalizeSearchValue(debouncedQuery);
 
-  const productResults = useMemo<SearchProductResult[]>(() => {
-    const products = new Map<string, SearchProductResult>();
-
-    collections.forEach((collection) => {
-      collection.products?.forEach((product: PublicProduct) => {
-        const existing = products.get(product.id);
-        const productResult =
-          existing ||
-          {
-            id: product.id,
-            title: product.title,
-            slug: product.slug,
-            description: stripHtml(product.description),
-            imageUrl:
-              product.image_url ||
-              product.gallery?.[0] ||
-              fallbackImage(product.slug),
-            collectionNames: [],
-            brandName: product.brand_name || "",
-          };
-
-        if (!productResult.collectionNames.includes(collection.name)) {
-          productResult.collectionNames.push(collection.name);
-        }
-
-        products.set(product.id, productResult);
-      });
-    });
-
-    const items = Array.from(products.values()).filter((item) => {
-      if (!collectionSlug) {
-        return true;
-      }
-      return item.collectionNames.some((name) =>
-        collections.some(
-          (collection) => collection.slug === collectionSlug && collection.name === name,
-        ),
-      );
-    });
-    if (!normalizedQuery) {
-      return items.slice(0, 6);
+  useEffect(() => {
+    if (!isOpen) {
+      return;
     }
 
-    return items
-      .filter((item) => {
-        const haystack = normalizeSearchValue(
-          `${item.title} ${item.slug} ${item.brandName} ${item.description} ${item.collectionNames.join(" ")}`,
-        );
-        return haystack.includes(normalizedQuery);
-      })
-      .slice(0, 8);
-  }, [collectionSlug, collections, normalizedQuery]);
+    let active = true;
+    setLoading(true);
+
+    async function loadCatalogSearch() {
+      try {
+        const storefront = await resolveStorefront();
+        const catalog = await getPublicProducts(storefront.id, {
+          q: debouncedQuery.trim() || undefined,
+          page_size: 8,
+          sort: "latest",
+        });
+        if (active) {
+          setCatalogProducts(catalog.items);
+          setCatalogBrands(catalog.brands);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadCatalogSearch();
+    return () => {
+      active = false;
+    };
+  }, [debouncedQuery, isOpen]);
+
+  const productResults = useMemo<SearchProductResult[]>(() => {
+    return catalogProducts.map((product) => ({
+      id: product.id,
+      title: product.title,
+      slug: product.slug,
+      description: stripHtml(product.description),
+      imageUrl: product.image_url || product.gallery?.[0] || fallbackImage(product.slug),
+      collectionNames: [],
+      brandName: product.brand_name || "",
+    }));
+  }, [catalogProducts]);
 
   const categorySuggestions = useMemo(() => {
     if (!normalizedQuery) {
@@ -268,20 +253,8 @@ export default function SearchModal({
   );
 
   const brandSuggestions = useMemo(() => {
-    const brands = new Map<string, number>();
-
-    collections.forEach((collection) => {
-      (collection.products || []).forEach((product) => {
-        const brand = (product.brand_name || "").trim();
-        if (!brand) {
-          return;
-        }
-        brands.set(brand, (brands.get(brand) || 0) + 1);
-      });
-    });
-
-    const items = Array.from(brands.entries())
-      .map(([name, products]) => ({ name, products }))
+    const items = catalogBrands
+      .map((brand) => ({ name: brand.value, products: brand.products }))
       .sort((left, right) => right.products - left.products);
 
     if (!normalizedQuery) {
@@ -291,7 +264,7 @@ export default function SearchModal({
     return items
       .filter((item) => normalizeSearchValue(item.name).includes(normalizedQuery))
       .slice(0, 6);
-  }, [collections, normalizedQuery]);
+  }, [catalogBrands, normalizedQuery]);
 
   const buildProductsSearchUrl = (value: string) => {
     const params = new URLSearchParams();
@@ -299,7 +272,7 @@ export default function SearchModal({
     const shouldPreserveFilters = pathname === "/products";
 
     if (shouldPreserveFilters) {
-      ["collection", "type", "size", "color", "sort", "minPrice", "maxPrice"].forEach((key) => {
+      ["collection", "category", "brand", "type", "size", "color", "sort", "minPrice", "maxPrice"].forEach((key) => {
         const current = searchParams.get(key);
         if (current) {
           params.set(key, current);
@@ -349,7 +322,7 @@ export default function SearchModal({
               Buscar productos
             </p>
             <h2 className="text-xl font-semibold text-dark sm:text-2xl">
-              Encuentra productos y categorias
+              Encuentra productos, colecciones y marcas
             </h2>
           </div>
 
@@ -425,7 +398,7 @@ export default function SearchModal({
               </div>
 
               <div className="rounded-2xl bg-gray-1 p-4">
-                <h3 className="mb-3 text-base font-semibold text-dark">Categorias destacadas</h3>
+                <h3 className="mb-3 text-base font-semibold text-dark">Colecciones destacadas</h3>
                 <div className="flex flex-wrap gap-2.5">
                   {(trendingCollections.length ? trendingCollections : collections.slice(0, 4)).map((collection) => (
                     <Link
@@ -500,7 +473,7 @@ export default function SearchModal({
                 <div className="rounded-2xl border border-dashed border-gray-3 bg-gray-1 px-5 py-8">
                   <h4 className="mb-2 text-lg font-medium text-dark">No encontramos coincidencias</h4>
                   <p className="mb-5 text-sm text-dark-4">
-                    Prueba con otra palabra clave, revisa una marca sugerida o explora nuestras categorias destacadas.
+                    Prueba con otra palabra clave, revisa una marca sugerida o explora nuestras colecciones destacadas.
                   </p>
 
                   <div className="flex flex-wrap gap-2.5">
@@ -523,7 +496,7 @@ export default function SearchModal({
             </div>
 
             <aside className="rounded-2xl bg-gray-1 p-5">
-              <h3 className="mb-4 text-lg font-semibold text-dark">Categorias sugeridas</h3>
+              <h3 className="mb-4 text-lg font-semibold text-dark">Colecciones sugeridas</h3>
 
               <div className="flex flex-col gap-3">
                 {categorySuggestions.length ? (
@@ -541,7 +514,7 @@ export default function SearchModal({
                     </Link>
                   ))
                 ) : (
-                  <p className="text-sm text-dark-4">Aun no hay categorias sugeridas.</p>
+                  <p className="text-sm text-dark-4">Aun no hay colecciones sugeridas.</p>
                 )}
               </div>
 

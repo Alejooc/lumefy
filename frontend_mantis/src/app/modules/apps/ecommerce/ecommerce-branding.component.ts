@@ -32,6 +32,7 @@ export class EcommerceBrandingComponent implements OnInit {
 
   loading = false;
   saving = false;
+  editing = false;
   storefronts: Storefront[] = [];
   selectedStorefrontId = '';
   storefront: Storefront | null = null;
@@ -66,6 +67,17 @@ export class EcommerceBrandingComponent implements OnInit {
   onStorefrontChange(): void {
     this.context.setSelectedStorefrontId(this.selectedStorefrontId);
     this.applySelectedStorefront();
+  }
+
+  openEditor(): void {
+    this.editing = true;
+  }
+
+  closeEditor(): void {
+    if (!this.saving) {
+      this.applySelectedStorefront();
+      this.editing = false;
+    }
   }
 
   addPromoBanner(): void {
@@ -144,6 +156,7 @@ export class EcommerceBrandingComponent implements OnInit {
       .subscribe({
         next: () => {
           this.saving = false;
+          this.editing = false;
           this.swal.success('Branding guardado');
           this.loadStorefronts();
         },
@@ -219,30 +232,12 @@ export class EcommerceBrandingComponent implements OnInit {
       play_store_label: '',
       play_store_url: '',
       payment_title: '',
-      show_social_links: true,
-      show_app_downloads: true,
-      show_payment_methods: true,
-      account_links: [
-        this.createFooterLink('My Account', '/account'),
-        this.createFooterLink('Login / Register', '/login'),
-        this.createFooterLink('Cart', '/cart'),
-        this.createFooterLink('Wishlist', '/wishlist'),
-        this.createFooterLink('Shop', '/products')
-      ],
-      quick_links: [
-        this.createFooterLink('Privacy Policy', '/products'),
-        this.createFooterLink('Refund Policy', '/products'),
-        this.createFooterLink('Terms of Use', '/products'),
-        this.createFooterLink('FAQs', '/products'),
-        this.createFooterLink('Contact', '/contact')
-      ],
-      payment_methods: [
-        this.createPaymentMethod('Visa', '/images/payment/payment-01.svg', ''),
-        this.createPaymentMethod('PayPal', '/images/payment/payment-02.svg', ''),
-        this.createPaymentMethod('Mastercard', '/images/payment/payment-03.svg', ''),
-        this.createPaymentMethod('Apple Pay', '/images/payment/payment-04.svg', ''),
-        this.createPaymentMethod('Google Pay', '/images/payment/payment-05.svg', '')
-      ]
+      show_social_links: false,
+      show_app_downloads: false,
+      show_payment_methods: false,
+      account_links: [],
+      quick_links: [],
+      payment_methods: []
     };
   }
 
@@ -347,9 +342,9 @@ export class EcommerceBrandingComponent implements OnInit {
       play_store_label: String(settings['play_store_label'] || ''),
       play_store_url: String(settings['play_store_url'] || ''),
       payment_title: String(settings['payment_title'] || ''),
-      show_social_links: settings['show_social_links'] !== false,
-      show_app_downloads: settings['show_app_downloads'] !== false,
-      show_payment_methods: settings['show_payment_methods'] !== false,
+      show_social_links: settings['show_social_links'] === true,
+      show_app_downloads: settings['show_app_downloads'] === true,
+      show_payment_methods: settings['show_payment_methods'] === true,
       account_links: this.normalizeFooterLinks(settings['account_links']),
       quick_links: this.normalizeFooterLinks(settings['quick_links']),
       payment_methods: this.normalizePaymentMethods(settings['payment_methods'])

@@ -142,15 +142,25 @@ export async function getPublicProducts(
     search.set(key, String(value));
   }
   const suffix = search.toString() ? `?${search.toString()}` : "";
-  return request<PublicCatalogResponse>(`/storefront/public/${storefrontId}/products${suffix}`);
+  // Stock availability changes with reservations. Never serve a stale catalog
+  // response after a checkout has committed inventory.
+  return request<PublicCatalogResponse>(`/storefront/public/${storefrontId}/products${suffix}`, {
+    cache: "no-store",
+  });
 }
 
 export async function getPublicCollectionBySlug(storefrontId: string, slug: string): Promise<PublicCollection> {
-  return request<PublicCollection>(`/storefront/public/${storefrontId}/collections/${encodeURIComponent(slug)}`);
+  return request<PublicCollection>(
+    `/storefront/public/${storefrontId}/collections/${encodeURIComponent(slug)}`,
+    { cache: "no-store" },
+  );
 }
 
 export async function getPublicProductBySlug(storefrontId: string, slug: string): Promise<PublicProduct> {
-  return request<PublicProduct>(`/storefront/public/${storefrontId}/products/${encodeURIComponent(slug)}`);
+  return request<PublicProduct>(
+    `/storefront/public/${storefrontId}/products/${encodeURIComponent(slug)}`,
+    { cache: "no-store" },
+  );
 }
 
 export async function checkoutPreview(

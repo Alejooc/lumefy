@@ -222,6 +222,16 @@ export const NavigationItems: NavigationItem[] = [
         permissions: ['view_inventory']
       },
       {
+        id: 'inventory-warehouses',
+        title: 'Bodegas',
+        type: 'item',
+        classes: 'nav-item',
+        url: '/inventory/warehouses',
+        icon: 'home',
+        breadcrumbs: true,
+        permissions: ['manage_inventory']
+      },
+      {
         id: 'stock-take',
         title: 'Toma de Inventario',
         type: 'item',

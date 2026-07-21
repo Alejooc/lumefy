@@ -27,7 +27,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <html lang="en" suppressHydrationWarning={true}>
+    <html lang="es-CO" suppressHydrationWarning={true}>
       <body>
         {loading ? (
           <PreLoader />

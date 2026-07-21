@@ -1,8 +1,18 @@
 import hashlib
+import hmac
+import asyncio
+import secrets
+import base64
+from html import escape
+import re
+import unicodedata
 import uuid
+from urllib.parse import quote
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Any, List
 import requests
+import dns.resolver
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import or_, select
@@ -16,14 +26,17 @@ from app.core.plan_limits import PlanLimitChecker
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.models.branch import Branch
+from app.models.warehouse import Warehouse
 from app.models.company import Company
 from app.models.inventory import Inventory
+from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.sale import Payment, Sale, SaleItem, SaleStatus
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.user import User
 from app.models.client import Client
 from app.services.email import EmailService
+from app.services.outbox import enqueue_outbox_event
 from app.models.storefront import (
     PublishedProduct,
     StoreCollection,
@@ -42,7 +55,14 @@ router = APIRouter()
 # Providers that have a complete checkout path in this application. New
 # providers must add a signed intent and payment-status verification before
 # being exposed to customers.
-SUPPORTED_PUBLIC_PAYMENT_PROVIDERS = {"wompi", "cod", "manual_transfer"}
+SUPPORTED_PUBLIC_PAYMENT_PROVIDERS = {
+    "wompi", "payu", "mercadopago", "addi", "sistecredito",
+    "whatsapp", "cod", "manual_transfer",
+}
+SENSITIVE_GATEWAY_CONFIG_KEYS = {
+    "integrity_secret", "events_secret", "webhook_secret", "api_key",
+    "api_login", "access_token", "client_secret", "secret", "callback_password",
+}
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -52,6 +72,78 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _normalize_custom_domain(value: str) -> str:
+    """Accept a host only; never a URL, wildcard, port, or local address."""
+    domain = (value or "").strip().lower().rstrip(".")
+    if not domain or "://" in domain or "/" in domain or ":" in domain or "@" in domain:
+        raise HTTPException(status_code=422, detail="Ingresa solo el dominio, por ejemplo tienda.midominio.com.")
+    try:
+        domain = domain.encode("idna").decode("ascii")
+    except UnicodeError as exc:
+        raise HTTPException(status_code=422, detail="El dominio no es válido.") from exc
+    if len(domain) > 253 or domain in {"localhost", "127.0.0.1"} or "." not in domain:
+        raise HTTPException(status_code=422, detail="Ingresa un dominio público válido.")
+    for label in domain.split("."):
+        if not label or len(label) > 63 or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label):
+            raise HTTPException(status_code=422, detail="El dominio no es válido.")
+    return domain
+
+
+def _domain_verification_record(domain: str) -> str:
+    return f"_lumefy-verification.{domain}"
+
+
+def _domain_verification_value(token: str) -> str:
+    return f"lumefy-verification={token}"
+
+
+def _serialize_domain(domain: StorefrontDomain) -> schemas.StorefrontDomain:
+    token = domain.verification_token
+    return schemas.StorefrontDomain(
+        id=domain.id,
+        storefront_id=domain.storefront_id,
+        domain=domain.domain,
+        is_primary=domain.is_primary,
+        is_verified=domain.is_verified,
+        verification_token=token,
+        verification_record=_domain_verification_record(domain.domain) if token else None,
+        verification_value=_domain_verification_value(token) if token else None,
+        verified_at=domain.verified_at,
+        company_id=domain.company_id,
+        created_at=domain.created_at,
+        updated_at=domain.updated_at,
+        is_active=domain.is_active,
+    )
+
+
+async def _ensure_domain_verification_token(domain: StorefrontDomain) -> bool:
+    if domain.verification_token:
+        return False
+    domain.verification_token = secrets.token_urlsafe(24)
+    domain.is_verified = False
+    domain.verified_at = None
+    return True
+
+
+async def _verify_domain_txt_record(domain: StorefrontDomain) -> bool:
+    if not domain.verification_token:
+        return False
+    expected = _domain_verification_value(domain.verification_token)
+
+    def resolve_txt() -> list[str]:
+        resolver = dns.resolver.Resolver(configure=True)
+        resolver.timeout = 3
+        resolver.lifetime = 5
+        answers = resolver.resolve(_domain_verification_record(domain.domain), "TXT")
+        return [b"".join(answer.strings).decode("utf-8") for answer in answers]
+
+    try:
+        records = await asyncio.to_thread(resolve_txt)
+    except (dns.exception.DNSException, UnicodeDecodeError):
+        return False
+    return expected in records
 
 
 async def _resolve_public_checkout_adjustments(
@@ -95,11 +187,209 @@ async def _resolve_public_checkout_adjustments(
     return calculated_discount, calculated_shipping
 
 
+def _calculate_checkout_tax(
+    storefront: Storefront,
+    subtotal: float,
+    discount: float,
+    shipping: float,
+) -> float:
+    """Calculate tax only from the storefront's server-side checkout policy."""
+    config = storefront.checkout_settings or {}
+    rate = max(0.0, _safe_float(config.get("tax_rate")))
+    if not rate:
+        return 0.0
+    taxable_amount = max(0.0, subtotal - discount)
+    if bool(config.get("tax_shipping")):
+        taxable_amount += max(0.0, shipping)
+    divisor = 1 + (rate / 100)
+    if bool(config.get("tax_included")):
+        return round(taxable_amount - (taxable_amount / divisor), 2)
+    return round(taxable_amount * (rate / 100), 2)
+
+
 def _safe_string(value: Any) -> str | None:
     if value is None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _format_payu_confirmation_amount(value: Any) -> str:
+    """Match PayU's confirmation-signature amount formatting exactly."""
+    try:
+        amount = Decimal(str(value)).quantize(Decimal("0.01"))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid PayU confirmation amount") from exc
+    return f"{amount:.1f}" if amount == amount.quantize(Decimal("1")) else f"{amount:.2f}"
+
+
+def _has_valid_payu_confirmation_signature(payload: dict[str, Any], api_key: str | None) -> bool:
+    """Validate PayU's MD5 confirmation signature before touching an order."""
+    if not api_key:
+        return False
+    merchant_id = _safe_string(payload.get("merchant_id"))
+    reference_sale = _safe_string(payload.get("reference_sale"))
+    currency = _safe_string(payload.get("currency"))
+    state_pol = _safe_string(payload.get("state_pol"))
+    received_signature = _safe_string(payload.get("sign"))
+    if not all((merchant_id, reference_sale, currency, state_pol, received_signature)):
+        return False
+    try:
+        amount = _format_payu_confirmation_amount(payload.get("value"))
+    except HTTPException:
+        return False
+    raw = f"{api_key}~{merchant_id}~{reference_sale}~{amount}~{currency}~{state_pol}"
+    expected_signature = hashlib.md5(raw.encode("utf-8")).hexdigest()
+    return hmac.compare_digest(expected_signature.lower(), received_signature.lower())
+
+
+def _has_valid_mercadopago_webhook_signature(
+    payload: dict[str, Any],
+    signature_header: str | None,
+    request_id: str | None,
+    secret: str | None,
+) -> bool:
+    """Validate Mercado Pago's HMAC notification manifest when a secret is configured."""
+    if not secret or not signature_header or not request_id:
+        return False
+    parts: dict[str, str] = {}
+    for item in signature_header.split(","):
+        key, separator, value = item.strip().partition("=")
+        if separator and key and value:
+            parts[key.strip()] = value.strip()
+    timestamp = parts.get("ts")
+    received_signature = parts.get("v1")
+    data = payload.get("data") or {}
+    payment_id = _safe_string(data.get("id") if isinstance(data, dict) else None)
+    if not timestamp or not received_signature or not payment_id:
+        return False
+    manifest = f"id:{payment_id};request-id:{request_id};ts:{timestamp};"
+    expected_signature = hmac.new(secret.encode("utf-8"), manifest.encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected_signature.lower(), received_signature.lower())
+
+
+def _has_valid_basic_auth(
+    authorization: str | None,
+    username: str | None,
+    password: str | None,
+) -> bool:
+    if not authorization or not username or not password:
+        return False
+    expected = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
+    return hmac.compare_digest(authorization, f"Basic {expected}")
+
+
+async def _get_storefront_order_for_payment_webhook(
+    db: AsyncSession,
+    storefront_id: uuid.UUID,
+    sale_id: uuid.UUID,
+    provider: str,
+) -> StorefrontOrder:
+    storefront_order = await db.scalar(
+        select(StorefrontOrder)
+        .options(
+            selectinload(StorefrontOrder.sale).selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(StorefrontOrder.storefront),
+        )
+        .where(
+            StorefrontOrder.storefront_id == storefront_id,
+            StorefrontOrder.sale_id == sale_id,
+            StorefrontOrder.is_active == True,
+        )
+    )
+    if not storefront_order or not storefront_order.sale or not storefront_order.storefront:
+        raise HTTPException(status_code=404, detail="Checkout order not found")
+    if storefront_order.payment_provider != provider:
+        raise HTTPException(status_code=400, detail="Payment provider does not match the checkout order")
+    return storefront_order
+
+
+async def _apply_gateway_payment_status(
+    db: AsyncSession,
+    storefront_order: StorefrontOrder,
+    provider: str,
+    status: str,
+    transaction_id: str,
+) -> str:
+    """Persist a verified provider result and safely confirm inventory once."""
+    sale = storefront_order.sale
+    if not sale:
+        raise HTTPException(status_code=404, detail="Checkout order not found")
+    normalized_status = status.lower()
+    previous_status = (storefront_order.payment_status or "").lower()
+    if previous_status == "approved" and normalized_status != "approved":
+        return "ignored"
+
+    payment = await db.scalar(
+        select(Payment).where(
+            Payment.sale_id == sale.id,
+            Payment.method == provider,
+            Payment.is_active == True,
+        )
+    )
+    if payment:
+        payment.reference = transaction_id
+        db.add(payment)
+
+    storefront_order.payment_status = normalized_status
+    if normalized_status == "approved":
+        if not await _confirm_paid_storefront_sale(db, sale):
+            storefront_order.payment_status = "approved_stock_unavailable"
+    elif normalized_status in {"declined", "cancelled", "expired", "rejected"} and sale.status in {
+        SaleStatus.DRAFT,
+        SaleStatus.QUOTE,
+    }:
+        sale.status = SaleStatus.CANCELLED
+
+    db.add(storefront_order)
+    db.add(sale)
+    await db.commit()
+    if previous_status != storefront_order.payment_status and storefront_order.payment_status in {
+        "approved",
+        "approved_stock_unavailable",
+        "declined",
+        "rejected",
+        "cancelled",
+        "expired",
+    }:
+        await _send_storefront_payment_status_email(storefront_order)
+    return storefront_order.payment_status
+
+
+async def _send_storefront_payment_status_email(storefront_order: StorefrontOrder) -> None:
+    """Best-effort customer notification; payment persistence must never depend on SMTP."""
+    storefront = storefront_order.storefront
+    sale = storefront_order.sale
+    if not storefront or not sale or not storefront_order.customer_email:
+        return
+    status = (storefront_order.payment_status or "pending").lower()
+    order_code = str(sale.id).split("-")[0].upper()
+    if status == "approved":
+        title = "Pago confirmado"
+        message = "Confirmamos tu pago. Prepararemos el pedido y te avisaremos cuando avance."
+    elif status == "approved_stock_unavailable":
+        title = "Pago recibido; pedido en revisión"
+        message = "Recibimos tu pago y el equipo revisará la disponibilidad antes de preparar el pedido."
+    else:
+        title = "No pudimos confirmar el pago"
+        message = "El pago no se completó. Puedes intentar de nuevo con otro método de pago."
+    subject = f"{storefront.name} · {title} · Pedido #{order_code}"
+    html_content = f"""
+    <html><body style="font-family:Arial,sans-serif;color:#1f2937">
+      <div style="max-width:560px;margin:0 auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px">
+        <h2 style="margin:0 0 16px">{escape(title)}</h2>
+        <p>Hola {escape(storefront_order.customer_name)},</p>
+        <p>{escape(message)}</p>
+        <p><strong>Pedido:</strong> #{order_code}<br/><strong>Total:</strong> {escape(storefront_order.currency)} {float(sale.total):,.2f}</p>
+      </div>
+    </body></html>
+    """
+    try:
+        await EmailService.send_email(storefront_order.customer_email, subject, html_content)
+    except Exception:
+        # EmailService logs the provider failure. The gateway acknowledgement
+        # must stay successful so providers do not repeat a settled payment.
+        return
 
 
 def _pick_first(*values: Any) -> Any:
@@ -479,6 +769,12 @@ def _normalize_catalog_sort(value: str | None) -> str:
     return normalized if normalized in allowed else "latest"
 
 
+def _normalize_catalog_text(value: str | None) -> str:
+    return "".join(
+        char for char in unicodedata.normalize("NFD", value or "") if unicodedata.category(char) != "Mn"
+    ).lower()
+
+
 def _normalize_product_type_label(value: str | None) -> str:
     if not value:
         return "Otro"
@@ -532,6 +828,7 @@ async def _get_public_storefront_by_domain(db: AsyncSession, domain: str) -> Sto
         .where(
             StorefrontDomain.domain == normalized_domain,
             StorefrontDomain.is_active == True,
+            StorefrontDomain.is_verified == True,
             Storefront.is_active == True,
             Storefront.is_enabled == True,
         )
@@ -686,12 +983,26 @@ async def _get_enabled_gateway_for_storefront(
     return gateway
 
 
+def _serialize_admin_payment_gateway(gateway: StorePaymentGateway) -> schemas.StorePaymentGateway:
+    """Never return private gateway credentials to the Angular administration UI."""
+    response = schemas.StorePaymentGateway.model_validate(gateway)
+    response.secret_key_encrypted = None
+    response.extra_config = {
+        key: value
+        for key, value in (gateway.extra_config or {}).items()
+        if key.lower() not in SENSITIVE_GATEWAY_CONFIG_KEYS
+    }
+    return response
+
+
 def _gateway_checkout_flow(provider: str, extra_config: dict | None = None) -> str:
     if provider in {"manual_transfer", "cod"}:
         return "manual"
+    if provider == "whatsapp":
+        return "whatsapp"
     if provider == "wompi":
         return "form_redirect"
-    return "manual"
+    return "external_redirect"
 
 
 def _validate_payment_gateway_provider(provider: str) -> str:
@@ -699,9 +1010,40 @@ def _validate_payment_gateway_provider(provider: str) -> str:
     if normalized not in SUPPORTED_PUBLIC_PAYMENT_PROVIDERS:
         raise HTTPException(
             status_code=400,
-            detail="Unsupported payment provider. Available providers: wompi, cod, manual_transfer",
+            detail="Unsupported payment provider.",
         )
     return normalized
+
+
+def _validate_gateway_checkout_configuration(gateway: StorePaymentGateway) -> None:
+    """Fail before creating an order when an enabled provider is incomplete."""
+    config = gateway.extra_config or {}
+    if gateway.provider == "whatsapp":
+        number = "".join(char for char in str(config.get("whatsapp_number") or "") if char.isdigit())
+        if len(number) < 8:
+            raise HTTPException(status_code=400, detail="Configura el número de WhatsApp antes de activar esta forma de pago")
+    elif gateway.provider == "addi":
+        has_credentials = bool(gateway.public_key and gateway.secret_key_encrypted)
+        if has_credentials:
+            required = ("callback_url", "callback_username", "callback_password")
+            if not all(str(config.get(key) or "").strip() for key in required):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Configura callback URL y credenciales de notificación de Addi antes de activarla",
+                )
+        elif not gateway.is_sandbox:
+            raise HTTPException(
+                status_code=400,
+                detail="Configura Client ID y Client secret de Addi antes de activar esta forma de pago",
+            )
+    elif gateway.provider == "sistecredito":
+        if not str(config.get("checkout_url") or "").strip().startswith("https://"):
+            if gateway.is_sandbox:
+                return
+            raise HTTPException(
+                status_code=400,
+                detail=f"Configura la URL segura de checkout de {gateway.display_name} antes de activarla",
+            )
 
 
 async def _resolve_default_branch_for_company(db: AsyncSession, company_id: uuid.UUID) -> Branch:
@@ -725,10 +1067,10 @@ async def _get_storefront_stock_map(
 ) -> dict[uuid.UUID, float]:
     if not product_ids:
         return {}
-    branch = await _resolve_default_branch_for_company(db, storefront.company_id)
+    warehouse = await _resolve_storefront_fulfillment_warehouse(db, storefront)
     result = await db.execute(
         select(Inventory.product_id, Inventory.quantity, Inventory.reserved_quantity).where(
-            Inventory.branch_id == branch.id,
+            Inventory.warehouse_id == warehouse.id,
             Inventory.product_id.in_(product_ids),
         )
     )
@@ -736,6 +1078,22 @@ async def _get_storefront_stock_map(
         product_id: max(0.0, _safe_float(quantity) - _safe_float(reserved_quantity))
         for product_id, quantity, reserved_quantity in result.all()
     }
+
+
+async def _resolve_storefront_fulfillment_warehouse(db: AsyncSession, storefront: Storefront) -> Warehouse:
+    if not storefront.fulfillment_warehouse_id:
+        raise HTTPException(status_code=400, detail="Configura una bodega de fulfillment para la tienda")
+    warehouse = await db.scalar(
+        select(Warehouse).join(Branch).where(
+            Warehouse.id == storefront.fulfillment_warehouse_id,
+            Warehouse.is_active == True,
+            Warehouse.allows_ecommerce == True,
+            Branch.company_id == storefront.company_id,
+        )
+    )
+    if not warehouse:
+        raise HTTPException(status_code=400, detail="La bodega de fulfillment de la tienda no está disponible")
+    return warehouse
 
 
 async def _resolve_default_user_for_company(db: AsyncSession, company_id: uuid.UUID) -> User:
@@ -814,7 +1172,7 @@ async def _load_checkout_products(
 
 async def _validate_checkout_inventory(
     db: AsyncSession,
-    branch_id: uuid.UUID,
+    warehouse_id: uuid.UUID,
     rows: list[schemas.PublicCheckoutPreviewItem],
 ) -> None:
     """Prevent a storefront draft from being created for unavailable physical stock."""
@@ -827,7 +1185,7 @@ async def _validate_checkout_inventory(
         inventory_result = await db.execute(
             select(Inventory.quantity, Inventory.reserved_quantity).where(
                 Inventory.product_id == product.id,
-                Inventory.branch_id == branch_id,
+                Inventory.warehouse_id == warehouse_id,
             )
         )
         inventory_row = inventory_result.one_or_none()
@@ -841,7 +1199,18 @@ async def _validate_checkout_inventory(
 
 async def _confirm_paid_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
     """Confirm a paid ecommerce order using the same inventory invariant as sales."""
-    if sale.status == SaleStatus.CONFIRMED:
+    # Payment providers can retry status callbacks long after operations has
+    # started picking or dispatching the order.  Those retries must be safe:
+    # inventory was already reserved at confirmation and the order remains a
+    # valid paid order, not a stock failure.
+    if sale.status in {
+        SaleStatus.CONFIRMED,
+        SaleStatus.PICKING,
+        SaleStatus.PACKING,
+        SaleStatus.DISPATCHED,
+        SaleStatus.DELIVERED,
+        SaleStatus.COMPLETED,
+    }:
         return True
     if sale.status not in {SaleStatus.DRAFT, SaleStatus.QUOTE}:
         return False
@@ -858,7 +1227,7 @@ async def _confirm_paid_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
             select(Inventory)
             .where(
                 Inventory.product_id == product_id,
-                Inventory.branch_id == sale.branch_id,
+                Inventory.warehouse_id == sale.warehouse_id,
             )
             .with_for_update()
         )
@@ -873,9 +1242,68 @@ async def _confirm_paid_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
             continue
         inventory = inventories[item.product_id]
         inventory.reserved_quantity += item.quantity
+        db.add(InventoryMovement(
+            product_id=item.product_id,
+            branch_id=sale.branch_id,
+            warehouse_id=sale.warehouse_id,
+            user_id=sale.user_id,
+            type=MovementType.RESERVE,
+            quantity=0.0,
+            previous_stock=inventory.quantity,
+            new_stock=inventory.quantity,
+            unit_cost=inventory.average_cost,
+            reference_id=str(sale.id),
+            reason=f"Reserva ecommerce confirmada ({item.quantity:g} unidades)",
+            company_id=sale.company_id,
+        ))
 
     sale.status = SaleStatus.CONFIRMED
+    enqueue_outbox_event(
+        db,
+        event_type="inventory.reserved",
+        aggregate_type="sale",
+        aggregate_id=sale.id,
+        company_id=sale.company_id,
+        payload={"sale_id": str(sale.id), "warehouse_id": str(sale.warehouse_id), "source": "storefront"},
+    )
     return True
+
+
+def _read_wompi_event_property(data: dict[str, Any], path: str) -> Any:
+    """Read a dynamic Wompi signature property relative to the event data."""
+    current: Any = data
+    parts = [part for part in (path or "").split(".") if part]
+    if parts and parts[0] == "data":
+        parts = parts[1:]
+    for part in parts:
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return current
+
+
+def _has_valid_wompi_event_signature(
+    event: dict[str, Any],
+    events_secret: str | None,
+    provided_checksum: str | None = None,
+) -> bool:
+    """Validate Wompi's dynamic SHA256 event checksum without fixed fields."""
+    signature = event.get("signature") if isinstance(event.get("signature"), dict) else {}
+    properties = signature.get("properties") if isinstance(signature.get("properties"), list) else []
+    checksum = provided_checksum or signature.get("checksum")
+    timestamp = event.get("timestamp")
+    if not events_secret or not properties or not checksum or timestamp is None:
+        return False
+
+    values: list[str] = []
+    data = event.get("data") if isinstance(event.get("data"), dict) else {}
+    for property_path in properties:
+        value = _read_wompi_event_property(data, str(property_path))
+        if value is None:
+            return False
+        values.append(str(value))
+    expected = hashlib.sha256(("".join(values) + str(timestamp) + events_secret).encode("utf-8")).hexdigest()
+    return hmac.compare_digest(expected.lower(), str(checksum).strip().lower())
 
 
 @router.get("/", response_model=List[schemas.Storefront])
@@ -1021,7 +1449,16 @@ async def read_storefront_domains(
     if storefront_id:
         query = query.where(StorefrontDomain.storefront_id == storefront_id)
     result = await db.execute(query)
-    return result.scalars().all()
+    domains = result.scalars().all()
+    verification_token_created = False
+    for domain in domains:
+        # `any()` cannot consume asynchronous calls.  Every legacy domain must
+        # also receive a token, not just the first one that needs it.
+        if await _ensure_domain_verification_token(domain):
+            verification_token_created = True
+    if verification_token_created:
+        await db.commit()
+    return [_serialize_domain(domain) for domain in domains]
 
 
 @router.post("/domains", response_model=schemas.StorefrontDomain)
@@ -1032,8 +1469,29 @@ async def create_storefront_domain(
     current_user: User = Depends(PermissionChecker("manage_company")),
 ) -> Any:
     await _get_storefront_or_404(db, domain_in.storefront_id, current_user.company_id)
+    normalized_domain = _normalize_custom_domain(domain_in.domain)
+    platform_domain = (settings.PLATFORM_STOREFRONT_DOMAIN or "").strip().lower().rstrip(".")
+    if platform_domain and (normalized_domain == platform_domain or normalized_domain.endswith(f".{platform_domain}")):
+        raise HTTPException(status_code=422, detail="Ese dominio pertenece a la plataforma. Usa el subdominio de la tienda.")
+    if domain_in.is_primary:
+        await db.execute(
+            select(StorefrontDomain).where(
+                StorefrontDomain.storefront_id == domain_in.storefront_id,
+                StorefrontDomain.company_id == current_user.company_id,
+                StorefrontDomain.is_active == True,
+            ).with_for_update()
+        )
+        await db.execute(
+            StorefrontDomain.__table__.update()
+            .where(StorefrontDomain.storefront_id == domain_in.storefront_id, StorefrontDomain.is_active == True)
+            .values(is_primary=False)
+        )
     domain = StorefrontDomain(
-        **domain_in.model_dump(),
+        domain=normalized_domain,
+        storefront_id=domain_in.storefront_id,
+        is_primary=domain_in.is_primary,
+        is_verified=False,
+        verification_token=secrets.token_urlsafe(24),
         company_id=current_user.company_id,
         created_by_id=current_user.id,
         updated_by_id=current_user.id,
@@ -1041,7 +1499,7 @@ async def create_storefront_domain(
     db.add(domain)
     await db.commit()
     await db.refresh(domain)
-    return domain
+    return _serialize_domain(domain)
 
 
 @router.put("/domains/{domain_id}", response_model=schemas.StorefrontDomain)
@@ -1062,13 +1520,56 @@ async def update_storefront_domain(
     domain = result.scalars().first()
     if not domain:
         raise HTTPException(status_code=404, detail="Storefront domain not found")
+    if domain_in.is_primary:
+        await db.execute(
+            StorefrontDomain.__table__.update()
+            .where(
+                StorefrontDomain.storefront_id == domain.storefront_id,
+                StorefrontDomain.id != domain.id,
+                StorefrontDomain.is_active == True,
+            )
+            .values(is_primary=False)
+        )
     for field, value in domain_in.model_dump(exclude_unset=True).items():
         setattr(domain, field, value)
     domain.updated_by_id = current_user.id
     db.add(domain)
     await db.commit()
     await db.refresh(domain)
-    return domain
+    return _serialize_domain(domain)
+
+
+@router.post("/domains/{domain_id}/verify", response_model=schemas.StorefrontDomain)
+async def verify_storefront_domain(
+    *,
+    db: AsyncSession = Depends(get_db),
+    domain_id: uuid.UUID,
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    domain = await db.scalar(
+        select(StorefrontDomain).where(
+            StorefrontDomain.id == domain_id,
+            StorefrontDomain.company_id == current_user.company_id,
+            StorefrontDomain.is_active == True,
+        )
+    )
+    if not domain:
+        raise HTTPException(status_code=404, detail="Storefront domain not found")
+    await _ensure_domain_verification_token(domain)
+    if not await _verify_domain_txt_record(domain):
+        db.add(domain)
+        await db.commit()
+        raise HTTPException(
+            status_code=409,
+            detail=f"No encontramos el TXT {_domain_verification_record(domain.domain)}. Publícalo y espera la propagación DNS.",
+        )
+    domain.is_verified = True
+    domain.verified_at = datetime.now(timezone.utc)
+    domain.updated_by_id = current_user.id
+    db.add(domain)
+    await db.commit()
+    await db.refresh(domain)
+    return _serialize_domain(domain)
 
 
 @router.delete("/domains/{domain_id}")
@@ -1390,7 +1891,7 @@ async def read_payment_gateways(
         query = query.where(StorePaymentGateway.storefront_id == storefront_id)
     query = query.order_by(StorePaymentGateway.sort_order.asc(), StorePaymentGateway.display_name.asc())
     result = await db.execute(query)
-    return result.scalars().all()
+    return [_serialize_admin_payment_gateway(gateway) for gateway in result.scalars().all()]
 
 
 @router.post("/payment-gateways", response_model=schemas.StorePaymentGateway)
@@ -1412,7 +1913,7 @@ async def create_payment_gateway(
     db.add(gateway)
     await db.commit()
     await db.refresh(gateway)
-    return gateway
+    return _serialize_admin_payment_gateway(gateway)
 
 
 @router.put("/payment-gateways/{gateway_id}", response_model=schemas.StorePaymentGateway)
@@ -1425,12 +1926,16 @@ async def update_payment_gateway(
 ) -> Any:
     gateway = await _get_payment_gateway_or_404(db, gateway_id, current_user.company_id)
     for field, value in gateway_in.model_dump(exclude_unset=True).items():
+        if field == "secret_key_encrypted" and not value:
+            continue
+        if field == "extra_config" and value is not None:
+            value = {**(gateway.extra_config or {}), **value}
         setattr(gateway, field, value)
     gateway.updated_by_id = current_user.id
     db.add(gateway)
     await db.commit()
     await db.refresh(gateway)
-    return gateway
+    return _serialize_admin_payment_gateway(gateway)
 
 
 @router.get("/public/by-subdomain/{subdomain}", response_model=schemas.PublicStorefront)
@@ -1475,6 +1980,26 @@ async def read_public_storefront_by_domain(
         language=storefront.language,
         branding=_serialize_public_branding(storefront, company),
     )
+
+
+@router.get("/public/certificate-authorization")
+async def authorize_storefront_certificate(
+    domain: str,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Caddy on-demand TLS callback. Never authorize an unverified hostname."""
+    try:
+        host = _normalize_custom_domain(domain)
+    except HTTPException:
+        raise HTTPException(status_code=404, detail="Unknown storefront")
+
+    platform_domain = (settings.PLATFORM_STOREFRONT_DOMAIN or "").strip().lower().rstrip(".")
+    if platform_domain and host.endswith(f".{platform_domain}"):
+        subdomain = host[: -(len(platform_domain) + 1)]
+        await _get_public_storefront_by_subdomain(db, subdomain)
+    else:
+        await _get_public_storefront_by_domain(db, host)
+    return {"ok": True}
 
 
 @router.get("/public/{storefront_id}", response_model=schemas.PublicStorefront)
@@ -1910,6 +2435,7 @@ async def read_public_collection_detail(
         storefront,
         [link.published_product.product_id for link in links if link.published_product and link.published_product.product],
     )
+
     products: list[schemas.PublicProduct] = []
     for link in links:
         published_product = link.published_product
@@ -1939,6 +2465,8 @@ async def read_public_products(
     storefront_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     collection: str | None = None,
+    category: str | None = None,
+    brand: str | None = None,
     q: str | None = None,
     type: str | None = None,
     size: str | None = None,
@@ -1952,10 +2480,12 @@ async def read_public_products(
     storefront = await _get_public_storefront_by_id(db, storefront_id)
 
     selected_collections = _parse_multi_query_param(collection)
+    selected_categories = _parse_multi_query_param(category)
+    selected_brands = [_normalize_catalog_text(item) for item in _parse_multi_query_param(brand)]
     selected_types = [item.upper() for item in _parse_multi_query_param(type)]
     selected_sizes = [item.lower() for item in _parse_multi_query_param(size)]
     selected_colors = [item.lower() for item in _parse_multi_query_param(color)]
-    normalized_search = (q or "").strip().lower()
+    normalized_search = _normalize_catalog_text((q or "").strip())
     normalized_sort = _normalize_catalog_sort(sort)
     current_page = max(1, page)
     safe_page_size = max(1, min(page_size, 48))
@@ -2009,21 +2539,27 @@ async def read_public_products(
         published_product: PublishedProduct,
         *,
         ignore_collection: bool = False,
+        ignore_category: bool = False,
+        ignore_brand: bool = False,
         ignore_type: bool = False,
         ignore_size: bool = False,
         ignore_color: bool = False,
+        ignore_price: bool = False,
     ) -> bool:
         product = published_product.product
         if not product:
             return False
         product_collections = product_collection_map.get(published_product.id, [])
         sizes_list, colors_list = _extract_variant_facets(product.variants or [])
+        category_id = str(product.category_id) if product.category_id else ""
+        brand_name = (product.brand.name if getattr(product, "brand", None) else "") or ""
         matches_search = (
             not normalized_search
-            or normalized_search in (product.name or "").lower()
-            or normalized_search in (published_product.slug or "").lower()
-            or normalized_search in (product.description or "").lower()
-            or normalized_search in ((product.brand.name if getattr(product, "brand", None) else "") or "").lower()
+            or normalized_search in _normalize_catalog_text(product.name)
+            or normalized_search in _normalize_catalog_text(published_product.slug)
+            or normalized_search in _normalize_catalog_text(product.description)
+            or normalized_search in _normalize_catalog_text(brand_name)
+            or normalized_search in _normalize_catalog_text(product.category.name if getattr(product, "category", None) else "")
         )
         matches_collection = (
             ignore_collection
@@ -2034,6 +2570,12 @@ async def read_public_products(
             ignore_type
             or not selected_types
             or (product.product_type or "").upper() in selected_types
+        )
+        matches_category = ignore_category or not selected_categories or category_id in selected_categories
+        matches_brand = (
+            ignore_brand
+            or not selected_brands
+            or _normalize_catalog_text(brand_name) in selected_brands
         )
         matches_size = (
             ignore_size
@@ -2046,11 +2588,13 @@ async def read_public_products(
             or any(item.lower() in selected_colors for item in colors_list)
         )
         unit_price = float(product.price or 0)
-        matches_min = min_price is None or unit_price >= float(min_price)
-        matches_max = max_price is None or unit_price <= float(max_price)
+        matches_min = ignore_price or min_price is None or unit_price >= float(min_price)
+        matches_max = ignore_price or max_price is None or unit_price <= float(max_price)
         return (
             matches_search
             and matches_collection
+            and matches_category
+            and matches_brand
             and matches_type
             and matches_size
             and matches_color
@@ -2059,6 +2603,13 @@ async def read_public_products(
         )
 
     filtered_products = [item for item in published_products if matches_filters(item)]
+    price_facet_values = [
+        float((item.product.price if item.product else 0) or 0)
+        for item in published_products
+        if matches_filters(item, ignore_price=True)
+    ]
+    catalog_min_price = min(price_facet_values, default=0.0)
+    catalog_max_price = max(price_facet_values, default=0.0)
 
     def product_sort_key(item: PublishedProduct) -> Any:
         product = item.product
@@ -2088,7 +2639,11 @@ async def read_public_products(
         [item.product_id for item in paginated_products],
     )
 
-    category_counts: dict[str, int] = {item.slug: 0 for item in collections}
+    collection_counts: dict[str, int] = {item.slug: 0 for item in collections}
+    category_names: dict[str, str] = {}
+    category_counts: dict[str, int] = {}
+    brand_names: dict[str, str] = {}
+    brand_counts: dict[str, int] = {}
     type_counts: dict[str, int] = {}
     size_counts: dict[str, int] = {}
     color_counts: dict[str, int] = {}
@@ -2097,10 +2652,22 @@ async def read_public_products(
         product = published_product.product
         if not product:
             continue
+        if product.category_id and getattr(product, "category", None):
+            category_names[str(product.category_id)] = product.category.name
+        brand_name = (product.brand.name if getattr(product, "brand", None) else "") or ""
+        if brand_name:
+            brand_names[_normalize_catalog_text(brand_name)] = brand_name
+
         if matches_filters(published_product, ignore_collection=True):
             for slug_value in product_collection_map.get(published_product.id, []):
-                if slug_value in category_counts:
-                    category_counts[slug_value] += 1
+                if slug_value in collection_counts:
+                    collection_counts[slug_value] += 1
+        if product.category_id and matches_filters(published_product, ignore_category=True):
+            category_key = str(product.category_id)
+            category_counts[category_key] = category_counts.get(category_key, 0) + 1
+        if brand_name and matches_filters(published_product, ignore_brand=True):
+            brand_key = _normalize_catalog_text(brand_name)
+            brand_counts[brand_key] = brand_counts.get(brand_key, 0) + 1
         if matches_filters(published_product, ignore_type=True):
             product_type_value = (product.product_type or "OTHER").upper()
             type_counts[product_type_value] = type_counts.get(product_type_value, 0) + 1
@@ -2130,12 +2697,29 @@ async def read_public_products(
         ],
         categories=[
             schemas.PublicCatalogCategory(
+                name=name,
+                slug=key,
+                products=category_counts.get(key, 0),
+                is_refined=key in selected_categories,
+            )
+            for key, name in sorted(category_names.items(), key=lambda entry: entry[1].lower())
+        ],
+        collections=[
+            schemas.PublicCatalogCategory(
                 name=item.name,
                 slug=item.slug,
-                products=category_counts.get(item.slug, 0),
+                products=collection_counts.get(item.slug, 0),
                 is_refined=item.slug in selected_collections,
             )
             for item in collections
+        ],
+        brands=[
+            schemas.PublicCatalogFacet(
+                value=name,
+                products=brand_counts.get(key, 0),
+                is_refined=key in selected_brands,
+            )
+            for key, name in sorted(brand_names.items(), key=lambda entry: entry[1].lower())
         ],
         product_types=[
             schemas.PublicCatalogProductType(
@@ -2163,6 +2747,8 @@ async def read_public_products(
             for value, count in sorted(color_counts.items(), key=lambda entry: entry[0])
         ],
         total_products=total_products,
+        min_price=catalog_min_price,
+        max_price=catalog_max_price,
         current_page=current_page,
         page_size=safe_page_size,
         total_pages=total_pages,
@@ -2196,7 +2782,7 @@ async def preview_public_checkout(
     rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
 
     discount, shipping = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal)
-    tax = 0.0
+    tax = _calculate_checkout_tax(storefront, subtotal, discount, shipping)
     total = max(0.0, subtotal - discount + shipping + tax)
 
     return schemas.PublicCheckoutPreviewResponse(
@@ -2252,17 +2838,24 @@ async def create_public_checkout_order(
             )
 
     gateway = await _get_enabled_gateway_for_storefront(db, storefront_id, payment_provider)
+    _validate_gateway_checkout_configuration(gateway)
     rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
 
     discount, shipping = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal)
-    tax = 0.0
+    tax = _calculate_checkout_tax(storefront, subtotal, discount, shipping)
     total = max(0.0, subtotal - discount + shipping + tax)
 
-    branch = await _resolve_default_branch_for_company(db, storefront.company_id)
-    await _validate_checkout_inventory(db, branch.id, rows)
+    warehouse = await _resolve_storefront_fulfillment_warehouse(db, storefront)
+    await _validate_checkout_inventory(db, warehouse.id, rows)
     sale_user = await _resolve_default_user_for_company(db, storefront.company_id)
     storefront_customer_user = await _get_storefront_customer_user_by_email(db, storefront, payload.customer.email)
+    checkout_settings = storefront.checkout_settings or {}
+    if bool(checkout_settings.get("require_phone")) and not _normalize_checkout_text(payload.customer.phone):
+        raise HTTPException(status_code=400, detail="Este checkout requiere un teléfono de contacto")
+    if checkout_settings.get("checkout_mode") == "required_account" and not storefront_customer_user:
+        raise HTTPException(status_code=400, detail="Inicia sesión o crea una cuenta para completar esta compra")
     storefront_client = await _get_or_create_storefront_client(db, storefront, payload)
+    buyer_note = payload.notes if bool(checkout_settings.get("enable_order_notes", True)) else None
 
     notes_parts = [
         "Ecommerce order",
@@ -2279,11 +2872,12 @@ async def create_public_checkout_order(
     ]
     if payload.coupon_code:
         notes_parts.append(f"coupon={payload.coupon_code}")
-    if payload.notes:
-        notes_parts.append(f"buyer_note={payload.notes}")
+    if buyer_note:
+        notes_parts.append(f"buyer_note={buyer_note}")
 
     sale = Sale(
-        branch_id=branch.id,
+        branch_id=warehouse.branch_id,
+        warehouse_id=warehouse.id,
         user_id=sale_user.id,
         client_id=storefront_client.id if storefront_client else None,
         status=SaleStatus.DRAFT,
@@ -2334,10 +2928,11 @@ async def create_public_checkout_order(
             shipping_country=_normalize_checkout_text(payload.address.country),
             shipping_postal_code=_normalize_checkout_text(payload.address.postal_code),
             coupon_code=payload.coupon_code,
-            buyer_note=payload.notes,
+            buyer_note=buyer_note,
             payment_provider=gateway.provider,
             payment_status="pending",
             currency=storefront.currency,
+            fulfillment_warehouse_id=warehouse.id,
             company_id=storefront.company_id,
             created_by_id=sale_user.id,
             updated_by_id=sale_user.id,
@@ -2377,7 +2972,11 @@ async def create_public_payment_intent(
 
     order_result = await db.execute(
         select(StorefrontOrder)
-        .options(selectinload(StorefrontOrder.sale))
+        .options(
+            selectinload(StorefrontOrder.sale)
+            .selectinload(Sale.items)
+            .selectinload(SaleItem.product),
+        )
         .where(
             StorefrontOrder.storefront_id == storefront.id,
             StorefrontOrder.sale_id == payload.order_id,
@@ -2418,6 +3017,26 @@ async def create_public_payment_intent(
         instructions = extra_config.get("instructions") or "Use bank transfer and validate payment manually."
     elif gateway.provider == "cod":
         instructions = extra_config.get("instructions") or "Paga al recibir tu pedido en la entrega."
+    elif gateway.provider == "whatsapp":
+        number = "".join(char for char in str(extra_config.get("whatsapp_number") or "") if char.isdigit())
+        if len(number) < 8:
+            raise HTTPException(status_code=400, detail="WhatsApp requires a valid number in the gateway configuration")
+        item_lines = [
+            f"- {(item.product.name if item.product else 'Producto')} x{item.quantity:g}"
+            for item in storefront_order.sale.items
+        ]
+        message = "\n".join([
+            f"Hola, quiero confirmar mi compra en {storefront.name}.",
+            f"Pedido: #{str(storefront_order.sale_id).split('-')[0].upper()}",
+            *item_lines,
+            f"Total: {currency} {amount:,.0f}",
+            f"Cliente: {storefront_order.customer_name}",
+            f"Correo: {storefront_order.customer_email}",
+            f"Dirección: {storefront_order.shipping_line1}",
+        ])
+        flow = "whatsapp"
+        checkout_url = f"https://wa.me/{number}?text={quote(message)}"
+        instructions = extra_config.get("instructions") or "Te llevaremos a WhatsApp para confirmar tu pedido."
     elif gateway.provider == "wompi":
         currency = currency
         if currency != "COP":
@@ -2474,6 +3093,199 @@ async def create_public_payment_intent(
             provider_payload["fields"]["shipping-address:phone-number"] = str(shipping_address["phone"])
         if payload.customer_full_name:
             provider_payload["fields"]["shipping-address:name"] = payload.customer_full_name
+    elif gateway.provider == "payu":
+        account_id = str(extra_config.get("account_id") or "").strip()
+        api_key = gateway.secret_key_encrypted or str(extra_config.get("api_key") or "").strip()
+        if not gateway.merchant_id or not account_id or not api_key:
+            if not gateway.is_sandbox:
+                raise HTTPException(status_code=400, detail="PayU requires merchant ID, account ID and API key")
+            flow = "external_redirect"
+            checkout_url = payload.return_url or f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success"
+            instructions = "Simulación PayU: configura merchant ID, account ID y API key para enviar pagos reales."
+        else:
+            # Keep the complete UUID in the provider reference. A shortened
+            # UUID cannot be safely resolved by an asynchronous confirmation.
+            reference_code = f"LUMEFY-{storefront_order.sale_id}"
+            amount_value = f"{amount:.2f}"
+            signature = hashlib.md5(
+                f"{api_key}~{gateway.merchant_id}~{reference_code}~{amount_value}~{currency}".encode("utf-8")
+            ).hexdigest()
+            checkout_url = (
+                "https://sandbox.checkout.payulatam.com/ppp-web-gateway-payu/"
+                if gateway.is_sandbox else "https://checkout.payulatam.com/ppp-web-gateway-payu/"
+            )
+            flow = "form_redirect"
+            provider_payload = {
+                "method": "POST",
+                "action": checkout_url,
+                "fields": {
+                    "merchantId": str(gateway.merchant_id), "accountId": account_id,
+                    "description": f"Pedido {reference_code}", "referenceCode": reference_code,
+                    "amount": amount_value, "tax": "0", "taxReturnBase": "0",
+                    "currency": currency, "signature": signature,
+                    "test": "1" if gateway.is_sandbox else "0",
+                    "buyerEmail": storefront_order.customer_email,
+                    "responseUrl": payload.return_url or f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success",
+                },
+            }
+            confirmation_url = str(extra_config.get("confirmation_url") or "").strip()
+            if confirmation_url:
+                provider_payload["fields"]["confirmationUrl"] = confirmation_url.replace(
+                    "{storefront_id}", str(storefront.id)
+                )
+    elif gateway.provider == "mercadopago":
+        access_token = gateway.secret_key_encrypted or str(extra_config.get("access_token") or "").strip()
+        if not access_token:
+            if not gateway.is_sandbox:
+                raise HTTPException(status_code=400, detail="Mercado Pago requires an access token")
+            flow = "external_redirect"
+            checkout_url = payload.return_url or f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success"
+            instructions = "Simulación Mercado Pago: configura el access token para crear preferencias reales."
+        else:
+            preference = {
+                "items": [{
+                    "title": item.product.name if item.product else "Producto",
+                    "quantity": int(item.quantity),
+                    "unit_price": float(item.price),
+                    "currency_id": currency,
+                } for item in storefront_order.sale.items],
+                "external_reference": external_reference,
+                "payer": {"email": storefront_order.customer_email},
+                "back_urls": {"success": payload.return_url, "pending": payload.return_url, "failure": payload.return_url},
+                "auto_return": "approved",
+            }
+            notification_url = str(extra_config.get("notification_url") or "").strip()
+            if notification_url:
+                preference["notification_url"] = notification_url.replace("{storefront_id}", str(storefront.id))
+            response = requests.post(
+                "https://api.mercadopago.com/checkout/preferences",
+                headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+                json=preference,
+                timeout=15,
+            )
+            if response.status_code >= 400:
+                raise HTTPException(status_code=400, detail="Mercado Pago could not create the checkout preference")
+            result = response.json() or {}
+            checkout_url = result.get("sandbox_init_point") if gateway.is_sandbox else result.get("init_point")
+            if not checkout_url:
+                raise HTTPException(status_code=400, detail="Mercado Pago did not return a checkout URL")
+            flow = "external_redirect"
+    elif gateway.provider == "addi":
+        if currency != "COP":
+            raise HTTPException(status_code=400, detail="Addi checkout only supports COP")
+        client_id = str(gateway.public_key or "").strip()
+        client_secret = str(gateway.secret_key_encrypted or "").strip()
+        callback_url = str(extra_config.get("callback_url") or "").strip().replace(
+            "{storefront_id}", str(storefront.id)
+        )
+        callback_username = str(extra_config.get("callback_username") or "").strip()
+        callback_password = str(extra_config.get("callback_password") or "").strip()
+        document_id = "".join(char for char in str(storefront_order.customer_document_id or "") if char.isdigit())
+        phone = "".join(char for char in str(storefront_order.customer_phone or "") if char.isdigit())
+        if phone.startswith("57") and len(phone) > 10:
+            phone = phone[2:]
+        if not client_id or not client_secret:
+            if not gateway.is_sandbox:
+                raise HTTPException(status_code=400, detail="Addi requires Client ID and Client secret")
+            checkout_url = payload.return_url or f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success"
+            flow = "external_redirect"
+            instructions = "Simulación Addi: configura Client ID, Client secret y callback para iniciar un crédito real."
+        elif not document_id or not phone or not callback_url or not callback_username or not callback_password:
+            raise HTTPException(
+                status_code=400,
+                detail="Addi requiere documento CC, teléfono y configuración completa de callback para continuar",
+            )
+        else:
+            auth_base = "https://auth.addi-staging.com" if gateway.is_sandbox else "https://auth.addi.com"
+            api_base = "https://api.addi-staging.com" if gateway.is_sandbox else "https://api.addi.com"
+            audience = str(extra_config.get("audience") or (
+                "https://api.staging.addi.com" if gateway.is_sandbox else "https://api.addi.com"
+            )).strip()
+            auth_response = requests.post(
+                f"{auth_base}/oauth/token",
+                json={
+                    "audience": audience,
+                    "grant_type": "client_credentials",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                },
+                timeout=15,
+            )
+            if auth_response.status_code >= 400 or not (auth_response.json() or {}).get("access_token"):
+                raise HTTPException(status_code=400, detail="Addi could not authenticate the configured merchant")
+            access_token = str((auth_response.json() or {}).get("access_token"))
+            name_parts = [part for part in storefront_order.customer_name.split() if part]
+            first_name = " ".join(name_parts[:2]) or storefront_order.customer_name
+            last_name = " ".join(name_parts[2:]) or "-"
+            country = (storefront_order.shipping_country or "CO").upper()
+            redirection_url = payload.return_url or f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success"
+            application = {
+                "orderId": str(storefront_order.sale_id),
+                "totalAmount": f"{amount:.2f}",
+                "shippingAmount": f"{_safe_float(storefront_order.sale.shipping_cost):.2f}",
+                "totalTaxesAmount": f"{_safe_float(storefront_order.sale.tax):.2f}",
+                "currency": currency,
+                "items": [
+                    {
+                        "sku": str(item.product.sku or item.product_id) if item.product else str(item.product_id),
+                        "name": item.product.name if item.product else "Producto",
+                        "quantity": str(int(item.quantity)),
+                        "unitPrice": f"{_safe_float(item.price):.2f}",
+                        "tax": "0.00",
+                    }
+                    for item in storefront_order.sale.items
+                ],
+                "client": {
+                    "idType": "CC",
+                    "idNumber": document_id,
+                    "firstName": first_name,
+                    "lastName": last_name,
+                    "email": storefront_order.customer_email,
+                    "cellphone": phone,
+                    "cellphoneCountryCode": "+57",
+                    "address": {
+                        "lineOne": storefront_order.shipping_line1,
+                        "city": storefront_order.shipping_city or "Bogotá",
+                        "country": country,
+                    },
+                },
+                "shippingAddress": {
+                    "lineOne": storefront_order.shipping_line1,
+                    "city": storefront_order.shipping_city or "Bogotá",
+                    "country": country,
+                },
+                "billingAddress": {
+                    "lineOne": storefront_order.shipping_line1,
+                    "city": storefront_order.shipping_city or "Bogotá",
+                    "country": country,
+                },
+                "allyUrlRedirection": {
+                    "callbackUrl": callback_url,
+                    "redirectionUrl": redirection_url,
+                    **({"logoUrl": str(extra_config.get("logo_url"))} if extra_config.get("logo_url") else {}),
+                },
+            }
+            application_response = requests.post(
+                f"{api_base}/v1/online-applications",
+                headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+                json=application,
+                timeout=20,
+                allow_redirects=False,
+            )
+            checkout_url = application_response.headers.get("Location")
+            if application_response.status_code not in {301, 302, 303} or not checkout_url:
+                raise HTTPException(status_code=400, detail="Addi could not create the credit application")
+            flow = "external_redirect"
+    elif gateway.provider == "sistecredito":
+        checkout_url = str(extra_config.get("checkout_url") or "").strip()
+        if not checkout_url.startswith("https://"):
+            if gateway.is_sandbox:
+                checkout_url = payload.return_url or f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success"
+                instructions = f"Simulación {gateway.display_name}: agrega el checkout entregado por el proveedor para pagos reales."
+            else:
+                raise HTTPException(status_code=400, detail=f"{gateway.display_name} requires a secure checkout URL in its gateway configuration")
+        flow = "external_redirect"
+        instructions = instructions or extra_config.get("instructions") or "Serás redirigido para completar el pago."
 
     return schemas.PublicPaymentIntentResponse(
         provider=gateway.provider,
@@ -2593,3 +3405,246 @@ async def read_public_payment_status(
         order_id=sale.id if sale else None,
         order_code=str(sale.id).split("-")[0].upper() if sale else None,
     )
+
+
+@router.post("/public/payments/addi/webhook/{storefront_id}")
+async def receive_addi_payment_callback(
+    storefront_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Process Addi's Basic-auth callback and echo its body as required by Addi."""
+    try:
+        payload = await request.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid Addi callback payload") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Invalid Addi callback payload")
+    gateway = await _get_enabled_gateway_for_storefront(db, storefront_id, "addi")
+    config = gateway.extra_config or {}
+    if not _has_valid_basic_auth(
+        request.headers.get("Authorization"),
+        str(config.get("callback_username") or "").strip(),
+        str(config.get("callback_password") or "").strip(),
+    ):
+        raise HTTPException(status_code=401, detail="Invalid Addi callback credentials")
+    try:
+        sale_id = uuid.UUID(str(payload.get("orderId") or ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Unknown Addi payment reference") from exc
+    storefront_order = await _get_storefront_order_for_payment_webhook(db, storefront_id, sale_id, "addi")
+    sale = storefront_order.sale
+    if str(payload.get("currency") or "").upper() != (storefront_order.currency or "").upper():
+        raise HTTPException(status_code=400, detail="Addi transaction currency does not match the order")
+    status = str(payload.get("status") or "").upper()
+    approved_amount = _safe_float(payload.get("approvedAmount"), -1)
+    if status == "APPROVED" and abs(approved_amount - _safe_float(sale.total)) > 0.000001:
+        raise HTTPException(status_code=400, detail="Addi approved amount does not match the order")
+    status_map = {
+        "APPROVED": "approved",
+        "REJECTED": "rejected",
+        "DECLINED": "declined",
+        "ABANDONED": "expired",
+        "INTERNAL_ERROR": "declined",
+    }
+    application_id = str(payload.get("applicationId") or payload.get("orderId"))
+    await _apply_gateway_payment_status(db, storefront_order, "addi", status_map.get(status, "pending"), application_id)
+    # Addi retries callbacks unless it receives the exact original JSON body.
+    return payload
+
+
+@router.post("/public/payments/payu/webhook/{storefront_id}")
+async def receive_payu_payment_confirmation(
+    storefront_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Receive and verify PayU's server-to-server form confirmation."""
+    form = await request.form()
+    payload = {key: value for key, value in form.items()}
+    reference_sale = _safe_string(payload.get("reference_sale"))
+    if not reference_sale or not reference_sale.upper().startswith("LUMEFY-"):
+        raise HTTPException(status_code=400, detail="Unknown PayU payment reference")
+    try:
+        sale_id = uuid.UUID(reference_sale[len("LUMEFY-"):])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Unknown PayU payment reference") from exc
+
+    storefront_order = await _get_storefront_order_for_payment_webhook(db, storefront_id, sale_id, "payu")
+    gateway = await _get_enabled_gateway_for_storefront(db, storefront_id, "payu")
+    api_key = gateway.secret_key_encrypted or str((gateway.extra_config or {}).get("api_key") or "").strip()
+    if not _has_valid_payu_confirmation_signature(payload, api_key):
+        raise HTTPException(status_code=400, detail="Invalid PayU confirmation signature")
+    if str(payload.get("merchant_id") or "") != str(gateway.merchant_id or ""):
+        raise HTTPException(status_code=400, detail="PayU merchant does not match the configured gateway")
+
+    sale = storefront_order.sale
+    try:
+        received_amount = Decimal(str(payload.get("value"))).quantize(Decimal("0.01"))
+        expected_amount = Decimal(str(sale.total)).quantize(Decimal("0.01"))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid PayU confirmation amount") from exc
+    if received_amount != expected_amount:
+        raise HTTPException(status_code=400, detail="PayU transaction amount does not match the order")
+    if str(payload.get("currency") or "").upper() != (storefront_order.currency or "").upper():
+        raise HTTPException(status_code=400, detail="PayU transaction currency does not match the order")
+
+    state = str(payload.get("state_pol") or "")
+    status_by_state = {"4": "approved", "5": "expired", "6": "declined"}
+    status = status_by_state.get(state, "pending")
+    transaction_id = _safe_string(payload.get("transaction_id")) or _safe_string(payload.get("reference_pol"))
+    if not transaction_id:
+        raise HTTPException(status_code=400, detail="Incomplete PayU confirmation")
+    final_status = await _apply_gateway_payment_status(db, storefront_order, "payu", status, transaction_id)
+    return {"received": True, "status": final_status}
+
+
+@router.post("/public/payments/mercadopago/webhook/{storefront_id}")
+async def receive_mercadopago_payment_event(
+    storefront_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Receive Mercado Pago notifications and verify the payment at its API."""
+    try:
+        payload = await request.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid Mercado Pago webhook payload") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Invalid Mercado Pago webhook payload")
+
+    gateway = await _get_enabled_gateway_for_storefront(db, storefront_id, "mercadopago")
+    extra_config = gateway.extra_config or {}
+    webhook_secret = str(extra_config.get("webhook_secret") or "").strip()
+    if not _has_valid_mercadopago_webhook_signature(
+        payload,
+        request.headers.get("x-signature"),
+        request.headers.get("x-request-id"),
+        webhook_secret,
+    ):
+        raise HTTPException(status_code=400, detail="Invalid Mercado Pago webhook signature")
+
+    data = payload.get("data") or {}
+    payment_id = _safe_string(data.get("id") if isinstance(data, dict) else None)
+    access_token = gateway.secret_key_encrypted or str(extra_config.get("access_token") or "").strip()
+    if not payment_id or not access_token:
+        raise HTTPException(status_code=400, detail="Mercado Pago webhook requires a payment ID and access token")
+    response = requests.get(
+        f"https://api.mercadopago.com/v1/payments/{payment_id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=15,
+    )
+    if response.status_code >= 400:
+        raise HTTPException(status_code=400, detail="Mercado Pago could not verify the payment")
+    payment_data = response.json() or {}
+    try:
+        sale_id = uuid.UUID(str(payment_data.get("external_reference") or ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Unknown Mercado Pago payment reference") from exc
+
+    storefront_order = await _get_storefront_order_for_payment_webhook(db, storefront_id, sale_id, "mercadopago")
+    sale = storefront_order.sale
+    try:
+        received_amount = Decimal(str(payment_data.get("transaction_amount"))).quantize(Decimal("0.01"))
+        expected_amount = Decimal(str(sale.total)).quantize(Decimal("0.01"))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid Mercado Pago payment amount") from exc
+    if received_amount != expected_amount:
+        raise HTTPException(status_code=400, detail="Mercado Pago transaction amount does not match the order")
+    if str(payment_data.get("currency_id") or "").upper() != (storefront_order.currency or "").upper():
+        raise HTTPException(status_code=400, detail="Mercado Pago transaction currency does not match the order")
+
+    provider_status = str(payment_data.get("status") or "").lower()
+    status_map = {
+        "approved": "approved",
+        "rejected": "rejected",
+        "cancelled": "cancelled",
+        "refunded": "cancelled",
+        "charged_back": "cancelled",
+    }
+    final_status = await _apply_gateway_payment_status(
+        db,
+        storefront_order,
+        "mercadopago",
+        status_map.get(provider_status, "pending"),
+        str(payment_data.get("id") or payment_id),
+    )
+    return {"received": True, "status": final_status}
+
+
+@router.post("/public/payments/wompi/webhook")
+async def receive_wompi_payment_event(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Accept signed Wompi transaction events independently of browser redirects."""
+    try:
+        event = await request.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid Wompi event payload") from exc
+    if not isinstance(event, dict) or event.get("event") != "transaction.updated":
+        return {"received": True, "ignored": True}
+
+    transaction = ((event.get("data") or {}).get("transaction") or {})
+    if not isinstance(transaction, dict):
+        raise HTTPException(status_code=400, detail="Invalid Wompi transaction event")
+    try:
+        sale_id = uuid.UUID(str(transaction.get("reference") or ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Unknown Wompi payment reference") from exc
+
+    storefront_order = await db.scalar(
+        select(StorefrontOrder)
+        .options(
+            selectinload(StorefrontOrder.sale).selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(StorefrontOrder.storefront),
+        )
+        .where(StorefrontOrder.sale_id == sale_id, StorefrontOrder.is_active == True)
+    )
+    if not storefront_order or not storefront_order.sale or not storefront_order.storefront:
+        raise HTTPException(status_code=404, detail="Checkout order not found")
+    if storefront_order.payment_provider != "wompi":
+        raise HTTPException(status_code=400, detail="Payment provider does not match the checkout order")
+
+    gateway = await _get_enabled_gateway_for_storefront(db, storefront_order.storefront_id, "wompi")
+    events_secret = (gateway.extra_config or {}).get("events_secret")
+    header_checksum = request.headers.get("X-Event-Checksum")
+    if not _has_valid_wompi_event_signature(event, events_secret, header_checksum):
+        raise HTTPException(status_code=400, detail="Invalid Wompi event signature")
+
+    status = str(transaction.get("status") or "").upper()
+    transaction_id = str(transaction.get("id") or "").strip()
+    if not status or not transaction_id:
+        raise HTTPException(status_code=400, detail="Incomplete Wompi transaction event")
+
+    sale = storefront_order.sale
+    existing_status = (storefront_order.payment_status or "").lower()
+    if existing_status in {"approved", "approved_partial"} and status not in {"APPROVED", "APPROVED_PARTIAL"}:
+        return {"received": True, "ignored": True}
+
+    if status in {"APPROVED", "APPROVED_PARTIAL"}:
+        expected_amount = int(round(float(sale.total) * 100))
+        if int(transaction.get("amount_in_cents") or -1) != expected_amount:
+            raise HTTPException(status_code=400, detail="Wompi transaction amount does not match the order")
+        if str(transaction.get("currency") or "").upper() != (storefront_order.currency or "COP").upper():
+            raise HTTPException(status_code=400, detail="Wompi transaction currency does not match the order")
+
+    payment = await db.scalar(select(Payment).where(
+        Payment.sale_id == sale.id,
+        Payment.method == "wompi",
+        Payment.is_active == True,
+    ))
+    if payment:
+        payment.reference = transaction_id
+        db.add(payment)
+    storefront_order.payment_status = status.lower()
+    db.add(storefront_order)
+
+    if status in {"APPROVED", "APPROVED_PARTIAL"}:
+        if not await _confirm_paid_storefront_sale(db, sale):
+            storefront_order.payment_status = "approved_stock_unavailable"
+    elif status in {"DECLINED", "ERROR", "VOIDED"} and sale.status in {SaleStatus.DRAFT, SaleStatus.QUOTE}:
+        sale.status = SaleStatus.CANCELLED
+    db.add(sale)
+    await db.commit()
+    return {"received": True}

@@ -15,6 +15,10 @@ const routes: Routes = [
         loadComponent: () => import('./inventory-lots/inventory-lots.component').then(m => m.InventoryLotsComponent)
     },
     {
+        path: 'warehouses',
+        loadComponent: () => import('./inventory-warehouses/inventory-warehouses.component').then(m => m.InventoryWarehousesComponent)
+    },
+    {
         path: 'movement',
         component: InventoryMovementComponent
     },

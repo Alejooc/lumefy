@@ -28,6 +28,7 @@ export class EcommerceSeoComponent implements OnInit {
 
   loading = false;
   saving = false;
+  editing = false;
   storefronts: Storefront[] = [];
   selectedStorefrontId = '';
   storefront: Storefront | null = null;
@@ -62,6 +63,17 @@ export class EcommerceSeoComponent implements OnInit {
     this.applySelectedStorefront();
   }
 
+  openEditor(): void {
+    this.editing = true;
+  }
+
+  closeEditor(): void {
+    if (!this.saving) {
+      this.applySelectedStorefront();
+      this.editing = false;
+    }
+  }
+
   save(): void {
     if (!this.storefront) {
       return;
@@ -75,6 +87,7 @@ export class EcommerceSeoComponent implements OnInit {
       .subscribe({
         next: () => {
           this.saving = false;
+          this.editing = false;
           this.swal.success('SEO guardado');
           this.loadStorefronts();
         },

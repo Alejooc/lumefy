@@ -8,6 +8,7 @@ backend/.pytest_cache/
 backend/htmlcov/
 backend/.coverage
 backend/logs/
+backups/
 
 # Frontend/Angular
 frontend_mantis/node_modules/

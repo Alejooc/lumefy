@@ -18,24 +18,30 @@
               </tr>
             </thead>
             <tbody>
-              @for (sale of pendingSales; track sale) {
+              @for (task of tasks; track task.id) {
                 <tr>
-                  <td>{{ sale.id | slice:0:8 }}</td>
-                  <td>{{ sale.client?.name || 'Cliente Ocasional' }}</td>
-                  <td>{{ sale.updated_at || sale.created_at | date:'short' }}</td>
-                  <td>{{ sale.items?.length || 0 }} items</td>
-                  <td><span class="badge bg-secondary">General</span></td>
+                  <td>{{ task.sale.id | slice:0:8 }}</td>
+                  <td>{{ task.sale.client_name }}</td>
+                  <td>{{ task.created_at | date:'short' }}</td>
+                  <td>{{ task.sale.item_count }} items</td>
+                  <td><span class="badge bg-secondary">{{ task.warehouse_name }}</span></td>
                   <td>
-                    <button class="btn btn-info btn-sm me-2" [routerLink]="['/sales/view', sale.id]">
+                    <button class="btn btn-info btn-sm me-2" [routerLink]="['/sales/view', task.sale_id]">
                       <i class="ti ti-list"></i> Ver
                     </button>
-                    <button class="btn btn-primary btn-sm me-2" (click)="dispatchOrder(sale.id)">
-                      <i class="ti ti-box"></i> Despachar
+                    @if (task.status === 'OPEN') {
+                    <button class="btn btn-primary btn-sm me-2" (click)="startTask(task)">
+                      <i class="ti ti-player-play"></i> Iniciar
                     </button>
+                    } @else {
+                    <button class="btn btn-success btn-sm me-2" (click)="completeTask(task)">
+                      <i class="ti ti-check"></i> Finalizar
+                    </button>
+                    }
                   </td>
                 </tr>
               }
-              @if (pendingSales.length === 0 && !loading) {
+              @if (tasks.length === 0 && !loading) {
                 <tr>
                   <td colspan="6" class="text-center">No hay pedidos pendientes de preparacion.</td>
                 </tr>

@@ -15,6 +15,15 @@ import {
   StorefrontSocialLinks
 } from 'src/app/core/services/storefront-admin.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
+import { ApiService } from 'src/app/core/services/api.service';
+
+interface WarehouseOption {
+  id: string;
+  name: string;
+  code: string;
+  branch_id: string;
+  allows_ecommerce: boolean;
+}
 
 @Component({
   selector: 'app-ecommerce-settings',
@@ -28,12 +37,14 @@ export class EcommerceSettingsComponent implements OnInit {
   private context = inject(EcommerceContextService);
   private permissions = inject(PermissionService);
   private swal = inject(SweetAlertService);
+  private api = inject(ApiService);
 
   loading = false;
   saving = false;
   storefronts: Storefront[] = [];
   selectedStorefrontId = '';
   domains: StorefrontDomain[] = [];
+  warehouses: WarehouseOption[] = [];
   showDomainsModal = false;
   storefrontForm: Partial<Storefront> = this.createStorefrontForm();
   domainForm: Partial<StorefrontDomain> = this.createDomainForm();
@@ -60,6 +71,10 @@ export class EcommerceSettingsComponent implements OnInit {
       return;
     }
     this.loadStorefronts();
+    this.api.get<WarehouseOption[]>('/warehouses/').subscribe({
+      next: (warehouses) => this.warehouses = warehouses.filter((warehouse) => warehouse.allows_ecommerce),
+      error: () => this.warehouses = []
+    });
   }
 
   loadStorefronts(): void {
@@ -162,9 +177,9 @@ export class EcommerceSettingsComponent implements OnInit {
     if (!this.selectedStorefrontId) return;
     this.saving = true;
     const payload = {
-      ...this.domainForm,
       storefront_id: this.selectedStorefrontId,
-      domain: this.domainForm.domain?.trim()
+      domain: this.domainForm.domain?.trim(),
+      is_primary: !!this.domainForm.is_primary
     };
     const request = this.editingDomainId
       ? this.storefrontService.updateDomain(this.editingDomainId, payload)
@@ -172,7 +187,7 @@ export class EcommerceSettingsComponent implements OnInit {
     request.subscribe({
       next: () => {
         this.saving = false;
-        this.swal.success('Dominio guardado');
+        this.swal.success('Dominio agregado. Configura y verifica el registro DNS TXT.');
         this.domainForm = this.createDomainForm();
         this.editingDomainId = '';
         this.showDomainsModal = false;
@@ -186,7 +201,7 @@ export class EcommerceSettingsComponent implements OnInit {
   }
 
   editDomain(domain: StorefrontDomain): void {
-    this.domainForm = { ...domain };
+    this.domainForm = { domain: domain.domain, is_primary: domain.is_primary };
     this.editingDomainId = domain.id;
     this.showDomainsModal = true;
   }
@@ -218,6 +233,21 @@ export class EcommerceSettingsComponent implements OnInit {
       },
       error: (err) => {
         this.swal.error('Error', err?.error?.detail || 'No se pudo eliminar el dominio.');
+      }
+    });
+  }
+
+  verifyDomain(domain: StorefrontDomain): void {
+    this.saving = true;
+    this.storefrontService.verifyDomain(domain.id).subscribe({
+      next: () => {
+        this.saving = false;
+        this.swal.success('Dominio verificado y listo para recibir tráfico.');
+        this.loadDomains();
+      },
+      error: (err) => {
+        this.saving = false;
+        this.swal.error('Aún no se pudo verificar', err?.error?.detail || 'Revisa el registro TXT y vuelve a intentarlo.');
       }
     });
   }
@@ -284,8 +314,7 @@ export class EcommerceSettingsComponent implements OnInit {
   private createDomainForm(): Partial<StorefrontDomain> {
     return {
       domain: '',
-      is_primary: false,
-      is_verified: false
+      is_primary: false
     };
   }
 

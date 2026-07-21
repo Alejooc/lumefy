@@ -298,6 +298,7 @@ export interface Storefront {
   seo_settings: Record<string, unknown>;
   currency: string;
   language: string;
+  fulfillment_warehouse_id?: string | null;
 }
 
 export interface StorefrontDomain {
@@ -306,6 +307,10 @@ export interface StorefrontDomain {
   domain: string;
   is_primary: boolean;
   is_verified: boolean;
+  verification_token?: string | null;
+  verification_record?: string | null;
+  verification_value?: string | null;
+  verified_at?: string | null;
 }
 
 export interface StoreCollection {
@@ -506,6 +511,10 @@ export class StorefrontAdminService {
 
   updateDomain(id: string, payload: Partial<StorefrontDomain>): Observable<StorefrontDomain> {
     return this.api.put<StorefrontDomain>(`/storefront/domains/${id}`, payload);
+  }
+
+  verifyDomain(id: string): Observable<StorefrontDomain> {
+    return this.api.post<StorefrontDomain>(`/storefront/domains/${id}/verify`, {});
   }
 
   deleteDomain(id: string): Observable<{ ok: boolean }> {

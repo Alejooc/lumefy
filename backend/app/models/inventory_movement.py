@@ -13,12 +13,15 @@ class MovementType(str, enum.Enum):
     OUT = "OUT" # Sale or Damage
     ADJ = "ADJ" # Manual Adjustment
     TRF = "TRF" # Transfer between branches
+    RESERVE = "RESERVE"  # Availability commitment; does not change physical stock
+    RELEASE = "RELEASE"  # Reservation release; does not change physical stock
 
 class InventoryMovement(BaseModel):
     __tablename__ = "inventory_movements"
 
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), index=True)
     branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id"), index=True)
+    warehouse_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=True, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     
     type: Mapped[MovementType] = mapped_column(Enum(MovementType), index=True)
@@ -36,4 +39,5 @@ class InventoryMovement(BaseModel):
     # Relationships
     product = relationship(Product)
     branch = relationship(Branch)
+    warehouse = relationship("Warehouse")
     user = relationship(User)

@@ -15,6 +15,9 @@ type CheckoutSettings = {
   show_delivery_estimate: boolean;
   flat_shipping_rate: number;
   free_shipping_threshold: number;
+  tax_rate: number;
+  tax_included: boolean;
+  tax_shipping: boolean;
 };
 
 @Component({
@@ -109,6 +112,9 @@ export class EcommerceCheckoutComponent implements OnInit {
       show_delivery_estimate: true,
       flat_shipping_rate: 0,
       free_shipping_threshold: 0,
+      tax_rate: 0,
+      tax_included: false,
+      tax_shipping: false,
       ...(settings || {})
     } as CheckoutSettings;
   }

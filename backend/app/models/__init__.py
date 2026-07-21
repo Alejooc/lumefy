@@ -2,6 +2,10 @@ from .base import BaseModel
 from .user import User
 from .company import Company
 from .branch import Branch
+from .warehouse import Warehouse
+from .outbox_event import OutboxEvent
+from .outbox_consumption import OutboxConsumption
+from .fulfillment_task import FulfillmentTask
 from .category import Category
 from .unit_of_measure import UnitOfMeasure
 from .brand import Brand

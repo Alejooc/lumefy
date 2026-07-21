@@ -147,7 +147,9 @@ export class InventoryMovementComponent implements OnInit {
                     IN: 'Entrada',
                     OUT: 'Salida',
                     ADJ: 'Ajuste',
-                    TRF: 'Transferencia'
+                    TRF: 'Transferencia',
+                    RESERVE: 'Reserva',
+                    RELEASE: 'Liberación'
                 };
                 const movementTypeName = typeLabels[payload.type];
 

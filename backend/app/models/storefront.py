@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,6 +20,7 @@ class Storefront(BaseModel):
     seo_settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     currency: Mapped[str] = mapped_column(String, default="USD")
     language: Mapped[str] = mapped_column(String, default="es")
+    fulfillment_warehouse_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=True, index=True)
 
     domains = relationship("StorefrontDomain", back_populates="storefront", cascade="all, delete-orphan")
     collections = relationship("StoreCollection", back_populates="storefront", cascade="all, delete-orphan")
@@ -39,6 +42,8 @@ class StorefrontDomain(BaseModel):
     domain: Mapped[str] = mapped_column(String, nullable=False, index=True)
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    verification_token: Mapped[str] = mapped_column(String, nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     storefront = relationship("Storefront", back_populates="domains")
 
@@ -167,6 +172,7 @@ class StorefrontOrder(BaseModel):
     payment_provider: Mapped[str] = mapped_column(String, nullable=False)
     payment_status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
     currency: Mapped[str] = mapped_column(String, nullable=False, default="USD")
+    fulfillment_warehouse_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=True, index=True)
 
     storefront = relationship("Storefront", back_populates="orders")
     sale = relationship("Sale", back_populates="storefront_order")

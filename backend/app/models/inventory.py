@@ -11,6 +11,7 @@ class Inventory(BaseModel):
 
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), index=True)
     branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id"), index=True)
+    warehouse_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=True, index=True)
     
     quantity: Mapped[float] = mapped_column(Float, default=0.0)
     reserved_quantity: Mapped[float] = mapped_column(Float, default=0.0)
@@ -26,3 +27,4 @@ class Inventory(BaseModel):
     # Relationships
     product = relationship(Product)
     branch = relationship(Branch)
+    warehouse = relationship("Warehouse")

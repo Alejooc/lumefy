@@ -1,8 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { SaleService, Sale } from '../../../core/services/sale.service';
-import { forkJoin } from 'rxjs';
+import { ApiService } from '../../../core/services/api.service';
 import Swal from 'sweetalert2';
 
 @Component({
@@ -12,24 +11,20 @@ import Swal from 'sweetalert2';
     templateUrl: './picking-list.component.html'
 })
 export class PickingListComponent implements OnInit {
-    pendingSales: Sale[] = [];
+    tasks: any[] = [];
     loading = false;
 
-    private saleService = inject(SaleService);
+    private api = inject(ApiService);
 
     ngOnInit() {
-        this.loadPendingSales();
+        this.loadTasks();
     }
 
-    loadPendingSales() {
+    loadTasks() {
         this.loading = true;
-        // Fetch both CONFIRMED and PICKING orders
-        forkJoin([
-            this.saleService.getSales('CONFIRMED'),
-            this.saleService.getSales('PICKING')
-        ]).subscribe({
-            next: ([confirmed, picking]) => {
-                this.pendingSales = [...confirmed, ...picking];
+        this.api.get<any[]>('/logistics/fulfillment-tasks').subscribe({
+            next: (tasks) => {
+                this.tasks = tasks.filter(task => ['OPEN', 'IN_PROGRESS'].includes(task.status));
                 this.loading = false;
             },
             error: (err) => {
@@ -39,26 +34,33 @@ export class PickingListComponent implements OnInit {
         });
     }
 
-    dispatchOrder(id: string) {
+    startTask(task: any) {
         Swal.fire({
-            title: '¿Despachar Orden?',
-            text: 'Esto marcará la orden como enviada.',
+            title: '¿Iniciar picking?',
+            text: 'La orden pasará a preparación.',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Sí, Despachar',
+            confirmButtonText: 'Sí, iniciar',
             cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (result.isConfirmed) {
-                this.saleService.updateStatus(id, 'DISPATCHED').subscribe({
+                this.api.post(`/logistics/fulfillment-tasks/${task.id}/start`).subscribe({
                     next: () => {
-                        Swal.fire('Despachado', 'La orden ha sido marcada como despachada.', 'success');
-                        this.loadPendingSales();
+                        Swal.fire('Picking iniciado', 'Registra las unidades preparadas en el detalle de la orden.', 'success');
+                        this.loadTasks();
                     },
                     error: (err) => {
                         Swal.fire('Error', 'No se pudo actualizar: ' + err.message, 'error');
                     }
                 });
             }
+        });
+    }
+
+    completeTask(task: any) {
+        this.api.post(`/logistics/fulfillment-tasks/${task.id}/complete`).subscribe({
+            next: () => { Swal.fire('Picking finalizado', 'La orden pasó a empaque.', 'success'); this.loadTasks(); },
+            error: (err) => Swal.fire('No se puede finalizar', err.error?.detail || err.message, 'error')
         });
     }
 }

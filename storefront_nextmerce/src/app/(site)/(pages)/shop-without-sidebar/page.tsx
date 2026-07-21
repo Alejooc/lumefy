@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 const ShopWithoutSidebarPage = async ({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; sort?: string; minPrice?: string; maxPrice?: string; type?: string; size?: string; color?: string }>;
+  searchParams: Promise<{ q?: string; sort?: string; minPrice?: string; maxPrice?: string; collection?: string; category?: string; brand?: string; type?: string; size?: string; color?: string }>;
 }) => {
   const params = new URLSearchParams();
   const resolved = await searchParams;

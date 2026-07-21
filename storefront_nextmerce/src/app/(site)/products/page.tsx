@@ -10,6 +10,8 @@ export async function generateMetadata({
 }: {
   searchParams: Promise<{
     collection?: string;
+    category?: string;
+    brand?: string;
     q?: string;
     type?: string;
     size?: string;
@@ -29,7 +31,7 @@ export async function generateMetadata({
 
   return buildStorefrontPageMetadata({
     title: "Productos",
-    description: "Browse products",
+    description: "Explora los productos disponibles en nuestra tienda online.",
     path: canonicalPath,
     index: !hasFilters,
   });
@@ -40,6 +42,8 @@ const ProductsPage = async ({
 }: {
   searchParams: Promise<{
     collection?: string;
+    category?: string;
+    brand?: string;
     q?: string;
     type?: string;
     size?: string;
@@ -50,11 +54,13 @@ const ProductsPage = async ({
     page?: string;
   }>;
 }) => {
-  const { collection, q, type, size, color, sort, minPrice, maxPrice, page } =
+  const { collection, category, brand, q, type, size, color, sort, minPrice, maxPrice, page } =
     await searchParams;
   const currentPage = Math.max(1, Number(page || "1") || 1);
   const data = await loadShopViewModel({
     collectionSlug: collection,
+    category,
+    brand,
     searchTerm: q,
     productType: type,
     size,
@@ -71,15 +77,21 @@ const ProductsPage = async ({
       <ShopWithSidebar
         items={data.items}
         categories={data.categories}
+        collections={data.collections}
+        brands={data.brands}
         productTypes={data.productTypes}
         sizes={data.sizes}
         colors={data.colors}
         selectedCollectionName={data.selectedCollectionName}
         searchTerm={data.searchTerm}
+        priceRangeMin={data.priceRangeMin}
+        priceRangeMax={data.priceRangeMax}
         minPrice={data.minPrice}
         maxPrice={data.maxPrice}
         activeSort={data.activeSort}
         activeCollections={data.activeCollections}
+        activeCategories={data.activeCategories}
+        activeBrands={data.activeBrands}
         activeTypes={data.activeTypes}
         activeSizes={data.activeSizes}
         activeColors={data.activeColors}

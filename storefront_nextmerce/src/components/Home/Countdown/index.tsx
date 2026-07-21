@@ -58,10 +58,10 @@ const CounDown = ({ content }: { content: HomeCountdown }) => {
 
             <div className="flex flex-wrap gap-6 mt-6">
               {[
-                { label: "Days", value: days },
-                { label: "Hours", value: hours },
-                { label: "Minutes", value: minutes },
-                { label: "Seconds", value: seconds },
+                { label: "Días", value: days },
+                { label: "Horas", value: hours },
+                { label: "Minutos", value: minutes },
+                { label: "Segundos", value: seconds },
               ].map((item) => (
                 <div key={item.label}>
                   <span className="min-w-[64px] h-14.5 font-semibold text-xl lg:text-3xl text-dark rounded-lg flex items-center justify-center bg-white shadow-2 px-4 mb-2">
@@ -76,7 +76,7 @@ const CounDown = ({ content }: { content: HomeCountdown }) => {
               href={content.ctaHref || "/products"}
               className="inline-flex font-medium text-custom-sm text-white bg-blue py-3 px-9.5 rounded-md ease-out duration-200 hover:bg-blue-dark mt-7.5"
             >
-              {content.ctaLabel || "Check it Out!"}
+              {content.ctaLabel || "Ver oferta"}
             </Link>
           </div>
 

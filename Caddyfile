@@ -1,0 +1,43 @@
+{
+	email {$ACME_EMAIL}
+	on_demand_tls {
+		ask http://backend:8000/api/v1/storefront/public/certificate-authorization
+	}
+}
+
+(lumefy_common) {
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle /static/* {
+		uri strip_prefix /static
+		root * /var/www/static
+		file_server
+	}
+}
+
+https://{$ADMIN_DOMAIN} {
+	import lumefy_common
+	reverse_proxy frontend:80
+}
+
+# Each platform subdomain or verified custom domain is authorized by the API
+# before Caddy asks Let's Encrypt for a certificate.
+https://* {
+	tls {
+		on_demand
+	}
+	import lumefy_common
+	reverse_proxy storefront:3000
+}

@@ -5,9 +5,13 @@ import { useState } from "react";
 const CategoryDropdown = ({
   categories,
   onSelect,
+  title = "Categoría",
+  allLabel = "Todas las categorías",
 }: {
   categories: Array<{ name: string; slug: string; products: number; isRefined: boolean }>;
   onSelect: (slug?: string) => void;
+  title?: string;
+  allLabel?: string;
 }) => {
   const [toggleDropdown, setToggleDropdown] = useState(true);
 
@@ -22,7 +26,7 @@ const CategoryDropdown = ({
           toggleDropdown && "shadow-filter"
         }`}
       >
-        <p className="text-dark">Categoria</p>
+        <p className="text-dark">{title}</p>
         <button
           aria-label="button for category dropdown"
           className={`text-dark ease-out duration-200 ${toggleDropdown && "rotate-180"}`}
@@ -44,7 +48,7 @@ const CategoryDropdown = ({
           className="group flex items-center justify-between ease-out duration-200 hover:text-blue"
           onClick={() => onSelect(undefined)}
         >
-          <span>Todas las categorias</span>
+          <span>{allLabel}</span>
         </button>
         {categories.map((category) => (
           <button

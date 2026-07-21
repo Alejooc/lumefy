@@ -33,7 +33,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
     ENVIRONMENT: str = "development"  # development | production
+    SQL_ECHO: bool = False
     FRONTEND_URL: str = "http://localhost:4200"
+    PLATFORM_STOREFRONT_DOMAIN: Optional[str] = None
     
     FIRST_SUPERUSER: str
     FIRST_SUPERUSER_PASSWORD: str

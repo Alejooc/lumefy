@@ -112,6 +112,16 @@
                 }
               </select>
             </div>
+            <div class="col-12">
+              <label class="form-label">Bodega de fulfillment</label>
+              <select class="form-select" [(ngModel)]="storefrontForm.fulfillment_warehouse_id">
+                <option [ngValue]="null">Selecciona la bodega que despacha pedidos online</option>
+                @for (warehouse of warehouses; track warehouse.id) {
+                  <option [value]="warehouse.id">{{ warehouse.name }} · {{ warehouse.code }}</option>
+                }
+              </select>
+              <small class="form-hint">El catálogo, las reservas y el despacho online usarán exclusivamente esta bodega.</small>
+            </div>
           </div>
         </div>
       </div>
@@ -329,7 +339,7 @@
           <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
             <div>
               <h5 class="mb-1">Administrar dominios</h5>
-              <small class="text-muted">Agrega, edita o elimina dominios de esta tienda desde una sola vista.</small>
+              <small class="text-muted">Agrega un dominio, publica el TXT indicado y verifícalo. Nunca se activa manualmente.</small>
             </div>
             <button class="btn btn-outline-secondary btn-sm" (click)="closeDomainsModal()">Cerrar</button>
           </div>
@@ -340,7 +350,7 @@
                 <div class="settings-block__header">
                   <div>
                     <h6 class="mb-1">{{ editingDomainId ? 'Editar dominio' : 'Nuevo dominio' }}</h6>
-                    <small class="text-muted">Define si es principal y si ya esta verificado.</small>
+                    <small class="text-muted">El dominio se verifica con DNS después de guardarlo.</small>
                   </div>
                 </div>
 
@@ -352,11 +362,6 @@
                   <input class="form-check-input" type="checkbox" [(ngModel)]="domainForm.is_primary" />
                   <label class="form-check-label">Dominio principal</label>
                 </div>
-                <div class="form-check setting-check mb-3">
-                  <input class="form-check-input" type="checkbox" [(ngModel)]="domainForm.is_verified" />
-                  <label class="form-check-label">Verificado</label>
-                </div>
-
                 <div class="d-flex gap-2">
                   <button class="btn btn-outline-secondary w-100" (click)="closeDomainsModal()">Cancelar</button>
                   <button class="btn btn-primary w-100" (click)="saveDomain()" [disabled]="saving || !selectedStorefrontId">
@@ -383,9 +388,18 @@
                         <small class="text-muted">
                           {{ domain.is_primary ? 'Principal' : 'Secundario' }} · {{ domain.is_verified ? 'Verificado' : 'Pendiente' }}
                         </small>
+                        @if (!domain.is_verified && domain.verification_record && domain.verification_value) {
+                          <div class="small text-muted mt-2">
+                            <span class="d-block">TXT: <code>{{ domain.verification_record }}</code></span>
+                            <span class="d-block">Valor: <code>{{ domain.verification_value }}</code></span>
+                          </div>
+                        }
                       </div>
                       <div class="d-flex gap-2">
-                        <button class="btn btn-outline-secondary btn-sm" (click)="editDomain(domain)">Editar</button>
+                        @if (!domain.is_verified) {
+                          <button class="btn btn-outline-primary btn-sm" (click)="verifyDomain(domain)" [disabled]="saving">Verificar DNS</button>
+                        }
+                        <button class="btn btn-outline-secondary btn-sm" (click)="editDomain(domain)">Principal</button>
                         <button class="btn btn-outline-danger btn-sm" (click)="deleteDomain(domain)">Borrar</button>
                       </div>
                     </div>

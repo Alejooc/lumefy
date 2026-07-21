@@ -46,7 +46,7 @@
             <tr>
               <th>Producto</th>
               <th>Sucursal</th>
-              <th>Stock Actual</th>
+              <th>Disponible</th>
               <th>Costo Promedio</th>
               <th>Valor</th>
               <th>Ubicación</th>
@@ -63,11 +63,9 @@
                 <td>
                   <span class="badge"
                     [ngClass]="{'bg-success': item.quantity > 10, 'bg-warning text-dark': item.quantity > 0 && item.quantity <= 10, 'bg-danger': item.quantity <= 0}">
-                    {{ item.quantity }}
+                    {{ item.quantity - item.reserved_quantity }}
                   </span>
-                  @if (item.reserved_quantity > 0) {
-                    <small class="d-block text-muted mt-1">Reservado: {{ item.reserved_quantity }} · Disponible: {{ item.quantity - item.reserved_quantity }}</small>
-                  }
+                  <small class="d-block text-muted mt-1">Físico: {{ item.quantity }} · Reservado: {{ item.reserved_quantity }}</small>
                 </td>
                 <td>{{ item.average_cost | currency }}</td>
                 <td>{{ (item.quantity * item.average_cost) | currency }}</td>

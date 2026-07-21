@@ -30,11 +30,13 @@
                                     'bg-success': m.type === 'IN',
                                     'bg-danger': m.type === 'OUT',
                                     'bg-warning text-dark': m.type === 'ADJ',
-                                    'bg-info': m.type === 'TRF'
-                                }">{{ m.type }}</span>
+                                    'bg-info': m.type === 'TRF',
+                                    'bg-primary': m.type === 'RESERVE',
+                                    'bg-secondary': m.type === 'RELEASE'
+                                }">{{ m.type === 'RESERVE' ? 'Reserva' : m.type === 'RELEASE' ? 'Liberación' : m.type }}</span>
                 </td>
                 <td [ngClass]="{'text-success': m.quantity > 0, 'text-danger': m.quantity < 0}">
-                  {{ m.quantity > 0 ? '+' : '' }}{{ m.quantity }}
+                  {{ m.quantity === 0 ? '—' : (m.quantity > 0 ? '+' : '') + m.quantity }}
                 </td>
                 <td>{{ m.previous_stock }}</td>
                 <td><strong>{{ m.new_stock }}</strong></td>

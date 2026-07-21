@@ -20,6 +20,7 @@ class StorefrontBase(BaseModel):
     seo_settings: dict = Field(default_factory=dict)
     currency: str = "USD"
     language: str = "es"
+    fulfillment_warehouse_id: Optional[UUID] = None
 
 
 class StorefrontCreate(StorefrontBase):
@@ -37,6 +38,7 @@ class StorefrontUpdate(BaseModel):
     seo_settings: Optional[dict] = None
     currency: Optional[str] = None
     language: Optional[str] = None
+    fulfillment_warehouse_id: Optional[UUID] = None
 
 
 class Storefront(StorefrontBase):
@@ -53,7 +55,6 @@ class Storefront(StorefrontBase):
 class StorefrontDomainBase(BaseModel):
     domain: str
     is_primary: bool = False
-    is_verified: bool = False
 
 
 class StorefrontDomainCreate(StorefrontDomainBase):
@@ -61,14 +62,17 @@ class StorefrontDomainCreate(StorefrontDomainBase):
 
 
 class StorefrontDomainUpdate(BaseModel):
-    domain: Optional[str] = None
     is_primary: Optional[bool] = None
-    is_verified: Optional[bool] = None
 
 
 class StorefrontDomain(StorefrontDomainBase):
     id: UUID
     storefront_id: UUID
+    is_verified: bool
+    verification_token: Optional[str] = None
+    verification_record: Optional[str] = None
+    verification_value: Optional[str] = None
+    verified_at: Optional[datetime] = None
     company_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
@@ -346,10 +350,14 @@ class PublicCatalogProductType(BaseModel):
 class PublicCatalogResponse(BaseModel):
     items: list[PublicProduct] = Field(default_factory=list)
     categories: list[PublicCatalogCategory] = Field(default_factory=list)
+    collections: list[PublicCatalogCategory] = Field(default_factory=list)
+    brands: list[PublicCatalogFacet] = Field(default_factory=list)
     product_types: list[PublicCatalogProductType] = Field(default_factory=list)
     sizes: list[PublicCatalogFacet] = Field(default_factory=list)
     colors: list[PublicCatalogFacet] = Field(default_factory=list)
     total_products: int = 0
+    min_price: float = 0
+    max_price: float = 0
     current_page: int = 1
     page_size: int = 12
     total_pages: int = 1

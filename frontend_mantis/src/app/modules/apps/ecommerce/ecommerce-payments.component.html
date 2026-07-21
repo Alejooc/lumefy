@@ -135,7 +135,7 @@
               </div>
               <div class="col-12">
                 <label class="form-label">{{ secretLabel(form.provider) }}</label>
-                <input class="form-control" [(ngModel)]="form.secret_key_encrypted" [placeholder]="secretPlaceholder(form.provider)" />
+                <input class="form-control" type="password" [(ngModel)]="form.secret_key_encrypted" [placeholder]="secretPlaceholder(form.provider)" autocomplete="new-password" />
               </div>
               @if (providerFields.length > 0) {
                 <div class="col-12">
@@ -162,6 +162,7 @@
                           } @else {
                             <input
                               class="form-control"
+                              [type]="field.key.includes('secret') || field.key.includes('password') ? 'password' : 'text'"
                               [ngModel]="extraFieldValue(field.key)"
                               (ngModelChange)="setExtraFieldValue(field.key, $event)"
                               [placeholder]="field.placeholder"

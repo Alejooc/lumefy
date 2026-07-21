@@ -10,6 +10,7 @@ from .opportunity import OpportunityCreate, OpportunityOut, OpportunityUpdate
 from .manufacturing import BomIn, BomOut, ManufacturingOrderIn, ManufacturingOrderOut
 from .accounting import AccountIn, AccountOut, JournalIn, JournalOut
 from .inventory_location import LocationIn, LocationOut
+from .warehouse import WarehouseCreate, WarehouseUpdate, Warehouse
 from .storefront_coupon import CouponIn, CouponOut
 from .storefront import (
     Storefront,

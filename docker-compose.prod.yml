@@ -23,12 +23,24 @@ services:
       sh -c "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
       - backend_static:/app/app/static
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   frontend:
     build: ./frontend_mantis
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   storefront:
     build:
@@ -43,23 +55,38 @@ services:
       INTERNAL_API_URL: http://backend:8000/api/v1
       NEXT_IMAGE_ALLOW_LOCAL_IP: "false"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
-  nginx:
-    image: nginx:1.27-alpine
+  caddy:
+    image: caddy:2.8-alpine
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     environment:
       ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
     volumes:
-      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - backend_static:/var/www/static:ro
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
-      - backend
-      - frontend
-      - storefront
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+      storefront:
+        condition: service_healthy
 
 volumes:
   postgres_data:
   backend_static:
+  caddy_data:
+  caddy_config:

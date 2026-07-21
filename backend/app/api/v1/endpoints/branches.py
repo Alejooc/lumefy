@@ -5,6 +5,7 @@ from sqlalchemy import select
 from app.api import deps
 from app.core.database import get_db
 from app.models.branch import Branch
+from app.models.warehouse import Warehouse
 from app.models.user import User
 from app.schemas import branch as schemas
 from app.core.permissions import PermissionChecker
@@ -48,6 +49,17 @@ async def create_branch(
         company_id=current_user.company_id
     )
     db.add(branch)
+    await db.flush()
+    db.add(Warehouse(
+        branch_id=branch.id,
+        name="Bodega principal",
+        code="PRINCIPAL",
+        is_default=True,
+        allows_ecommerce=True,
+        company_id=current_user.company_id,
+        created_by_id=current_user.id,
+        updated_by_id=current_user.id,
+    ))
     await db.commit()
     await db.refresh(branch)
     return branch

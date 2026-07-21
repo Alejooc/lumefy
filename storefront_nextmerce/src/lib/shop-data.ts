@@ -31,6 +31,8 @@ export type ShopFilterFacet = {
 export type ShopViewModel = {
   items: Product[];
   categories: ShopFilterCategory[];
+  collections: ShopFilterCategory[];
+  brands: ShopFilterFacet[];
   productTypes: ShopFilterType[];
   sizes: ShopFilterFacet[];
   colors: ShopFilterFacet[];
@@ -42,10 +44,14 @@ export type ShopViewModel = {
   hasNextPage: boolean;
   selectedCollectionName?: string;
   searchTerm?: string;
+  priceRangeMin: number;
+  priceRangeMax: number;
   minPrice: number;
   maxPrice: number;
   activeSort: string;
   activeCollections: string[];
+  activeCategories: string[];
+  activeBrands: string[];
   activeTypes: string[];
   activeSizes: string[];
   activeColors: string[];
@@ -124,6 +130,8 @@ function parseMultiValue(value?: string): string[] {
 
 export async function loadShopViewModel(options?: {
   collectionSlug?: string;
+  category?: string;
+  brand?: string;
   searchTerm?: string;
   productType?: string;
   size?: string;
@@ -144,6 +152,8 @@ export async function loadShopViewModel(options?: {
   const requestedPageSize = Math.max(1, options?.pageSize || 12);
   const catalog = await getPublicProducts(storefront.id, {
     collection: options?.collectionSlug,
+    category: options?.category,
+    brand: options?.brand,
     q: options?.searchTerm,
     type: options?.productType,
     size: options?.size,
@@ -154,22 +164,28 @@ export async function loadShopViewModel(options?: {
     page: currentPage,
     page_size: requestedPageSize,
   });
-  const availablePrices = catalog.items.map((item) => Number(item.price || 0));
-  const highestPrice = availablePrices.length ? Math.max(...availablePrices) : 0;
-  const minPrice = Number.isFinite(options?.minPrice) ? Number(options?.minPrice) : 0;
+  const priceRangeMin = Number(catalog.min_price || 0);
+  const priceRangeMax = Number(catalog.max_price || 0);
+  const minPrice = Number.isFinite(options?.minPrice) ? Number(options?.minPrice) : priceRangeMin;
   const maxPrice = Number.isFinite(options?.maxPrice)
     ? Number(options?.maxPrice)
-    : highestPrice;
+    : priceRangeMax;
   const pageSize = Math.max(1, options?.pageSize || 12);
 
   return {
     items: catalog.items.map(toTemplateProduct),
-    categories: catalog.categories.length
-      ? catalog.categories.map((collection) => ({
+    categories: catalog.categories.map((category) => ({
+      name: category.name,
+      slug: category.slug,
+      products: category.products,
+      isRefined: category.is_refined,
+    })),
+    collections: catalog.collections.length
+      ? catalog.collections.map((collection) => ({
           name: collection.name,
           slug: collection.slug,
           products: collection.products,
-          isRefined: collection.is_refined,
+          isRefined: selectedCollections.includes(collection.slug),
         }))
       : collections.map((collection) => ({
           name: collection.name,
@@ -177,6 +193,11 @@ export async function loadShopViewModel(options?: {
           products: 0,
           isRefined: selectedCollections.includes(collection.slug),
         })),
+    brands: catalog.brands.map((entry) => ({
+      value: entry.value,
+      products: entry.products,
+      isRefined: entry.is_refined,
+    })),
     productTypes: catalog.product_types.map((entry) => ({
       name: entry.name || normalizeTypeLabel(entry.value),
       value: entry.value,
@@ -201,10 +222,14 @@ export async function loadShopViewModel(options?: {
     hasNextPage: catalog.current_page < catalog.total_pages,
     selectedCollectionName: catalog.selected_collection_name || undefined,
     searchTerm: options?.searchTerm,
+    priceRangeMin,
+    priceRangeMax,
     minPrice,
     maxPrice,
     activeSort: options?.sort || "latest",
     activeCollections: selectedCollections,
+    activeCategories: parseMultiValue(options?.category),
+    activeBrands: parseMultiValue(options?.brand),
     activeTypes: normalizedTypes,
     activeSizes: parseMultiValue(options?.size),
     activeColors: parseMultiValue(options?.color),

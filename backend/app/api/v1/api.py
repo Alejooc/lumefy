@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
-    login, products, categories, inventory, pos, companies, reports, clients, users, roles, audit, suppliers, purchases, pricelists, sales, admin, branches, logistics, plans, brands, units_of_measure, upload, dashboard, admin_users, system, notifications, notification_admin, apps, search, stock_take, returns, storefront, invoices, procurement, opportunities, manufacturing, accounting, inventory_locations, storefront_coupons
+    login, products, categories, inventory, pos, companies, reports, clients, users, roles, audit, suppliers, purchases, pricelists, sales, admin, branches, logistics, plans, brands, units_of_measure, upload, dashboard, admin_users, system, notifications, notification_admin, apps, search, stock_take, returns, storefront, invoices, procurement, opportunities, manufacturing, accounting, inventory_locations, storefront_coupons, warehouses
 )
 api_router = APIRouter()
 api_router.include_router(login.router, tags=["login"])
@@ -41,4 +41,5 @@ api_router.include_router(opportunities.router, prefix="/crm/opportunities", tag
 api_router.include_router(manufacturing.router, prefix="/manufacturing", tags=["manufacturing"])
 api_router.include_router(accounting.router, prefix="/accounting", tags=["accounting"])
 api_router.include_router(inventory_locations.router, prefix="/inventory/locations", tags=["inventory locations"])
+api_router.include_router(warehouses.router, prefix="/warehouses", tags=["warehouses"])
 api_router.include_router(storefront_coupons.router, prefix="/storefront/coupons", tags=["storefront coupons"])

@@ -41,11 +41,11 @@ const MyAccount = () => {
   if (loading || !session) {
     return (
       <>
-        <Breadcrumb title={"Account"} pages={["Account"]} />
+        <Breadcrumb title={"Mi cuenta"} pages={["Mi cuenta"]} />
         <section className="overflow-hidden py-20 bg-gray-2">
           <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
             <div className="rounded-xl bg-white shadow-1 py-9.5 px-4 sm:px-7.5 xl:px-10">
-              Loading account...
+              Cargando tu cuenta...
             </div>
           </div>
         </section>

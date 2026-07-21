@@ -1,11 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 import mimetypes
+from sqlalchemy import text
 
 from app.core.config import settings
+from app.core.database import SessionLocal
 from app.core.rate_limit import limiter
 from app.core.middleware import MaintenanceMiddleware
 import app.models # Import all models to ensure they are registered with SQLAlchemy
@@ -20,6 +22,17 @@ app = FastAPI(
 async def liveness_probe():
     """Una sonda pública y mínima para Docker/orquestadores; no expone métricas."""
     return {"status": "ok"}
+
+
+@app.get("/readyz", tags=["health"])
+async def readiness_probe():
+    """Verify that this API can serve requests, including its database."""
+    try:
+        async with SessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Database is not ready") from exc
+    return {"status": "ready"}
 
 # Rate Limiting
 app.state.limiter = limiter

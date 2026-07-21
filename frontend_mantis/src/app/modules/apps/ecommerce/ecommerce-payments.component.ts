@@ -34,7 +34,7 @@ export class EcommercePaymentsComponent implements OnInit {
   storefronts: Storefront[] = [];
   selectedStorefrontId = '';
   paymentGateways: StorePaymentGateway[] = [];
-  readonly gatewayProviders = ['wompi', 'cod', 'manual_transfer'];
+  readonly gatewayProviders = ['wompi', 'payu', 'mercadopago', 'addi', 'sistecredito', 'whatsapp', 'cod', 'manual_transfer'];
   readonly gatewayMeta: Record<
     string,
     {
@@ -61,6 +61,36 @@ export class EcommercePaymentsComponent implements OnInit {
       publicPlaceholder: 'Llave publica Wompi',
       secretLabel: 'Integrity / secret',
       secretPlaceholder: 'Llave privada o integrity secret'
+    },
+    payu: {
+      label: 'PayU', description: 'WebCheckout firmado de PayU; usa sandbox sin credenciales para revisar el flujo.',
+      defaultName: 'PayU', accent: 'rose', merchantLabel: 'Merchant ID', merchantPlaceholder: 'ID de comercio PayU',
+      publicLabel: 'API Login', publicPlaceholder: 'API Login opcional',
+      secretLabel: 'API key', secretPlaceholder: 'API key privada PayU'
+    },
+    mercadopago: {
+      label: 'Mercado Pago', description: 'Checkout de Mercado Pago para cobros digitales.',
+      defaultName: 'Mercado Pago', accent: 'sky', merchantLabel: 'Collector ID', merchantPlaceholder: 'ID de vendedor',
+      publicLabel: 'Public key', publicPlaceholder: 'APP_USR-…',
+      secretLabel: 'Access token', secretPlaceholder: 'Token privado de Mercado Pago'
+    },
+    addi: {
+      label: 'Addi', description: 'Crédito Addi nativo: originación, redirección y confirmación automática.',
+      defaultName: 'Addi', accent: 'amber', merchantLabel: 'Ally slug', merchantPlaceholder: 'Identificador del aliado (opcional)',
+      publicLabel: 'Client ID', publicPlaceholder: 'Client ID Addi',
+      secretLabel: 'Client secret', secretPlaceholder: 'Client secret Addi'
+    },
+    sistecredito: {
+      label: 'Sistecrédito', description: 'Checkout hospedado por Sistecrédito; la API nativa se habilita con su contrato técnico.',
+      defaultName: 'Sistecrédito', accent: 'indigo', merchantLabel: 'Código de comercio', merchantPlaceholder: 'Código Sistecrédito',
+      publicLabel: 'API key', publicPlaceholder: 'Llave pública o API key',
+      secretLabel: 'API secret', secretPlaceholder: 'Secreto Sistecrédito'
+    },
+    whatsapp: {
+      label: 'Comprar por WhatsApp', description: 'Envía el carrito y los datos del pedido al WhatsApp comercial configurado.',
+      defaultName: 'Comprar por WhatsApp', accent: 'emerald', merchantLabel: 'WhatsApp comercial', merchantPlaceholder: 'Ej. 573001234567',
+      publicLabel: 'Etiqueta opcional', publicPlaceholder: 'Ej. Ventas Lumefy',
+      secretLabel: 'Secreto', secretPlaceholder: 'No requerido'
     },
     cod: {
       label: 'COD',
@@ -90,7 +120,31 @@ export class EcommercePaymentsComponent implements OnInit {
   readonly providerExtraFields: Record<string, GatewayExtraField[]> = {
     wompi: [
       { key: 'integrity_secret', label: 'Integrity secret', placeholder: 'Secreto de integridad de Wompi' },
+      { key: 'events_secret', label: 'Events secret', placeholder: 'Secreto de eventos Wompi', help: 'Protege el webhook de confirmación.' },
       { key: 'redirect_url', label: 'URL retorno', placeholder: 'https://tu-tienda.com/checkout/return' }
+    ],
+    payu: [
+      { key: 'account_id', label: 'Account ID', placeholder: 'Cuenta PayU para Colombia' },
+      { key: 'confirmation_url', label: 'URL confirmación', placeholder: 'https://api.tudominio.com/api/v1/storefront/public/payments/payu/webhook/{storefront_id}', help: 'Usa este endpoint público. {storefront_id} se reemplaza automáticamente por la tienda.' }
+    ],
+    mercadopago: [
+      { key: 'notification_url', label: 'URL de notificaciones', placeholder: 'https://api.tudominio.com/api/v1/storefront/public/payments/mercadopago/webhook/{storefront_id}', help: 'Usa este endpoint público. {storefront_id} se reemplaza automáticamente por la tienda.' },
+      { key: 'webhook_secret', label: 'Webhook secret', placeholder: 'Secreto de Mercado Pago' }
+    ],
+    addi: [
+      { key: 'callback_url', label: 'URL callback', placeholder: 'https://api.tudominio.com/api/v1/storefront/public/payments/addi/webhook/{storefront_id}', help: 'Addi notificará el resultado del crédito. {storefront_id} se reemplaza automáticamente.' },
+      { key: 'callback_username', label: 'Usuario callback', placeholder: 'Usuario de notificación Addi' },
+      { key: 'callback_password', label: 'Contraseña callback', placeholder: 'Contraseña de notificación Addi' },
+      { key: 'logo_url', label: 'URL de logo', placeholder: 'https://cdn.tudominio.com/logo.png', help: 'Opcional. Se muestra en la experiencia de Addi.' },
+      { key: 'audience', label: 'Audience OAuth', placeholder: 'https://api.staging.addi.com', help: 'Opcional: usa el valor entregado por Addi si difiere del predeterminado.' }
+    ],
+    sistecredito: [
+      { key: 'checkout_url', label: 'URL checkout segura', placeholder: 'https://…' },
+      { key: 'webhook_secret', label: 'Webhook secret', placeholder: 'Secreto Sistecrédito' }
+    ],
+    whatsapp: [
+      { key: 'whatsapp_number', label: 'Número WhatsApp', placeholder: '573001234567', help: 'Incluye país y número, sin + ni espacios.' },
+      { key: 'instructions', label: 'Mensaje al cliente', placeholder: 'Te llevaremos a WhatsApp para confirmar.' }
     ],
     cod: [
       { key: 'instructions', label: 'Instrucciones', placeholder: 'Ej. Paga al recibir tu pedido. Ten el valor exacto disponible.', help: 'Se muestra al finalizar la compra.' }

@@ -5,6 +5,8 @@ const ShopWithSidebarPage = async ({
 }: {
   searchParams: Promise<{
     collection?: string;
+    category?: string;
+    brand?: string;
     q?: string;
     type?: string;
     size?: string;

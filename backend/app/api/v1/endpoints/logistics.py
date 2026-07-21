@@ -7,12 +7,15 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.logistics import PackageType, SalePackage, SalePackageItem
+from app.models.fulfillment_task import FulfillmentTask
+from app.models.warehouse import Warehouse
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.sale import Sale, SaleItem, SaleStatus
 from app.models.user import User
 from app.core.permissions import PermissionChecker
 from app.services.inventory_consumption import consume_fifo_lots
+from app.services.outbox import enqueue_outbox_event
 from app.schemas import logistics as schemas
 import uuid
 
@@ -86,6 +89,84 @@ async def delete_package_type(
     return {"ok": True}
 
 # --- Picking ---
+
+def _fulfillment_task_payload(task: FulfillmentTask) -> dict:
+    sale = task.sale
+    return {
+        "id": str(task.id), "sale_id": str(task.sale_id), "warehouse_id": str(task.warehouse_id) if task.warehouse_id else None,
+        "warehouse_name": task.warehouse.name if task.warehouse else "Sin bodega",
+        "status": task.status, "created_at": task.created_at.isoformat() if task.created_at else None,
+        "sale": {
+            "id": str(sale.id), "status": sale.status.value, "total": float(sale.total),
+            "client_name": sale.client.name if sale.client else "Cliente ocasional",
+            "item_count": len(sale.items),
+        },
+    }
+
+
+@router.get("/fulfillment-tasks")
+async def read_fulfillment_tasks(
+    warehouse_id: uuid.UUID | None = None,
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("view_sales")),
+) -> Any:
+    query = select(FulfillmentTask).join(Sale).options(
+        selectinload(FulfillmentTask.warehouse),
+        selectinload(FulfillmentTask.sale).selectinload(Sale.client),
+        selectinload(FulfillmentTask.sale).selectinload(Sale.items),
+    ).where(FulfillmentTask.company_id == current_user.company_id)
+    if warehouse_id:
+        query = query.where(FulfillmentTask.warehouse_id == warehouse_id)
+    if status:
+        query = query.where(FulfillmentTask.status == status.upper())
+    result = await db.execute(query.order_by(FulfillmentTask.created_at.asc()))
+    return [_fulfillment_task_payload(task) for task in result.scalars().all()]
+
+
+@router.post("/fulfillment-tasks/{task_id}/start")
+async def start_fulfillment_task(
+    task_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_sales")),
+) -> Any:
+    task = await db.scalar(select(FulfillmentTask).join(Sale).where(
+        FulfillmentTask.id == task_id, FulfillmentTask.company_id == current_user.company_id,
+    ).with_for_update())
+    if not task:
+        raise HTTPException(status_code=404, detail="Tarea de picking no encontrada")
+    if task.status != "OPEN":
+        raise HTTPException(status_code=400, detail="La tarea no está disponible para iniciar")
+    sale = await db.scalar(select(Sale).where(Sale.id == task.sale_id).with_for_update())
+    if not sale or sale.status != SaleStatus.CONFIRMED:
+        raise HTTPException(status_code=400, detail="La orden ya no está disponible para picking")
+    task.status = "IN_PROGRESS"
+    sale.status = SaleStatus.PICKING
+    await db.commit()
+    return {"ok": True, "task_status": task.status, "sale_status": sale.status.value}
+
+
+@router.post("/fulfillment-tasks/{task_id}/complete")
+async def complete_fulfillment_task(
+    task_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_sales")),
+) -> Any:
+    task = await db.scalar(select(FulfillmentTask).join(Sale).options(
+        selectinload(FulfillmentTask.sale).selectinload(Sale.items).selectinload(SaleItem.product)
+    ).where(FulfillmentTask.id == task_id, FulfillmentTask.company_id == current_user.company_id).with_for_update())
+    if not task:
+        raise HTTPException(status_code=404, detail="Tarea de picking no encontrada")
+    sale = task.sale
+    if task.status != "IN_PROGRESS" or sale.status != SaleStatus.PICKING:
+        raise HTTPException(status_code=400, detail="La tarea no está en proceso de picking")
+    physical_items = [item for item in sale.items if not item.product or item.product.product_type != "SERVICE"]
+    if any(item.quantity_picked < item.quantity for item in physical_items):
+        raise HTTPException(status_code=400, detail="Registra todas las unidades preparadas antes de finalizar")
+    task.status = "COMPLETED"
+    sale.status = SaleStatus.PACKING
+    await db.commit()
+    return {"ok": True, "task_status": task.status, "sale_status": sale.status.value}
 
 @router.post("/picking/update-item", response_model=bool)
 async def update_picking_item(
@@ -362,12 +443,20 @@ async def move_sale_stage(
                 status_code=400,
                 detail="Empaca todas las unidades antes de despachar la orden",
             )
+        packages_result = await db.execute(select(SalePackage).where(SalePackage.sale_id == sale.id))
+        packages = packages_result.scalars().all()
+        if sale.shipping_address and (not packages or any(not package.tracking_number for package in packages)):
+            raise HTTPException(
+                status_code=400,
+                detail="Registra una transportadora y número de guía en cada paquete antes de despachar",
+            )
         for item in sale.items:
             if not item.product or not item.product.track_inventory:
                 continue
             inv_result = await db.execute(select(Inventory).where(
                 Inventory.product_id == item.product_id,
                 Inventory.branch_id == sale.branch_id,
+                Inventory.warehouse_id == sale.warehouse_id,
             ))
             inventory = inv_result.scalars().first()
             if not inventory or inventory.reserved_quantity < item.quantity or inventory.quantity < item.quantity:
@@ -385,6 +474,7 @@ async def move_sale_stage(
             db.add(InventoryMovement(
                 product_id=item.product_id,
                 branch_id=sale.branch_id,
+                warehouse_id=sale.warehouse_id,
                 user_id=current_user.id,
                 type=MovementType.OUT,
                 quantity=-item.quantity,
@@ -397,6 +487,38 @@ async def move_sale_stage(
             ))
 
     sale.status = target_status
+    if target_status == SaleStatus.PICKING:
+        task = await db.scalar(select(FulfillmentTask).where(
+            FulfillmentTask.sale_id == sale.id,
+            FulfillmentTask.task_type == "PICKING",
+        ))
+        if task:
+            task.status = "IN_PROGRESS"
+    elif target_status == SaleStatus.PACKING:
+        task = await db.scalar(select(FulfillmentTask).where(
+            FulfillmentTask.sale_id == sale.id,
+            FulfillmentTask.task_type == "PICKING",
+        ))
+        if task:
+            task.status = "COMPLETED"
+    elif target_status == SaleStatus.DISPATCHED:
+        enqueue_outbox_event(
+            db,
+            event_type="inventory.dispatched",
+            aggregate_type="sale",
+            aggregate_id=sale.id,
+            company_id=current_user.company_id,
+            payload={"sale_id": str(sale.id), "warehouse_id": str(sale.warehouse_id) if sale.warehouse_id else None, "source": "logistics"},
+        )
+    elif target_status == SaleStatus.DELIVERED:
+        enqueue_outbox_event(
+            db,
+            event_type="order.delivered",
+            aggregate_type="sale",
+            aggregate_id=sale.id,
+            company_id=current_user.company_id,
+            payload={"sale_id": str(sale.id), "source": "logistics"},
+        )
     await db.commit()
 
     return {"ok": True, "status": target_status.value}

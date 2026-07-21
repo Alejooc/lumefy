@@ -9,11 +9,14 @@ class MovementType(str, Enum):
     OUT = "OUT"
     ADJ = "ADJ"
     TRF = "TRF"
+    RESERVE = "RESERVE"
+    RELEASE = "RELEASE"
 
 # --- Inventory Stock Schemas ---
 class InventoryBase(BaseModel):
     product_id: UUID
     branch_id: UUID
+    warehouse_id: Optional[UUID] = None
     quantity: float
     reserved_quantity: float = 0.0
     average_cost: float = 0.0
@@ -39,12 +42,14 @@ class Inventory(InventoryBase):
 class MovementBase(BaseModel):
     product_id: UUID
     branch_id: UUID
+    warehouse_id: Optional[UUID] = None
     type: MovementType
     quantity: float
     reason: Optional[str] = None
     reference_id: Optional[str] = None
     unit_cost: Optional[float] = None
     destination_branch_id: Optional[UUID] = None # Added for Transfers
+    destination_warehouse_id: Optional[UUID] = None
     location: Optional[str] = None
     destination_location: Optional[str] = None
 
