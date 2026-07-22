@@ -33,7 +33,7 @@ services:
     volumes:
       - backend_static:/app/app/static
     networks:
-      - default
+      default: {}
       proxy:
         aliases:
           - lumefy-backend
@@ -84,7 +84,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - default
+      default: {}
       proxy:
         aliases:
           - lumefy-frontend
@@ -110,7 +110,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - default
+      default: {}
       proxy:
         aliases:
           - lumefy-storefront
