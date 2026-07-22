@@ -37,6 +37,7 @@ services:
       proxy:
         aliases:
           - lumefy-backend
+          - backend
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz')"]
       interval: 15s
@@ -88,6 +89,7 @@ services:
       proxy:
         aliases:
           - lumefy-frontend
+          - frontend
 
   storefront:
     build:
@@ -114,6 +116,7 @@ services:
       proxy:
         aliases:
           - lumefy-storefront
+          - storefront
 
   caddy:
     profiles: ["caddy"]
