@@ -48,7 +48,9 @@ export class PlanService {
     }
 
     createPlan(plan: PlanPayload): Observable<Plan> {
-        return this.http.post<Plan>(this.apiUrl, plan);
+        // FastAPI defines the collection endpoint with a trailing slash. Posting
+        // to the canonical URL avoids a proxy-dependent 307 redirect in production.
+        return this.http.post<Plan>(`${this.apiUrl}/`, plan);
     }
 
     updatePlan(id: string, plan: Partial<PlanPayload>): Observable<Plan> {
