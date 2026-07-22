@@ -104,11 +104,9 @@ export class SalesViewComponent implements OnInit {
                     confirmButtonText: buttonText
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        // Update status then navigate? Or just navigate and let picking start? 
-                        // Better to update status to PICKING then navigate.
-                        this.saleService.updateStatus(this.sale!.id, 'PICKING').subscribe(() => {
-                            this.router.navigate(['/logistics/picking', this.sale!.id]);
-                        });
+                        // Picking is started through the fulfillment task queue so it
+                        // always preserves the warehouse assignment and audit trail.
+                        this.router.navigate(['/inventory/picking']);
                     }
                 });
                 return; // Stop default execution
@@ -123,13 +121,10 @@ export class SalesViewComponent implements OnInit {
                     confirmButtonText: buttonText
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        // Status update might happen inside packing or before, let's just go there
-                        if (this.sale!.status !== 'PACKING') {
-                            this.saleService.updateStatus(this.sale!.id, 'PACKING').subscribe(() => {
-                                this.router.navigate(['/logistics/packing', this.sale!.id]);
-                            });
-                        } else {
+                        if (this.sale!.status === 'PACKING') {
                             this.router.navigate(['/logistics/packing', this.sale!.id]);
+                        } else {
+                            Swal.fire('Completa el picking', 'Finaliza todas las unidades preparadas desde Picking antes de empacar.', 'info');
                         }
                     }
                 });

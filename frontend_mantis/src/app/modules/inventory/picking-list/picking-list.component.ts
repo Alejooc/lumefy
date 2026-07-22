@@ -4,6 +4,17 @@ import { RouterModule } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
 import Swal from 'sweetalert2';
 
+interface FulfillmentTask {
+    id: string;
+    sale_id: string;
+    status: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    warehouse_name: string;
+    created_at: string | null;
+    sale: { id: string; client_name: string; item_count: number };
+}
+
+type ApiError = { message?: string; error?: { detail?: string } };
+
 @Component({
     selector: 'app-picking-list',
     standalone: true,
@@ -11,7 +22,7 @@ import Swal from 'sweetalert2';
     templateUrl: './picking-list.component.html'
 })
 export class PickingListComponent implements OnInit {
-    tasks: any[] = [];
+    tasks: FulfillmentTask[] = [];
     loading = false;
 
     private api = inject(ApiService);
@@ -22,19 +33,19 @@ export class PickingListComponent implements OnInit {
 
     loadTasks() {
         this.loading = true;
-        this.api.get<any[]>('/logistics/fulfillment-tasks').subscribe({
+        this.api.get<FulfillmentTask[]>('/logistics/fulfillment-tasks').subscribe({
             next: (tasks) => {
                 this.tasks = tasks.filter(task => ['OPEN', 'IN_PROGRESS'].includes(task.status));
                 this.loading = false;
             },
-            error: (err) => {
+            error: (err: unknown) => {
                 console.error(err);
                 this.loading = false;
             }
         });
     }
 
-    startTask(task: any) {
+    startTask(task: FulfillmentTask) {
         Swal.fire({
             title: '¿Iniciar picking?',
             text: 'La orden pasará a preparación.',
@@ -49,18 +60,22 @@ export class PickingListComponent implements OnInit {
                         Swal.fire('Picking iniciado', 'Registra las unidades preparadas en el detalle de la orden.', 'success');
                         this.loadTasks();
                     },
-                    error: (err) => {
-                        Swal.fire('Error', 'No se pudo actualizar: ' + err.message, 'error');
+                    error: (err: unknown) => {
+                        const apiError = err as ApiError;
+                        Swal.fire('Error', 'No se pudo actualizar: ' + (apiError.error?.detail || apiError.message || 'Intenta de nuevo.'), 'error');
                     }
                 });
             }
         });
     }
 
-    completeTask(task: any) {
+    completeTask(task: FulfillmentTask) {
         this.api.post(`/logistics/fulfillment-tasks/${task.id}/complete`).subscribe({
             next: () => { Swal.fire('Picking finalizado', 'La orden pasó a empaque.', 'success'); this.loadTasks(); },
-            error: (err) => Swal.fire('No se puede finalizar', err.error?.detail || err.message, 'error')
+            error: (err: unknown) => {
+                const apiError = err as ApiError;
+                Swal.fire('No se puede finalizar', apiError.error?.detail || apiError.message || 'Intenta de nuevo.', 'error');
+            }
         });
     }
 }

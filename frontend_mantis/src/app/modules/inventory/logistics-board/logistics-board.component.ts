@@ -10,11 +10,13 @@ interface BoardCard {
     short_id: string;
     client_name: string;
     branch_name: string;
+    warehouse_name: string;
     total: number;
     item_count: number;
     created_at: string;
     shipping_address?: string;
     notes?: string;
+    age_hours: number;
 }
 
 interface BoardColumn {
@@ -101,6 +103,13 @@ export class LogisticsBoardComponent implements OnInit {
 
     getTotalCount(): number {
         return this.columns.reduce((sum, col) => sum + col.cards.length, 0);
+    }
+
+    getDelayedCount(): number {
+        return this.columns
+            .filter(col => col.key !== 'DISPATCHED')
+            .flatMap(col => col.cards)
+            .filter(card => card.age_hours >= 24).length;
     }
 
     viewSale(id: string) {

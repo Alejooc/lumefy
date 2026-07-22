@@ -15,7 +15,7 @@ from app.models.notification import Notification
 from app.models.outbox_consumption import OutboxConsumption
 from app.models.sale import Sale
 from app.models.storefront import StorefrontOrder
-from app.services.email import EmailService
+from app.models.email_delivery import EmailDelivery
 
 STREAM = os.getenv("REDIS_OUTBOX_STREAM", "lumefy:events")
 GROUP = "operations"
@@ -127,19 +127,13 @@ async def process_event(event_id: str, event_type: str, payload: dict) -> bool:
         # The receipt and effects commit together. A crash or failed commit leaves
         # the stream message pending; a redelivery then safely retries everything.
         db.add(OutboxConsumption(event_id=parsed_event_id, consumer=GROUP))
+        if customer_email:
+            db.add(EmailDelivery(event_id=parsed_event_id, recipient=customer_email, subject=customer_subject, html_content=customer_body, company_id=sale.company_id))
         try:
             await db.commit()
         except IntegrityError:
             await db.rollback()
             return True
-    if customer_email:
-        # Dispatch emails are deliberately emitted only after the inventory
-        # transaction succeeds. The receipt prevents duplicate sends on stream redelivery.
-        await EmailService.send_email(
-            customer_email,
-            customer_subject,
-            customer_body,
-        )
     return True
 
 

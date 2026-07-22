@@ -126,9 +126,15 @@ export class InvoiceListComponent implements OnInit {
     return ({ DRAFT: 'bg-secondary', POSTED: 'bg-primary', PARTIALLY_PAID: 'bg-warning text-dark', PAID: 'bg-success', CANCELLED: 'bg-danger' } as Record<InvoiceStatus, string>)[status];
   }
 
-  private handleError(error: any): void {
+  private handleError(error: unknown): void {
     this.loading = false;
     this.cdr.detectChanges();
-    Swal.fire('No se pudo completar la operación', error?.error?.detail || 'Intenta de nuevo.', 'error');
+    const detail = this.errorDetail(error);
+    Swal.fire('No se pudo completar la operación', detail || 'Intenta de nuevo.', 'error');
+  }
+
+  private errorDetail(error: unknown): string | undefined {
+    const response = error as { error?: { detail?: unknown } } | null;
+    return typeof response?.error?.detail === 'string' ? response.error.detail : undefined;
   }
 }

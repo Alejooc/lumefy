@@ -1,4 +1,5 @@
 from typing import Any, List
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -342,6 +343,8 @@ async def get_logistics_board(
         query = select(Sale).options(
             selectinload(Sale.client),
             selectinload(Sale.branch),
+            selectinload(Sale.warehouse),
+            selectinload(Sale.storefront_order),
             selectinload(Sale.items).selectinload(SaleItem.product),
         ).where(
             Sale.company_id == current_user.company_id,
@@ -357,11 +360,14 @@ async def get_logistics_board(
                 "short_id": str(s.id)[:8],
                 "client_name": s.client.name if s.client else "Sin cliente",
                 "branch_name": s.branch.name if s.branch else "",
+                "warehouse_id": str(s.warehouse_id) if s.warehouse_id else None,
+                "warehouse_name": s.warehouse.name if s.warehouse else "Sin bodega",
                 "total": float(s.total),
                 "item_count": len(s.items),
                 "created_at": s.created_at.isoformat() if s.created_at else None,
                 "shipping_address": s.shipping_address,
-                "notes": s.notes
+                "notes": s.notes,
+                "age_hours": round((datetime.now(timezone.utc) - s.created_at.replace(tzinfo=timezone.utc)).total_seconds() / 3600, 1) if s.created_at else 0,
             }
             for s in sales
         ]

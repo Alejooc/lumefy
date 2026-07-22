@@ -21,6 +21,7 @@ from app.models.warehouse import Warehouse
 from app.models.outbox_event import OutboxEvent
 from app.models.outbox_consumption import OutboxConsumption
 from app.models.fulfillment_task import FulfillmentTask
+from app.models.email_delivery import EmailDelivery
 from app.models.role import Role
 from app.models.product import Product
 from app.models.category import Category

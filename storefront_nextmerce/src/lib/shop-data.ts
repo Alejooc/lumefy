@@ -1,5 +1,6 @@
 import { Product } from "@/types/product";
 import { PublicCollection, PublicProduct } from "@/types/storefront";
+import { storefrontImageUrl } from "./storefront-image";
 
 import {
   getPublicCollections,
@@ -87,9 +88,9 @@ function normalizeTypeLabel(value?: string | null): string {
 
 function toTemplateProduct(product: PublicProduct): Product {
   const previewImage =
-    product.image_url || product.gallery[0] || fallbackImage(product.slug);
+    storefrontImageUrl(product.image_url) || storefrontImageUrl(product.gallery[0]) || fallbackImage(product.slug);
   const secondaryImage =
-    product.gallery[1] || product.image_url || fallbackImage(`${product.slug}-alt`);
+    storefrontImageUrl(product.gallery[1]) || storefrontImageUrl(product.image_url) || fallbackImage(`${product.slug}-alt`);
   const compare = product.compare_at_price ?? product.base_price ?? product.price;
 
   return {

@@ -53,6 +53,7 @@ class Sale(BaseModel):
     
     # Relationships
     branch = relationship(Branch)
+    warehouse = relationship("Warehouse")
     user = relationship(User)
     client = relationship("Client")
     items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")

@@ -4,6 +4,7 @@ import { Product } from "@/types/product";
 import { Testimonial } from "@/types/testimonial";
 import { PublicCollection, PublicProduct } from "@/types/storefront";
 import { getStorefrontBranding } from "./storefront-branding";
+import { storefrontImageUrl } from "./storefront-image";
 
 import {
   getPublicCollectionBySlug,
@@ -35,8 +36,8 @@ function fallbackImage(seed: string): string {
 }
 
 function toTemplateProduct(product: PublicProduct): Product {
-  const previewImage = product.image_url || product.gallery[0] || fallbackImage(product.slug);
-  const secondaryImage = product.gallery[1] || product.image_url || fallbackImage(`${product.slug}-alt`);
+  const previewImage = storefrontImageUrl(product.image_url) || storefrontImageUrl(product.gallery[0]) || fallbackImage(product.slug);
+  const secondaryImage = storefrontImageUrl(product.gallery[1]) || storefrontImageUrl(product.image_url) || fallbackImage(`${product.slug}-alt`);
   const compare = product.compare_at_price ?? product.base_price ?? product.price;
 
   return {

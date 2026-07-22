@@ -11,6 +11,7 @@ from app.models.inventory_movement import InventoryMovement, MovementType
 from app.services.outbox import enqueue_outbox_event
 from app.models.product import Product
 from app.models.branch import Branch
+from app.models.warehouse import Warehouse
 from app.models.client import Client
 from app.models.logistics import SalePackage, SalePackageItem
 from app.models.user import User
@@ -185,9 +186,17 @@ async def create_sale(
         if initial_status not in (SaleStatus.DRAFT, SaleStatus.QUOTE):
             raise HTTPException(status_code=400, detail="Una venta nueva debe iniciar en Borrador o Cotización")
 
+        warehouse = await db.scalar(select(Warehouse).where(
+            Warehouse.branch_id == sale_in.branch_id,
+            Warehouse.is_active.is_(True),
+        ).order_by(Warehouse.is_default.desc(), Warehouse.name))
+        if not warehouse:
+            raise HTTPException(status_code=400, detail="La sucursal no tiene una bodega activa para la venta")
+
         # 1. Create Sale Header
         sale = Sale(
             branch_id=sale_in.branch_id,
+            warehouse_id=warehouse.id,
             user_id=current_user.id,
             client_id=sale_in.client_id,
             status=initial_status,

@@ -4,6 +4,9 @@
       <i class="ti ti-columns me-2"></i>Logística — Fulfillment Board
       @if (!isLoading) {
         <span class="badge bg-light text-dark ms-2">{{getTotalCount()}} pedidos</span>
+        @if (getDelayedCount() > 0) {
+          <span class="badge bg-warning text-dark ms-2"><i class="ti ti-alert-triangle"></i> {{getDelayedCount()}} con más de 24 h</span>
+        }
       }
     </h5>
     <button class="btn btn-sm btn-outline-primary" (click)="loadBoard()">
@@ -43,6 +46,12 @@
                 <div class="card-meta text-muted">
                   <i class="ti ti-home me-1"></i>{{card.branch_name}}
                 </div>
+              }
+              <div class="card-meta text-muted">
+                <i class="ti ti-building-warehouse me-1"></i>{{card.warehouse_name}}
+              </div>
+              @if (card.age_hours >= 24 && col.key !== 'DISPATCHED') {
+                <div class="card-meta text-warning"><i class="ti ti-clock-exclamation me-1"></i>{{card.age_hours}} h en proceso</div>
               }
               <div class="card-meta text-muted">
                 <i class="ti ti-box me-1"></i>{{card.item_count}} producto(s)

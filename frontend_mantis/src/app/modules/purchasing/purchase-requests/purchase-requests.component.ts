@@ -119,9 +119,11 @@ export class PurchaseRequestsComponent implements OnInit {
   productName(productId: string): string { return this.products.find(product => product.id === productId)?.name || productId; }
   supplierName(supplierId: string): string { return this.suppliers.find(supplier => supplier.id === supplierId)?.name || supplierId; }
 
-  private error(error: any): void {
+  private error(error: unknown): void {
     this.loading = false;
     this.cdr.detectChanges();
-    Swal.fire('No se pudo completar la operación', error?.error?.detail || 'Intenta de nuevo.', 'error');
+    const response = error as { error?: { detail?: unknown } } | null;
+    const detail = typeof response?.error?.detail === 'string' ? response.error.detail : undefined;
+    Swal.fire('No se pudo completar la operación', detail || 'Intenta de nuevo.', 'error');
   }
 }

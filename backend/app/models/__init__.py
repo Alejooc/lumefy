@@ -54,4 +54,5 @@ from .storefront import (
     StorePaymentGateway,
     StorefrontOrder,
 )
+from .email_delivery import EmailDelivery
 
