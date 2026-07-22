@@ -13,7 +13,6 @@ if (environment.production) {
   enableProdMode();
 }
 
-import { provideServiceWorker } from '@angular/service-worker';
 
 bootstrapApplication(AppComponent, {
   providers: [
@@ -21,10 +20,6 @@ bootstrapApplication(AppComponent, {
     provideZoneChangeDetection({ eventCoalescing: true, runCoalescing: true }),
     provideHttpClient(withInterceptorsFromDi()), // Enable interceptors
     provideAnimations(),
-    provideServiceWorker('ngsw-worker.js', {
-      enabled: environment.production,
-      registrationStrategy: 'registerWhenStable:30000'
-    }),
     { provide: HTTP_INTERCEPTORS, useClass: JwtInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: GlobalErrorInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: ZoneChangeDetectionInterceptor, multi: true }
