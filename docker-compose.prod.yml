@@ -29,7 +29,7 @@ services:
       db:
         condition: service_healthy
     command: >
-      sh -c "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
     volumes:
       - backend_static:/app/app/static
     networks:
@@ -49,7 +49,7 @@ services:
     restart: unless-stopped
     command: python -m app.workers.outbox_relay
     env_file:
-      - ./backend/.env.production
+      - ${BACKEND_ENV_FILE:-./backend/.env.production}
     environment:
       REDIS_URL: redis://redis:6379/0
     depends_on: [db, redis]
@@ -59,7 +59,7 @@ services:
     restart: unless-stopped
     command: python -m app.workers.operations_consumer
     env_file:
-      - ./backend/.env.production
+      - ${BACKEND_ENV_FILE:-./backend/.env.production}
     environment:
       REDIS_URL: redis://redis:6379/0
     depends_on: [db, redis, outbox-relay]
@@ -69,7 +69,7 @@ services:
     restart: unless-stopped
     command: python -m app.workers.email_delivery_worker
     env_file:
-      - ./backend/.env.production
+      - ${BACKEND_ENV_FILE:-./backend/.env.production}
     depends_on: [db, operations-consumer]
 
   frontend:
