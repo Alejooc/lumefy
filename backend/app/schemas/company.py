@@ -43,9 +43,27 @@ class CompanyUpdate(BaseModel):
     logo_url: Optional[str] = None
 
 
-class CompanyAdminUpdate(CompanyBase):
-    """Full company and subscription update, restricted to SaaS superadmins."""
-    pass
+class CompanyAdminUpdate(BaseModel):
+    """Full company update, restricted to SaaS superadmins.
+
+    Every field is optional with a ``None`` default.  Inheriting creation
+    defaults here previously made a partial update silently reset a tenant to
+    the FREE plan or reactivate it.
+    """
+
+    name: Optional[str] = None
+    tax_id: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    website: Optional[str] = None
+    currency: Optional[str] = None
+    currency_symbol: Optional[str] = None
+    logo_url: Optional[str] = None
+    plan: Optional[str] = None
+    valid_until: Optional[str] = None
+    subscription_status: Optional[str] = None
+    is_active: Optional[bool] = None
 
 # Properties shared by models stored in DB
 class CompanyInDBBase(CompanyBase):

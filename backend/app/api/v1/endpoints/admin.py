@@ -1,4 +1,5 @@
 from typing import Any, List
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -6,7 +7,9 @@ from app.core.database import get_db
 from app.models.company import Company
 from app.models.user import User
 from app.models.branch import Branch
+from app.models.warehouse import Warehouse
 from app.models.role import Role
+from app.models.plan import Plan
 from app.models.system_setting import SystemSetting
 from app.schemas import system_setting as setting_schemas
 from app.schemas import company as schemas
@@ -19,6 +22,17 @@ import uuid
 # Or we can check current_user.is_superuser
 
 router = APIRouter()
+
+
+async def _resolve_active_plan(db: AsyncSession, plan_code: str | None) -> Plan:
+    normalized_code = (plan_code or "").strip()
+    if not normalized_code:
+        raise HTTPException(status_code=422, detail="Debes seleccionar un plan activo para la empresa")
+
+    plan = await db.scalar(select(Plan).where(Plan.code == normalized_code, Plan.is_active.is_(True)))
+    if not plan:
+        raise HTTPException(status_code=422, detail="El plan seleccionado no existe o está inactivo")
+    return plan
 
 @router.get("/settings", response_model=List[setting_schemas.SystemSetting])
 async def read_settings(
@@ -164,6 +178,11 @@ async def create_company(
     if existing_user.scalars().first():
         raise HTTPException(status_code=400, detail=f"El email {company_in.admin_email} ya está registrado")
 
+    plan = await _resolve_active_plan(db, company_in.plan)
+    valid_until = company_in.valid_until
+    if not valid_until and plan.duration_days:
+        valid_until = (datetime.utcnow() + timedelta(days=plan.duration_days)).isoformat()
+
     # 2. Create Company
     company = Company(
         name=company_in.name,
@@ -171,8 +190,8 @@ async def create_company(
         address=company_in.address,
         email=company_in.email,
         phone=company_in.phone,
-        plan=company_in.plan or "FREE",
-        valid_until=company_in.valid_until,
+        plan=plan.code,
+        valid_until=valid_until,
         is_active=True
     )
     db.add(company)
@@ -190,6 +209,19 @@ async def create_company(
         company_id=company.id
     )
     db.add(branch)
+    await db.flush()
+
+    # Operational modules resolve a default warehouse for every branch.  Keep
+    # onboarding aligned with branch creation so a brand-new tenant can use
+    # inventory, purchases, sales and ecommerce immediately.
+    db.add(Warehouse(
+        branch_id=branch.id,
+        name="Bodega principal",
+        code="PRINCIPAL",
+        is_default=True,
+        allows_ecommerce=True,
+        company_id=company.id,
+    ))
 
     # 4. Create Admin Role for this company
     admin_role = Role(
@@ -238,6 +270,9 @@ async def update_company(
     company = result.scalars().first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
+
+    if company_in.plan:
+        await _resolve_active_plan(db, company_in.plan)
         
     update_data = company_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():

@@ -115,6 +115,7 @@ async def reset_password(
 from app.schemas.register import UserRegister
 from app.models.company import Company
 from app.models.branch import Branch
+from app.models.warehouse import Warehouse
 from sqlalchemy.exc import IntegrityError
 from app.models.role import Role
 
@@ -167,6 +168,15 @@ async def register(
             is_active=True
         )
         db.add(branch)
+        await db.flush()
+        db.add(Warehouse(
+            branch_id=branch.id,
+            name="Bodega principal",
+            code="PRINCIPAL",
+            is_default=True,
+            allows_ecommerce=True,
+            company_id=company.id,
+        ))
         
         # 3. Create Admin Role for this Company
         # We must create a specific role for this new tenant
