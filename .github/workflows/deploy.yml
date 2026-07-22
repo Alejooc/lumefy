@@ -52,4 +52,4 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "set -eu; cd '$DEPLOY_PATH'; git fetch origin main; git checkout main; git pull --ff-only origin main; docker compose -f docker-compose.prod.yml up -d --build --remove-orphans; docker image prune -f"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "set -eu; cd '$DEPLOY_PATH'; git fetch origin main; git checkout main; git pull --ff-only origin main; docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build --remove-orphans; docker image prune -f"

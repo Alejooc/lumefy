@@ -15,6 +15,20 @@
   </div>
 </div>
 
+@if (metrics.length) {
+  <div class="row mb-3">
+    @for (metric of metrics; track metric.warehouse_id) {
+      <div class="col-md-6 col-xl-4 mb-2">
+        <div class="card mb-0 h-100"><div class="card-body py-3">
+          <div class="d-flex justify-content-between"><strong><i class="ti ti-building-warehouse me-1"></i>{{metric.warehouse_name}}</strong><span class="text-muted small">Disponible {{metric.available_stock | number:'1.0-2'}}</span></div>
+          <div class="small text-muted mt-2">Reservado: {{metric.reserved_stock | number:'1.0-2'}} · Picking: {{metric.picking}} · Empaque: {{metric.packing}}</div>
+          @if (metric.delayed) { <div class="small text-warning mt-1"><i class="ti ti-alert-triangle me-1"></i>{{metric.delayed}} pedido(s) con más de 24 h</div> }
+        </div></div>
+      </div>
+    }
+  </div>
+}
+
 @if (!isLoading) {
   <div class="kanban-board">
     @for (col of columns; track col) {

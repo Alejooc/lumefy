@@ -83,6 +83,20 @@ services:
     volumes:
       - ./backend:/app
 
+  email-delivery-worker:
+    build: ./backend
+    restart: unless-stopped
+    command: python -m app.workers.email_delivery_worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/lumefy_db
+    depends_on:
+      db:
+        condition: service_healthy
+      operations-consumer:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+
   storefront:
     build:
       context: ./storefront_nextmerce

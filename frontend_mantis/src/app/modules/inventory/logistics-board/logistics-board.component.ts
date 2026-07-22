@@ -30,6 +30,10 @@ interface BoardColumn {
 }
 
 type LogisticsBoardResponse = Record<string, BoardCard[]>;
+interface WarehouseMetric {
+    warehouse_id: string; warehouse_name: string; physical_stock: number; reserved_stock: number; available_stock: number;
+    confirmed: number; picking: number; packing: number; dispatched: number; delayed: number;
+}
 
 @Component({
     selector: 'app-logistics-board',
@@ -51,6 +55,7 @@ export class LogisticsBoardComponent implements OnInit {
         { key: 'DISPATCHED', label: 'Despachados', icon: 'ti ti-truck', color: '#673ab7', nextStatus: 'DELIVERED', nextLabel: 'Entregado', cards: [] }
     ];
     isLoading = false;
+    metrics: WarehouseMetric[] = [];
 
     ngOnInit(): void {
         this.loadBoard();
@@ -71,6 +76,7 @@ export class LogisticsBoardComponent implements OnInit {
                 this.swal.error('Error', 'No se pudo cargar el tablero');
             }
         });
+        this.api.get<WarehouseMetric[]>('/logistics/metrics').subscribe({ next: metrics => this.metrics = metrics });
     }
 
     moveCard(card: BoardCard, targetStatus: string) {

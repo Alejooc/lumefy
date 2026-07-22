@@ -1,5 +1,5 @@
 from typing import Any, List
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -319,6 +319,47 @@ async def create_package(
 
 
 # --- Kanban Board ---
+
+@router.get("/metrics")
+async def get_logistics_metrics(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("view_sales")),
+) -> Any:
+    """Operational workload and committed stock grouped by fulfillment warehouse."""
+    result = await db.execute(select(Warehouse).where(
+        Warehouse.company_id == current_user.company_id,
+        Warehouse.is_active.is_(True),
+    ).order_by(Warehouse.name))
+    warehouses = result.scalars().all()
+    metrics = []
+    active_statuses = [SaleStatus.CONFIRMED, SaleStatus.PICKING, SaleStatus.PACKING]
+    for warehouse in warehouses:
+        stock_result = await db.execute(select(
+            func.coalesce(func.sum(Inventory.quantity), 0),
+            func.coalesce(func.sum(Inventory.reserved_quantity), 0),
+        ).where(Inventory.warehouse_id == warehouse.id))
+        physical_stock, reserved_stock = stock_result.one()
+        status_result = await db.execute(select(Sale.status, func.count(Sale.id)).where(
+            Sale.company_id == current_user.company_id,
+            Sale.warehouse_id == warehouse.id,
+            Sale.status.in_(active_statuses + [SaleStatus.DISPATCHED]),
+        ).group_by(Sale.status))
+        counts = {status.value: count for status, count in status_result.all()}
+        delayed_result = await db.execute(select(func.count(Sale.id)).where(
+            Sale.company_id == current_user.company_id,
+            Sale.warehouse_id == warehouse.id,
+            Sale.status.in_(active_statuses),
+            Sale.created_at < datetime.utcnow() - timedelta(hours=24),
+        ))
+        metrics.append({
+            "warehouse_id": str(warehouse.id), "warehouse_name": warehouse.name,
+            "physical_stock": float(physical_stock), "reserved_stock": float(reserved_stock),
+            "available_stock": float(physical_stock) - float(reserved_stock),
+            "confirmed": int(counts.get("CONFIRMED", 0)), "picking": int(counts.get("PICKING", 0)),
+            "packing": int(counts.get("PACKING", 0)), "dispatched": int(counts.get("DISPATCHED", 0)),
+            "delayed": int(delayed_result.scalar() or 0),
+        })
+    return metrics
 
 @router.get("/board")
 async def get_logistics_board(

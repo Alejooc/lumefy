@@ -11,11 +11,20 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
   backend:
     build: ./backend
     restart: unless-stopped
     env_file:
       - ${BACKEND_ENV_FILE:-./backend/.env.production}
+    environment:
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
@@ -23,12 +32,43 @@ services:
       sh -c "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
       - backend_static:/app/app/static
+    networks:
+      - default
+      - proxy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz')"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  outbox-relay:
+    build: ./backend
+    restart: unless-stopped
+    command: python -m app.workers.outbox_relay
+    env_file:
+      - ./backend/.env.production
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on: [db, redis]
+
+  operations-consumer:
+    build: ./backend
+    restart: unless-stopped
+    command: python -m app.workers.operations_consumer
+    env_file:
+      - ./backend/.env.production
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on: [db, redis, outbox-relay]
+
+  email-delivery-worker:
+    build: ./backend
+    restart: unless-stopped
+    command: python -m app.workers.email_delivery_worker
+    env_file:
+      - ./backend/.env.production
+    depends_on: [db, operations-consumer]
 
   frontend:
     build: ./frontend_mantis
@@ -41,6 +81,9 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    networks:
+      - default
+      - proxy
 
   storefront:
     build:
@@ -62,8 +105,12 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    networks:
+      - default
+      - proxy
 
   caddy:
+    profiles: ["caddy"]
     image: caddy:2.8-alpine
     restart: unless-stopped
     ports:
@@ -87,6 +134,12 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   backend_static:
   caddy_data:
   caddy_config:
+
+networks:
+  proxy:
+    name: ${PROXY_NETWORK:-npm_default}
+    external: true
