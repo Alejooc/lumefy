@@ -3,6 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
+import { Plan, PlanService } from '../plan.service';
 import Swal from 'sweetalert2';
 
 interface Company {
@@ -21,9 +22,12 @@ export class CompanyFormComponent implements OnInit {
     isEditMode = false;
     companyId: string | null = null;
     loading = false;
+    plans: Plan[] = [];
+    plansLoading = false;
 
     private fb = inject(FormBuilder);
     private api = inject(ApiService);
+    private planService = inject(PlanService);
     private route = inject(ActivatedRoute);
     private router = inject(Router);
 
@@ -34,7 +38,7 @@ export class CompanyFormComponent implements OnInit {
             address: [''],
             email: ['', [Validators.required, Validators.email]],
             phone: [''],
-            plan: ['FREE', Validators.required],
+            plan: ['', Validators.required],
             valid_until: [''],
             is_active: [true],
             // Admin user fields (only for create mode)
@@ -45,6 +49,7 @@ export class CompanyFormComponent implements OnInit {
     }
 
     ngOnInit() {
+        this.loadPlans();
         this.route.paramMap.subscribe(params => {
             this.companyId = params.get('id');
             if (this.companyId) {
@@ -81,7 +86,28 @@ export class CompanyFormComponent implements OnInit {
         });
     }
 
+    private loadPlans() {
+        this.plansLoading = true;
+        this.planService.getAllPlans().subscribe({
+            next: (plans) => {
+                this.plans = plans.filter(plan => plan.is_active);
+                if (!this.isEditMode && this.plans.length === 1) {
+                    this.companyForm.patchValue({ plan: this.plans[0].code });
+                }
+                this.plansLoading = false;
+            },
+            error: () => {
+                this.plansLoading = false;
+                Swal.fire('No se pudieron cargar los planes', 'Crea y activa al menos un plan antes de registrar empresas.', 'error');
+            }
+        });
+    }
+
     onSubmit() {
+        if (!this.isEditMode && this.plans.length === 0) {
+            Swal.fire('No hay planes activos', 'Crea y activa al menos un plan antes de registrar una empresa.', 'warning');
+            return;
+        }
         if (this.companyForm.invalid) return;
 
         this.loading = true;

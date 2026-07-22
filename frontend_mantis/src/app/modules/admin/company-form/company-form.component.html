@@ -47,11 +47,15 @@
             <div class="row">
               <div class="col-md-4 mb-3">
                 <label class="form-label">Plan</label>
-                <select class="form-select" formControlName="plan">
-                  <option value="FREE">Gratis</option>
-                  <option value="PRO">Pro</option>
-                  <option value="ENTERPRISE">Enterprise</option>
+                <select class="form-select" formControlName="plan" [disabled]="plansLoading || plans.length === 0">
+                  <option value="">{{ plansLoading ? 'Cargando planes…' : 'Selecciona un plan' }}</option>
+                  @for (plan of plans; track plan.id) {
+                    <option [value]="plan.code">{{ plan.name }} ({{ plan.code }})</option>
+                  }
                 </select>
+                @if (!plansLoading && plans.length === 0) {
+                  <small class="text-warning">No hay planes activos. Créalo en Administración → Planes.</small>
+                }
               </div>
               <div class="col-md-4 mb-3">
                 <label class="form-label">Válido Hasta</label>
