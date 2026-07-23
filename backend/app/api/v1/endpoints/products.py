@@ -1,7 +1,8 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 import re
 
@@ -40,6 +41,34 @@ async def _get_primary_storefront(db: AsyncSession, company_id: str | None) -> S
 def _extract_ecommerce_payload(payload: dict[str, Any]) -> dict[str, Any]:
     keys = {"visible_in_ecommerce"}
     return {key: payload.pop(key) for key in list(payload.keys()) if key in keys}
+
+
+async def _ensure_unique_sku(
+    db: AsyncSession,
+    *,
+    company_id: str | None,
+    sku: str | None,
+    exclude_product_id: str | None = None,
+) -> str | None:
+    """Normalize a SKU and reject duplicates inside the current company."""
+    normalized = (sku or "").strip()
+    if not normalized:
+        return None
+
+    query = select(Product.id).where(
+        Product.company_id == company_id,
+        Product.is_active.is_(True),
+        Product.sku.is_not(None),
+        func.lower(func.trim(Product.sku)) == normalized.lower(),
+    ).limit(1)
+    if exclude_product_id:
+        query = query.where(Product.id != exclude_product_id)
+    if await db.scalar(query):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Ya existe un producto activo con el SKU '{normalized}' en esta empresa.",
+        )
+    return normalized
 
 
 async def _available_storefront_slug(
@@ -299,11 +328,23 @@ async def create_product(
         images_data = product_in.images
         product_data = product_in.model_dump(exclude={"images"})
         ecommerce_data = _extract_ecommerce_payload(product_data)
+
+        product_data["sku"] = await _ensure_unique_sku(
+            db,
+            company_id=current_user.company_id,
+            sku=product_data.get("sku"),
+        )
+        if ecommerce_data.get("visible_in_ecommerce") and not await _get_primary_storefront(
+            db, current_user.company_id
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Primero configura una tienda ecommerce para publicar productos.",
+            )
         
         product = Product(**product_data, company_id=current_user.company_id, created_by_id=current_user.id, updated_by_id=current_user.id)
         db.add(product)
-        await db.commit()
-        await db.refresh(product)
+        await db.flush()
         
         # Create images
         from app.models.product_image import ProductImage
@@ -343,6 +384,12 @@ async def create_product(
         )
         _attach_ecommerce_state(created_product, published_result.scalars().first())
         return created_product
+    except HTTPException:
+        await db.rollback()
+        raise
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Ya existe un producto con ese SKU en esta empresa.")
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -369,6 +416,14 @@ async def update_product(
     update_data = product_in.model_dump(exclude_unset=True)
     ecommerce_data = _extract_ecommerce_payload(update_data)
     images_data = update_data.pop("images", None)
+
+    if "sku" in update_data:
+        update_data["sku"] = await _ensure_unique_sku(
+            db,
+            company_id=current_user.company_id,
+            sku=update_data.get("sku"),
+            exclude_product_id=str(product.id),
+        )
     
     for field, value in update_data.items():
         setattr(product, field, value)

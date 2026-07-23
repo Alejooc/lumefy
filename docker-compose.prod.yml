@@ -143,10 +143,15 @@ services:
 
 volumes:
   postgres_data:
+    name: lumefy_postgres_data
   redis_data:
+    name: lumefy_redis_data
   backend_static:
+    name: lumefy_backend_static
   caddy_data:
+    name: lumefy_caddy_data
   caddy_config:
+    name: lumefy_caddy_config
 
 networks:
   proxy:

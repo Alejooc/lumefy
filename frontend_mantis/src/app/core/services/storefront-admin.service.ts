@@ -486,7 +486,7 @@ export class StorefrontAdminService {
   private api = inject(ApiService);
 
   getStorefronts(): Observable<Storefront[]> {
-    return this.api.get<Storefront[]>('/storefront');
+    return this.api.get<Storefront[]>('/storefront/');
   }
 
   getReadiness(storefrontId: string): Observable<StorefrontReadiness> {
@@ -494,7 +494,7 @@ export class StorefrontAdminService {
   }
 
   createStorefront(payload: Partial<Storefront>): Observable<Storefront> {
-    return this.api.post<Storefront>('/storefront', payload);
+    return this.api.post<Storefront>('/storefront/', payload);
   }
 
   updateStorefront(id: string, payload: Partial<Storefront>): Observable<Storefront> {
