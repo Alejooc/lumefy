@@ -1,9 +1,9 @@
 import React from "react";
 import ShopDetails from "@/components/ShopDetails";
 import { loadShopDetailsViewModel } from "@/lib/shop-data";
-import { StorefrontApiError } from "@/lib/storefront-api";
+import { getPublicCollectionBySlug, resolveStorefront, StorefrontApiError } from "@/lib/storefront-api";
 import { buildStorefrontPageMetadata } from "@/lib/seo";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,17 @@ function isNotFoundError(error: unknown): boolean {
     return Number((error as { status?: unknown }).status) === 404;
   }
   return false;
+}
+
+async function redirectCollectionIfPresent(slug: string): Promise<never> {
+  let collection: Awaited<ReturnType<typeof getPublicCollectionBySlug>>;
+  try {
+    const storefront = await resolveStorefront();
+    collection = await getPublicCollectionBySlug(storefront.id, slug);
+  } catch {
+    notFound();
+  }
+  redirect(`/collections/${encodeURIComponent(collection.slug)}`);
 }
 
 export async function generateMetadata({
@@ -35,7 +46,7 @@ export async function generateMetadata({
     });
   } catch (error) {
     if (isNotFoundError(error)) {
-      notFound();
+      return redirectCollectionIfPresent(slug);
     }
     return buildStorefrontPageMetadata({
       title: "Producto",
@@ -63,7 +74,7 @@ const ProductDetailsPage = async ({
     );
   } catch (error) {
     if (isNotFoundError(error)) {
-      notFound();
+      return redirectCollectionIfPresent(slug);
     }
     throw error;
   }

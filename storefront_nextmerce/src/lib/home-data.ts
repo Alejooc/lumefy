@@ -64,7 +64,7 @@ function toTemplateCategory(collection: PublicCollection): Category {
     id: numericId(collection.id),
     title: collection.name,
     img: storefrontImageUrl(collection.image_url) || fallbackImage(collection.slug),
-    href: `/products?collection=${encodeURIComponent(collection.slug)}`,
+    href: `/collections/${encodeURIComponent(collection.slug)}`,
     backgroundColor: "#F2F3F8",
     overlayOpacity: 0.18,
     imagePosition: "center",
@@ -189,7 +189,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
       id: collection.id,
       title: collection.name,
       offerLabel: "Oferta especial",
-      href: `/products?collection=${encodeURIComponent(collection.slug)}`,
+      href: `/collections/${encodeURIComponent(collection.slug)}`,
       priceLabel: sourceProduct ? moneyLabel(storefront.currency, sourceProduct.price) : "Nuevo",
       comparePriceLabel: compare && sourceProduct && compare > sourceProduct.price ? moneyLabel(storefront.currency, compare) : undefined,
       image:

@@ -22,6 +22,7 @@ const ShopWithSidebar = ({
   sizes,
   colors,
   selectedCollectionName,
+  breadcrumbPages,
   searchTerm,
   priceRangeMin,
   priceRangeMax,
@@ -48,6 +49,7 @@ const ShopWithSidebar = ({
   sizes: ShopFilterFacet[];
   colors: ShopFilterFacet[];
   selectedCollectionName?: string;
+  breadcrumbPages?: string[];
   searchTerm?: string;
   priceRangeMin: number;
   priceRangeMax: number;
@@ -249,7 +251,7 @@ const ShopWithSidebar = ({
             ? `Busqueda: ${searchTerm}`
             : selectedCollectionName || "Todos los productos"
         }
-        pages={["Productos"]}
+        pages={breadcrumbPages || ["Productos"]}
       />
       <section className="overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6]">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">

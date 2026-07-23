@@ -159,8 +159,11 @@ const Header = () => {
       />
 
       <div
+        aria-hidden={!navigationOpen}
         className={`fixed inset-0 z-[100001] xl:hidden transition-all duration-300 ${
-          navigationOpen ? "visible bg-dark/60" : "invisible bg-transparent"
+          navigationOpen
+            ? "visible pointer-events-auto bg-dark/60 opacity-100"
+            : "invisible pointer-events-none bg-transparent opacity-0"
         }`}
         onClick={() => {
           setNavigationOpen(false);

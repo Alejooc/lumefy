@@ -52,6 +52,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const seenProducts = new Set<string>();
 
     for (const collection of detailedCollections) {
+      entries.push({
+        url: await buildCanonicalUrl(`/collections/${encodeURIComponent(collection.slug)}`),
+        lastModified,
+        changeFrequency: "weekly",
+        priority: 0.8,
+      });
       for (const product of collection.products || []) {
         if (!product.slug || seenProducts.has(product.slug)) {
           continue;

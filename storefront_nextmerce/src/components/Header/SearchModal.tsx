@@ -404,7 +404,7 @@ export default function SearchModal({
                   {(trendingCollections.length ? trendingCollections : collections.slice(0, 4)).map((collection) => (
                     <Link
                       key={collection.id}
-                      href={`/products?collection=${encodeURIComponent(collection.slug)}`}
+                      href={`/collections/${encodeURIComponent(collection.slug)}`}
                       onClick={onClose}
                       className="rounded-full border border-gray-3 bg-white px-3 py-2 text-sm text-dark transition hover:border-blue hover:text-blue"
                     >
@@ -504,7 +504,7 @@ export default function SearchModal({
                   categorySuggestions.map((collection) => (
                     <Link
                       key={collection.id}
-                      href={`/products?collection=${encodeURIComponent(collection.slug)}`}
+                      href={`/collections/${encodeURIComponent(collection.slug)}`}
                       onClick={onClose}
                       className="flex items-center justify-between rounded-xl border border-transparent bg-white px-4 py-3 text-sm text-dark transition hover:border-blue hover:text-blue"
                     >

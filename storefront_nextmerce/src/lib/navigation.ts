@@ -7,9 +7,7 @@ function resolveMenuPath(
 ): string {
   if (item.item_type === "collection" && item.reference_id) {
     const collection = collectionById.get(item.reference_id);
-    return collection
-      ? `/products?collection=${encodeURIComponent(collection.slug)}`
-      : "/products";
+    return collection ? `/collections/${encodeURIComponent(collection.slug)}` : "/products";
   }
 
   if (item.item_type === "url" && item.url) {
