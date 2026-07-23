@@ -23,14 +23,21 @@ class StorefrontBase(BaseModel):
     fulfillment_warehouse_id: Optional[UUID] = None
 
 
-class StorefrontCreate(StorefrontBase):
-    pass
+class StorefrontCreate(BaseModel):
+    """Public create contract; technical URLs are generated server-side."""
+    name: str
+    is_enabled: bool = False
+    theme_key: str = "modern"
+    theme_settings: dict = Field(default_factory=dict)
+    checkout_settings: dict = Field(default_factory=dict)
+    seo_settings: dict = Field(default_factory=dict)
+    currency: str = "USD"
+    language: str = "es"
+    fulfillment_warehouse_id: Optional[UUID] = None
 
 
 class StorefrontUpdate(BaseModel):
     name: Optional[str] = None
-    slug: Optional[str] = None
-    subdomain: Optional[str] = None
     is_enabled: Optional[bool] = None
     theme_key: Optional[str] = None
     theme_settings: Optional[dict] = None

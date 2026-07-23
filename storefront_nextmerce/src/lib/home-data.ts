@@ -63,7 +63,7 @@ function toTemplateCategory(collection: PublicCollection): Category {
   return {
     id: numericId(collection.id),
     title: collection.name,
-    img: collection.image_url || fallbackImage(collection.slug),
+    img: storefrontImageUrl(collection.image_url) || fallbackImage(collection.slug),
     href: `/products?collection=${encodeURIComponent(collection.slug)}`,
     backgroundColor: "#F2F3F8",
     overlayOpacity: 0.18,
@@ -172,7 +172,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
       title: product.title,
       description: product.description || `Conoce ${product.title} en la tienda online de ${storefront.name}.`,
       ctaHref: `/products/${encodeURIComponent(product.slug)}`,
-      image: product.image_url || product.gallery[0] || fallbackImage(product.slug),
+      image: storefrontImageUrl(product.image_url) || storefrontImageUrl(product.gallery[0]) || fallbackImage(product.slug),
       overlayOpacity: 0.72,
       imagePosition: "center",
       contentAlignment: "left" as const,
@@ -192,7 +192,11 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
       href: `/products?collection=${encodeURIComponent(collection.slug)}`,
       priceLabel: sourceProduct ? moneyLabel(storefront.currency, sourceProduct.price) : "Nuevo",
       comparePriceLabel: compare && sourceProduct && compare > sourceProduct.price ? moneyLabel(storefront.currency, compare) : undefined,
-      image: collection.image_url || sourceProduct?.image_url || sourceProduct?.gallery?.[0] || fallbackImage(collection.slug),
+      image:
+        storefrontImageUrl(collection.image_url) ||
+        storefrontImageUrl(sourceProduct?.image_url) ||
+        storefrontImageUrl(sourceProduct?.gallery?.[0]) ||
+        fallbackImage(collection.slug),
       backgroundColor: "#FFFFFF",
       backgroundImageUrl: undefined,
     };
@@ -205,7 +209,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
           title: stringOrUndefined(slide["title"]) || "",
           description: stringOrUndefined(slide["description"]) || "",
           ctaHref: stringOrUndefined(slide["cta_href"]) || "/products",
-          image: stringOrUndefined(slide["image"]) || fallbackImage(`hero-${index + 1}`),
+          image: storefrontImageUrl(stringOrUndefined(slide["image"])) || fallbackImage(`hero-${index + 1}`),
           overlayOpacity: Number(slide["overlay_opacity"] ?? 0.72),
           imagePosition: stringOrUndefined(slide["image_position"]) || "center",
           contentAlignment: stringOrUndefined(slide["content_alignment"]) === "center" ? "center" as const : "left" as const,
@@ -225,9 +229,9 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
           href: stringOrUndefined(promo["href"]) || "/products",
           priceLabel: stringOrUndefined(promo["price_label"]) || "Nuevo",
           comparePriceLabel: stringOrUndefined(promo["compare_price_label"]),
-          image: stringOrUndefined(promo["image"]) || fallbackImage(`hero-promo-${index + 1}`),
+          image: storefrontImageUrl(stringOrUndefined(promo["image"])) || fallbackImage(`hero-promo-${index + 1}`),
           backgroundColor: stringOrUndefined(promo["background_color"]) || "#FFFFFF",
-          backgroundImageUrl: stringOrUndefined(promo["background_image_url"]),
+          backgroundImageUrl: storefrontImageUrl(stringOrUndefined(promo["background_image_url"])),
         }))
         .filter((promo) => promo.title)
     : fallbackHeroPromos;
@@ -239,7 +243,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
           id: String(feature["id"] || `feature-${index + 1}`),
           title: stringOrUndefined(feature["title"]) || "",
           description: stringOrUndefined(feature["description"]) || "",
-          image: stringOrUndefined(feature["image"]) || `/images/icons/icon-0${(index % 4) + 1}.svg`,
+          image: storefrontImageUrl(stringOrUndefined(feature["image"])) || `/images/icons/icon-0${(index % 4) + 1}.svg`,
         }))
         .filter((feature) => feature.title)
     : defaultHomeFeatures();
@@ -262,7 +266,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         description: stringOrUndefined(banner["description"]),
         ctaLabel: stringOrUndefined(banner["cta_label"]) || "Ver productos",
         ctaHref: stringOrUndefined(banner["cta_href"]) || "/products",
-        image: stringOrUndefined(banner["image_url"]),
+        image: storefrontImageUrl(stringOrUndefined(banner["image_url"])),
         backgroundColor: stringOrUndefined(banner["background_color"]),
         accentColor: stringOrUndefined(banner["accent_color"]),
       })).filter((banner) => banner.title)
@@ -274,7 +278,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         description: banner.description || undefined,
         ctaLabel: banner.cta_label?.trim() || "Ver productos",
         ctaHref: banner.cta_href?.trim() || "#",
-        image: banner.image_url?.trim() || undefined,
+        image: storefrontImageUrl(banner.image_url),
         backgroundColor: banner.background_color?.trim() || undefined,
         accentColor: banner.accent_color?.trim() || undefined,
       }))
@@ -296,7 +300,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
             .map((card, index) => ({
               id: numericId(String(card["id"] || `category-card-${index + 1}`)),
               title: stringOrUndefined(card["title"]) || "",
-              img: stringOrUndefined(card["image"]) || fallbackImage(`category-card-${index + 1}`),
+              img: storefrontImageUrl(stringOrUndefined(card["image"])) || fallbackImage(`category-card-${index + 1}`),
               href: stringOrUndefined(card["href"]) || "/products",
               backgroundColor: stringOrUndefined(card["background_color"]) || "#F2F3F8",
               overlayOpacity: Number(card["overlay_opacity"] ?? 0.18),
@@ -327,8 +331,8 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         ctaHref: stringOrUndefined(countdown["cta_href"]) || "/products",
         deadline: stringOrUndefined(countdown["deadline"]) || "2026-12-31T23:59:59",
         backgroundColor: stringOrUndefined(countdown["background_color"]) || "#D0E9F3",
-        backgroundImageUrl: stringOrUndefined(countdown["background_image_url"]) || "/images/countdown/countdown-bg.png",
-        productImageUrl: stringOrUndefined(countdown["product_image_url"]) || "/images/countdown/countdown-01.png",
+        backgroundImageUrl: storefrontImageUrl(stringOrUndefined(countdown["background_image_url"])) || "/images/countdown/countdown-bg.png",
+        productImageUrl: storefrontImageUrl(stringOrUndefined(countdown["product_image_url"])) || "/images/countdown/countdown-01.png",
       },
       newsletter: {
         enabled: booleanOrDefault(newsletter["enabled"], false),
@@ -339,7 +343,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         placeholder: stringOrUndefined(newsletter["placeholder"]) || "Tu correo electrónico",
         buttonLabel: stringOrUndefined(newsletter["button_label"]) || "Registrarme",
         backgroundImageUrl:
-          stringOrUndefined(newsletter["background_image_url"]) || "/images/shapes/newsletter-bg.jpg",
+          storefrontImageUrl(stringOrUndefined(newsletter["background_image_url"])) || "/images/shapes/newsletter-bg.jpg",
       },
       testimonialsSection: {
         enabled: booleanOrDefault(testimonials["enabled"], false),

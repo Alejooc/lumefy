@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 
 import { EcommerceContextService } from 'src/app/core/services/ecommerce-context.service';
 import { PermissionService } from 'src/app/core/services/permission.service';
@@ -28,7 +27,7 @@ interface WarehouseOption {
 @Component({
   selector: 'app-ecommerce-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   templateUrl: './ecommerce-settings.component.html',
   styleUrls: ['./ecommerce-shared.component.scss', './ecommerce-settings.component.scss']
 })
@@ -118,11 +117,19 @@ export class EcommerceSettingsComponent implements OnInit {
   }
 
   get storefrontUrlPreview(): string {
-    const subdomain = this.storefrontForm.subdomain?.trim();
-    if (!subdomain) {
-      return 'subdominio.tudominio.com';
-    }
-    return `${subdomain}.lumefy.shop`;
+    const subdomain = this.storefrontForm.subdomain?.trim() || this.generatedStorefrontSlug;
+    return subdomain ? `${subdomain}.${this.platformStorefrontDomain}` : `tu-tienda.${this.platformStorefrontDomain}`;
+  }
+
+  get platformStorefrontDomain(): string {
+    const host = window.location.hostname.toLowerCase();
+    return host.startsWith('panel.') ? host.slice('panel.'.length) : host || 'lumefy.shop';
+  }
+
+  get generatedStorefrontSlug(): string {
+    const value = String(this.storefrontForm.name || '').trim();
+    const normalized = value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+    return normalized.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'tu-tienda';
   }
 
   loadDomains(): void {
@@ -149,8 +156,6 @@ export class EcommerceSettingsComponent implements OnInit {
     const normalizedCurrencySettings = this.normalizeCurrencySettingsPayload();
     const payload = {
       ...this.storefrontForm,
-      slug: this.storefrontForm.slug?.trim(),
-      subdomain: this.storefrontForm.subdomain?.trim() || null,
       theme_settings: {
         ...(this.storefrontForm.theme_settings || {}),
         branding: normalizedBranding,
@@ -287,8 +292,8 @@ export class EcommerceSettingsComponent implements OnInit {
   private createStorefrontForm(): Partial<Storefront> {
     return {
       name: '',
-      slug: '',
-      subdomain: '',
+      slug: null,
+      subdomain: null,
       is_enabled: false,
       theme_key: 'modern',
       theme_settings: {},

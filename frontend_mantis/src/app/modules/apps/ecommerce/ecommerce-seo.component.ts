@@ -34,6 +34,11 @@ export class EcommerceSeoComponent implements OnInit {
   storefront: Storefront | null = null;
   form: SeoSettings = this.createForm();
 
+  get platformStorefrontDomain(): string {
+    const host = window.location.hostname.toLowerCase();
+    return host.startsWith('panel.') ? host.slice('panel.'.length) : host || 'lumefy.shop';
+  }
+
   ngOnInit(): void {
     if (!this.permissions.hasPermission('manage_company')) {
       this.swal.error('Sin permiso', 'No puedes administrar ecommerce.');

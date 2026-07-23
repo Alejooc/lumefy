@@ -15,8 +15,9 @@ import requests
 import dns.resolver
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app.core import auth, security
@@ -58,6 +59,9 @@ router = APIRouter()
 SUPPORTED_PUBLIC_PAYMENT_PROVIDERS = {
     "wompi", "payu", "mercadopago", "addi", "sistecredito",
     "whatsapp", "cod", "manual_transfer",
+}
+RESERVED_STOREFRONT_SUBDOMAINS = {
+    "www", "api", "admin", "app", "panel", "mail", "static", "cdn", "support", "help",
 }
 SENSITIVE_GATEWAY_CONFIG_KEYS = {
     "integrity_secret", "events_secret", "webhook_secret", "api_key",
@@ -212,6 +216,48 @@ def _safe_string(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _slugify_storefront(value: str) -> str:
+    """Create a URL-safe, deterministic identifier from a store name."""
+    normalized = unicodedata.normalize("NFKD", value or "")
+    ascii_value = normalized.encode("ascii", "ignore").decode("ascii").lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_value).strip("-")
+    return (slug or "tienda")[:48].rstrip("-")
+
+
+async def _available_storefront_slug(db: AsyncSession, company_id: uuid.UUID, name: str) -> str:
+    """Generate a company-local slug, retaining old URLs when a store is renamed."""
+    base = _slugify_storefront(name)
+    candidate = base
+    suffix = 2
+    while await db.scalar(
+        select(Storefront.id).where(
+            Storefront.company_id == company_id,
+            func.lower(Storefront.slug) == candidate.lower(),
+        ).limit(1)
+    ):
+        candidate = f"{base[: max(1, 48 - len(str(suffix)) - 1)]}-{suffix}"
+        suffix += 1
+    return candidate
+
+
+async def _available_storefront_subdomain(db: AsyncSession, name: str) -> str:
+    """Generate a globally unique platform subdomain, including inactive rows."""
+    base = _slugify_storefront(name)
+    if base in RESERVED_STOREFRONT_SUBDOMAINS:
+        base = f"{base}-store"
+    candidate = base
+    suffix = 2
+    while await db.scalar(
+        select(Storefront.id).where(
+            Storefront.subdomain.is_not(None),
+            func.lower(Storefront.subdomain) == candidate.lower(),
+        ).limit(1)
+    ):
+        candidate = f"{base[: max(1, 48 - len(str(suffix)) - 1)]}-{suffix}"
+        suffix += 1
+    return candidate
 
 
 def _format_payu_confirmation_amount(value: Any) -> str:
@@ -1350,14 +1396,29 @@ async def create_storefront(
             detail="La empresa ya tiene una tienda. Actualiza la tienda existente.",
         )
 
+    if not storefront_in.name or not storefront_in.name.strip():
+        raise HTTPException(status_code=422, detail="El nombre de la tienda es obligatorio.")
+
+    slug = await _available_storefront_slug(db, current_user.company_id, storefront_in.name)
+    subdomain = await _available_storefront_subdomain(db, storefront_in.name)
+    storefront_data = storefront_in.model_dump(exclude={"slug", "subdomain"})
     storefront = Storefront(
-        **storefront_in.model_dump(),
+        **storefront_data,
+        slug=slug,
+        subdomain=subdomain,
         company_id=current_user.company_id,
         created_by_id=current_user.id,
         updated_by_id=current_user.id,
     )
     db.add(storefront)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="No se pudo reservar la URL automática. Intenta guardar de nuevo.",
+        ) from exc
     await db.refresh(storefront)
     return storefront
 
@@ -1371,6 +1432,12 @@ async def update_storefront(
     current_user: User = Depends(PermissionChecker("manage_company")),
 ) -> Any:
     storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    # Repair legacy rows created before automatic URLs were introduced without
+    # changing URLs that are already in use.
+    if not storefront.slug:
+        storefront.slug = await _available_storefront_slug(db, current_user.company_id, storefront.name)
+    if not storefront.subdomain:
+        storefront.subdomain = await _available_storefront_subdomain(db, storefront.name)
     for field, value in storefront_in.model_dump(exclude_unset=True).items():
         setattr(storefront, field, value)
     storefront.updated_by_id = current_user.id

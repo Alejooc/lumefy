@@ -71,7 +71,7 @@
           <div class="settings-block__header">
             <div>
               <h5 class="mb-1">Identidad y acceso</h5>
-              <small class="text-muted">Configura nombre, slug, subdominio y la experiencia base de la tienda.</small>
+              <small class="text-muted">Define la identidad de la tienda y su operación básica. Las URLs se asignan automáticamente.</small>
             </div>
             <span class="settings-pill">{{ editingStorefrontId ? 'Tienda existente' : 'Nueva tienda' }}</span>
           </div>
@@ -83,14 +83,9 @@
               <small class="form-hint">Nombre visible para clientes y equipo interno.</small>
             </div>
             <div class="col-md-5">
-              <label class="form-label">Slug interno</label>
-              <input class="form-control" [(ngModel)]="storefrontForm.slug" placeholder="lumefy-home" />
-              <small class="form-hint">Identificador de la tienda dentro del sistema.</small>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Subdominio</label>
-              <input class="form-control" [(ngModel)]="storefrontForm.subdomain" placeholder="lumefy-home" />
-              <small class="form-hint">Vista previa: {{ storefrontUrlPreview }}</small>
+              <label class="form-label">URL de la tienda</label>
+              <div class="form-control bg-light text-muted">{{ storefrontUrlPreview }}</div>
+              <small class="form-hint">Se genera desde el nombre y se valida en todo el SaaS.</small>
             </div>
             <div class="col-md-3">
               <label class="form-label">Moneda</label>
@@ -152,62 +147,6 @@
                 </small>
               </button>
             }
-          </div>
-        </div>
-      </div>
-
-      <div class="card section-card mt-3">
-        <div class="card-body">
-          <div class="settings-block__header">
-            <div>
-              <h5 class="mb-1">Modulos del storefront</h5>
-              <small class="text-muted">Configura estos puntos en orden para dejar tu tienda lista para vender.</small>
-            </div>
-          </div>
-
-          <div class="stacked-action-list">
-            <a class="stacked-action-card" routerLink="/products">
-              <div>
-                <strong class="d-block">1. Publicar catálogo</strong>
-                <small class="text-muted">Selecciona productos internos, completa sus datos y habilítalos para e-commerce.</small>
-              </div>
-              <span class="stacked-action-card__arrow">Abrir</span>
-            </a>
-            <a class="stacked-action-card" routerLink="/commerce/branding">
-              <div>
-                <strong class="d-block">2. Definir marca</strong>
-                <small class="text-muted">Logo, contacto, redes y promos globales del storefront.</small>
-              </div>
-              <span class="stacked-action-card__arrow">Abrir</span>
-            </a>
-            <a class="stacked-action-card" routerLink="/commerce/payments">
-              <div>
-                <strong class="d-block">3. Configurar pagos</strong>
-                <small class="text-muted">Activa las pasarelas que usarás para cobrar pedidos online.</small>
-              </div>
-              <span class="stacked-action-card__arrow">Abrir</span>
-            </a>
-            <a class="stacked-action-card" routerLink="/commerce/design">
-              <div>
-                <strong class="d-block">4. Personalizar la home</strong>
-                <small class="text-muted">Hero, banners, copys, countdown y newsletter del storefront.</small>
-              </div>
-              <span class="stacked-action-card__arrow">Abrir</span>
-            </a>
-            <a class="stacked-action-card" routerLink="/commerce/checkout">
-              <div>
-                <strong class="d-block">5. Ajustar checkout</strong>
-                <small class="text-muted">Compra invitada, notas, telefono y reglas del pedido.</small>
-              </div>
-              <span class="stacked-action-card__arrow">Abrir</span>
-            </a>
-            <a class="stacked-action-card" routerLink="/commerce/seo">
-              <div>
-                <strong class="d-block">6. Preparar SEO</strong>
-                <small class="text-muted">Metadatos, indexacion y senal tecnica del storefront.</small>
-              </div>
-              <span class="stacked-action-card__arrow">Abrir</span>
-            </a>
           </div>
         </div>
       </div>
@@ -309,13 +248,9 @@
               <span class="checklist-dot"></span>
               <span>Nombre de tienda definido</span>
             </div>
-            <div class="checklist-item" [class.is-done]="!!storefrontForm.slug">
+            <div class="checklist-item" [class.is-done]="!!editingStorefrontId && !!storefrontForm.subdomain">
               <span class="checklist-dot"></span>
-              <span>Slug interno configurado</span>
-            </div>
-            <div class="checklist-item" [class.is-done]="!!storefrontForm.subdomain">
-              <span class="checklist-dot"></span>
-              <span>Subdominio configurado</span>
+              <span>URL automática reservada al guardar</span>
             </div>
             <div class="checklist-item" [class.is-done]="domains.length > 0">
               <span class="checklist-dot"></span>

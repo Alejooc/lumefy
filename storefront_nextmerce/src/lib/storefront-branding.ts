@@ -2,6 +2,7 @@ import {
   PublicStorefront,
   PublicStorefrontBrandingPromo,
 } from "@/types/storefront";
+import { storefrontImageUrl } from "./storefront-image";
 
 export type StorefrontBrandingViewModel = {
   logoUrl?: string;
@@ -98,7 +99,7 @@ function validPaymentList(
     .map((item) => ({
       label: nonEmpty(String(item["label"] || "")) || "",
       href: nonEmpty(String(item["href"] || "")),
-      iconUrl: nonEmpty(String(item["icon_url"] || "")),
+      iconUrl: storefrontImageUrl(nonEmpty(String(item["icon_url"] || ""))),
     }))
     .filter((item) => item.label || item.iconUrl);
 }
@@ -123,7 +124,7 @@ export function getStorefrontBranding(
   const storeName = storefront?.name?.trim() || "Tienda online";
 
   return {
-    logoUrl: nonEmpty(branding?.logo_url),
+    logoUrl: storefrontImageUrl(branding?.logo_url),
     supportPhone: nonEmpty(branding?.support_phone) || DEFAULT_SUPPORT_PHONE,
     supportEmail: nonEmpty(branding?.support_email) || DEFAULT_SUPPORT_EMAIL,
     supportAddress:
@@ -182,6 +183,11 @@ export function getStorefrontBranding(
         (entry): entry is { key: "facebook" | "twitter" | "instagram" | "linkedin"; href: string } =>
           Boolean(entry.href),
       ),
-    promoBanners: (branding?.promo_banners ?? []).filter(validPromoBanner),
+    promoBanners: (branding?.promo_banners ?? [])
+      .filter(validPromoBanner)
+      .map((banner) => ({
+        ...banner,
+        image_url: storefrontImageUrl(banner.image_url),
+      })),
   };
 }

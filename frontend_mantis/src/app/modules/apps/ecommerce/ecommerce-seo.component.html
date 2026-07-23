@@ -34,7 +34,7 @@
         <div class="seo-preview mt-4">
           <small class="text-muted d-block mb-2">Vista previa aproximada en buscadores</small>
           <strong>{{ form.meta_title || storefront.name }}</strong>
-          <span>{{ storefront.subdomain ? storefront.subdomain + '.lumefy.shop' : storefront.name }}</span>
+          <span>{{ storefront.subdomain ? storefront.subdomain + '.' + platformStorefrontDomain : storefront.name }}</span>
           <p class="mb-0">{{ form.meta_description || 'Agrega una descripción clara de tu tienda para mejorar cómo aparece en resultados de búsqueda.' }}</p>
         </div>
 

@@ -430,12 +430,12 @@ export const NavigationItems: NavigationItem[] = [
         permissions: ['manage_company'],
         children: [
           { id: 'commerce-overview', title: 'Resumen', type: 'item', classes: 'nav-item', url: '/commerce', icon: 'dashboard', breadcrumbs: false, permissions: ['manage_company'] },
-          { id: 'commerce-store', title: 'Tienda y dominio', type: 'item', classes: 'nav-item', url: '/commerce/store', icon: 'shop', breadcrumbs: false, permissions: ['manage_company'] },
-          { id: 'commerce-branding', title: 'Marca', type: 'item', classes: 'nav-item', url: '/commerce/branding', icon: 'bg-colors', breadcrumbs: false, permissions: ['manage_company'] },
-          { id: 'commerce-design', title: 'Diseño y contenido', type: 'item', classes: 'nav-item', url: '/commerce/design', icon: 'layout', breadcrumbs: false, permissions: ['manage_company'] },
+          { id: 'commerce-store', title: 'Tienda', type: 'item', classes: 'nav-item', url: '/commerce/store', icon: 'shop', breadcrumbs: false, permissions: ['manage_company'] },
           { id: 'commerce-catalog', title: 'Catálogo publicado', type: 'item', classes: 'nav-item', url: '/products', icon: 'shopping-cart', breadcrumbs: false, permissions: ['view_products'] },
           { id: 'commerce-collections', title: 'Colecciones', type: 'item', classes: 'nav-item', url: '/commerce/collections', icon: 'tags', breadcrumbs: false, permissions: ['manage_company'] },
-          { id: 'commerce-navigation', title: 'Navegación y SEO', type: 'collapse', icon: 'setting', permissions: ['manage_company'], children: [
+          { id: 'commerce-content', title: 'Contenido', type: 'collapse', icon: 'layout', permissions: ['manage_company'], children: [
+            { id: 'commerce-branding', title: 'Marca', type: 'item', url: '/commerce/branding', breadcrumbs: false, permissions: ['manage_company'] },
+            { id: 'commerce-design', title: 'Inicio y banners', type: 'item', url: '/commerce/design', breadcrumbs: false, permissions: ['manage_company'] },
             { id: 'commerce-menu', title: 'Menú de tienda', type: 'item', url: '/commerce/navigation', breadcrumbs: false, permissions: ['manage_company'] },
             { id: 'commerce-seo', title: 'SEO', type: 'item', url: '/commerce/seo', breadcrumbs: false, permissions: ['manage_company'] }
           ]},

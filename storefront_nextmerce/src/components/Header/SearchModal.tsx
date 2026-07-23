@@ -10,6 +10,7 @@ import {
   getPublicProducts,
   resolveStorefront,
 } from "@/lib/storefront-api";
+import { storefrontImageUrl } from "@/lib/storefront-image";
 import { PublicCatalogFacet, PublicCollection, PublicProduct } from "@/types/storefront";
 
 type SearchModalProps = {
@@ -217,7 +218,7 @@ export default function SearchModal({
       title: product.title,
       slug: product.slug,
       description: stripHtml(product.description),
-      imageUrl: product.image_url || product.gallery?.[0] || fallbackImage(product.slug),
+      imageUrl: storefrontImageUrl(product.image_url) || storefrontImageUrl(product.gallery?.[0]) || fallbackImage(product.slug),
       collectionNames: [],
       brandName: product.brand_name || "",
     }));
