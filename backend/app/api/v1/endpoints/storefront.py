@@ -1241,16 +1241,21 @@ async def _validate_checkout_inventory(
 
 
 async def _tracked_sale_items(db: AsyncSession, sale: Sale) -> list[tuple[SaleItem, Product]]:
-    """Return tracked sale items with products available in both new and loaded sales."""
-    unresolved_product_ids = {item.product_id for item in sale.items if item.product is None}
-    products: dict[uuid.UUID, Product] = {}
-    if unresolved_product_ids:
-        result = await db.execute(select(Product).where(Product.id.in_(unresolved_product_ids)))
-        products = {product.id: product for product in result.scalars().all()}
+    """Return tracked sale items without triggering async-incompatible lazy loads."""
+    # A newly-created sale and eagerly-loaded sales already carry this
+    # relationship in memory. Only query when SQLAlchemy left it unloaded.
+    sale_items = sale.__dict__.get("items")
+    if sale_items is None:
+        result = await db.execute(
+            select(SaleItem)
+            .options(selectinload(SaleItem.product))
+            .where(SaleItem.sale_id == sale.id)
+        )
+        sale_items = result.scalars().all()
 
     tracked_items: list[tuple[SaleItem, Product]] = []
-    for item in sale.items:
-        product = item.product or products.get(item.product_id)
+    for item in sale_items:
+        product = item.product
         if product and product.track_inventory:
             tracked_items.append((item, product))
     return tracked_items
@@ -3096,12 +3101,11 @@ async def create_public_checkout_order(
         created_by_id=sale_user.id,
         updated_by_id=sale_user.id,
     )
-    db.add(sale)
-    await db.flush()
-
-    for row in rows:
-        sale_item = SaleItem(
-            sale_id=sale.id,
+    # Initialize the relationship before the first flush. Accessing an
+    # unloaded async relationship after flush triggers a synchronous lazy load
+    # (MissingGreenlet) while building the order.
+    sale.items = [
+        SaleItem(
             product_id=row.product_id,
             quantity=row.quantity,
             quantity_picked=0.0,
@@ -3112,8 +3116,9 @@ async def create_public_checkout_order(
             created_by_id=sale_user.id,
             updated_by_id=sale_user.id,
         )
-        sale.items.append(sale_item)
-        db.add(sale_item)
+        for row in rows
+    ]
+    db.add(sale)
 
     await db.flush()
     if not await _reserve_storefront_sale(db, sale):
