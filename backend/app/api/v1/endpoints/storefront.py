@@ -1253,9 +1253,19 @@ async def _tracked_sale_items(db: AsyncSession, sale: Sale) -> list[tuple[SaleIt
         )
         sale_items = result.scalars().all()
 
+    unresolved_product_ids = {
+        item.product_id
+        for item in sale_items
+        if item.__dict__.get("product") is None
+    }
+    products: dict[uuid.UUID, Product] = {}
+    if unresolved_product_ids:
+        result = await db.execute(select(Product).where(Product.id.in_(unresolved_product_ids)))
+        products = {product.id: product for product in result.scalars().all()}
+
     tracked_items: list[tuple[SaleItem, Product]] = []
     for item in sale_items:
-        product = item.product
+        product = item.__dict__.get("product") or products.get(item.product_id)
         if product and product.track_inventory:
             tracked_items.append((item, product))
     return tracked_items
