@@ -55,4 +55,5 @@ from .storefront import (
     StorefrontOrder,
 )
 from .email_delivery import EmailDelivery
+from .storefront_customer import StorefrontCustomerAccount
 

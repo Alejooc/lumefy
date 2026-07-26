@@ -157,7 +157,9 @@ class StorefrontOrder(BaseModel):
     storefront_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("storefronts.id"), nullable=False, index=True)
     sale_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sales.id"), nullable=False, index=True)
     idempotency_key: Mapped[str] = mapped_column(String, nullable=True, index=True)
-    customer_user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    customer_account_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("storefront_customer_accounts.id"), nullable=True, index=True
+    )
     customer_name: Mapped[str] = mapped_column(String, nullable=False)
     customer_email: Mapped[str] = mapped_column(String, nullable=False, index=True)
     customer_phone: Mapped[str] = mapped_column(String, nullable=True)
@@ -176,7 +178,7 @@ class StorefrontOrder(BaseModel):
 
     storefront = relationship("Storefront", back_populates="orders")
     sale = relationship("Sale", back_populates="storefront_order")
-    customer_user = relationship("User")
+    customer_account = relationship("StorefrontCustomerAccount")
 
     __table_args__ = (
         UniqueConstraint("sale_id", name="uq_storefront_order_sale"),

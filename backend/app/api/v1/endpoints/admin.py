@@ -2,7 +2,7 @@ from typing import Any, List
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import func, or_, select
 from app.core.database import get_db
 from app.models.company import Company
 from app.models.user import User
@@ -117,7 +117,11 @@ async def read_admin_stats(
     active_companies = result.scalar()
     
     # Total Users
-    result = await db.execute(select(func.count(User.id)))
+    result = await db.execute(
+        select(func.count(User.id)).where(
+            or_(User.role_id.is_not(None), User.is_superuser == True)
+        )
+    )
     total_users = result.scalar()
     
     # MRR Calculation (Estimated)

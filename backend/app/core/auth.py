@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
+from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
@@ -9,6 +10,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.schemas.token import TokenPayload
 from app.models.user import User
+from app.models.storefront_customer import StorefrontCustomerAccount
 
 import logging
 
@@ -46,3 +48,39 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Inactive user")
     return user
+
+
+async def get_current_storefront_customer(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> StorefrontCustomerAccount:
+    """Resolve a public storefront token without touching internal users."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate storefront credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("scope") != "storefront":
+            raise credentials_exception
+        account_id = payload.get("customer_account_id") or payload.get("sub")
+        storefront_id = payload.get("storefront_id")
+        if not account_id or not storefront_id:
+            raise credentials_exception
+        account_uuid = UUID(str(account_id))
+        storefront_uuid = UUID(str(storefront_id))
+    except (JWTError, ValueError, TypeError):
+        raise credentials_exception
+
+    result = await db.execute(
+        select(StorefrontCustomerAccount).where(
+            StorefrontCustomerAccount.id == account_uuid,
+            StorefrontCustomerAccount.storefront_id == storefront_uuid,
+            StorefrontCustomerAccount.is_active == True,
+        )
+    )
+    account = result.scalars().first()
+    if account is None:
+        raise credentials_exception
+    return account

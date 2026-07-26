@@ -2,7 +2,7 @@ from typing import Any, List
 from uuid import UUID
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import auth
@@ -35,7 +35,15 @@ async def read_users(
     """
     Retrieve users.
     """
-    query = select(User).where(User.company_id == current_user.company_id).offset(skip).limit(limit)
+    query = (
+        select(User)
+        .where(
+            User.company_id == current_user.company_id,
+            or_(User.role_id.is_not(None), User.is_superuser == True),
+        )
+        .offset(skip)
+        .limit(limit)
+    )
     result = await db.execute(query)
     # unique() is recommended with joinedload even for M2O to be safe/consistent
     return result.scalars().unique().all()
@@ -52,7 +60,8 @@ async def read_user(
     """
     query = select(User).where(
         User.id == user_id, 
-        User.company_id == current_user.company_id
+        User.company_id == current_user.company_id,
+        or_(User.role_id.is_not(None), User.is_superuser == True),
     )
     
     result = await db.execute(query)
@@ -162,7 +171,8 @@ async def update_user(
 
     query = select(User).where(
         User.id == user_id, 
-        User.company_id == current_user.company_id
+        User.company_id == current_user.company_id,
+        or_(User.role_id.is_not(None), User.is_superuser == True),
     )
     result = await db.execute(query)
     user = result.scalar_one_or_none()
@@ -224,7 +234,8 @@ async def delete_user(
 
     query = select(User).where(
         User.id == user_id,
-        User.company_id == current_user.company_id
+        User.company_id == current_user.company_id,
+        or_(User.role_id.is_not(None), User.is_superuser == True),
     )
     result = await db.execute(query)
     user = result.scalar_one_or_none()
@@ -264,6 +275,7 @@ async def send_recovery_email(
     query = select(User).where(User.id == user_id)
     if not current_user.is_superuser:
         query = query.where(User.company_id == current_user.company_id)
+    query = query.where(or_(User.role_id.is_not(None), User.is_superuser == True))
         
     result = await db.execute(query)
     user = result.scalar_one_or_none()

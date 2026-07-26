@@ -1,7 +1,7 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from app.core import auth, security
 from app.core.database import get_db
 from app.models.user import User
@@ -28,7 +28,7 @@ async def read_users(
     if not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
-    query = select(User)
+    query = select(User).where(or_(User.role_id.is_not(None), User.is_superuser == True))
     
     if search:
         search_term = f"%{search}%"
@@ -57,7 +57,13 @@ async def impersonate_user(
          raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Get Target User
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(
+        select(User).where(
+            User.id == user_id,
+            User.is_active == True,
+            or_(User.role_id.is_not(None), User.is_superuser == True),
+        )
+    )
     target_user = result.scalars().first()
     
     if not target_user:

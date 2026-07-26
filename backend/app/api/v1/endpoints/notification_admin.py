@@ -1,7 +1,7 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from uuid import UUID
 
 from app.core.database import get_db
@@ -98,10 +98,21 @@ async def send_manual_notification(
     
     if notification_in.target_all:
         # Broadcast to all users in the system
-        result = await db.execute(select(User))
+        result = await db.execute(
+            select(User).where(
+                User.is_active == True,
+                or_(User.role_id.is_not(None), User.is_superuser == True),
+            )
+        )
         target_users = result.scalars().all()
     elif notification_in.user_id:
-        result = await db.execute(select(User).where(User.id == notification_in.user_id))
+        result = await db.execute(
+            select(User).where(
+                User.id == notification_in.user_id,
+                User.is_active == True,
+                or_(User.role_id.is_not(None), User.is_superuser == True),
+            )
+        )
         user = result.scalars().first()
         if user:
             target_users = [user]

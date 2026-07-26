@@ -36,6 +36,7 @@ from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.user import User
 from app.models.client import Client
+from app.models.storefront_customer import StorefrontCustomerAccount
 from app.services.email import EmailService
 from app.services.outbox import enqueue_outbox_event
 from app.models.storefront import (
@@ -379,13 +380,14 @@ async def _apply_gateway_payment_status(
 
     storefront_order.payment_status = normalized_status
     if normalized_status == "approved":
-        if not await _confirm_paid_storefront_sale(db, sale):
+        if not await _reserve_storefront_sale(db, sale):
             storefront_order.payment_status = "approved_stock_unavailable"
     elif normalized_status in {"declined", "cancelled", "expired", "rejected"} and sale.status in {
         SaleStatus.DRAFT,
         SaleStatus.QUOTE,
+        SaleStatus.CONFIRMED,
     }:
-        sale.status = SaleStatus.CANCELLED
+        await _cancel_storefront_sale_and_release_reservation(db, sale)
 
     db.add(storefront_order)
     db.add(sale)
@@ -547,40 +549,37 @@ def _serialize_public_branding(storefront: Storefront, company: Company | None) 
     )
 
 
-def _serialize_public_account_user(user: User) -> schemas.PublicStorefrontAccountUser:
+def _serialize_public_account_user(
+    account: StorefrontCustomerAccount,
+) -> schemas.PublicStorefrontAccountUser:
     return schemas.PublicStorefrontAccountUser(
-        id=user.id,
-        email=user.email,
-        full_name=user.full_name,
-        created_at=user.created_at,
-    )
-
-
-def _is_storefront_customer(user: User, storefront: Storefront) -> bool:
-    return (
-        bool(user.is_active)
-        and user.company_id == storefront.company_id
-        and user.role_id is None
-        and not user.is_superuser
+        id=account.id,
+        email=account.email,
+        full_name=account.full_name,
+        created_at=account.created_at,
     )
 
 
 async def _get_current_storefront_customer(
     storefront_id: uuid.UUID,
     db: AsyncSession,
-    current_user: User,
-) -> tuple[Storefront, User]:
+    current_account: StorefrontCustomerAccount,
+) -> tuple[Storefront, StorefrontCustomerAccount]:
     storefront = await _get_public_storefront_by_id(db, storefront_id)
-    if not _is_storefront_customer(current_user, storefront):
+    if current_account.storefront_id != storefront.id:
         raise HTTPException(status_code=403, detail="Storefront account access denied")
-    return storefront, current_user
+    return storefront, current_account
 
 
-def _create_storefront_access_token(user: User, storefront: Storefront) -> str:
+def _create_storefront_access_token(
+    account: StorefrontCustomerAccount,
+    storefront: Storefront,
+) -> str:
     expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return auth.create_access_token(
         data={
-            "sub": user.email,
+            "sub": str(account.id),
+            "customer_account_id": str(account.id),
             "scope": "storefront",
             "storefront_id": str(storefront.id),
         },
@@ -634,26 +633,23 @@ def _build_checkout_order_response(
     )
 
 
-async def _get_storefront_customer_user_by_email(
+async def _get_storefront_customer_account_by_email(
     db: AsyncSession,
     storefront: Storefront,
     email: str | None,
-) -> User | None:
+) -> StorefrontCustomerAccount | None:
     normalized_email = _safe_string(email)
     if not normalized_email:
         return None
 
     result = await db.execute(
-        select(User).where(
-            User.company_id == storefront.company_id,
-            User.email == normalized_email.lower(),
-            User.is_active == True,
+        select(StorefrontCustomerAccount).where(
+            StorefrontCustomerAccount.storefront_id == storefront.id,
+            func.lower(StorefrontCustomerAccount.email) == normalized_email.lower(),
+            StorefrontCustomerAccount.is_active == True,
         )
     )
-    user = result.scalars().first()
-    if not user or not _is_storefront_customer(user, storefront):
-        return None
-    return user
+    return result.scalars().first()
 
 
 async def _get_or_create_storefront_client(
@@ -1147,6 +1143,7 @@ async def _resolve_default_user_for_company(db: AsyncSession, company_id: uuid.U
         select(User).where(
             User.company_id == company_id,
             User.is_active == True,
+            or_(User.role_id.is_not(None), User.is_superuser == True),
         ).order_by(User.created_at.asc())
     )
     user = result.scalars().first()
@@ -1243,12 +1240,28 @@ async def _validate_checkout_inventory(
             )
 
 
-async def _confirm_paid_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
-    """Confirm a paid ecommerce order using the same inventory invariant as sales."""
+async def _tracked_sale_items(db: AsyncSession, sale: Sale) -> list[tuple[SaleItem, Product]]:
+    """Return tracked sale items with products available in both new and loaded sales."""
+    unresolved_product_ids = {item.product_id for item in sale.items if item.product is None}
+    products: dict[uuid.UUID, Product] = {}
+    if unresolved_product_ids:
+        result = await db.execute(select(Product).where(Product.id.in_(unresolved_product_ids)))
+        products = {product.id: product for product in result.scalars().all()}
+
+    tracked_items: list[tuple[SaleItem, Product]] = []
+    for item in sale.items:
+        product = item.product or products.get(item.product_id)
+        if product and product.track_inventory:
+            tracked_items.append((item, product))
+    return tracked_items
+
+
+async def _reserve_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
+    """Confirm an ecommerce order and reserve its inventory exactly once."""
     # Payment providers can retry status callbacks long after operations has
     # started picking or dispatching the order.  Those retries must be safe:
     # inventory was already reserved at confirmation and the order remains a
-    # valid paid order, not a stock failure.
+    # valid order, not a stock failure.
     if sale.status in {
         SaleStatus.CONFIRMED,
         SaleStatus.PICKING,
@@ -1261,10 +1274,9 @@ async def _confirm_paid_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
     if sale.status not in {SaleStatus.DRAFT, SaleStatus.QUOTE}:
         return False
 
+    tracked_items = await _tracked_sale_items(db, sale)
     requested_by_product: dict[uuid.UUID, float] = {}
-    for item in sale.items:
-        if not item.product or not item.product.track_inventory:
-            continue
+    for item, _product in tracked_items:
         requested_by_product[item.product_id] = requested_by_product.get(item.product_id, 0.0) + item.quantity
 
     inventories: dict[uuid.UUID, Inventory] = {}
@@ -1283,9 +1295,7 @@ async def _confirm_paid_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
             return False
         inventories[product_id] = inventory
 
-    for item in sale.items:
-        if not item.product or not item.product.track_inventory:
-            continue
+    for item, _product in tracked_items:
         inventory = inventories[item.product_id]
         inventory.reserved_quantity += item.quantity
         db.add(InventoryMovement(
@@ -1307,6 +1317,67 @@ async def _confirm_paid_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
     enqueue_outbox_event(
         db,
         event_type="inventory.reserved",
+        aggregate_type="sale",
+        aggregate_id=sale.id,
+        company_id=sale.company_id,
+        payload={"sale_id": str(sale.id), "warehouse_id": str(sale.warehouse_id), "source": "storefront"},
+    )
+    return True
+
+
+async def _cancel_storefront_sale_and_release_reservation(
+    db: AsyncSession,
+    sale: Sale,
+) -> bool:
+    """Cancel a checkout sale and release any reservation made at checkout."""
+    if sale.status in {SaleStatus.DRAFT, SaleStatus.QUOTE}:
+        sale.status = SaleStatus.CANCELLED
+        return True
+    if sale.status != SaleStatus.CONFIRMED:
+        return False
+
+    tracked_items = await _tracked_sale_items(db, sale)
+    requested_by_product: dict[uuid.UUID, float] = {}
+    for item, _product in tracked_items:
+        requested_by_product[item.product_id] = requested_by_product.get(item.product_id, 0.0) + item.quantity
+
+    inventories: dict[uuid.UUID, Inventory] = {}
+    for product_id, requested_quantity in requested_by_product.items():
+        result = await db.execute(
+            select(Inventory)
+            .where(
+                Inventory.product_id == product_id,
+                Inventory.warehouse_id == sale.warehouse_id,
+            )
+            .with_for_update()
+        )
+        inventory = result.scalars().first()
+        if not inventory or inventory.reserved_quantity < requested_quantity:
+            return False
+        inventories[product_id] = inventory
+
+    for product_id, requested_quantity in requested_by_product.items():
+        inventory = inventories[product_id]
+        inventory.reserved_quantity -= requested_quantity
+        db.add(InventoryMovement(
+            product_id=product_id,
+            branch_id=sale.branch_id,
+            warehouse_id=sale.warehouse_id,
+            user_id=sale.user_id,
+            type=MovementType.RELEASE,
+            quantity=0.0,
+            previous_stock=inventory.quantity,
+            new_stock=inventory.quantity,
+            unit_cost=inventory.average_cost,
+            reference_id=str(sale.id),
+            reason=f"Reserva ecommerce liberada ({requested_quantity:g} unidades)",
+            company_id=sale.company_id,
+        ))
+
+    sale.status = SaleStatus.CANCELLED
+    enqueue_outbox_event(
+        db,
+        event_type="inventory.released",
         aggregate_type="sale",
         aggregate_id=sale.id,
         company_id=sale.company_id,
@@ -2100,29 +2171,59 @@ async def register_public_storefront_account(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     storefront = await _get_public_storefront_by_id(db, storefront_id)
+    email = payload.email.strip().lower()
 
-    existing = await db.execute(select(User).where(User.email == payload.email))
-    existing_user = existing.scalars().first()
-    if existing_user:
+    existing = await db.execute(
+        select(StorefrontCustomerAccount).where(
+            StorefrontCustomerAccount.storefront_id == storefront.id,
+            func.lower(StorefrontCustomerAccount.email) == email,
+        )
+    )
+    if existing.scalars().first():
         raise HTTPException(status_code=400, detail="The email is already registered")
 
-    user = User(
-        email=payload.email.strip().lower(),
+    client_result = await db.execute(
+        select(Client).where(
+            Client.company_id == storefront.company_id,
+            func.lower(Client.email) == email,
+            Client.is_active == True,
+        )
+    )
+    client = client_result.scalars().first()
+    if not client:
+        client = Client(
+            name=payload.full_name.strip(),
+            email=email,
+            status="active",
+            notes="Created from storefront registration",
+            company_id=storefront.company_id,
+        )
+        db.add(client)
+        await db.flush()
+    else:
+        client.name = payload.full_name.strip()
+
+    account = StorefrontCustomerAccount(
+        storefront_id=storefront.id,
+        client_id=client.id,
+        email=email,
         hashed_password=security.get_password_hash(payload.password),
         full_name=payload.full_name.strip(),
         company_id=storefront.company_id,
-        role_id=None,
-        is_superuser=False,
         is_active=True,
     )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
+    db.add(account)
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="The email is already registered") from exc
+    await db.refresh(account)
 
     return schemas.PublicStorefrontAuthResponse(
-        access_token=_create_storefront_access_token(user, storefront),
+        access_token=_create_storefront_access_token(account, storefront),
         token_type="bearer",
-        user=_serialize_public_account_user(user),
+        user=_serialize_public_account_user(account),
     )
 
 
@@ -2136,17 +2237,21 @@ async def login_public_storefront_account(
 ) -> Any:
     storefront = await _get_public_storefront_by_id(db, storefront_id)
 
-    result = await db.execute(select(User).where(User.email == payload.email.strip().lower()))
-    user = result.scalars().first()
-    if not user or not security.verify_password(payload.password, user.hashed_password):
+    result = await db.execute(
+        select(StorefrontCustomerAccount).where(
+            StorefrontCustomerAccount.storefront_id == storefront.id,
+            func.lower(StorefrontCustomerAccount.email) == payload.email.strip().lower(),
+            StorefrontCustomerAccount.is_active == True,
+        )
+    )
+    account = result.scalars().first()
+    if not account or not security.verify_password(payload.password, account.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
-    if not _is_storefront_customer(user, storefront):
-        raise HTTPException(status_code=403, detail="Storefront account access denied")
 
     return schemas.PublicStorefrontAuthResponse(
-        access_token=_create_storefront_access_token(user, storefront),
+        access_token=_create_storefront_access_token(account, storefront),
         token_type="bearer",
-        user=_serialize_public_account_user(user),
+        user=_serialize_public_account_user(account),
     )
 
 
@@ -2159,13 +2264,20 @@ async def recover_public_storefront_account_password(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     storefront = await _get_public_storefront_by_id(db, storefront_id)
-    result = await db.execute(select(User).where(User.email == payload.email.strip().lower()))
-    user = result.scalars().first()
+    result = await db.execute(
+        select(StorefrontCustomerAccount).where(
+            StorefrontCustomerAccount.storefront_id == storefront.id,
+            func.lower(StorefrontCustomerAccount.email) == payload.email.strip().lower(),
+            StorefrontCustomerAccount.is_active == True,
+        )
+    )
+    account = result.scalars().first()
 
-    if user and _is_storefront_customer(user, storefront):
+    if account:
         reset_token = auth.create_access_token(
             data={
-                "sub": user.email,
+                "sub": str(account.id),
+                "customer_account_id": str(account.id),
                 "type": "storefront_reset",
                 "storefront_id": str(storefront.id),
                 "scope": "storefront",
@@ -2173,7 +2285,7 @@ async def recover_public_storefront_account_password(
             expires_delta=timedelta(hours=1),
         )
         await EmailService.send_storefront_reset_password_email(
-            email_to=user.email,
+            email_to=account.email,
             token=reset_token,
             storefront_name=storefront.name,
             reset_link=_storefront_reset_link(storefront, reset_token),
@@ -2193,12 +2305,12 @@ async def reset_public_storefront_account_password(
     storefront = await _get_public_storefront_by_id(db, storefront_id)
     try:
         token_payload = auth.jwt.decode(payload.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        email = token_payload.get("sub")
+        account_id = token_payload.get("customer_account_id") or token_payload.get("sub")
         token_type = token_payload.get("type")
         token_storefront_id = token_payload.get("storefront_id")
         scope = token_payload.get("scope")
         if (
-            not email
+            not account_id
             or token_type != "storefront_reset"
             or scope != "storefront"
             or token_storefront_id != str(storefront.id)
@@ -2207,13 +2319,24 @@ async def reset_public_storefront_account_password(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid or expired token")
 
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalars().first()
-    if not user or not _is_storefront_customer(user, storefront):
+    try:
+        account_uuid = uuid.UUID(str(account_id))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    result = await db.execute(
+        select(StorefrontCustomerAccount).where(
+            StorefrontCustomerAccount.id == account_uuid,
+            StorefrontCustomerAccount.storefront_id == storefront.id,
+            StorefrontCustomerAccount.is_active == True,
+        )
+    )
+    account = result.scalars().first()
+    if not account:
         raise HTTPException(status_code=404, detail="Storefront account not found")
 
-    user.hashed_password = security.get_password_hash(payload.new_password)
-    db.add(user)
+    account.hashed_password = security.get_password_hash(payload.new_password)
+    db.add(account)
     await db.commit()
     return schemas.Msg(msg="Password updated successfully")
 
@@ -2222,10 +2345,10 @@ async def reset_public_storefront_account_password(
 async def read_public_storefront_account_me(
     storefront_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(auth.get_current_user),
+    current_account: StorefrontCustomerAccount = Depends(auth.get_current_storefront_customer),
 ) -> Any:
-    _, user = await _get_current_storefront_customer(storefront_id, db, current_user)
-    return _serialize_public_account_user(user)
+    _, account = await _get_current_storefront_customer(storefront_id, db, current_account)
+    return _serialize_public_account_user(account)
 
 
 @router.put("/public/{storefront_id}/account/profile", response_model=schemas.PublicStorefrontAccountUser)
@@ -2233,14 +2356,19 @@ async def update_public_storefront_account_profile(
     storefront_id: uuid.UUID,
     payload: schemas.PublicStorefrontAccountProfileUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(auth.get_current_user),
+    current_account: StorefrontCustomerAccount = Depends(auth.get_current_storefront_customer),
 ) -> Any:
-    _, user = await _get_current_storefront_customer(storefront_id, db, current_user)
-    user.full_name = payload.full_name.strip()
-    db.add(user)
+    _, account = await _get_current_storefront_customer(storefront_id, db, current_account)
+    account.full_name = payload.full_name.strip()
+    if account.client_id:
+        client = await db.get(Client, account.client_id)
+        if client:
+            client.name = account.full_name
+            db.add(client)
+    db.add(account)
     await db.commit()
-    await db.refresh(user)
-    return _serialize_public_account_user(user)
+    await db.refresh(account)
+    return _serialize_public_account_user(account)
 
 
 @router.put("/public/{storefront_id}/account/password", response_model=schemas.Msg)
@@ -2250,16 +2378,16 @@ async def change_public_storefront_account_password(
     storefront_id: uuid.UUID,
     payload: schemas.PublicStorefrontAccountPasswordChange,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(auth.get_current_user),
+    current_account: StorefrontCustomerAccount = Depends(auth.get_current_storefront_customer),
 ) -> Any:
-    _, user = await _get_current_storefront_customer(storefront_id, db, current_user)
-    if not security.verify_password(payload.current_password, user.hashed_password):
+    _, account = await _get_current_storefront_customer(storefront_id, db, current_account)
+    if not security.verify_password(payload.current_password, account.hashed_password):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     if payload.current_password == payload.new_password:
         raise HTTPException(status_code=400, detail="New password must be different")
 
-    user.hashed_password = security.get_password_hash(payload.new_password)
-    db.add(user)
+    account.hashed_password = security.get_password_hash(payload.new_password)
+    db.add(account)
     await db.commit()
     return schemas.Msg(msg="Password updated successfully")
 
@@ -2268,9 +2396,9 @@ async def change_public_storefront_account_password(
 async def read_public_storefront_account_orders(
     storefront_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(auth.get_current_user),
+    current_account: StorefrontCustomerAccount = Depends(auth.get_current_storefront_customer),
 ) -> Any:
-    storefront, user = await _get_current_storefront_customer(storefront_id, db, current_user)
+    storefront, account = await _get_current_storefront_customer(storefront_id, db, current_account)
     result = await db.execute(
         select(StorefrontOrder)
         .options(
@@ -2283,8 +2411,8 @@ async def read_public_storefront_account_orders(
             StorefrontOrder.company_id == storefront.company_id,
             StorefrontOrder.is_active == True,
             or_(
-                StorefrontOrder.customer_user_id == user.id,
-                StorefrontOrder.customer_email == user.email.lower(),
+                StorefrontOrder.customer_account_id == account.id,
+                StorefrontOrder.customer_email == account.email.lower(),
             ),
         )
         .order_by(StorefrontOrder.created_at.desc())
@@ -2317,7 +2445,7 @@ async def read_public_storefront_account_orders(
         .where(
             Sale.company_id == storefront.company_id,
             Sale.notes.ilike(f"%storefront_id={storefront.id}%"),
-            Sale.notes.ilike(f"%<{user.email}>%"),
+            Sale.notes.ilike(f"%<{account.email}>%"),
             Sale.is_active == True,
         )
         .order_by(Sale.created_at.desc())
@@ -2915,13 +3043,18 @@ async def create_public_checkout_order(
     warehouse = await _resolve_storefront_fulfillment_warehouse(db, storefront)
     await _validate_checkout_inventory(db, warehouse.id, rows)
     sale_user = await _resolve_default_user_for_company(db, storefront.company_id)
-    storefront_customer_user = await _get_storefront_customer_user_by_email(db, storefront, payload.customer.email)
+    storefront_customer_account = await _get_storefront_customer_account_by_email(
+        db, storefront, payload.customer.email
+    )
     checkout_settings = storefront.checkout_settings or {}
     if bool(checkout_settings.get("require_phone")) and not _normalize_checkout_text(payload.customer.phone):
         raise HTTPException(status_code=400, detail="Este checkout requiere un teléfono de contacto")
-    if checkout_settings.get("checkout_mode") == "required_account" and not storefront_customer_user:
+    if checkout_settings.get("checkout_mode") == "required_account" and not storefront_customer_account:
         raise HTTPException(status_code=400, detail="Inicia sesión o crea una cuenta para completar esta compra")
     storefront_client = await _get_or_create_storefront_client(db, storefront, payload)
+    if storefront_customer_account and not storefront_customer_account.client_id and storefront_client:
+        storefront_customer_account.client_id = storefront_client.id
+        db.add(storefront_customer_account)
     buyer_note = payload.notes if bool(checkout_settings.get("enable_order_notes", True)) else None
 
     notes_parts = [
@@ -2947,6 +3080,9 @@ async def create_public_checkout_order(
         warehouse_id=warehouse.id,
         user_id=sale_user.id,
         client_id=storefront_client.id if storefront_client else None,
+        # A checkout is already a commercial order. Reserve stock immediately
+        # so another customer cannot buy the same last unit while payment is
+        # pending or a manual transfer is being verified.
         status=SaleStatus.DRAFT,
         payment_method=gateway.provider,
         notes=" | ".join(notes_parts),
@@ -2964,27 +3100,33 @@ async def create_public_checkout_order(
     await db.flush()
 
     for row in rows:
-        db.add(
-            SaleItem(
-                sale_id=sale.id,
-                product_id=row.product_id,
-                quantity=row.quantity,
-                quantity_picked=0.0,
-                price=row.unit_price,
-                discount=0.0,
-                total=row.line_subtotal,
-                company_id=storefront.company_id,
+        sale_item = SaleItem(
+            sale_id=sale.id,
+            product_id=row.product_id,
+            quantity=row.quantity,
+            quantity_picked=0.0,
+            price=row.unit_price,
+            discount=0.0,
+            total=row.line_subtotal,
+            company_id=storefront.company_id,
             created_by_id=sale_user.id,
             updated_by_id=sale_user.id,
         )
-    )
+        sale.items.append(sale_item)
+        db.add(sale_item)
+
+    await db.flush()
+    if not await _reserve_storefront_sale(db, sale):
+        raise HTTPException(status_code=400, detail="El stock ya no está disponible para completar este pedido")
 
     db.add(
         StorefrontOrder(
             storefront_id=storefront.id,
             sale_id=sale.id,
             idempotency_key=idempotency_key,
-            customer_user_id=storefront_customer_user.id if storefront_customer_user else None,
+            customer_account_id=(
+                storefront_customer_account.id if storefront_customer_account else None
+            ),
             customer_name=customer_name,
             customer_email=customer_email,
             customer_phone=payload.customer.phone,
@@ -3452,13 +3594,17 @@ async def read_public_payment_status(
             db.add(payment)
 
         if status in {"APPROVED", "APPROVED_PARTIAL"}:
-            confirmed = await _confirm_paid_storefront_sale(db, sale)
+            confirmed = await _reserve_storefront_sale(db, sale)
             if not confirmed:
                 storefront_order.payment_status = "approved_stock_unavailable"
                 result_status = "APPROVED_STOCK_UNAVAILABLE"
                 status_message = "Pago aprobado; el pedido requiere revisión por falta de inventario."
-        elif status in {"DECLINED", "ERROR", "VOIDED"} and sale.status in {SaleStatus.DRAFT, SaleStatus.QUOTE}:
-            sale.status = SaleStatus.CANCELLED
+        elif status in {"DECLINED", "ERROR", "VOIDED"} and sale.status in {
+            SaleStatus.DRAFT,
+            SaleStatus.QUOTE,
+            SaleStatus.CONFIRMED,
+        }:
+            await _cancel_storefront_sale_and_release_reservation(db, sale)
         sale.updated_by_id = sale.updated_by_id or sale.created_by_id
         db.add(sale)
         await db.commit()
@@ -3708,10 +3854,14 @@ async def receive_wompi_payment_event(
     db.add(storefront_order)
 
     if status in {"APPROVED", "APPROVED_PARTIAL"}:
-        if not await _confirm_paid_storefront_sale(db, sale):
+        if not await _reserve_storefront_sale(db, sale):
             storefront_order.payment_status = "approved_stock_unavailable"
-    elif status in {"DECLINED", "ERROR", "VOIDED"} and sale.status in {SaleStatus.DRAFT, SaleStatus.QUOTE}:
-        sale.status = SaleStatus.CANCELLED
+    elif status in {"DECLINED", "ERROR", "VOIDED"} and sale.status in {
+        SaleStatus.DRAFT,
+        SaleStatus.QUOTE,
+        SaleStatus.CONFIRMED,
+    }:
+        await _cancel_storefront_sale_and_release_reservation(db, sale)
     db.add(sale)
     await db.commit()
     return {"received": True}

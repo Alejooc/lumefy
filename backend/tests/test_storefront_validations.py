@@ -9,7 +9,8 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.api.v1.endpoints.storefront import (
-    _confirm_paid_storefront_sale,
+    _cancel_storefront_sale_and_release_reservation,
+    _reserve_storefront_sale,
     _format_payu_confirmation_amount,
     _has_valid_basic_auth,
     _has_valid_mercadopago_webhook_signature,
@@ -25,7 +26,7 @@ from app.schemas.storefront import (
     PublicProduct,
 )
 from app.models.sale import SaleStatus
-from app.models.inventory_movement import MovementType
+from app.models.inventory_movement import InventoryMovement, MovementType
 
 
 class StorefrontValidationTests(unittest.TestCase):
@@ -86,7 +87,7 @@ class StorefrontValidationTests(unittest.TestCase):
 
     def test_paid_checkout_confirmation_is_idempotent_after_fulfillment_begins(self):
         sale = SimpleNamespace(status=SaleStatus.PICKING)
-        self.assertTrue(asyncio.run(_confirm_paid_storefront_sale(None, sale)))
+        self.assertTrue(asyncio.run(_reserve_storefront_sale(None, sale)))
 
     def test_paid_checkout_reserves_available_stock_and_records_an_audit_event(self):
         product_id = uuid4()
@@ -123,13 +124,62 @@ class StorefrontValidationTests(unittest.TestCase):
             ],
         )
 
-        self.assertTrue(asyncio.run(_confirm_paid_storefront_sale(Database(), sale)))
+        self.assertTrue(asyncio.run(_reserve_storefront_sale(Database(), sale)))
         self.assertEqual(sale.status, SaleStatus.CONFIRMED)
         self.assertEqual(inventory.reserved_quantity, 5.0)
-        self.assertEqual(len(created_movements), 1)
-        self.assertEqual(created_movements[0].type, MovementType.RESERVE)
-        self.assertEqual(created_movements[0].quantity, 0.0)
-        self.assertEqual(created_movements[0].new_stock, 10.0)
+        inventory_movements = [
+            entity for entity in created_movements
+            if isinstance(entity, InventoryMovement)
+        ]
+        self.assertEqual(len(inventory_movements), 1)
+        self.assertEqual(inventory_movements[0].type, MovementType.RESERVE)
+        self.assertEqual(inventory_movements[0].quantity, 0.0)
+        self.assertEqual(inventory_movements[0].new_stock, 10.0)
+
+    def test_cancelled_checkout_releases_reserved_stock_and_records_an_audit_event(self):
+        product_id = uuid4()
+        inventory = SimpleNamespace(quantity=1.0, reserved_quantity=1.0, average_cost=42.0)
+        created_movements = []
+
+        class Result:
+            def scalars(self):
+                return self
+
+            def first(self):
+                return inventory
+
+        class Database:
+            async def execute(self, _statement):
+                return Result()
+
+            def add(self, entity):
+                created_movements.append(entity)
+
+        sale = SimpleNamespace(
+            id=uuid4(),
+            status=SaleStatus.CONFIRMED,
+            branch_id=uuid4(),
+            warehouse_id=uuid4(),
+            user_id=uuid4(),
+            company_id=uuid4(),
+            items=[
+                SimpleNamespace(
+                    product_id=product_id,
+                    quantity=1.0,
+                    product=SimpleNamespace(track_inventory=True),
+                )
+            ],
+        )
+
+        self.assertTrue(asyncio.run(_cancel_storefront_sale_and_release_reservation(Database(), sale)))
+        self.assertEqual(sale.status, SaleStatus.CANCELLED)
+        self.assertEqual(inventory.reserved_quantity, 0.0)
+        inventory_movements = [
+            entity for entity in created_movements
+            if isinstance(entity, InventoryMovement)
+        ]
+        self.assertEqual(len(inventory_movements), 1)
+        self.assertEqual(inventory_movements[0].type, MovementType.RELEASE)
 
     def test_wompi_event_signature_uses_declared_dynamic_properties(self):
         event = {

@@ -252,7 +252,11 @@ async def create_sale(
         if template and template.is_active:
             # 2. Notify all users in the company
             company_users_result = await db.execute(
-                select(User).where(User.company_id == current_user.company_id)
+                select(User).where(
+                    User.company_id == current_user.company_id,
+                    User.is_active == True,
+                    or_(User.role_id.is_not(None), User.is_superuser == True),
+                )
             )
             company_users = company_users_result.scalars().all()
             

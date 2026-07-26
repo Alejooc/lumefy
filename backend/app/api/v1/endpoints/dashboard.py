@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
 from alembic.config import Config
@@ -60,7 +60,10 @@ async def get_dashboard_stats(
 
     # 1. Card Metrics
     # Total Users (not filtered by date/branch as it's a count)
-    q_users = select(func.count(User.id)).where(User.company_id == current_user.company_id)
+    q_users = select(func.count(User.id)).where(
+        User.company_id == current_user.company_id,
+        or_(User.role_id.is_not(None), User.is_superuser == True),
+    )
     res_users = await db.execute(q_users)
     total_users_count = res_users.scalar() or 0
     

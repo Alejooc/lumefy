@@ -105,6 +105,7 @@ async def global_search(
     # ----------------------------------------------------------------
     query_user = select(User).where(
         User.company_id == current_user.company_id,
+        or_(User.role_id.is_not(None), User.is_superuser == True),
         or_(
             User.full_name.ilike(search_term),
             User.email.ilike(search_term)
