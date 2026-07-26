@@ -68,6 +68,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
             "Authorization" in (init.headers as Record<string, string | undefined>),
         );
   const isCacheableGet = method === "GET" && !hasAuthorization;
+  const cacheMode = init?.cache ?? (isCacheableGet ? "force-cache" : "no-store");
 
   const response = await fetch(makeUrl(path), {
     ...init,
@@ -75,11 +76,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       "Content-Type": "application/json",
       ...(init?.headers || {}),
     },
-    cache: init?.cache ?? (isCacheableGet ? "force-cache" : "no-store"),
+    cache: cacheMode,
     next:
       "next" in (init || {})
         ? (init as RequestInit & { next?: { revalidate?: number } }).next
-        : isCacheableGet
+        : isCacheableGet && cacheMode !== "no-store"
           ? { revalidate: 60 }
           : undefined,
   });
@@ -97,11 +98,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getPublicStorefrontBySubdomain(subdomain: string): Promise<PublicStorefront> {
-  return request<PublicStorefront>(`/storefront/public/by-subdomain/${encodeURIComponent(subdomain)}`);
+  return request<PublicStorefront>(`/storefront/public/by-subdomain/${encodeURIComponent(subdomain)}`, {
+    cache: "no-store",
+  });
 }
 
 export async function getPublicStorefrontByDomain(domain: string): Promise<PublicStorefront> {
-  return request<PublicStorefront>(`/storefront/public/by-domain/${encodeURIComponent(domain)}`);
+  return request<PublicStorefront>(`/storefront/public/by-domain/${encodeURIComponent(domain)}`, {
+    cache: "no-store",
+  });
 }
 
 export async function getPublicStorefront(storefrontId: string): Promise<PublicStorefront> {
@@ -127,7 +132,9 @@ export async function getPublicPaymentGateways(
 }
 
 export async function getPublicCollections(storefrontId: string): Promise<PublicCollection[]> {
-  return request<PublicCollection[]>(`/storefront/public/${storefrontId}/collections`);
+  return request<PublicCollection[]>(`/storefront/public/${storefrontId}/collections`, {
+    cache: "no-store",
+  });
 }
 
 export async function getPublicProducts(

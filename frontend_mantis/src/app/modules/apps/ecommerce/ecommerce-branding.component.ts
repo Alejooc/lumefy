@@ -365,9 +365,9 @@ export class EcommerceBrandingComponent implements OnInit {
       play_store_label: this.normalizeOptionalText(this.footerForm.play_store_label),
       play_store_url: this.normalizeOptionalText(this.footerForm.play_store_url),
       payment_title: this.normalizeOptionalText(this.footerForm.payment_title),
-      show_social_links: this.footerForm.show_social_links !== false,
-      show_app_downloads: this.footerForm.show_app_downloads !== false,
-      show_payment_methods: this.footerForm.show_payment_methods !== false,
+      show_social_links: this.footerForm.show_social_links === true,
+      show_app_downloads: this.footerForm.show_app_downloads === true,
+      show_payment_methods: this.footerForm.show_payment_methods === true,
       account_links: this.normalizeFooterLinksPayload(this.footerForm.account_links),
       quick_links: this.normalizeFooterLinksPayload(this.footerForm.quick_links),
       payment_methods: this.normalizePaymentMethodsPayload(this.footerForm.payment_methods)

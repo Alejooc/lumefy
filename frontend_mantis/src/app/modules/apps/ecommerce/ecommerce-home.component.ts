@@ -20,6 +20,8 @@ import {
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
 
+type HomeEditorSection = 'hero' | 'catalog' | 'promotions' | 'trust';
+
 @Component({
   selector: 'app-ecommerce-home',
   standalone: true,
@@ -40,6 +42,7 @@ export class EcommerceHomeComponent implements OnInit {
   selectedStorefrontId = '';
   storefront: Storefront | null = null;
   form: StorefrontHomeSettings = this.createForm();
+  activeSection: HomeEditorSection = 'hero';
 
   ngOnInit(): void {
     if (!this.permissions.hasPermission('manage_company')) {
@@ -169,7 +172,12 @@ export class EcommerceHomeComponent implements OnInit {
   }
 
   openEditor(): void {
+    this.activeSection = 'hero';
     this.editing = true;
+  }
+
+  setActiveSection(section: HomeEditorSection): void {
+    this.activeSection = section;
   }
 
   closeEditor(): void {
@@ -383,7 +391,7 @@ export class EcommerceHomeComponent implements OnInit {
   private normalizeCountdown(input: unknown): StorefrontHomeCountdownSettings {
     const value = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
     return {
-      enabled: value['enabled'] !== false,
+      enabled: value['enabled'] === true,
       eyebrow: String(value['eyebrow'] || 'Oferta especial'),
       title: String(value['title'] || 'No te pierdas esta oportunidad'),
       description: String(value['description'] || 'Descubre productos seleccionados para ti.'),
@@ -399,7 +407,7 @@ export class EcommerceHomeComponent implements OnInit {
   private normalizeNewsletter(input: unknown): StorefrontHomeNewsletterSettings {
     const value = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
     return {
-      enabled: value['enabled'] !== false,
+      enabled: value['enabled'] === true,
       title: String(value['title'] || 'Recibe novedades y ofertas'),
       description: String(value['description'] || 'Regístrate para recibir lanzamientos, descuentos y contenido de la tienda.'),
       placeholder: String(value['placeholder'] || 'Tu correo electrónico'),
@@ -420,10 +428,10 @@ export class EcommerceHomeComponent implements OnInit {
             author_role: String(item['author_role'] || ''),
             author_image: String(item['author_image'] || '')
           }))
-      : this.createDefaultTestimonials();
+      : [];
 
     return {
-      enabled: value['enabled'] !== false,
+      enabled: value['enabled'] === true,
       eyebrow: String(value['eyebrow'] || 'Testimonios'),
       title: String(value['title'] || 'Lo que dicen nuestros clientes'),
       items
@@ -487,33 +495,7 @@ export class EcommerceHomeComponent implements OnInit {
       enabled: false,
       eyebrow: 'Testimonios',
       title: 'Lo que dicen nuestros clientes',
-      items: this.createDefaultTestimonials()
+      items: []
     };
-  }
-
-  private createDefaultTestimonials() {
-    return [
-      {
-        id: 'testimonial-1',
-        review: 'Lorem ipsum dolor sit amet, adipiscing elit. Donec malesuada justo vitaeaugue suscipit beautiful vehicula',
-        author_name: 'Davis Dorwart',
-        author_role: 'Serial Entrepreneur',
-        author_image: '/images/users/user-01.jpg'
-      },
-      {
-        id: 'testimonial-2',
-        review: 'Lorem ipsum dolor sit amet, adipiscing elit. Donec malesuada justo vitaeaugue suscipit beautiful vehicula',
-        author_name: 'Wilson Dias',
-        author_role: 'Backend Developer',
-        author_image: '/images/users/user-02.jpg'
-      },
-      {
-        id: 'testimonial-3',
-        review: 'Lorem ipsum dolor sit amet, adipiscing elit. Donec malesuada justo vitaeaugue suscipit beautiful vehicula',
-        author_name: 'Miracle Exterm',
-        author_role: 'Serial Entrepreneur',
-        author_image: '/images/users/user-03.jpg'
-      }
-    ];
   }
 }

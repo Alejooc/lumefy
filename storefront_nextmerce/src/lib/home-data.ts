@@ -254,7 +254,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
           review: stringOrUndefined(item["review"]) || "",
           authorName: stringOrUndefined(item["author_name"]) || "",
           authorRole: stringOrUndefined(item["author_role"]) || "",
-          authorImg: stringOrUndefined(item["author_image"]) || "/images/users/user-01.jpg",
+          authorImg: storefrontImageUrl(stringOrUndefined(item["author_image"])) || "/images/users/user-01.jpg",
         }))
         .filter((item) => item.review && item.authorName)
     : defaultTestimonials();
