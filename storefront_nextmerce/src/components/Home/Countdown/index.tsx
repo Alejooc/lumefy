@@ -56,7 +56,7 @@ const CounDown = ({ content }: { content: HomeCountdown }) => {
 
             {content.description ? <p>{content.description}</p> : null}
 
-            <div className="flex flex-wrap gap-6 mt-6">
+            <div className="grid grid-cols-2 gap-4 mt-6 sm:flex sm:flex-wrap sm:gap-6">
               {[
                 { label: "Días", value: days },
                 { label: "Horas", value: hours },

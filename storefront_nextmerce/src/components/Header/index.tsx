@@ -8,7 +8,7 @@ import { useSelector } from "react-redux";
 import { selectTotalPrice } from "@/redux/features/cart-slice";
 import { useCartModalContext } from "@/app/context/CartSidebarModalContext";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   getPublicCollections,
   getPublicNavigation,
@@ -23,6 +23,7 @@ import SearchModal from "./SearchModal";
 
 const Header = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
@@ -78,6 +79,44 @@ const Header = () => {
     return () => {
       document.body.style.overflow = previousOverflow;
     };
+  }, [navigationOpen]);
+
+  useEffect(() => {
+    setNavigationOpen(false);
+    setMobileOpenSubmenu(null);
+  }, [pathname]);
+
+  useEffect(() => {
+    const desktopMedia = window.matchMedia("(min-width: 1280px)");
+    const closeOnDesktop = () => {
+      if (desktopMedia.matches) {
+        setNavigationOpen(false);
+        setMobileOpenSubmenu(null);
+      }
+    };
+
+    closeOnDesktop();
+    desktopMedia.addEventListener("change", closeOnDesktop);
+
+    return () => {
+      desktopMedia.removeEventListener("change", closeOnDesktop);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!navigationOpen) {
+      return;
+    }
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setNavigationOpen(false);
+        setMobileOpenSubmenu(null);
+      }
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
   }, [navigationOpen]);
 
   useEffect(() => {
@@ -159,8 +198,9 @@ const Header = () => {
       />
 
       <div
+        id="mobile-navigation"
         aria-hidden={!navigationOpen}
-        className={`fixed inset-0 z-[100001] xl:hidden transition-all duration-300 ${
+        className={`fixed inset-0 z-[100001] overflow-hidden xl:hidden transition-all duration-300 ${
           navigationOpen
             ? "visible pointer-events-auto bg-dark/60 opacity-100"
             : "invisible pointer-events-none bg-transparent opacity-0"
@@ -171,6 +211,9 @@ const Header = () => {
         }}
       >
         <aside
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menú de navegación"
           className={`absolute right-0 top-0 flex h-full w-full max-w-[340px] flex-col bg-white shadow-2 transition-transform duration-300 ${
             navigationOpen ? "translate-x-0" : "translate-x-full"
           }`}
@@ -474,8 +517,13 @@ const Header = () => {
                 <button
                   id="Toggle"
                   aria-label="Toggler"
+                  aria-controls="mobile-navigation"
+                  aria-expanded={navigationOpen}
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-3 text-dark transition hover:border-blue hover:text-blue"
-                  onClick={() => setNavigationOpen(!navigationOpen)}
+                  onClick={() => {
+                    setNavigationOpen((current) => !current);
+                    setMobileOpenSubmenu(null);
+                  }}
                 >
                   <span className="block relative cursor-pointer w-5.5 h-5.5">
                     <span className="du-block absolute right-0 w-full h-full">

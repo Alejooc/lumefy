@@ -44,7 +44,7 @@ const PromoBanner = ({ items }: { items: HomePromoBanner[] }) => {
           <Image
             src={primary.image || fallbackPromos[0]}
             alt={primary.title}
-            className="absolute bottom-0 right-4 lg:right-26 -z-1"
+            className="absolute bottom-0 right-4 hidden sm:block lg:right-26 -z-1"
             width={274}
             height={350}
           />
@@ -68,7 +68,7 @@ const PromoBanner = ({ items }: { items: HomePromoBanner[] }) => {
                 <Image
                   src={promo.image || fallbackPromos[index + 1] || fallbackPromos[0]}
                   alt={promo.title}
-                  className={imageClass}
+                  className={`${imageClass} max-w-[42%] h-auto`}
                   width={isLeft ? 241 : 200}
                   height={isLeft ? 241 : 200}
                 />

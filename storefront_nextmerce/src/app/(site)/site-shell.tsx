@@ -28,7 +28,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
 
   return (
     <html lang="es-CO" suppressHydrationWarning={true}>
-      <body>
+      <body className="overflow-x-hidden">
         {loading ? (
           <PreLoader />
         ) : (
