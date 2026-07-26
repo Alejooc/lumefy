@@ -1,11 +1,7 @@
 import { createSelector, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "../store";
 
-type InitialState = {
-  items: CartItem[];
-};
-
-type CartItem = {
+export type CartItem = {
   id: number;
   publishedProductId?: string;
   title: string;
@@ -22,8 +18,21 @@ type CartItem = {
   };
 };
 
+type CartFeedback = {
+  id: number;
+  title: string;
+  quantity: number;
+  timestamp: number;
+};
+
+type InitialState = {
+  items: CartItem[];
+  lastAdded: CartFeedback | null;
+};
+
 const initialState: InitialState = {
   items: [],
+  lastAdded: null,
 };
 
 export const cart = createSlice({
@@ -60,6 +69,13 @@ export const cart = createSlice({
           imgs,
         });
       }
+
+      state.lastAdded = {
+        id,
+        title,
+        quantity,
+        timestamp: Date.now(),
+      };
     },
     removeItemFromCart: (state, action: PayloadAction<number>) => {
       const itemId = action.payload;
@@ -86,6 +102,7 @@ export const cart = createSlice({
 });
 
 export const selectCartItems = (state: RootState) => state.cartReducer.items;
+export const selectLastAdded = (state: RootState) => state.cartReducer.lastAdded;
 
 export const selectTotalPrice = createSelector([selectCartItems], (items) => {
   return items.reduce((total, item) => {

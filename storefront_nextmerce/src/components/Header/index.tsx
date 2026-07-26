@@ -45,6 +45,7 @@ const Header = () => {
   const { format } = useStorefrontCurrency();
 
   const product = useAppSelector((state) => state.cartReducer.items);
+  const lastAddedAt = useAppSelector((state) => state.cartReducer.lastAdded?.timestamp ?? 0);
   const totalPrice = useSelector(selectTotalPrice);
 
   const handleOpenCartModal = () => {
@@ -486,8 +487,9 @@ const Header = () => {
                 </Link>
 
                 <button
+                  key={lastAddedAt || "mobile-cart"}
                   onClick={handleOpenCartModal}
-                  className="relative flex h-10 w-10 items-center justify-center rounded-full border border-blue/20 bg-blue/5 text-blue transition hover:border-blue hover:bg-blue hover:text-white"
+                  className={`relative flex h-10 w-10 items-center justify-center rounded-full border border-blue/20 bg-blue/5 text-blue transition hover:border-blue hover:bg-blue hover:text-white ${lastAddedAt ? "cart-icon-pulse" : ""}`}
                   aria-label="Carrito"
                 >
                   <svg
@@ -662,7 +664,10 @@ const Header = () => {
                   onClick={handleOpenCartModal}
                   className="flex items-center gap-2.5"
                 >
-                  <span className="inline-block relative">
+                  <span
+                    key={lastAddedAt || "desktop-cart"}
+                    className={`relative inline-block ${lastAddedAt ? "cart-icon-pulse" : ""}`}
+                  >
                     <svg
                       width="24"
                       height="24"

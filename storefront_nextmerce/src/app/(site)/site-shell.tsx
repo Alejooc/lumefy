@@ -17,6 +17,7 @@ import { PreviewSliderProvider } from "../context/PreviewSliderContext";
 import PreviewSliderModal from "@/components/Common/PreviewSlider";
 import ScrollToTop from "@/components/Common/ScrollToTop";
 import PreLoader from "@/components/Common/PreLoader";
+import CartFeedback from "@/components/Common/CartFeedback";
 
 export default function SiteShell({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
                       <PreviewSliderProvider>
                         <Header />
                         {children}
+                        <CartFeedback />
                         <QuickViewModal />
                         <CartSidebarModal />
                         <PreviewSliderModal />

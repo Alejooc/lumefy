@@ -32,6 +32,55 @@
   }
 }
 
+@keyframes cart-feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes cart-icon-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.16) rotate(-4deg);
+  }
+  65% {
+    transform: scale(0.96) rotate(3deg);
+  }
+}
+
+.cart-feedback {
+  @apply pointer-events-none fixed inset-x-4 bottom-4 z-999999 flex justify-center sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2;
+}
+
+.cart-feedback__panel {
+  @apply pointer-events-auto flex w-full max-w-[420px] items-center gap-3 rounded-xl border border-white/10 bg-dark px-3.5 py-3 shadow-3 sm:px-4;
+  animation: cart-feedback-in 220ms ease-out both;
+}
+
+.cart-feedback__icon {
+  @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green text-white;
+}
+
+.cart-icon-pulse {
+  animation: cart-icon-pulse 520ms ease-out;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cart-feedback__panel,
+  .cart-icon-pulse {
+    animation: none;
+  }
+}
+
 /* third-party libraries CSS */
 
 /* clears the ‘X’ from Internet Explorer */
