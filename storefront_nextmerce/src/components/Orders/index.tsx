@@ -16,6 +16,7 @@ type OrderRow = {
   status: string;
   total: string;
   title: string;
+  shippingAddress: string;
 };
 
 const Orders = () => {
@@ -58,6 +59,13 @@ const Orders = () => {
               currency: order.currency,
             }).format(order.total),
             title: order.title,
+            shippingAddress: [
+              order.shipping_line1,
+              order.shipping_city,
+              order.shipping_state,
+              order.shipping_postal_code,
+              order.shipping_country,
+            ].filter(Boolean).join(", "),
           })),
         );
       } catch (err) {
@@ -93,7 +101,7 @@ const Orders = () => {
 
   return (
     <div className="w-full overflow-x-auto">
-      <div className="min-w-[770px]">
+      <div className="w-full md:min-w-[770px]">
         {orders.length > 0 && (
           <div className="items-center justify-between py-4.5 px-7.5 hidden md:flex ">
             <div className="min-w-[111px]">

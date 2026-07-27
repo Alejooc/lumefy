@@ -697,6 +697,11 @@ async def _get_or_create_storefront_client(
 
 def _storefront_reset_link(storefront: Storefront, token: str) -> str:
     base_url = settings.FRONTEND_URL.rstrip("/")
+    platform_domain = (settings.PLATFORM_STOREFRONT_DOMAIN or "").strip().lower().rstrip(".")
+    subdomain = (storefront.subdomain or "").strip().lower().strip(".")
+    if platform_domain and subdomain:
+        scheme = "http" if platform_domain in {"localhost", "127.0.0.1"} else "https"
+        base_url = f"{scheme}://{subdomain}.{platform_domain}"
     return f"{base_url}/password/reset?token={token}&storefront_id={storefront.id}"
 
 
@@ -769,10 +774,10 @@ def _serialize_public_product(
     product: Product,
     stock_quantity: float | None = None,
 ) -> schemas.PublicProduct:
-    title = (product.name or "").strip()
-    description = (product.description or "").strip() or None
+    title = (published_product.custom_title or product.name or "").strip()
+    description = (published_product.custom_description or product.description or "").strip() or None
     base_price = float(product.price or 0)
-    price = base_price
+    price = _safe_float(published_product.price_override, base_price)
     image_url = published_product.product.image_url or product.image_url
     gallery = [img.image_url for img in sorted(product.images or [], key=lambda item: item.order)]
     if image_url and image_url not in gallery:
@@ -795,7 +800,11 @@ def _serialize_public_product(
         gallery=gallery,
         price=price,
         base_price=base_price,
-        compare_at_price=None,
+        compare_at_price=(
+            _safe_float(published_product.compare_at_price)
+            if published_product.compare_at_price is not None
+            else None
+        ),
         is_featured=bool(published_product.is_featured),
         show_stock=is_tracked,
         in_stock=not is_tracked or bool(available_stock and available_stock > 0),
@@ -1194,7 +1203,7 @@ async def _load_checkout_products(
         product = published.product
         if not product:
             raise HTTPException(status_code=400, detail="One or more products are not available")
-        unit_price = _safe_float(product.price)
+        unit_price = _safe_float(published.price_override, _safe_float(product.price))
         quantity = merged[published_id]
         line_subtotal = unit_price * quantity
         subtotal += line_subtotal
@@ -1579,6 +1588,11 @@ async def read_storefront_readiness(
         issues.append(f"{out_of_stock_count} producto(s) publicado(s) no tienen stock.")
     if not enabled_gateways:
         issues.append("Activa al menos una forma de pago.")
+
+    try:
+        await _resolve_storefront_fulfillment_warehouse(db, storefront)
+    except HTTPException as exc:
+        issues.append(str(exc.detail))
 
     return {
         "ready": not issues,
@@ -2451,6 +2465,11 @@ async def read_public_storefront_account_orders(
                 title=first_title,
                 total=float(sale.total or 0.0),
                 currency=storefront.currency,
+                shipping_line1=storefront_order.shipping_line1,
+                shipping_city=storefront_order.shipping_city,
+                shipping_state=storefront_order.shipping_state,
+                shipping_country=storefront_order.shipping_country,
+                shipping_postal_code=storefront_order.shipping_postal_code,
             )
         )
 
@@ -2478,6 +2497,11 @@ async def read_public_storefront_account_orders(
                 title=first_title,
                 total=float(sale.total or 0.0),
                 currency=storefront.currency,
+                shipping_line1=_extract_note_value(sale.notes, "address"),
+                shipping_city=_extract_note_value(sale.notes, "city"),
+                shipping_state=_extract_note_value(sale.notes, "state"),
+                shipping_country=_extract_note_value(sale.notes, "country"),
+                shipping_postal_code=_extract_note_value(sale.notes, "postal_code"),
             )
         )
 
@@ -2766,8 +2790,10 @@ async def read_public_products(
         matches_search = (
             not normalized_search
             or normalized_search in _normalize_catalog_text(product.name)
+            or normalized_search in _normalize_catalog_text(published_product.custom_title)
             or normalized_search in _normalize_catalog_text(published_product.slug)
             or normalized_search in _normalize_catalog_text(product.description)
+            or normalized_search in _normalize_catalog_text(published_product.custom_description)
             or normalized_search in _normalize_catalog_text(brand_name)
             or normalized_search in _normalize_catalog_text(product.category.name if getattr(product, "category", None) else "")
         )
@@ -2797,7 +2823,7 @@ async def read_public_products(
             or not selected_colors
             or any(item.lower() in selected_colors for item in colors_list)
         )
-        unit_price = float(product.price or 0)
+        unit_price = _safe_float(published_product.price_override, _safe_float(product.price))
         matches_min = ignore_price or min_price is None or unit_price >= float(min_price)
         matches_max = ignore_price or max_price is None or unit_price <= float(max_price)
         return (
@@ -2814,7 +2840,10 @@ async def read_public_products(
 
     filtered_products = [item for item in published_products if matches_filters(item)]
     price_facet_values = [
-        float((item.product.price if item.product else 0) or 0)
+        _safe_float(
+            item.price_override,
+            _safe_float(item.product.price if item.product else 0),
+        )
         for item in published_products
         if matches_filters(item, ignore_price=True)
     ]
@@ -2823,7 +2852,10 @@ async def read_public_products(
 
     def product_sort_key(item: PublishedProduct) -> Any:
         product = item.product
-        unit_price = float((product.price if product else 0) or 0)
+        unit_price = _safe_float(
+            item.price_override,
+            _safe_float(product.price if product else 0),
+        )
         if normalized_sort == "best-selling":
             return (int(bool(item.is_featured)), item.sort_order or 0, item.created_at)
         if normalized_sort == "price-low":
@@ -3011,8 +3043,11 @@ async def create_public_checkout_order(
     storefront_id: uuid.UUID,
     payload: schemas.PublicCheckoutCreateOrderRequest,
     db: AsyncSession = Depends(get_db),
+    current_account: StorefrontCustomerAccount | None = Depends(auth.get_optional_current_storefront_customer),
 ) -> Any:
     storefront = await _get_public_storefront_by_id(db, storefront_id)
+    if current_account and current_account.storefront_id != storefront.id:
+        current_account = None
     customer_email = (payload.customer.email or "").strip().lower()
     customer_name = _normalize_checkout_text(payload.customer.full_name)
     address_line1 = _normalize_checkout_text(payload.address.line1)
@@ -3027,6 +3062,18 @@ async def create_public_checkout_order(
         raise HTTPException(status_code=400, detail="Shipping address is required")
     if not payment_provider:
         raise HTTPException(status_code=400, detail="Payment provider is required")
+
+    checkout_settings = storefront.checkout_settings or {}
+    account_required = (
+        checkout_settings.get("checkout_mode") == "required_account"
+        or checkout_settings.get("allow_guest_checkout") is False
+    )
+    if account_required and not current_account:
+        raise HTTPException(status_code=400, detail="Inicia sesión o crea una cuenta para completar esta compra")
+    if current_account and current_account.email.lower() != customer_email:
+        raise HTTPException(status_code=400, detail="El correo del checkout debe coincidir con tu cuenta")
+    if bool(checkout_settings.get("require_phone")) and not _normalize_checkout_text(payload.customer.phone):
+        raise HTTPException(status_code=400, detail="Este checkout requiere un teléfono de contacto")
 
     if idempotency_key:
         existing_result = await db.execute(
@@ -3058,14 +3105,9 @@ async def create_public_checkout_order(
     warehouse = await _resolve_storefront_fulfillment_warehouse(db, storefront)
     await _validate_checkout_inventory(db, warehouse.id, rows)
     sale_user = await _resolve_default_user_for_company(db, storefront.company_id)
-    storefront_customer_account = await _get_storefront_customer_account_by_email(
+    storefront_customer_account = current_account or await _get_storefront_customer_account_by_email(
         db, storefront, payload.customer.email
     )
-    checkout_settings = storefront.checkout_settings or {}
-    if bool(checkout_settings.get("require_phone")) and not _normalize_checkout_text(payload.customer.phone):
-        raise HTTPException(status_code=400, detail="Este checkout requiere un teléfono de contacto")
-    if checkout_settings.get("checkout_mode") == "required_account" and not storefront_customer_account:
-        raise HTTPException(status_code=400, detail="Inicia sesión o crea una cuenta para completar esta compra")
     storefront_client = await _get_or_create_storefront_client(db, storefront, payload)
     if storefront_customer_account and not storefront_customer_account.client_id and storefront_client:
         storefront_customer_account.client_id = storefront_client.id

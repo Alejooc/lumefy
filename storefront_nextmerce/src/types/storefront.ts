@@ -76,6 +76,11 @@ export type PublicStorefrontAccountOrder = {
   title: string;
   total: number;
   currency: string;
+  shipping_line1?: string | null;
+  shipping_city?: string | null;
+  shipping_state?: string | null;
+  shipping_country?: string | null;
+  shipping_postal_code?: string | null;
 };
 
 export type PublicCollection = {

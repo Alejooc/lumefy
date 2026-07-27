@@ -1,5 +1,6 @@
 """Idempotent consumer for operational inventory events from Redis Streams."""
 import asyncio
+import html
 import json
 import os
 import socket
@@ -68,6 +69,20 @@ async def process_event(event_id: str, event_type: str, payload: dict) -> bool:
                     message=f"La orden {str(sale.id)[:8]} tiene inventario reservado y está lista para preparar.",
                     link="/inventory/picking",
                 ))
+            storefront_order = await db.scalar(
+                select(StorefrontOrder).where(StorefrontOrder.sale_id == sale.id)
+            )
+            if storefront_order and storefront_order.customer_email:
+                customer_email = storefront_order.customer_email
+                customer_name = html.escape(storefront_order.customer_name or "cliente")
+                order_code = str(sale.id)[:8].upper()
+                customer_subject = f"Recibimos tu pedido #{order_code}"
+                customer_body = (
+                    f"<p>Hola {customer_name},</p>"
+                    f"<p>Recibimos tu pedido <strong>#{order_code}</strong> por "
+                    f"<strong>{sale.total:.2f} {storefront_order.currency}</strong>.</p>"
+                    "<p>Te avisaremos cuando avance su preparación y despacho.</p>"
+                )
         elif event_type == "inventory.released" and sale:
             task = await db.scalar(select(FulfillmentTask).where(
                 FulfillmentTask.sale_id == sale.id,

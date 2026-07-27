@@ -83,9 +83,9 @@ function validLinkList(input: unknown): Array<{ label: string; href: string }> {
     .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
     .map((item) => ({
       label: nonEmpty(String(item["label"] || "")) || "",
-      href: nonEmpty(String(item["href"] || "")) || "#",
+      href: nonEmpty(String(item["href"] || "")) || "",
     }))
-    .filter((item) => item.label);
+    .filter((item) => item.label && (/^\//.test(item.href) || /^https?:\/\//i.test(item.href)));
 }
 
 function validPaymentList(

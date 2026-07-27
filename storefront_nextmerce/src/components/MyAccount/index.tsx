@@ -70,12 +70,12 @@ const MyAccount = () => {
         full_name: fullName.trim(),
       });
       await refreshSession();
-      setProfileMessage("Account details updated successfully.");
+      setProfileMessage("Los datos de tu cuenta fueron actualizados.");
     } catch (err) {
       if (err instanceof StorefrontApiError) {
         setProfileError(err.message);
       } else {
-        setProfileError("Unable to update your account.");
+        setProfileError("No pudimos actualizar tu cuenta.");
       }
     } finally {
       setSavingProfile(false);
@@ -88,7 +88,7 @@ const MyAccount = () => {
     setPasswordMessage(null);
 
     if (newPassword !== confirmPassword) {
-      setPasswordError("New passwords do not match.");
+      setPasswordError("Las contraseñas nuevas no coinciden.");
       return;
     }
 
@@ -99,7 +99,7 @@ const MyAccount = () => {
         current_password: currentPassword,
         new_password: newPassword,
       });
-      setPasswordMessage(response.msg);
+      setPasswordMessage("Tu contraseña fue actualizada.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -107,7 +107,7 @@ const MyAccount = () => {
       if (err instanceof StorefrontApiError) {
         setPasswordError(err.message);
       } else {
-        setPasswordError("Unable to change your password.");
+        setPasswordError("No pudimos cambiar tu contraseña.");
       }
     } finally {
       setSavingPassword(false);
@@ -116,7 +116,7 @@ const MyAccount = () => {
 
   return (
     <>
-      <Breadcrumb title={"Account"} pages={["Account"]} />
+      <Breadcrumb title={"Mi cuenta"} pages={["Mi cuenta"]} />
 
       <section className="overflow-hidden py-20 bg-gray-2">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
@@ -132,9 +132,9 @@ const MyAccount = () => {
 
                 <div className="flex flex-wrap xl:flex-nowrap xl:flex-col gap-4">
                   {[
-                    ["dashboard", "Dashboard"],
-                    ["orders", "Orders"],
-                    ["account-details", "Account Details"],
+                    ["dashboard", "Resumen"],
+                    ["orders", "Mis pedidos"],
+                    ["account-details", "Datos de cuenta"],
                   ].map(([key, label]) => (
                     <button
                       key={key}
@@ -150,7 +150,7 @@ const MyAccount = () => {
                     onClick={handleLogout}
                     className="flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 text-dark-2 bg-gray-1 hover:bg-blue hover:text-white"
                   >
-                    Logout
+                    Cerrar sesión
                   </button>
                 </div>
               </div>
@@ -162,19 +162,18 @@ const MyAccount = () => {
               }`}
             >
               <p className="text-dark">
-                Hello {session.user.full_name || session.user.email} (
+                Hola {session.user.full_name || session.user.email} (
                 <button
                   onClick={handleLogout}
                   className="text-red ease-out duration-200 hover:underline"
                 >
-                  Log Out
+                  Cerrar sesión
                 </button>
                 )
               </p>
 
               <p className="text-custom-sm mt-4">
-                From your account dashboard you can view your recent orders and edit
-                your account details securely.
+                Desde aquí puedes consultar tus pedidos recientes y actualizar tus datos de forma segura.
               </p>
             </div>
 
@@ -195,7 +194,7 @@ const MyAccount = () => {
                 <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
                   <div className="mb-5">
                     <label htmlFor="fullName" className="block mb-2.5">
-                      Full Name <span className="text-red">*</span>
+                      Nombre completo <span className="text-red">*</span>
                     </label>
 
                     <input
@@ -210,7 +209,7 @@ const MyAccount = () => {
 
                   <div className="mb-5">
                     <label htmlFor="emailAddress" className="block mb-2.5">
-                      Email Address
+                      Correo electrónico
                     </label>
 
                     <input
@@ -231,24 +230,24 @@ const MyAccount = () => {
                     disabled={savingProfile}
                     className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {savingProfile ? "Saving..." : "Save Changes"}
+                    {savingProfile ? "Guardando..." : "Guardar cambios"}
                   </button>
                 </div>
               </form>
 
               <p className="text-custom-sm mt-5 mb-9">
-                This is how your name will be displayed in your account.
+                Así se mostrará tu nombre en tu cuenta.
               </p>
 
               <p className="font-medium text-xl sm:text-2xl text-dark mb-7">
-                Password Change
+                Cambiar contraseña
               </p>
 
               <form onSubmit={handlePasswordSubmit}>
                 <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
                   <div className="mb-5">
                     <label htmlFor="oldPassword" className="block mb-2.5">
-                      Current Password
+                      Contraseña actual
                     </label>
 
                     <input
@@ -264,7 +263,7 @@ const MyAccount = () => {
 
                   <div className="mb-5">
                     <label htmlFor="newPassword" className="block mb-2.5">
-                      New Password
+                      Nueva contraseña
                     </label>
 
                     <input
@@ -280,7 +279,7 @@ const MyAccount = () => {
 
                   <div className="mb-5">
                     <label htmlFor="confirmNewPassword" className="block mb-2.5">
-                      Confirm New Password
+                      Confirmar nueva contraseña
                     </label>
 
                     <input
@@ -302,7 +301,7 @@ const MyAccount = () => {
                     disabled={savingPassword}
                     className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {savingPassword ? "Updating..." : "Change Password"}
+                    {savingPassword ? "Actualizando..." : "Cambiar contraseña"}
                   </button>
                 </div>
               </form>

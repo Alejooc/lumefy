@@ -1,76 +1,54 @@
 import React from "react";
 
-const OrderDetails = ({ orderItem }: any) => {
+function statusLabel(status: string): string {
+  return {
+    processing: "En preparación",
+    delivered: "Entregado",
+    "on-hold": "En espera",
+    cancelled: "Cancelado",
+  }[status] || status;
+}
+
+const OrderDetails = ({ orderItem }: { orderItem: {
+  orderId: string;
+  createdAt: string;
+  status: string;
+  total: string;
+  title: string;
+  shippingAddress?: string;
+} }) => {
   return (
-    <>
-      <div className="items-center justify-between py-4.5 px-7.5 hidden md:flex ">
-        <div className="min-w-[113px]">
-          <p className="text-custom-sm text-dark">Order</p>
+    <div className="p-5 sm:p-7.5">
+      <h3 className="mb-5 text-xl font-medium text-dark">Detalle del pedido</h3>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-dark-4">Pedido</p>
+          <p className="mt-1 font-medium text-dark">#{orderItem.orderId.slice(-8)}</p>
         </div>
-        <div className="min-w-[113px]">
-          <p className="text-custom-sm text-dark">Date</p>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-dark-4">Fecha</p>
+          <p className="mt-1 text-dark">{orderItem.createdAt}</p>
         </div>
-
-        <div className="min-w-[113px]">
-          <p className="text-custom-sm text-dark">Status</p>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-dark-4">Estado</p>
+          <p className="mt-1 text-dark">{statusLabel(orderItem.status)}</p>
         </div>
-
-        {/* <div className="min-w-[113px]">
-          <p className="text-custom-sm text-dark">Title</p>
-        </div> */}
-
-        <div className="min-w-[113px]">
-          <p className="text-custom-sm text-dark">Total</p>
-        </div>
-
-        {/* <div className="min-w-[113px]">
-          <p className="text-custom-sm text-dark">Action</p>
-        </div> */}
-      </div>
-
-      <div className="items-center justify-between border-t border-gray-3 py-5 px-7.5 hidden md:flex">
-        <div className="min-w-[111px]">
-          <p className="text-custom-sm text-red">
-            #{orderItem.orderId.slice(-8)}
-          </p>
-        </div>
-        <div className="min-w-[175px]">
-          <p className="text-custom-sm text-dark">
-            {orderItem.createdAt}
-          </p>
-        </div>
-
-        <div className="min-w-[128px]">
-          <p
-            className={`inline-block text-custom-sm  py-0.5 px-2.5 rounded-[30px] capitalize ${
-              orderItem.status === "delivered"
-                ? "text-green bg-green-light-6"
-                : orderItem.status === "on-hold"
-                ? "text-red bg-red-light-6"
-                : orderItem.status === "processing"
-                ? "text-yellow bg-yellow-light-4"
-                : "Unknown Status"
-            }`}
-          >
-            {orderItem.status}
-          </p>
-        </div>
-
-        {/* <div className="min-w-[213px]">
-          <p className="text-custom-sm text-dark">{orderItem.orderTitle}</p>
-        </div> */}
-
-        <div className="min-w-[113px]">
-          <p className="text-custom-sm text-dark">
-            {orderItem.total}
-          </p>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-dark-4">Total</p>
+          <p className="mt-1 font-medium text-dark">{orderItem.total}</p>
         </div>
       </div>
-      <div className="px-7.5 w-full">
-        <p className="font-bold">Shipping Address:</p>{" "}
-        <p>942 Aspen Road Encino, CA 91316</p>
+      <div className="mt-5 border-t border-gray-3 pt-5">
+        <p className="text-xs uppercase tracking-wide text-dark-4">Producto principal</p>
+        <p className="mt-1 text-dark">{orderItem.title}</p>
       </div>
-    </>
+      {orderItem.shippingAddress ? (
+        <div className="mt-5 border-t border-gray-3 pt-5">
+          <p className="text-xs uppercase tracking-wide text-dark-4">Dirección de entrega</p>
+          <p className="mt-1 text-dark">{orderItem.shippingAddress}</p>
+        </div>
+      ) : null}
+    </div>
   );
 };
 

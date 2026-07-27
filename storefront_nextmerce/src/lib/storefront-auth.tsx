@@ -74,7 +74,16 @@ export function StorefrontAuthProvider({ children }: { children: React.ReactNode
       }
 
       try {
-        const me = await getStorefrontAccountMe(stored.storefrontId, stored.token);
+        const storefront = await resolveStorefront();
+        if (stored.storefrontId !== storefront.id) {
+          writeStoredSession(null);
+          if (active) {
+            setSession(null);
+          }
+          return;
+        }
+
+        const me = await getStorefrontAccountMe(storefront.id, stored.token);
         if (!active) {
           return;
         }

@@ -226,7 +226,10 @@ const ShopWithSidebar = ({
   ];
 
   useEffect(() => {
-    // closing sidebar while clicking outside
+    // Keep the page still while the mobile filter drawer is open.
+    document.body.style.overflow = productSidebar ? "hidden" : "";
+
+    // Closing the drawer while clicking outside it also supports touch devices.
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as HTMLElement | null;
       if (!target?.closest(".sidebar-content")) {
@@ -240,6 +243,7 @@ const ShopWithSidebar = ({
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.body.style.overflow = "";
     };
   }, [productSidebar]);
 
@@ -264,6 +268,17 @@ const ShopWithSidebar = ({
                   : "-translate-x-full"
               }`}
             >
+              <div className="mb-5 flex items-center justify-between xl:hidden">
+                <p className="font-medium text-dark">Filtros</p>
+                <button
+                  type="button"
+                  aria-label="Cerrar filtros"
+                  onClick={() => setProductSidebar(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-3 text-dark-4 hover:border-dark hover:text-dark"
+                >
+                  <span aria-hidden="true" className="text-xl leading-none">x</span>
+                </button>
+              </div>
               <form onSubmit={(e) => e.preventDefault()}>
                 <div className="flex flex-col gap-6">
                   {/* <!-- filter box --> */}
@@ -353,6 +368,15 @@ const ShopWithSidebar = ({
               </form>
             </div>
             {/* // <!-- Sidebar End --> */}
+
+            {productSidebar ? (
+              <button
+                type="button"
+                aria-label="Cerrar filtros"
+                onClick={() => setProductSidebar(false)}
+                className="fixed inset-0 z-[9998] bg-dark/40 xl:hidden"
+              />
+            ) : null}
 
             {/* // <!-- Content Start --> */}
             <div className="xl:max-w-[870px] w-full">

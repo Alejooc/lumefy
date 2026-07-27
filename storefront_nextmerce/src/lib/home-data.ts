@@ -277,7 +277,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         subtitle: banner.subtitle || undefined,
         description: banner.description || undefined,
         ctaLabel: banner.cta_label?.trim() || "Ver productos",
-        ctaHref: banner.cta_href?.trim() || "#",
+        ctaHref: banner.cta_href?.trim() || "/products",
         image: storefrontImageUrl(banner.image_url),
         backgroundColor: banner.background_color?.trim() || undefined,
         accentColor: banner.accent_color?.trim() || undefined,

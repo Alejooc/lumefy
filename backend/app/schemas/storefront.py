@@ -542,3 +542,8 @@ class PublicStorefrontAccountOrder(BaseModel):
     title: str
     total: float
     currency: str
+    shipping_line1: Optional[str] = None
+    shipping_city: Optional[str] = None
+    shipping_state: Optional[str] = None
+    shipping_country: Optional[str] = None
+    shipping_postal_code: Optional[str] = None

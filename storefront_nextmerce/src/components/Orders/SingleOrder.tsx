@@ -2,21 +2,24 @@ import React, { useState } from "react";
 import OrderActions from "./OrderActions";
 import OrderModal from "./OrderModal";
 
+function statusLabel(status: string): string {
+  return {
+    processing: "En preparación",
+    delivered: "Entregado",
+    "on-hold": "En espera",
+    cancelled: "Cancelado",
+  }[status] || status;
+}
+
 const SingleOrder = ({ orderItem, smallView }: any) => {
   const [showDetails, setShowDetails] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
 
   const toggleDetails = () => {
     setShowDetails(!showDetails);
   };
 
-  const toggleEdit = () => {
-    setShowEdit(!showEdit);
-  };
-
   const toggleModal = (status: boolean) => {
     setShowDetails(status);
-    setShowEdit(status);
   };
 
   const statusClass =
@@ -43,7 +46,7 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
             <p
               className={`inline-block text-custom-sm py-0.5 px-2.5 rounded-[30px] capitalize ${statusClass}`}
             >
-              {orderItem.status}
+              {statusLabel(orderItem.status)}
             </p>
           </div>
 
@@ -58,7 +61,6 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
           <div className="flex gap-5 items-center">
             <OrderActions
               toggleDetails={toggleDetails}
-              toggleEdit={toggleEdit}
             />
           </div>
         </div>
@@ -86,7 +88,7 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
                 <span
                   className={`inline-block text-custom-sm py-0.5 px-2.5 rounded-[30px] capitalize ${statusClass}`}
                 >
-                  {orderItem.status}
+                  {statusLabel(orderItem.status)}
                 </span>
               </p>
             </div>
@@ -109,7 +111,6 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
                 <span className="font-bold pr-2">Acciones:</span>{" "}
                 <OrderActions
                   toggleDetails={toggleDetails}
-                  toggleEdit={toggleEdit}
                 />
               </p>
             </div>
@@ -119,7 +120,6 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
 
       <OrderModal
         showDetails={showDetails}
-        showEdit={showEdit}
         toggleModal={toggleModal}
         order={orderItem}
       />

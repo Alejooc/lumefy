@@ -17,6 +17,7 @@ from app.api.v1.endpoints.storefront import (
     _has_valid_payu_confirmation_signature,
     _has_valid_wompi_event_signature,
     _resolve_public_checkout_adjustments,
+    _serialize_public_product,
     _validate_payment_gateway_provider,
 )
 from app.schemas.storefront import (
@@ -51,6 +52,40 @@ class StorefrontValidationTests(unittest.TestCase):
 
         self.assertFalse(product.in_stock)
         self.assertEqual(product.stock_quantity, 0)
+
+    def test_public_catalog_uses_storefront_publishing_overrides(self):
+        product = SimpleNamespace(
+            id=uuid4(),
+            name="Internal name",
+            description="Internal description",
+            price=100.0,
+            product_type="STORABLE",
+            image_url=None,
+            images=[],
+            variants=[],
+            track_inventory=False,
+            category=None,
+            brand=None,
+        )
+        published = SimpleNamespace(
+            id=uuid4(),
+            product=product,
+            custom_title="Public name",
+            custom_description="Public description",
+            price_override=75.0,
+            compare_at_price=100.0,
+            slug="public-name",
+            is_featured=True,
+            show_stock=True,
+        )
+
+        serialized = _serialize_public_product(published, product)
+
+        self.assertEqual(serialized.title, "Public name")
+        self.assertEqual(serialized.description, "Public description")
+        self.assertEqual(serialized.price, 75.0)
+        self.assertEqual(serialized.base_price, 100.0)
+        self.assertEqual(serialized.compare_at_price, 100.0)
 
     def test_checkout_adjustments_are_not_trusted_from_the_browser(self):
         storefront = SimpleNamespace(

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { AppDispatch } from "@/redux/store";
 import { useDispatch } from "react-redux";
 import {
@@ -9,9 +9,10 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
+import { CartItem } from "@/redux/features/cart-slice";
 
-const SingleItem = ({ item }) => {
-  const [quantity, setQuantity] = useState(item.quantity);
+const SingleItem = ({ item }: { item: CartItem }) => {
+  const quantity = item.quantity;
   const { format } = useStorefrontCurrency();
 
   const dispatch = useDispatch<AppDispatch>();
@@ -21,13 +22,14 @@ const SingleItem = ({ item }) => {
   };
 
   const handleIncreaseQuantity = () => {
-    setQuantity(quantity + 1);
+    if (item.stockQuantity !== undefined && quantity >= item.stockQuantity) {
+      return;
+    }
     dispatch(updateCartItemQuantity({ id: item.id, quantity: quantity + 1 }));
   };
 
   const handleDecreaseQuantity = () => {
     if (quantity > 1) {
-      setQuantity(quantity - 1);
       dispatch(updateCartItemQuantity({ id: item.id, quantity: quantity - 1 }));
     } else {
       return;
@@ -40,7 +42,12 @@ const SingleItem = ({ item }) => {
         <div className="flex items-center justify-between gap-5">
           <div className="w-full flex items-center gap-5.5">
             <div className="flex items-center justify-center rounded-[5px] bg-gray-2 max-w-[80px] w-full h-17.5">
-              <Image width={200} height={200} src={item.imgs?.thumbnails[0]} alt="product" />
+              <Image
+                width={200}
+                height={200}
+                src={item.imgs?.thumbnails[0] || "/images/products/product-1-sm-1.png"}
+                alt={item.title}
+              />
             </div>
 
             <div>
@@ -85,6 +92,7 @@ const SingleItem = ({ item }) => {
           <button
             onClick={() => handleIncreaseQuantity()}
             aria-label="button for add product"
+            disabled={item.stockQuantity !== undefined && quantity >= item.stockQuantity}
             className="flex items-center justify-center w-11.5 h-11.5 ease-out duration-200 hover:text-blue"
           >
             <svg
@@ -147,6 +155,10 @@ const SingleItem = ({ item }) => {
           </svg>
         </button>
       </div>
+
+      {item.stockQuantity === 0 ? (
+        <p className="sr-only">Este producto ya no tiene existencias disponibles.</p>
+      ) : null}
     </div>
   );
 };

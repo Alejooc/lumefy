@@ -45,6 +45,7 @@ export const cart = createSlice({
     addItemToCart: (state, action: PayloadAction<CartItem>) => {
       const { id, publishedProductId, title, price, quantity, discountedPrice, imgs, href, slug, inStock, stockQuantity } =
         action.payload;
+      const requestedQuantity = Math.max(1, quantity);
       if (inStock === false || stockQuantity === 0) {
         return;
       }
@@ -52,15 +53,15 @@ export const cart = createSlice({
 
       if (existingItem) {
         existingItem.quantity = stockQuantity === undefined
-          ? existingItem.quantity + quantity
-          : Math.min(existingItem.quantity + quantity, stockQuantity);
+          ? existingItem.quantity + requestedQuantity
+          : Math.min(existingItem.quantity + requestedQuantity, stockQuantity);
       } else {
         state.items.push({
           id,
           publishedProductId,
           title,
           price,
-          quantity,
+          quantity: stockQuantity === undefined ? requestedQuantity : Math.min(requestedQuantity, stockQuantity),
           discountedPrice,
           href,
           slug,
@@ -89,9 +90,13 @@ export const cart = createSlice({
       const existingItem = state.items.find((item) => item.id === id);
 
       if (existingItem) {
+        if (existingItem.stockQuantity === 0) {
+          return;
+        }
+        const requestedQuantity = Math.max(1, quantity);
         existingItem.quantity = existingItem.stockQuantity === undefined
-          ? quantity
-          : Math.min(quantity, existingItem.stockQuantity);
+          ? requestedQuantity
+          : Math.min(requestedQuantity, existingItem.stockQuantity);
       }
     },
 

@@ -6,7 +6,6 @@ import PromoBanner from "./PromoBanner";
 import BestSeller from "./BestSeller";
 import CounDown from "./Countdown";
 import Testimonials from "./Testimonials";
-import Newsletter from "../Common/Newsletter";
 
 import { HomeViewModel } from "@/types/home";
 
@@ -20,7 +19,6 @@ const Home = ({ data }: { data: HomeViewModel }) => {
       <BestSeller items={data.bestSellers} section={data.bestSellersSection} />
       <CounDown content={data.countdown} />
       <Testimonials section={data.testimonialsSection} items={data.testimonials} />
-      <Newsletter content={data.newsletter} />
     </main>
   );
 };

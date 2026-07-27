@@ -17,6 +17,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/login/access-token")
+optional_oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/login/access-token",
+    auto_error=False,
+)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -84,3 +88,34 @@ async def get_current_storefront_customer(
     if account is None:
         raise credentials_exception
     return account
+
+
+async def get_optional_current_storefront_customer(
+    token: str | None = Depends(optional_oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> StorefrontCustomerAccount | None:
+    """Resolve a storefront customer when a checkout sends its session token."""
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("scope") != "storefront":
+            return None
+        account_id = payload.get("customer_account_id") or payload.get("sub")
+        storefront_id = payload.get("storefront_id")
+        if not account_id or not storefront_id:
+            return None
+        account_uuid = UUID(str(account_id))
+        storefront_uuid = UUID(str(storefront_id))
+    except (JWTError, ValueError, TypeError):
+        return None
+
+    result = await db.execute(
+        select(StorefrontCustomerAccount).where(
+            StorefrontCustomerAccount.id == account_uuid,
+            StorefrontCustomerAccount.storefront_id == storefront_uuid,
+            StorefrontCustomerAccount.is_active == True,
+        )
+    )
+    return result.scalars().first()

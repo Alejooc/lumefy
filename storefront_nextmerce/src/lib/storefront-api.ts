@@ -183,9 +183,11 @@ export async function checkoutPreview(
 export async function createCheckoutOrder(
   storefrontId: string,
   payload: CheckoutCreateOrderRequest,
+  token?: string,
 ): Promise<CheckoutCreateOrderResponse> {
   return request<CheckoutCreateOrderResponse>(`/storefront/public/${storefrontId}/checkout/orders`, {
     method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: JSON.stringify(payload),
   });
 }

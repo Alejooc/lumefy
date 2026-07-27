@@ -19,7 +19,11 @@ const CheckoutPage = async () => {
 
   return (
     <main>
-      <Checkout storefrontId={storefront.id} currency={storefront.currency} />
+      <Checkout
+        storefrontId={storefront.id}
+        currency={storefront.currency}
+        checkoutSettings={storefront.checkout_settings}
+      />
     </main>
   );
 };

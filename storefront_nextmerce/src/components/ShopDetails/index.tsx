@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useDispatch } from "react-redux";
 
 import Breadcrumb from "../Common/Breadcrumb";
-import Newsletter from "../Common/Newsletter";
 import RecentlyViewdItems from "./RecentlyViewd";
 import { usePreviewSlider } from "@/app/context/PreviewSliderContext";
 import { Product } from "@/types/product";
@@ -387,7 +386,6 @@ const ShopDetails = ({
           </section>
 
           <RecentlyViewdItems items={relatedItems} />
-          <Newsletter />
         </>
       )}
     </>

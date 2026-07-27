@@ -47,7 +47,9 @@ export class AuthLoginComponent {
       error: (err) => {
         setTimeout(() => {
           this.isLoading = false;
-          this.errorMessage = err?.error?.detail || 'No fue posible iniciar sesión. Verifica tus credenciales.';
+          this.errorMessage = err?.status === 429
+            ? 'Por seguridad, hemos limitado temporalmente los intentos de acceso. Espera un momento y vuelve a intentarlo.'
+            : 'No fue posible iniciar sesión. Verifica tus credenciales.';
         });
       }
     });

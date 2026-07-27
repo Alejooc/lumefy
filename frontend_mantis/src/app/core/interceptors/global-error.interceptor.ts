@@ -57,6 +57,12 @@ export class GlobalErrorInterceptor implements HttpInterceptor {
                             errorTitle = 'No encontrado';
                             errorMessage = 'El recurso solicitado no existe.';
                             break;
+                        case 429:
+                            errorTitle = 'Demasiados intentos';
+                            errorMessage =
+                                'Por seguridad, hemos limitado temporalmente los intentos de acceso. Espera un momento y vuelve a intentarlo.';
+                            icon = 'warning';
+                            break;
                         case 422:
                             errorTitle = 'Datos invalidos';
                             errorMessage = this.formatValidationErrors(errorPayload);
@@ -80,7 +86,8 @@ export class GlobalErrorInterceptor implements HttpInterceptor {
                 }
 
                 const suppressError = request.headers.get('X-Suppress-Error') === 'true';
-                if (errorMessage && !(error.status === 401 && request.url.includes('/login')) && !suppressError) {
+                const isLoginRateLimit = error.status === 429 && request.url.includes('/login');
+                if (errorMessage && !(error.status === 401 && request.url.includes('/login')) && !isLoginRateLimit && !suppressError) {
                     Swal.fire({
                         title: errorTitle,
                         text: errorMessage,

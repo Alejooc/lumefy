@@ -19,10 +19,22 @@ import {
 import { removeAllItemsFromCart } from "@/redux/features/cart-slice";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
+import { useStorefrontAuth } from "@/lib/storefront-auth";
 
 type Props = {
   storefrontId: string;
   currency: string;
+  checkoutSettings?: Record<string, unknown>;
+};
+
+type CheckoutSettings = {
+  allow_guest_checkout: boolean;
+  checkout_mode: string;
+  enable_order_notes: boolean;
+  require_phone: boolean;
+  show_delivery_estimate: boolean;
+  flat_shipping_rate: number;
+  free_shipping_threshold: number;
 };
 
 type CheckoutFormState = {
@@ -113,18 +125,46 @@ function moneyLabel(currency: string, value: number): string {
   }).format(value);
 }
 
-const Checkout = ({ storefrontId, currency }: Props) => {
+function numberSetting(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function normalizeCheckoutSettings(settings: Record<string, unknown> | undefined): CheckoutSettings {
+  return {
+    allow_guest_checkout: settings?.allow_guest_checkout !== false,
+    checkout_mode: typeof settings?.checkout_mode === "string" ? settings.checkout_mode : "guest",
+    enable_order_notes: settings?.enable_order_notes !== false,
+    require_phone: settings?.require_phone === true,
+    show_delivery_estimate: settings?.show_delivery_estimate !== false,
+    flat_shipping_rate: numberSetting(settings?.flat_shipping_rate),
+    free_shipping_threshold: numberSetting(settings?.free_shipping_threshold),
+  };
+}
+
+const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const cartItems = useAppSelector((state) => state.cartReducer.items);
+  const { session, loading: authLoading } = useStorefrontAuth();
+  const settings = useMemo(
+    () => normalizeCheckoutSettings(checkoutSettings),
+    [checkoutSettings],
+  );
+  const requiresAccount =
+    settings.checkout_mode === "required_account" || !settings.allow_guest_checkout;
+  const authenticatedForStorefront = session?.storefrontId === storefrontId;
 
   const [form, setForm] = useState<CheckoutFormState>(initialForm);
   const [preview, setPreview] = useState<CheckoutPreviewResponse | null>(null);
   const [paymentOptions, setPaymentOptions] = useState<PublicStorePaymentGateway[]>([]);
   const [error, setError] = useState("");
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const idempotencyKeyRef = useRef<string>(createCheckoutIdempotencyKey());
+  const previewRequestRef = useRef(0);
 
   const payloadItems = useMemo(
     () =>
@@ -146,6 +186,8 @@ const Checkout = ({ storefrontId, currency }: Props) => {
     [cartItems],
   );
 
+  const payloadSignature = JSON.stringify(payloadItems);
+
   const canSubmit =
     payloadItems.length > 0 &&
     Boolean(form.first_name.trim()) &&
@@ -154,6 +196,9 @@ const Checkout = ({ storefrontId, currency }: Props) => {
     Boolean(form.address_line1.trim()) &&
     Boolean(form.city.trim()) &&
     Boolean(form.state.trim()) &&
+    paymentOptions.length > 0 &&
+    (!requiresAccount || authenticatedForStorefront) &&
+    (!settings.require_phone || Boolean(form.phone.trim())) &&
     (form.payment_provider !== "addi" || (Boolean(form.phone.trim()) && Boolean(form.document_id.trim())));
 
   useEffect(() => {
@@ -184,25 +229,67 @@ const Checkout = ({ storefrontId, currency }: Props) => {
     };
   }, [storefrontId]);
 
-  async function handlePreview() {
+  useEffect(() => {
+    if (!authenticatedForStorefront || !session?.user) {
+      return;
+    }
+
+    const nameParts = (session.user.full_name || "").trim().split(/\s+/).filter(Boolean);
+    setForm((current) => ({
+      ...current,
+      first_name: current.first_name || nameParts[0] || "",
+      last_name: current.last_name || nameParts.slice(1).join(" "),
+      email: current.email || session.user.email,
+    }));
+  }, [authenticatedForStorefront, session]);
+
+  async function refreshPreview(): Promise<CheckoutPreviewResponse | null> {
+    const requestId = ++previewRequestRef.current;
     setError("");
     setPreviewLoading(true);
 
     try {
       const response = await checkoutPreview(storefrontId, {
         items: payloadItems,
+        coupon_code: appliedCoupon,
       });
+      if (requestId !== previewRequestRef.current) {
+        return null;
+      }
       setPreview(response);
+      return response;
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "No pudimos calcular el resumen de tu pedido.",
-      );
+      if (requestId === previewRequestRef.current) {
+        setPreview(null);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "No pudimos calcular el resumen de tu pedido.",
+        );
+      }
+      return null;
     } finally {
-      setPreviewLoading(false);
+      if (requestId === previewRequestRef.current) {
+        setPreviewLoading(false);
+      }
     }
   }
+
+  function applyCoupon() {
+    setError("");
+    setAppliedCoupon(couponInput.trim().toUpperCase() || null);
+  }
+
+  useEffect(() => {
+    if (payloadItems.length) {
+      void refreshPreview();
+    } else {
+      setPreview(null);
+    }
+    // The signature keeps the preview synchronized with local cart changes.
+    // Coupon changes are applied explicitly by the coupon controls.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storefrontId, payloadSignature, appliedCoupon]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -214,6 +301,11 @@ const Checkout = ({ storefrontId, currency }: Props) => {
     setSubmitLoading(true);
 
     try {
+      const latestPreview = await refreshPreview();
+      if (!latestPreview) {
+        return;
+      }
+
       const order = await createCheckoutOrder(storefrontId, {
         items: payloadItems,
         customer: {
@@ -233,8 +325,9 @@ const Checkout = ({ storefrontId, currency }: Props) => {
         },
         notes: form.notes || null,
         payment_provider: form.payment_provider,
+        coupon_code: appliedCoupon,
         idempotency_key: idempotencyKeyRef.current,
-      });
+      }, authenticatedForStorefront ? session?.token : undefined);
 
       const paymentIntent = await createPaymentIntent(storefrontId, {
         provider: form.payment_provider,
@@ -365,21 +458,6 @@ const Checkout = ({ storefrontId, currency }: Props) => {
                       </div>
                     </div>
 
-                    <div className="mb-5">
-                      <label htmlFor="companyName" className="block mb-2.5">
-                        Empresa
-                      </label>
-                      <input
-                        type="text"
-                        id="companyName"
-                        value={form.company_name}
-                        onChange={(event) =>
-                          setForm({ ...form, company_name: event.target.value })
-                        }
-                        className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                      />
-                    </div>
-
                     {form.payment_provider === "addi" ? (
                       <div className="mb-5">
                         <label htmlFor="documentId" className="block mb-2.5">
@@ -491,10 +569,10 @@ const Checkout = ({ storefrontId, currency }: Props) => {
 
                     <div className="mb-5">
                       <label htmlFor="phone" className="block mb-2.5">
-                        Telefono <span className="text-red">*</span>
+                        Telefono {settings.require_phone ? <span className="text-red">*</span> : null}
                       </label>
                       <input
-                        type="text"
+                        type="tel"
                         id="phone"
                         value={form.phone}
                         onChange={(event) =>
@@ -521,6 +599,7 @@ const Checkout = ({ storefrontId, currency }: Props) => {
                   </div>
                 </div>
 
+                {settings.enable_order_notes ? (
                 <div className="bg-white shadow-1 rounded-[10px] p-4 sm:p-8.5 mt-7.5">
                   <div>
                     <label htmlFor="notes" className="block mb-2.5">
@@ -539,6 +618,7 @@ const Checkout = ({ storefrontId, currency }: Props) => {
                     ></textarea>
                   </div>
                 </div>
+                ) : null}
               </div>
 
               <div className="max-w-[455px] w-full">
@@ -602,16 +682,44 @@ const Checkout = ({ storefrontId, currency }: Props) => {
 
                     <div className="flex items-center justify-between py-5 border-b border-gray-3">
                       <div>
-                        <p className="text-dark">Costo de envio</p>
+                        <p className="text-dark">Envío estándar</p>
                       </div>
                       <div>
                         <p className="text-dark text-right">
                           {preview
-                            ? moneyLabel(preview.currency, preview.shipping)
-                            : "Se calcula en el siguiente paso"}
+                            ? preview.shipping > 0
+                              ? moneyLabel(preview.currency, preview.shipping)
+                              : "Gratis"
+                            : "Calculando..."}
                         </p>
                       </div>
                     </div>
+
+                    {preview && preview.discount > 0 ? (
+                      <div className="flex items-center justify-between py-5 border-b border-gray-3">
+                        <div>
+                          <p className="text-dark">Descuento</p>
+                        </div>
+                        <div>
+                          <p className="text-green-700 text-right">
+                            -{moneyLabel(preview.currency, preview.discount)}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {preview && preview.tax > 0 ? (
+                      <div className="flex items-center justify-between py-5 border-b border-gray-3">
+                        <div>
+                          <p className="text-dark">Impuestos</p>
+                        </div>
+                        <div>
+                          <p className="text-dark text-right">
+                            {moneyLabel(preview.currency, preview.tax)}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
 
                     <div className="flex items-center justify-between pt-5">
                       <div>
@@ -631,28 +739,107 @@ const Checkout = ({ storefrontId, currency }: Props) => {
 
                 <div className="bg-white shadow-1 rounded-[10px] mt-7.5">
                   <div className="border-b border-gray-3 py-5 px-4 sm:px-8.5">
+                    <h3 className="font-medium text-xl text-dark">Envío</h3>
+                  </div>
+                  <div className="p-4 sm:p-8.5">
+                    <div className="flex items-start justify-between gap-4 rounded-md border border-gray-3 bg-gray-1 p-4">
+                      <div>
+                        <p className="font-medium text-dark">Entrega estándar</p>
+                        <p className="mt-1 text-sm text-dark-5">
+                          {settings.show_delivery_estimate
+                            ? "La tienda confirmará el tiempo de entrega después de recibir el pedido."
+                            : "La tarifa se calcula según la configuración de la tienda."}
+                        </p>
+                      </div>
+                      <p className="shrink-0 font-medium text-dark">
+                        {preview
+                          ? preview.shipping > 0
+                            ? moneyLabel(preview.currency, preview.shipping)
+                            : "Gratis"
+                          : "Calculando..."}
+                      </p>
+                    </div>
+                    {settings.free_shipping_threshold > 0 ? (
+                      <p className="mt-3 text-xs text-dark-5">
+                        Envío gratis en compras desde {moneyLabel(currency, settings.free_shipping_threshold)}.
+                      </p>
+                    ) : settings.flat_shipping_rate > 0 ? (
+                      <p className="mt-3 text-xs text-dark-5">
+                        Tarifa estándar configurada: {moneyLabel(currency, settings.flat_shipping_rate)}.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="bg-white shadow-1 rounded-[10px] mt-7.5">
+                  <div className="border-b border-gray-3 py-5 px-4 sm:px-8.5">
+                    <h3 className="font-medium text-xl text-dark">Cupón de descuento</h3>
+                  </div>
+                  <div className="p-4 sm:p-8.5">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <label htmlFor="checkoutCoupon" className="sr-only">Código de cupón</label>
+                      <input
+                        type="text"
+                        id="checkoutCoupon"
+                        value={couponInput}
+                        onChange={(event) => setCouponInput(event.target.value.toUpperCase())}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            applyCoupon();
+                          }
+                        }}
+                        placeholder="Ingresa tu código"
+                        autoComplete="off"
+                        className="min-w-0 flex-1 rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={applyCoupon}
+                        disabled={previewLoading}
+                        className="inline-flex min-h-[46px] shrink-0 items-center justify-center font-medium text-white bg-blue py-3 px-6 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:opacity-60"
+                      >
+                        {appliedCoupon ? "Actualizar cupón" : "Aplicar cupón"}
+                      </button>
+                    </div>
+                    {appliedCoupon && preview?.discount ? (
+                      <p className="mt-3 text-sm text-green-700">
+                        Cupón {appliedCoupon} aplicado correctamente.
+                      </p>
+                    ) : null}
+                    {appliedCoupon && !previewLoading && preview && preview.discount === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCouponInput("");
+                          setAppliedCoupon(null);
+                        }}
+                        className="mt-3 text-sm text-blue hover:text-blue-dark"
+                      >
+                        Quitar cupón
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="bg-white shadow-1 rounded-[10px] mt-7.5">
+                  <div className="border-b border-gray-3 py-5 px-4 sm:px-8.5">
                     <h3 className="font-medium text-xl text-dark">
                       Metodo de pago
                     </h3>
                   </div>
 
                   <div className="p-4 sm:p-8.5">
+                    {paymentOptions.length ? (
                     <div className="flex flex-col gap-3">
-                      {(paymentOptions.length
-                        ? paymentOptions.map((option) => ({
-                            id: option.provider,
-                            label: option.display_name,
-                          }))
-                        : [
-                            {
-                              id: "manual_transfer",
-                              label: "Transferencia bancaria",
-                            },
-                          ]).map((option) => (
+                      {paymentOptions.map((option) => ({
+                        id: option.provider,
+                        label: option.display_name,
+                      })).map((option) => (
                         <label
                           key={option.id}
                           htmlFor={option.id}
-                          className="flex cursor-pointer select-none items-center gap-4"
+                          className="flex cursor-pointer select-none items-start gap-3"
                         >
                           <div className="relative">
                             <input
@@ -675,7 +862,7 @@ const Checkout = ({ storefrontId, currency }: Props) => {
                           </div>
 
                           <div
-                            className={`rounded-md border-[0.5px] py-3.5 px-5 ease-out duration-200 hover:bg-gray-2 hover:border-transparent hover:shadow-none min-w-[240px] ${
+                            className={`min-w-0 flex-1 rounded-md border-[0.5px] py-3.5 px-5 ease-out duration-200 hover:bg-gray-2 hover:border-transparent hover:shadow-none ${
                               form.payment_provider === option.id
                                 ? "border-transparent bg-gray-2"
                                 : " border-gray-4 shadow-1"
@@ -686,23 +873,38 @@ const Checkout = ({ storefrontId, currency }: Props) => {
                         </label>
                       ))}
                     </div>
+                    ) : (
+                      <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                        Esta tienda todavía no tiene métodos de pago habilitados. Puedes continuar cuando el administrador configure uno.
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="mt-7.5 flex gap-4">
+                {requiresAccount && !authLoading && !authenticatedForStorefront ? (
+                  <div className="mt-7.5 rounded-md border border-blue/20 bg-blue/5 p-4 text-sm text-dark">
+                    <p className="font-medium">Necesitas una cuenta para comprar</p>
+                    <p className="mt-1 text-dark-5">Inicia sesión o regístrate para continuar con este checkout.</p>
+                    <Link href="/login" className="mt-3 inline-flex font-medium text-blue hover:text-blue-dark">
+                      Iniciar sesión
+                    </Link>
+                  </div>
+                ) : null}
+
+                <div className="mt-7.5 flex flex-col gap-3 sm:flex-row">
                   <button
                     type="button"
-                    onClick={handlePreview}
+                    onClick={() => void refreshPreview()}
                     disabled={previewLoading || submitLoading || !payloadItems.length}
-                    className="w-full flex justify-center font-medium text-dark bg-white border border-gray-3 py-3 px-6 rounded-md ease-out duration-200 hover:border-blue hover:text-blue disabled:opacity-60"
+                    className="w-full min-h-[48px] flex justify-center items-center font-medium text-dark bg-white border border-gray-3 py-3 px-6 rounded-md ease-out duration-200 hover:border-blue hover:text-blue disabled:opacity-60"
                   >
                     {previewLoading ? "Calculando..." : "Actualizar resumen"}
                   </button>
 
                   <button
                     type="submit"
-                    disabled={!canSubmit || submitLoading}
-                    className="w-full flex justify-center font-medium text-white bg-blue py-3 px-6 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:opacity-60"
+                    disabled={!canSubmit || submitLoading || previewLoading || authLoading}
+                    className="w-full min-h-[48px] flex justify-center items-center font-medium text-white bg-blue py-3 px-6 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:opacity-60"
                   >
                     {submitLoading ? "Procesando..." : "Finalizar compra"}
                   </button>
