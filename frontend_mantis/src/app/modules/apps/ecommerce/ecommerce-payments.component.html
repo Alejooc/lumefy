@@ -121,10 +121,12 @@
                 <label class="form-label">Nombre visible</label>
                 <input class="form-control" [(ngModel)]="form.display_name" placeholder="Nombre mostrado al cliente" />
               </div>
-              <div class="col-md-6">
-                <label class="form-label">{{ merchantLabel(form.provider) }}</label>
-                <input class="form-control" [(ngModel)]="form.merchant_id" [placeholder]="merchantPlaceholder(form.provider)" />
-              </div>
+              @if (showMerchantField(form.provider)) {
+                <div class="col-md-6">
+                  <label class="form-label">{{ merchantLabel(form.provider) }}</label>
+                  <input class="form-control" [(ngModel)]="form.merchant_id" [placeholder]="merchantPlaceholder(form.provider)" />
+                </div>
+              }
               <div class="col-md-6">
                 <label class="form-label">Orden en checkout</label>
                 <input class="form-control" type="number" [(ngModel)]="form.sort_order" />
@@ -133,10 +135,12 @@
                 <label class="form-label">{{ publicLabel(form.provider) }}</label>
                 <input class="form-control" [(ngModel)]="form.public_key" [placeholder]="publicPlaceholder(form.provider)" />
               </div>
-              <div class="col-12">
-                <label class="form-label">{{ secretLabel(form.provider) }}</label>
-                <input class="form-control" type="password" [(ngModel)]="form.secret_key_encrypted" [placeholder]="secretPlaceholder(form.provider)" autocomplete="new-password" />
-              </div>
+              @if (showGenericSecretField(form.provider)) {
+                <div class="col-12">
+                  <label class="form-label">{{ secretLabel(form.provider) }}</label>
+                  <input class="form-control" type="password" [(ngModel)]="form.secret_key_encrypted" [placeholder]="secretPlaceholder(form.provider)" autocomplete="new-password" />
+                </div>
+              }
               @if (providerFields.length > 0) {
                 <div class="col-12">
                   <div class="gateway-extra-panel">
@@ -173,6 +177,34 @@
                           }
                         </div>
                       }
+                    </div>
+                  </div>
+                </div>
+              }
+              @if ((form.provider || '').toLowerCase() === 'wompi') {
+                <div class="col-12">
+                  <div class="alert alert-info mb-0">
+                    <div class="d-flex gap-2 align-items-start">
+                      <i class="ti ti-link mt-1"></i>
+                      <div class="flex-grow-1">
+                        <div class="fw-semibold">Webhook de eventos Wompi</div>
+                        <div class="small mt-1">
+                          Registra esta URL en el Dashboard de Wompi, en la configuración de eventos del ambiente Sandbox.
+                          Esta URL es distinta de la URL de retorno del cliente.
+                        </div>
+                        <div class="small mt-1">
+                          Es una URL global de Lumefy: todos los comercios que usen Wompi registran la misma URL.
+                          Lumefy identifica la tienda por la referencia única de cada pedido.
+                        </div>
+                        <div class="input-group input-group-sm mt-2">
+                          <input class="form-control" [value]="wompiWebhookUrl" readonly aria-label="URL del webhook de Wompi" />
+                          <button type="button" class="btn btn-outline-primary" (click)="copyWompiWebhook()">
+                            <i class="ti" [class.ti-copy]="!copiedWompiWebhook" [class.ti-check]="copiedWompiWebhook"></i>
+                            {{ copiedWompiWebhook ? 'Copiada' : 'Copiar' }}
+                          </button>
+                        </div>
+                        <small class="form-hint d-block mt-2">Debe ser pública y accesible por HTTPS para que Wompi pueda enviar los eventos.</small>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -6,6 +6,7 @@ import { EcommerceContextService } from 'src/app/core/services/ecommerce-context
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { StorePaymentGateway, Storefront, StorefrontAdminService } from 'src/app/core/services/storefront-admin.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
+import { environment } from 'src/environments/environment';
 
 type GatewayExtraField = {
   key: string;
@@ -31,6 +32,7 @@ export class EcommercePaymentsComponent implements OnInit {
   saving = false;
   accessDenied = false;
   loadError = '';
+  copiedWompiWebhook = false;
   storefronts: Storefront[] = [];
   selectedStorefrontId = '';
   paymentGateways: StorePaymentGateway[] = [];
@@ -119,9 +121,24 @@ export class EcommercePaymentsComponent implements OnInit {
   };
   readonly providerExtraFields: Record<string, GatewayExtraField[]> = {
     wompi: [
-      { key: 'integrity_secret', label: 'Integrity secret', placeholder: 'Secreto de integridad de Wompi' },
-      { key: 'events_secret', label: 'Events secret', placeholder: 'Secreto de eventos Wompi', help: 'Protege el webhook de confirmación.' },
-      { key: 'redirect_url', label: 'URL retorno', placeholder: 'https://tu-tienda.com/checkout/return' }
+      {
+        key: 'integrity_secret',
+        label: 'Integrity secret',
+        placeholder: 'Secreto de integridad de Wompi',
+        help: 'Firma el checkout. No es la llave pública ni el secreto del webhook.'
+      },
+      {
+        key: 'events_secret',
+        label: 'Events secret (webhook)',
+        placeholder: 'Secreto de eventos Wompi',
+        help: 'Valida las notificaciones de pago que Wompi envía al backend.'
+      },
+      {
+        key: 'redirect_url',
+        label: 'URL de retorno',
+        placeholder: 'https://tu-tienda.com/checkout/success',
+        help: 'Opcional. El webhook sigue siendo la confirmación definitiva del pago.'
+      }
     ],
     payu: [
       { key: 'account_id', label: 'Account ID', placeholder: 'Cuenta PayU para Colombia' },
@@ -315,8 +332,54 @@ export class EcommercePaymentsComponent implements OnInit {
     return this.providerExtraFields[this.form.provider || 'manual_transfer'] || [];
   }
 
+  get wompiWebhookUrl(): string {
+    const apiUrl = environment.apiUrl.replace(/\/+$/, '');
+    if (/^https?:\/\//i.test(apiUrl)) {
+      return `${apiUrl}/storefront/public/payments/wompi/webhook`;
+    }
+    return `${window.location.origin}${apiUrl}/storefront/public/payments/wompi/webhook`;
+  }
+
+  async copyWompiWebhook(): Promise<void> {
+    const url = this.wompiWebhookUrl;
+    let copied = false;
+
+    try {
+      await navigator.clipboard?.writeText(url);
+      copied = true;
+    } catch {
+      const input = document.createElement('textarea');
+      input.value = url;
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.focus();
+      input.select();
+      copied = document.execCommand('copy');
+      input.remove();
+    }
+
+    if (!copied) {
+      this.swal.error('No se pudo copiar', 'Copia la URL manualmente desde el campo.');
+      return;
+    }
+
+    this.copiedWompiWebhook = true;
+    window.setTimeout(() => {
+      this.copiedWompiWebhook = false;
+    }, 2200);
+  }
+
   merchantLabel(provider?: string | null): string {
     return this.gatewayMeta[provider || 'manual_transfer']?.merchantLabel || 'Merchant ID';
+  }
+
+  showMerchantField(provider?: string | null): boolean {
+    return (provider || '').toLowerCase() !== 'wompi';
+  }
+
+  showGenericSecretField(provider?: string | null): boolean {
+    return (provider || '').toLowerCase() !== 'wompi';
   }
 
   merchantPlaceholder(provider?: string | null): string {
