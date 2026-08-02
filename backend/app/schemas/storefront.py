@@ -254,6 +254,142 @@ class StorePaymentGateway(StorePaymentGatewayBase):
         from_attributes = True
 
 
+class StorefrontShippingDestinationBase(BaseModel):
+    storefront_id: UUID
+    country_code: str = "CO"
+    state_code: Optional[str] = None
+    state_name: str = Field(..., min_length=2, max_length=120)
+    city_code: Optional[str] = None
+    city_name: Optional[str] = Field(default=None, max_length=120)
+    destination_type: str = "city"
+    sort_order: int = 0
+
+
+class StorefrontShippingDestinationCreate(StorefrontShippingDestinationBase):
+    pass
+
+
+class StorefrontShippingDestinationUpdate(BaseModel):
+    country_code: Optional[str] = None
+    state_code: Optional[str] = None
+    state_name: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    city_code: Optional[str] = None
+    city_name: Optional[str] = Field(default=None, max_length=120)
+    destination_type: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class StorefrontShippingDestination(StorefrontShippingDestinationBase):
+    id: UUID
+    company_id: Optional[UUID] = None
+    created_at: datetime
+    updated_at: datetime
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class StorefrontShippingMethodBase(BaseModel):
+    storefront_id: UUID
+    code: str = Field(..., min_length=2, max_length=64)
+    name: str = Field(..., min_length=2, max_length=120)
+    description: Optional[str] = Field(default=None, max_length=500)
+    method_type: str = "delivery"
+    is_enabled: bool = True
+    sort_order: int = 0
+    estimate_min_days: Optional[int] = Field(default=None, ge=0, le=365)
+    estimate_max_days: Optional[int] = Field(default=None, ge=0, le=365)
+
+
+class StorefrontShippingMethodCreate(StorefrontShippingMethodBase):
+    pass
+
+
+class StorefrontShippingMethodUpdate(BaseModel):
+    code: Optional[str] = Field(default=None, min_length=2, max_length=64)
+    name: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    description: Optional[str] = Field(default=None, max_length=500)
+    method_type: Optional[str] = None
+    is_enabled: Optional[bool] = None
+    sort_order: Optional[int] = None
+    estimate_min_days: Optional[int] = Field(default=None, ge=0, le=365)
+    estimate_max_days: Optional[int] = Field(default=None, ge=0, le=365)
+
+
+class StorefrontShippingMethod(StorefrontShippingMethodBase):
+    id: UUID
+    company_id: Optional[UUID] = None
+    created_at: datetime
+    updated_at: datetime
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class StorefrontShippingRuleBase(BaseModel):
+    storefront_id: UUID
+    method_id: UUID
+    name: str = Field(..., min_length=2, max_length=120)
+    priority: int = Field(default=100, ge=0, le=100000)
+    is_enabled: bool = True
+    destination_type: str = "global"
+    country_code: Optional[str] = None
+    state_code: Optional[str] = None
+    state_name: Optional[str] = None
+    city_code: Optional[str] = None
+    city_name: Optional[str] = None
+    payment_provider: Optional[str] = None
+    min_subtotal: Optional[float] = Field(default=None, ge=0)
+    max_subtotal: Optional[float] = Field(default=None, ge=0)
+    min_weight: Optional[float] = Field(default=None, ge=0)
+    max_weight: Optional[float] = Field(default=None, ge=0)
+    charge_type: str = "flat"
+    amount: float = Field(default=0, ge=0)
+    rate_per_kg: float = Field(default=0, ge=0)
+    estimate_min_days: Optional[int] = Field(default=None, ge=0, le=365)
+    estimate_max_days: Optional[int] = Field(default=None, ge=0, le=365)
+
+
+class StorefrontShippingRuleCreate(StorefrontShippingRuleBase):
+    pass
+
+
+class StorefrontShippingRuleUpdate(BaseModel):
+    method_id: Optional[UUID] = None
+    name: Optional[str] = Field(default=None, min_length=2, max_length=120)
+    priority: Optional[int] = Field(default=None, ge=0, le=100000)
+    is_enabled: Optional[bool] = None
+    destination_type: Optional[str] = None
+    country_code: Optional[str] = None
+    state_code: Optional[str] = None
+    state_name: Optional[str] = None
+    city_code: Optional[str] = None
+    city_name: Optional[str] = None
+    payment_provider: Optional[str] = None
+    min_subtotal: Optional[float] = Field(default=None, ge=0)
+    max_subtotal: Optional[float] = Field(default=None, ge=0)
+    min_weight: Optional[float] = Field(default=None, ge=0)
+    max_weight: Optional[float] = Field(default=None, ge=0)
+    charge_type: Optional[str] = None
+    amount: Optional[float] = Field(default=None, ge=0)
+    rate_per_kg: Optional[float] = Field(default=None, ge=0)
+    estimate_min_days: Optional[int] = Field(default=None, ge=0, le=365)
+    estimate_max_days: Optional[int] = Field(default=None, ge=0, le=365)
+
+
+class StorefrontShippingRule(StorefrontShippingRuleBase):
+    id: UUID
+    company_id: Optional[UUID] = None
+    created_at: datetime
+    updated_at: datetime
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
 class PublicStorefrontBranding(BaseModel):
     logo_url: Optional[str] = None
     support_phone: Optional[str] = None
@@ -389,6 +525,8 @@ class PublicCheckoutAddress(BaseModel):
     state: Optional[str] = Field(default=None, max_length=120)
     country: Optional[str] = Field(default=None, max_length=120)
     postal_code: Optional[str] = Field(default=None, max_length=40)
+    state_code: Optional[str] = Field(default=None, max_length=32)
+    city_code: Optional[str] = Field(default=None, max_length=32)
 
 
 class PublicCheckoutPreviewRequest(BaseModel):
@@ -396,6 +534,9 @@ class PublicCheckoutPreviewRequest(BaseModel):
     shipping_amount: float = 0
     discount_amount: float = 0
     coupon_code: Optional[str] = None
+    address: Optional[PublicCheckoutAddress] = None
+    payment_provider: Optional[str] = None
+    shipping_method_id: Optional[UUID] = None
 
 
 class PublicCheckoutPreviewItem(BaseModel):
@@ -416,6 +557,12 @@ class PublicCheckoutPreviewResponse(BaseModel):
     shipping: float
     tax: float
     total: float
+    total_weight: float = 0
+    shipping_method_id: Optional[UUID] = None
+    shipping_method_name: Optional[str] = None
+    shipping_rule_name: Optional[str] = None
+    shipping_quote_required: bool = False
+    shipping_requires_destination: bool = False
 
 
 class PublicCheckoutCreateOrderRequest(BaseModel):
@@ -428,6 +575,7 @@ class PublicCheckoutCreateOrderRequest(BaseModel):
     discount_amount: float = 0
     coupon_code: Optional[str] = Field(default=None, max_length=80)
     idempotency_key: Optional[str] = Field(default=None, min_length=8, max_length=120)
+    shipping_method_id: Optional[UUID] = None
 
 
 class PublicCheckoutCreateOrderResponse(BaseModel):
@@ -442,6 +590,35 @@ class PublicCheckoutCreateOrderResponse(BaseModel):
     total: float
     payment_provider: str
     payment_status: str
+    shipping_method_id: Optional[UUID] = None
+    shipping_method_name: Optional[str] = None
+    shipping_quote_required: bool = False
+
+
+class PublicShippingDestination(BaseModel):
+    id: UUID
+    country_code: str
+    state_code: Optional[str] = None
+    state_name: str
+    city_code: Optional[str] = None
+    city_name: Optional[str] = None
+    destination_type: str
+
+
+class PublicShippingMethod(BaseModel):
+    id: UUID
+    code: str
+    name: str
+    description: Optional[str] = None
+    method_type: str
+    sort_order: int = 0
+    estimate_min_days: Optional[int] = None
+    estimate_max_days: Optional[int] = None
+
+
+class PublicShippingConfig(BaseModel):
+    destinations: list[PublicShippingDestination] = Field(default_factory=list)
+    methods: list[PublicShippingMethod] = Field(default_factory=list)
 
 
 class PublicPaymentIntentRequest(BaseModel):

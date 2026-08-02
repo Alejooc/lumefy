@@ -1,0 +1,131 @@
+<div class="ecommerce-section logistics-page">
+  <div class="section-header d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div>
+      <h4 class="mb-1">Logística y envíos</h4>
+      <p class="text-muted mb-0">Define dónde entregas, qué métodos ofreces y cuánto cobra cada regla.</p>
+    </div>
+    @if (storefronts.length > 0) {
+      <div class="store-selector">
+        <label class="form-label mb-1" for="shippingStorefront">Tienda</label>
+        <select id="shippingStorefront" class="form-select form-select-sm" [(ngModel)]="selectedStorefrontId" (change)="onStorefrontChange()">
+          @for (item of storefronts; track item.id) {
+            <option [value]="item.id">{{ item.name }}</option>
+          }
+        </select>
+      </div>
+    }
+  </div>
+
+  @if (loading && !storefront) {
+    <div class="card section-card p-4 text-center text-muted">Cargando logística...</div>
+  } @else if (!storefront) {
+    <div class="empty-state border rounded p-4 text-center text-muted">
+      <p class="mb-1">No hay una tienda seleccionada</p>
+      <small>Crea o selecciona una tienda para administrar sus envíos.</small>
+    </div>
+  } @else {
+    <div class="logistics-summary row g-3 mb-3">
+      <div class="col-sm-4"><div class="summary-card"><span>Destinos activos</span><strong>{{ destinations.length }}</strong></div></div>
+      <div class="col-sm-4"><div class="summary-card"><span>Métodos activos</span><strong>{{ methods.length }}</strong></div></div>
+      <div class="col-sm-4"><div class="summary-card"><span>Reglas activas</span><strong>{{ rules.length }}</strong></div></div>
+    </div>
+
+    <div class="logistics-tabs mb-3" role="tablist" aria-label="Configuración logística">
+      <button type="button" [class.active]="section === 'destinations'" (click)="section = 'destinations'">Destinos</button>
+      <button type="button" [class.active]="section === 'methods'" (click)="section = 'methods'">Métodos de envío</button>
+      <button type="button" [class.active]="section === 'rules'" (click)="section = 'rules'">Reglas de tarifa</button>
+    </div>
+
+    @if (section === 'destinations') {
+      <div class="row g-3">
+        <div class="col-xl-8">
+          <div class="card section-card h-100">
+            <div class="card-body">
+              <div class="settings-block__header">
+                <div><h5 class="mb-1">Destinos disponibles</h5><small class="text-muted">El checkout usará estos datos en lugar de pedir ciudad y departamento a mano.</small></div>
+                <span class="settings-pill">{{ destinations.length }} configurados</span>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                  <thead><tr><th>Destino</th><th>Tipo</th><th>Códigos</th><th class="text-end">Acciones</th></tr></thead>
+                  <tbody>
+                    @for (item of destinations; track item.id) {
+                      <tr>
+                        <td><strong>{{ destinationLabel(item) }}</strong><small class="d-block text-muted">{{ item.country_code }}</small></td>
+                        <td>{{ item.destination_type === 'city' ? 'Ciudad' : 'Departamento' }}</td>
+                        <td><small>{{ item.state_code || 'Sin código' }}{{ item.city_code ? ' · ' + item.city_code : '' }}</small></td>
+                        <td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-primary me-1" type="button" (click)="editDestination(item)">Editar</button><button class="btn btn-sm btn-outline-danger" type="button" (click)="remove('destinations', item.id)">Desactivar</button></td>
+                      </tr>
+                    } @empty {
+                      <tr><td colspan="4" class="text-center text-muted py-4">Aún no has configurado destinos específicos. Las reglas globales siguen funcionando.</td></tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-4">
+          <div class="card section-card">
+            <div class="card-body">
+              <h5 class="mb-1">{{ editingDestinationId ? 'Editar destino' : 'Agregar destino' }}</h5>
+              <p class="text-muted small mb-3">Puedes guardar un departamento completo o una ciudad concreta.</p>
+              <div class="mb-3"><label class="form-label">Tipo</label><select class="form-select" [(ngModel)]="destinationForm.destination_type">@for (item of destinationTypes; track item.value) {<option [value]="item.value">{{ item.label }}</option>}</select></div>
+              <div class="row g-2"><div class="col-5"><label class="form-label">Código depto.</label><input class="form-control" [(ngModel)]="destinationForm.state_code" placeholder="76"></div><div class="col-7"><label class="form-label">Departamento</label><input class="form-control" [(ngModel)]="destinationForm.state_name" placeholder="Valle del Cauca"></div></div>
+              @if (destinationForm.destination_type === 'city') {
+                <div class="row g-2 mt-1"><div class="col-5"><label class="form-label">Código ciudad</label><input class="form-control" [(ngModel)]="destinationForm.city_code" placeholder="76001"></div><div class="col-7"><label class="form-label">Ciudad</label><input class="form-control" [(ngModel)]="destinationForm.city_name" placeholder="Cali"></div></div>
+              }
+              <div class="mb-3 mt-3"><label class="form-label">País</label><input class="form-control" [(ngModel)]="destinationForm.country_code" maxlength="8"></div>
+              <div class="d-flex justify-content-end gap-2">@if (editingDestinationId) {<button class="btn btn-light" type="button" (click)="resetDestination()">Cancelar</button>}<button class="btn btn-primary" type="button" [disabled]="saving || !destinationForm.state_name.trim()" (click)="saveDestination()">{{ editingDestinationId ? 'Guardar cambios' : 'Agregar destino' }}</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (section === 'methods') {
+      <div class="row g-3">
+        <div class="col-xl-7">
+          <div class="card section-card h-100"><div class="card-body">
+            <div class="settings-block__header"><div><h5 class="mb-1">Métodos de envío</h5><small class="text-muted">El cliente podrá elegir entre los métodos habilitados.</small></div><span class="settings-pill">{{ methods.length }} métodos</span></div>
+            <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Nombre</th><th>Tipo</th><th>Entrega</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead><tbody>
+              @for (item of methods; track item.id) {<tr><td><strong>{{ item.name }}</strong><small class="d-block text-muted">{{ item.code }}</small></td><td>{{ item.method_type === 'pickup' ? 'Recogida' : item.method_type === 'quote' ? 'Cotización' : 'Domicilio' }}</td><td>{{ item.estimate_min_days || '—' }}{{ item.estimate_max_days ? '–' + item.estimate_max_days : '' }}{{ item.estimate_min_days ? ' días' : '' }}</td><td><span class="badge" [class.bg-success]="item.is_enabled" [class.bg-secondary]="!item.is_enabled">{{ item.is_enabled ? 'Activo' : 'Pausado' }}</span></td><td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-primary me-1" type="button" (click)="editMethod(item)">Editar</button><button class="btn btn-sm btn-outline-danger" type="button" (click)="remove('methods', item.id)">Desactivar</button></td></tr>} @empty {<tr><td colspan="5" class="text-center text-muted py-4">No hay métodos activos.</td></tr>}
+            </tbody></table></div>
+          </div></div>
+        </div>
+        <div class="col-xl-5"><div class="card section-card"><div class="card-body"><h5 class="mb-1">{{ editingMethodId ? 'Editar método' : 'Nuevo método' }}</h5><p class="text-muted small mb-3">El método es la opción que verá el cliente; el precio se define en sus reglas.</p>
+          <div class="mb-3"><label class="form-label">Nombre visible</label><input class="form-control" [(ngModel)]="methodForm.name" placeholder="Envío estándar"></div>
+          <div class="row g-2"><div class="col-md-6"><label class="form-label">Código</label><input class="form-control" [(ngModel)]="methodForm.code" placeholder="standard"></div><div class="col-md-6"><label class="form-label">Tipo</label><select class="form-select" [(ngModel)]="methodForm.method_type">@for (item of methodTypes; track item.value) {<option [value]="item.value">{{ item.label }}</option>}</select></div></div>
+          <div class="mb-3 mt-3"><label class="form-label">Descripción</label><textarea class="form-control" rows="2" [(ngModel)]="methodForm.description" placeholder="Entrega entre 2 y 5 días hábiles"></textarea></div>
+          <div class="row g-2"><div class="col-6"><label class="form-label">Mínimo días</label><input class="form-control" type="number" min="0" [(ngModel)]="methodForm.estimate_min_days"></div><div class="col-6"><label class="form-label">Máximo días</label><input class="form-control" type="number" min="0" [(ngModel)]="methodForm.estimate_max_days"></div></div>
+          <div class="form-check form-switch mt-3"><input class="form-check-input" type="checkbox" [(ngModel)]="methodForm.is_enabled"><label class="form-check-label">Disponible en checkout</label></div>
+          <div class="d-flex justify-content-end gap-2 mt-3">@if (editingMethodId) {<button class="btn btn-light" type="button" (click)="resetMethod()">Cancelar</button>}<button class="btn btn-primary" type="button" [disabled]="saving || !methodForm.name.trim() || !methodForm.code.trim()" (click)="saveMethod()">{{ editingMethodId ? 'Guardar cambios' : 'Crear método' }}</button></div>
+        </div></div></div>
+      </div>
+    }
+
+    @if (section === 'rules') {
+      <div class="row g-3">
+        <div class="col-xl-8"><div class="card section-card h-100"><div class="card-body">
+          <div class="settings-block__header"><div><h5 class="mb-1">Reglas de tarifa</h5><small class="text-muted">Se aplica la primera regla activa que coincida, ordenada por prioridad menor.</small></div><span class="settings-pill">{{ rules.length }} reglas</span></div>
+          <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Prioridad</th><th>Regla</th><th>Condiciones</th><th>Tarifa</th><th class="text-end">Acciones</th></tr></thead><tbody>
+            @for (item of rules; track item.id) {<tr><td><span class="priority-chip">{{ item.priority }}</span></td><td><strong>{{ item.name }}</strong><small class="d-block text-muted">{{ methodName(item.method_id) }}</small></td><td><small>{{ item.destination_type === 'global' ? 'Global' : item.city_name || item.state_name || 'Destino configurado' }}<br>{{ item.payment_provider || 'Cualquier pago' }} · {{ item.min_subtotal !== null && item.min_subtotal !== undefined ? 'Desde ' + item.min_subtotal : 'Sin mínimo' }}{{ item.min_weight !== null && item.min_weight !== undefined ? ' · ' + item.min_weight + ' kg' : '' }}</small></td><td><strong>{{ ruleChargeLabel(item) }}</strong></td><td class="text-end text-nowrap"><button class="btn btn-sm btn-outline-primary me-1" type="button" (click)="editRule(item)">Editar</button><button class="btn btn-sm btn-outline-danger" type="button" (click)="remove('rules', item.id)">Desactivar</button></td></tr>} @empty {<tr><td colspan="5" class="text-center text-muted py-4">No hay reglas activas.</td></tr>}
+          </tbody></table></div>
+        </div></div></div>
+        <div class="col-xl-4"><div class="card section-card"><div class="card-body"><h5 class="mb-1">{{ editingRuleId ? 'Editar regla' : 'Nueva regla' }}</h5><p class="text-muted small mb-3">Ejemplos: envío gratis global, $15.000 para Valle, o $8.000 por cada kg.</p>
+          <div class="mb-3"><label class="form-label">Método</label><select class="form-select" [(ngModel)]="ruleForm.method_id"><option value="" disabled>Selecciona un método</option>@for (item of methods; track item.id) {<option [value]="item.id">{{ item.name }}</option>}</select></div>
+          <div class="row g-2"><div class="col-8"><label class="form-label">Nombre</label><input class="form-control" [(ngModel)]="ruleForm.name" placeholder="Envío gratis nacional"></div><div class="col-4"><label class="form-label">Prioridad</label><input class="form-control" type="number" min="0" [(ngModel)]="ruleForm.priority"></div></div>
+          <div class="row g-2 mt-1"><div class="col-6"><label class="form-label">Destino</label><select class="form-select" [(ngModel)]="ruleForm.destination_type"><option value="global">Global</option><option value="department">Departamento</option><option value="city">Ciudad</option></select></div><div class="col-6"><label class="form-label">Método de pago</label><input class="form-control" [(ngModel)]="ruleForm.payment_provider" placeholder="Cualquiera, wompi, cod..."></div></div>
+          @if (ruleForm.destination_type !== 'global') {<div class="row g-2 mt-1"><div class="col-5"><label class="form-label">Código depto.</label><input class="form-control" [(ngModel)]="ruleForm.state_code"></div><div class="col-7"><label class="form-label">Departamento</label><input class="form-control" [(ngModel)]="ruleForm.state_name"></div></div>}
+          @if (ruleForm.destination_type === 'city') {<div class="row g-2 mt-1"><div class="col-5"><label class="form-label">Código ciudad</label><input class="form-control" [(ngModel)]="ruleForm.city_code"></div><div class="col-7"><label class="form-label">Ciudad</label><input class="form-control" [(ngModel)]="ruleForm.city_name"></div></div>}
+          <div class="row g-2 mt-1"><div class="col-6"><label class="form-label">Subtotal desde</label><input class="form-control" type="number" min="0" [(ngModel)]="ruleForm.min_subtotal" placeholder="Opcional"></div><div class="col-6"><label class="form-label">Subtotal hasta</label><input class="form-control" type="number" min="0" [(ngModel)]="ruleForm.max_subtotal" placeholder="Opcional"></div></div>
+          <div class="row g-2 mt-1"><div class="col-6"><label class="form-label">Peso desde (kg)</label><input class="form-control" type="number" min="0" step="0.001" [(ngModel)]="ruleForm.min_weight" placeholder="Opcional"></div><div class="col-6"><label class="form-label">Peso hasta (kg)</label><input class="form-control" type="number" min="0" step="0.001" [(ngModel)]="ruleForm.max_weight" placeholder="Opcional"></div></div>
+          <div class="row g-2 mt-1"><div class="col-6"><label class="form-label">Tipo de tarifa</label><select class="form-select" [(ngModel)]="ruleForm.charge_type">@for (item of chargeTypes; track item.value) {<option [value]="item.value">{{ item.label }}</option>}</select></div><div class="col-6"><label class="form-label">Valor base / %</label><input class="form-control" type="number" min="0" [(ngModel)]="ruleForm.amount"></div></div>
+          @if (ruleForm.charge_type === 'weight') {<div class="mb-3 mt-2"><label class="form-label">Valor adicional por kg</label><input class="form-control" type="number" min="0" step="0.01" [(ngModel)]="ruleForm.rate_per_kg"></div>}
+          <div class="form-check form-switch mt-3"><input class="form-check-input" type="checkbox" [(ngModel)]="ruleForm.is_enabled"><label class="form-check-label">Regla activa</label></div>
+          <div class="d-flex justify-content-end gap-2 mt-3">@if (editingRuleId) {<button class="btn btn-light" type="button" (click)="resetRule()">Cancelar</button>}<button class="btn btn-primary" type="button" [disabled]="saving || !ruleForm.method_id || !ruleForm.name.trim()" (click)="saveRule()">{{ editingRuleId ? 'Guardar cambios' : 'Crear regla' }}</button></div>
+        </div></div></div>
+      </div>
+    }
+  }
+</div>

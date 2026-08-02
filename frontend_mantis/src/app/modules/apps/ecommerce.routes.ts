@@ -34,6 +34,10 @@ export const routes: Routes = [
         loadComponent: () => import('./ecommerce/ecommerce-checkout.component').then((c) => c.EcommerceCheckoutComponent)
       },
       {
+        path: 'logistics',
+        loadComponent: () => import('./ecommerce/ecommerce-logistics.component').then((c) => c.EcommerceLogisticsComponent)
+      },
+      {
         path: 'seo',
         loadComponent: () => import('./ecommerce/ecommerce-seo.component').then((c) => c.EcommerceSeoComponent)
       },

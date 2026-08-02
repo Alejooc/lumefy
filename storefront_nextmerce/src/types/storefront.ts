@@ -83,6 +83,32 @@ export type PublicStorefrontAccountOrder = {
   shipping_postal_code?: string | null;
 };
 
+export type PublicShippingDestination = {
+  id: string;
+  country_code: string;
+  state_code?: string | null;
+  state_name: string;
+  city_code?: string | null;
+  city_name?: string | null;
+  destination_type: string;
+};
+
+export type PublicShippingMethod = {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  method_type: string;
+  sort_order: number;
+  estimate_min_days?: number | null;
+  estimate_max_days?: number | null;
+};
+
+export type PublicShippingConfig = {
+  destinations: PublicShippingDestination[];
+  methods: PublicShippingMethod[];
+};
+
 export type PublicCollection = {
   id: string;
   storefront_id: string;
@@ -165,6 +191,9 @@ export type CheckoutPreviewRequest = {
   shipping_amount?: number;
   discount_amount?: number;
   coupon_code?: string | null;
+  address?: CheckoutAddress | null;
+  payment_provider?: string | null;
+  shipping_method_id?: string | null;
 };
 
 export type CheckoutPreviewItem = {
@@ -185,6 +214,12 @@ export type CheckoutPreviewResponse = {
   shipping: number;
   tax: number;
   total: number;
+  total_weight?: number;
+  shipping_method_id?: string | null;
+  shipping_method_name?: string | null;
+  shipping_rule_name?: string | null;
+  shipping_quote_required?: boolean;
+  shipping_requires_destination?: boolean;
 };
 
 export type CheckoutCustomer = {
@@ -200,6 +235,8 @@ export type CheckoutAddress = {
   state?: string | null;
   country?: string | null;
   postal_code?: string | null;
+  state_code?: string | null;
+  city_code?: string | null;
 };
 
 export type CheckoutCreateOrderRequest = {
@@ -212,6 +249,7 @@ export type CheckoutCreateOrderRequest = {
   discount_amount?: number;
   coupon_code?: string | null;
   idempotency_key?: string | null;
+  shipping_method_id?: string | null;
 };
 
 export type CheckoutCreateOrderResponse = {
@@ -226,6 +264,9 @@ export type CheckoutCreateOrderResponse = {
   total: number;
   payment_provider: string;
   payment_status: string;
+  shipping_method_id?: string | null;
+  shipping_method_name?: string | null;
+  shipping_quote_required?: boolean;
 };
 
 export type PaymentIntentRequest = {

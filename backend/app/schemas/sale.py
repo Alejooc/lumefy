@@ -73,6 +73,10 @@ class Sale(SaleBase):
     shipping_state: Optional[str] = None
     shipping_country: Optional[str] = None
     shipping_postal_code: Optional[str] = None
+    shipping_method_name: Optional[str] = None
+    shipping_rule_name: Optional[str] = None
+    shipping_weight: Optional[float] = None
+    shipping_quote_required: bool = False
     created_at: datetime
     updated_at: datetime
     
@@ -119,6 +123,10 @@ class SaleSummary(SaleBase):
     shipping_state: Optional[str] = None
     shipping_country: Optional[str] = None
     shipping_postal_code: Optional[str] = None
+    shipping_method_name: Optional[str] = None
+    shipping_rule_name: Optional[str] = None
+    shipping_weight: Optional[float] = None
+    shipping_quote_required: bool = False
     created_at: datetime
     updated_at: datetime
     delivered_at: Optional[datetime] = None

@@ -443,6 +443,7 @@ export const NavigationItems: NavigationItem[] = [
             { id: 'commerce-checkout-rules', title: 'Reglas de checkout', type: 'item', url: '/commerce/checkout', breadcrumbs: false, permissions: ['manage_company'] },
             { id: 'commerce-payments', title: 'Métodos de pago', type: 'item', url: '/commerce/payments', breadcrumbs: false, permissions: ['manage_company'] }
           ]},
+          { id: 'commerce-logistics', title: 'Logística y envíos', type: 'item', url: '/commerce/logistics', icon: 'truck', breadcrumbs: false, permissions: ['manage_company'] },
           { id: 'commerce-orders', title: 'Pedidos online', type: 'item', classes: 'nav-item', url: '/sales', icon: 'solution', breadcrumbs: false, permissions: ['view_sales'] },
           { id: 'commerce-fulfillment', title: 'Preparación y envío', type: 'item', classes: 'nav-item', url: '/inventory/logistics-board', icon: 'carry-out', breadcrumbs: false, permissions: ['manage_sales'] }
         ]

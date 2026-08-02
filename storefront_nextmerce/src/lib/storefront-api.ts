@@ -13,6 +13,7 @@ import {
   PublicCatalogResponse,
   PublicProduct,
   PublicStorePaymentGateway,
+  PublicShippingConfig,
   PublicStoreNavigationItem,
   PublicStorefront,
 } from "@/types/storefront";
@@ -135,6 +136,15 @@ export async function getPublicCollections(storefrontId: string): Promise<Public
   return request<PublicCollection[]>(`/storefront/public/${storefrontId}/collections`, {
     cache: "no-store",
   });
+}
+
+export async function getPublicShippingConfig(
+  storefrontId: string,
+): Promise<PublicShippingConfig> {
+  return request<PublicShippingConfig>(
+    `/storefront/public/${storefrontId}/shipping/config`,
+    { cache: "no-store" },
+  );
 }
 
 export async function getPublicProducts(

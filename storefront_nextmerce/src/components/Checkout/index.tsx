@@ -10,11 +10,13 @@ import {
   createCheckoutOrder,
   createPaymentIntent,
   getPublicPaymentGateways,
+  getPublicShippingConfig,
 } from "@/lib/storefront-api";
 import {
   CheckoutPreviewResponse,
   PaymentIntentResponse,
   PublicStorePaymentGateway,
+  PublicShippingConfig,
 } from "@/types/storefront";
 import { removeAllItemsFromCart } from "@/redux/features/cart-slice";
 import { useDispatch } from "react-redux";
@@ -46,12 +48,16 @@ type CheckoutFormState = {
   address_line2: string;
   city: string;
   state: string;
+  city_code: string;
+  state_code: string;
   postal_code: string;
   phone: string;
   document_id: string;
   email: string;
   notes: string;
   payment_provider: string;
+  shipping_method_id: string;
+  shipping_destination_id: string;
 };
 
 const initialForm: CheckoutFormState = {
@@ -63,12 +69,16 @@ const initialForm: CheckoutFormState = {
   address_line2: "",
   city: "",
   state: "",
+  city_code: "",
+  state_code: "",
   postal_code: "",
   phone: "",
   document_id: "",
   email: "",
   notes: "",
   payment_provider: "manual_transfer",
+  shipping_method_id: "",
+  shipping_destination_id: "",
 };
 
 function submitPaymentRedirect(intent: PaymentIntentResponse): boolean {
@@ -158,6 +168,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   const [form, setForm] = useState<CheckoutFormState>(initialForm);
   const [preview, setPreview] = useState<CheckoutPreviewResponse | null>(null);
   const [paymentOptions, setPaymentOptions] = useState<PublicStorePaymentGateway[]>([]);
+  const [shippingConfig, setShippingConfig] = useState<PublicShippingConfig>({ destinations: [], methods: [] });
   const [error, setError] = useState("");
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
@@ -187,6 +198,11 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   );
 
   const payloadSignature = JSON.stringify(payloadItems);
+  const shippingSignature = JSON.stringify({
+    address: { city: form.city, state: form.state, country: form.country, city_code: form.city_code, state_code: form.state_code },
+    payment_provider: form.payment_provider,
+    shipping_method_id: form.shipping_method_id,
+  });
 
   const canSubmit =
     payloadItems.length > 0 &&
@@ -197,6 +213,8 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
     Boolean(form.city.trim()) &&
     Boolean(form.state.trim()) &&
     paymentOptions.length > 0 &&
+    (shippingConfig.methods.length === 0 || Boolean(form.shipping_method_id)) &&
+    (shippingConfig.destinations.length === 0 || Boolean(form.shipping_destination_id)) &&
     (!requiresAccount || authenticatedForStorefront) &&
     (!settings.require_phone || Boolean(form.phone.trim())) &&
     (form.payment_provider !== "addi" || (Boolean(form.phone.trim()) && Boolean(form.document_id.trim())));
@@ -230,6 +248,31 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   }, [storefrontId]);
 
   useEffect(() => {
+    let active = true;
+    getPublicShippingConfig(storefrontId)
+      .then((config) => {
+        if (!active) return;
+        setShippingConfig(config);
+        setForm((current) => {
+          const methodId = current.shipping_method_id && config.methods.some((item) => item.id === current.shipping_method_id)
+            ? current.shipping_method_id
+            : config.methods[0]?.id || "";
+          const destinationId = current.shipping_destination_id && config.destinations.some((item) => item.id === current.shipping_destination_id)
+            ? current.shipping_destination_id
+            : "";
+          return { ...current, shipping_method_id: methodId, shipping_destination_id: destinationId };
+        });
+      })
+      .catch(() => {
+        if (active) setShippingConfig({ destinations: [], methods: [] });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [storefrontId]);
+
+  useEffect(() => {
     if (!authenticatedForStorefront || !session?.user) {
       return;
     }
@@ -252,6 +295,19 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
       const response = await checkoutPreview(storefrontId, {
         items: payloadItems,
         coupon_code: appliedCoupon,
+        payment_provider: form.payment_provider,
+        shipping_method_id: form.shipping_method_id || null,
+        address: form.address_line1.trim().length >= 4
+          ? {
+              line1: form.address_line1,
+              city: form.city || null,
+              state: form.state || null,
+              country: form.country || null,
+              postal_code: form.postal_code || null,
+              state_code: form.state_code || null,
+              city_code: form.city_code || null,
+            }
+          : null,
       });
       if (requestId !== previewRequestRef.current) {
         return null;
@@ -280,6 +336,19 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
     setAppliedCoupon(couponInput.trim().toUpperCase() || null);
   }
 
+  function selectShippingDestination(destinationId: string) {
+    const destination = shippingConfig.destinations.find((item) => item.id === destinationId);
+    setForm((current) => ({
+      ...current,
+      shipping_destination_id: destinationId,
+      state: destination?.state_name || "",
+      state_code: destination?.state_code || "",
+      city: destination?.city_name || "",
+      city_code: destination?.city_code || "",
+      country: destination?.country_code || current.country,
+    }));
+  }
+
   useEffect(() => {
     if (payloadItems.length) {
       void refreshPreview();
@@ -289,7 +358,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
     // The signature keeps the preview synchronized with local cart changes.
     // Coupon changes are applied explicitly by the coupon controls.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storefrontId, payloadSignature, appliedCoupon]);
+  }, [storefrontId, payloadSignature, appliedCoupon, shippingSignature]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -322,12 +391,29 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
           state: form.state || null,
           country: form.country || null,
           postal_code: form.postal_code || null,
+          state_code: form.state_code || null,
+          city_code: form.city_code || null,
         },
         notes: form.notes || null,
         payment_provider: form.payment_provider,
         coupon_code: appliedCoupon,
+        shipping_method_id: form.shipping_method_id || null,
         idempotency_key: idempotencyKeyRef.current,
       }, authenticatedForStorefront ? session?.token : undefined);
+
+      if (order.shipping_quote_required) {
+        dispatch(removeAllItemsFromCart());
+        const quoteParams = new URLSearchParams({
+          order_code: order.order_code,
+          status: order.status,
+          total: String(order.total),
+          currency: order.currency || currency,
+          payment_provider: order.payment_provider,
+          payment_status: order.payment_status,
+        });
+        router.push(`/checkout/success?${quoteParams.toString()}`);
+        return;
+      }
 
       const paymentIntent = await createPaymentIntent(storefrontId, {
         provider: form.payment_provider,
@@ -522,35 +608,61 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                       </div>
                     </div>
 
-                    <div className="mb-5">
-                      <label htmlFor="town" className="block mb-2.5">
-                        Ciudad <span className="text-red">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="town"
-                        value={form.city}
-                        onChange={(event) =>
-                          setForm({ ...form, city: event.target.value })
-                        }
-                        className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                      />
-                    </div>
+                    {shippingConfig.destinations.length > 0 ? (
+                      <div className="mb-5">
+                        <label htmlFor="shippingDestination" className="block mb-2.5">
+                          Destino de entrega <span className="text-red">*</span>
+                        </label>
+                        <select
+                          id="shippingDestination"
+                          value={form.shipping_destination_id}
+                          onChange={(event) => selectShippingDestination(event.target.value)}
+                          className="rounded-md border border-gray-3 bg-gray-1 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                        >
+                          <option value="">Selecciona tu ciudad</option>
+                          {shippingConfig.destinations.map((destination) => (
+                            <option key={destination.id} value={destination.id}>
+                              {destination.city_name
+                                ? `${destination.city_name}, ${destination.state_name}`
+                                : destination.state_name}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-2 text-xs text-dark-5">La tarifa se calculará según este destino.</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mb-5">
+                          <label htmlFor="town" className="block mb-2.5">
+                            Ciudad <span className="text-red">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            id="town"
+                            value={form.city}
+                            onChange={(event) =>
+                              setForm({ ...form, city: event.target.value, city_code: "", shipping_destination_id: "" })
+                            }
+                            className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                          />
+                        </div>
 
-                    <div className="mb-5">
-                      <label htmlFor="state" className="block mb-2.5">
-                        Departamento / Provincia <span className="text-red">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="state"
-                        value={form.state}
-                        onChange={(event) =>
-                          setForm({ ...form, state: event.target.value })
-                        }
-                        className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                      />
-                    </div>
+                        <div className="mb-5">
+                          <label htmlFor="state" className="block mb-2.5">
+                            Departamento / Provincia <span className="text-red">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            id="state"
+                            value={form.state}
+                            onChange={(event) =>
+                              setForm({ ...form, state: event.target.value, state_code: "", shipping_destination_id: "" })
+                            }
+                            className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                          />
+                        </div>
+                      </>
+                    )}
 
                     <div className="mb-5">
                       <label htmlFor="postalCode" className="block mb-2.5">
@@ -682,7 +794,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
 
                     <div className="flex items-center justify-between py-5 border-b border-gray-3">
                       <div>
-                        <p className="text-dark">Envío estándar</p>
+                        <p className="text-dark">{preview?.shipping_method_name || "Envío"}</p>
                       </div>
                       <div>
                         <p className="text-dark text-right">
@@ -742,31 +854,45 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                     <h3 className="font-medium text-xl text-dark">Envío</h3>
                   </div>
                   <div className="p-4 sm:p-8.5">
-                    <div className="flex items-start justify-between gap-4 rounded-md border border-gray-3 bg-gray-1 p-4">
-                      <div>
-                        <p className="font-medium text-dark">Entrega estándar</p>
-                        <p className="mt-1 text-sm text-dark-5">
-                          {settings.show_delivery_estimate
-                            ? "La tienda confirmará el tiempo de entrega después de recibir el pedido."
-                            : "La tarifa se calcula según la configuración de la tienda."}
-                        </p>
-                      </div>
-                      <p className="shrink-0 font-medium text-dark">
-                        {preview
-                          ? preview.shipping > 0
-                            ? moneyLabel(preview.currency, preview.shipping)
-                            : "Gratis"
-                          : "Calculando..."}
-                      </p>
+                    <div className="space-y-3">
+                      {shippingConfig.methods.map((method) => (
+                        <label
+                          key={method.id}
+                          className={`flex cursor-pointer items-start justify-between gap-4 rounded-md border p-4 ${form.shipping_method_id === method.id ? "border-blue bg-blue/5" : "border-gray-3 bg-gray-1"}`}
+                        >
+                          <span className="flex min-w-0 items-start gap-3">
+                            <input
+                              type="radio"
+                              name="shipping_method"
+                              value={method.id}
+                              checked={form.shipping_method_id === method.id}
+                              onChange={(event) => setForm({ ...form, shipping_method_id: event.target.value })}
+                              className="mt-1"
+                            />
+                            <span>
+                              <span className="block font-medium text-dark">{method.name}</span>
+                              <span className="mt-1 block text-sm text-dark-5">
+                                {method.description || (settings.show_delivery_estimate ? "Entrega según cobertura y tarifa configurada." : "Método disponible en checkout.")}
+                              </span>
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-medium text-dark">
+                            {preview && preview.shipping_method_id === method.id
+                              ? preview.shipping_quote_required
+                                ? "Por cotizar"
+                                : preview.shipping > 0
+                                  ? moneyLabel(preview.currency, preview.shipping)
+                                  : "Gratis"
+                              : "—"}
+                          </span>
+                        </label>
+                      ))}
                     </div>
-                    {settings.free_shipping_threshold > 0 ? (
-                      <p className="mt-3 text-xs text-dark-5">
-                        Envío gratis en compras desde {moneyLabel(currency, settings.free_shipping_threshold)}.
-                      </p>
-                    ) : settings.flat_shipping_rate > 0 ? (
-                      <p className="mt-3 text-xs text-dark-5">
-                        Tarifa estándar configurada: {moneyLabel(currency, settings.flat_shipping_rate)}.
-                      </p>
+                    {preview?.shipping_requires_destination ? (
+                      <p className="mt-3 text-xs text-amber-700">Selecciona tu destino para calcular el envío.</p>
+                    ) : null}
+                    {preview?.shipping_quote_required ? (
+                      <p className="mt-3 text-xs text-amber-700">La tienda confirmará el valor del envío antes de procesar el pago.</p>
                     ) : null}
                   </div>
                 </div>

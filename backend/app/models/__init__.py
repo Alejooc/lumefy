@@ -52,6 +52,9 @@ from .storefront import (
     StoreCollectionProduct,
     StoreNavigationItem,
     StorePaymentGateway,
+    StorefrontShippingDestination,
+    StorefrontShippingMethod,
+    StorefrontShippingRule,
     StorefrontOrder,
 )
 from .email_delivery import EmailDelivery

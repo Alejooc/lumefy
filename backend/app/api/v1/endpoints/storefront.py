@@ -46,12 +46,20 @@ from app.models.storefront import (
     StoreCollectionProduct,
     StoreNavigationItem,
     StorePaymentGateway,
+    StorefrontShippingDestination,
+    StorefrontShippingMethod,
+    StorefrontShippingRule,
     Storefront,
     StorefrontDomain,
     StorefrontOrder,
 )
 from app.models.storefront_coupon import StorefrontCoupon
 from app.schemas import storefront as schemas
+from app.services.storefront_shipping import (
+    calculate_shipping,
+    ensure_default_shipping_configuration,
+    validate_shipping_rule_values,
+)
 
 router = APIRouter()
 
@@ -157,7 +165,8 @@ async def _resolve_public_checkout_adjustments(
     storefront: Storefront,
     payload: Any,
     subtotal: float,
-) -> tuple[float, float]:
+    rows: list[Any] | None = None,
+) -> tuple[float, Any]:
     """Calculate checkout adjustments exclusively from storefront server settings."""
     discount = _safe_float(getattr(payload, "discount_amount", 0))
     shipping = _safe_float(getattr(payload, "shipping_amount", 0))
@@ -186,11 +195,23 @@ async def _resolve_public_checkout_adjustments(
             raise HTTPException(status_code=400, detail=f"El cupón requiere una compra mínima de {coupon.minimum_amount:g}")
         calculated_discount = subtotal * coupon.value / 100 if coupon.discount_type == "PERCENT" else coupon.value
         calculated_discount = min(subtotal, calculated_discount)
-    settings = storefront.checkout_settings or {}
-    flat_shipping = max(0.0, _safe_float(settings.get("flat_shipping_rate")))
-    free_shipping_threshold = max(0.0, _safe_float(settings.get("free_shipping_threshold")))
-    calculated_shipping = 0.0 if free_shipping_threshold and subtotal >= free_shipping_threshold else flat_shipping
-    return calculated_discount, calculated_shipping
+    if rows is None:
+        settings = storefront.checkout_settings or {}
+        flat_shipping = max(0.0, _safe_float(settings.get("flat_shipping_rate")))
+        free_shipping_threshold = max(0.0, _safe_float(settings.get("free_shipping_threshold")))
+        calculated_shipping = 0.0 if free_shipping_threshold and subtotal >= free_shipping_threshold else flat_shipping
+        return calculated_discount, calculated_shipping
+
+    shipping = await calculate_shipping(
+        db,
+        storefront,
+        rows,
+        subtotal,
+        address=getattr(payload, "address", None),
+        payment_provider=getattr(payload, "payment_provider", None),
+        method_id=getattr(payload, "shipping_method_id", None),
+    )
+    return calculated_discount, shipping
 
 
 def _calculate_checkout_tax(
@@ -659,6 +680,9 @@ def _build_checkout_order_response(
         total=float(sale.total or 0.0),
         payment_provider=payment_provider,
         payment_status=payment_status,
+        shipping_method_id=getattr(sale.__dict__.get("storefront_order"), "shipping_method_id", None),
+        shipping_method_name=getattr(sale.__dict__.get("storefront_order"), "shipping_method_name", None),
+        shipping_quote_required=bool(getattr(sale.__dict__.get("storefront_order"), "shipping_quote_required", False)),
     )
 
 
@@ -1587,6 +1611,8 @@ async def create_storefront(
     )
     db.add(storefront)
     try:
+        await db.flush()
+        await ensure_default_shipping_configuration(db, storefront, current_user.id)
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
@@ -2163,6 +2189,312 @@ async def create_payment_gateway(
     return _serialize_admin_payment_gateway(gateway)
 
 
+async def _get_shipping_destination_or_404(
+    db: AsyncSession,
+    destination_id: uuid.UUID,
+    company_id: uuid.UUID,
+) -> StorefrontShippingDestination:
+    destination = await db.scalar(
+        select(StorefrontShippingDestination).where(
+            StorefrontShippingDestination.id == destination_id,
+            StorefrontShippingDestination.company_id == company_id,
+            StorefrontShippingDestination.is_active == True,
+        )
+    )
+    if not destination:
+        raise HTTPException(status_code=404, detail="Destino de envío no encontrado")
+    return destination
+
+
+async def _get_shipping_method_or_404(
+    db: AsyncSession,
+    method_id: uuid.UUID,
+    company_id: uuid.UUID,
+) -> StorefrontShippingMethod:
+    method = await db.scalar(
+        select(StorefrontShippingMethod).where(
+            StorefrontShippingMethod.id == method_id,
+            StorefrontShippingMethod.company_id == company_id,
+            StorefrontShippingMethod.is_active == True,
+        )
+    )
+    if not method:
+        raise HTTPException(status_code=404, detail="Método de envío no encontrado")
+    return method
+
+
+async def _get_shipping_rule_or_404(
+    db: AsyncSession,
+    rule_id: uuid.UUID,
+    company_id: uuid.UUID,
+) -> StorefrontShippingRule:
+    rule = await db.scalar(
+        select(StorefrontShippingRule).where(
+            StorefrontShippingRule.id == rule_id,
+            StorefrontShippingRule.company_id == company_id,
+            StorefrontShippingRule.is_active == True,
+        )
+    )
+    if not rule:
+        raise HTTPException(status_code=404, detail="Regla de envío no encontrada")
+    return rule
+
+
+def _validate_shipping_method_payload(payload: dict) -> None:
+    method_type = str(payload.get("method_type") or "delivery").lower()
+    if method_type not in {"delivery", "pickup", "quote"}:
+        raise HTTPException(status_code=422, detail="El tipo de método de envío no es válido")
+    if payload.get("estimate_min_days") is not None and payload.get("estimate_max_days") is not None:
+        if payload["estimate_min_days"] > payload["estimate_max_days"]:
+            raise HTTPException(status_code=422, detail="El tiempo mínimo no puede superar al máximo")
+
+
+@router.get("/shipping/config")
+async def read_shipping_config(
+    db: AsyncSession = Depends(get_db),
+    storefront_id: uuid.UUID | None = None,
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    if not storefront_id:
+        raise HTTPException(status_code=422, detail="Selecciona una tienda")
+    storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    created = await ensure_default_shipping_configuration(db, storefront, current_user.id)
+    destinations_result = await db.execute(
+        select(StorefrontShippingDestination).where(
+            StorefrontShippingDestination.storefront_id == storefront.id,
+            StorefrontShippingDestination.is_active == True,
+        ).order_by(StorefrontShippingDestination.sort_order.asc(), StorefrontShippingDestination.state_name.asc(), StorefrontShippingDestination.city_name.asc())
+    )
+    methods_result = await db.execute(
+        select(StorefrontShippingMethod).where(
+            StorefrontShippingMethod.storefront_id == storefront.id,
+            StorefrontShippingMethod.is_active == True,
+        ).order_by(StorefrontShippingMethod.sort_order.asc(), StorefrontShippingMethod.name.asc())
+    )
+    rules_result = await db.execute(
+        select(StorefrontShippingRule).where(
+            StorefrontShippingRule.storefront_id == storefront.id,
+            StorefrontShippingRule.is_active == True,
+        ).order_by(StorefrontShippingRule.priority.asc(), StorefrontShippingRule.created_at.asc())
+    )
+    if created:
+        await db.commit()
+    return {
+        "destinations": [schemas.StorefrontShippingDestination.model_validate(item) for item in destinations_result.scalars().all()],
+        "methods": [schemas.StorefrontShippingMethod.model_validate(item) for item in methods_result.scalars().all()],
+        "rules": [schemas.StorefrontShippingRule.model_validate(item) for item in rules_result.scalars().all()],
+    }
+
+
+@router.post("/shipping/destinations", response_model=schemas.StorefrontShippingDestination)
+async def create_shipping_destination(
+    destination_in: schemas.StorefrontShippingDestinationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    await _get_storefront_or_404(db, destination_in.storefront_id, current_user.company_id)
+    payload = destination_in.model_dump()
+    payload["country_code"] = (payload.get("country_code") or "CO").strip().upper()
+    payload["destination_type"] = (payload.get("destination_type") or "city").lower()
+    if payload["destination_type"] not in {"department", "city"}:
+        raise HTTPException(status_code=422, detail="El tipo de destino debe ser departamento o ciudad")
+    if payload["destination_type"] == "department":
+        payload["city_code"] = None
+        payload["city_name"] = None
+    elif not payload.get("city_name") and not payload.get("city_code"):
+        raise HTTPException(status_code=422, detail="Una ciudad requiere nombre o código")
+    destination = StorefrontShippingDestination(
+        **payload,
+        company_id=current_user.company_id,
+        created_by_id=current_user.id,
+        updated_by_id=current_user.id,
+    )
+    db.add(destination)
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Ese destino ya existe en la tienda") from exc
+    await db.refresh(destination)
+    return destination
+
+
+@router.put("/shipping/destinations/{destination_id}", response_model=schemas.StorefrontShippingDestination)
+async def update_shipping_destination(
+    destination_id: uuid.UUID,
+    destination_in: schemas.StorefrontShippingDestinationUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    destination = await _get_shipping_destination_or_404(db, destination_id, current_user.company_id)
+    for field, value in destination_in.model_dump(exclude_unset=True).items():
+        setattr(destination, field, value)
+    destination.country_code = (destination.country_code or "CO").strip().upper()
+    destination.destination_type = (destination.destination_type or "city").lower()
+    if destination.destination_type not in {"department", "city"}:
+        raise HTTPException(status_code=422, detail="El tipo de destino debe ser departamento o ciudad")
+    if destination.destination_type == "department":
+        destination.city_code = None
+        destination.city_name = None
+    elif not destination.city_name and not destination.city_code:
+        raise HTTPException(status_code=422, detail="Una ciudad requiere nombre o código")
+    destination.updated_by_id = current_user.id
+    db.add(destination)
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Ese destino ya existe en la tienda") from exc
+    await db.refresh(destination)
+    return destination
+
+
+@router.delete("/shipping/destinations/{destination_id}", response_model=dict)
+async def delete_shipping_destination(
+    destination_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    destination = await _get_shipping_destination_or_404(db, destination_id, current_user.company_id)
+    destination.is_active = False
+    destination.updated_by_id = current_user.id
+    db.add(destination)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/shipping/methods", response_model=schemas.StorefrontShippingMethod)
+async def create_shipping_method(
+    method_in: schemas.StorefrontShippingMethodCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    await _get_storefront_or_404(db, method_in.storefront_id, current_user.company_id)
+    payload = method_in.model_dump()
+    payload["code"] = payload["code"].strip().lower().replace(" ", "-")
+    _validate_shipping_method_payload(payload)
+    method = StorefrontShippingMethod(
+        **payload,
+        company_id=current_user.company_id,
+        created_by_id=current_user.id,
+        updated_by_id=current_user.id,
+    )
+    db.add(method)
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Ese código de método ya existe en la tienda") from exc
+    await db.refresh(method)
+    return method
+
+
+@router.put("/shipping/methods/{method_id}", response_model=schemas.StorefrontShippingMethod)
+async def update_shipping_method(
+    method_id: uuid.UUID,
+    method_in: schemas.StorefrontShippingMethodUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    method = await _get_shipping_method_or_404(db, method_id, current_user.company_id)
+    for field, value in method_in.model_dump(exclude_unset=True).items():
+        setattr(method, field, value)
+    method.code = method.code.strip().lower().replace(" ", "-")
+    _validate_shipping_method_payload({field: getattr(method, field) for field in ["method_type", "estimate_min_days", "estimate_max_days"]})
+    method.updated_by_id = current_user.id
+    db.add(method)
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Ese código de método ya existe en la tienda") from exc
+    await db.refresh(method)
+    return method
+
+
+@router.delete("/shipping/methods/{method_id}", response_model=dict)
+async def delete_shipping_method(
+    method_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    method = await _get_shipping_method_or_404(db, method_id, current_user.company_id)
+    method.is_active = False
+    method.is_enabled = False
+    method.updated_by_id = current_user.id
+    db.add(method)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/shipping/rules", response_model=schemas.StorefrontShippingRule)
+async def create_shipping_rule(
+    rule_in: schemas.StorefrontShippingRuleCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    storefront = await _get_storefront_or_404(db, rule_in.storefront_id, current_user.company_id)
+    method = await _get_shipping_method_or_404(db, rule_in.method_id, current_user.company_id)
+    if method.storefront_id != storefront.id:
+        raise HTTPException(status_code=422, detail="El método no pertenece a la tienda seleccionada")
+    validate_shipping_rule_values(rule_in)
+    payload = rule_in.model_dump()
+    payload["destination_type"] = (payload.get("destination_type") or "global").lower()
+    payload["charge_type"] = (payload.get("charge_type") or "flat").lower()
+    payload["payment_provider"] = (payload.get("payment_provider") or "").strip().lower() or None
+    rule = StorefrontShippingRule(
+        **payload,
+        company_id=current_user.company_id,
+        created_by_id=current_user.id,
+        updated_by_id=current_user.id,
+    )
+    db.add(rule)
+    await db.commit()
+    await db.refresh(rule)
+    return rule
+
+
+@router.put("/shipping/rules/{rule_id}", response_model=schemas.StorefrontShippingRule)
+async def update_shipping_rule(
+    rule_id: uuid.UUID,
+    rule_in: schemas.StorefrontShippingRuleUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    rule = await _get_shipping_rule_or_404(db, rule_id, current_user.company_id)
+    payload = rule_in.model_dump(exclude_unset=True)
+    if "method_id" in payload:
+        method = await _get_shipping_method_or_404(db, payload["method_id"], current_user.company_id)
+        if method.storefront_id != rule.storefront_id:
+            raise HTTPException(status_code=422, detail="El método no pertenece a la tienda seleccionada")
+    for field, value in payload.items():
+        setattr(rule, field, value)
+    rule.destination_type = (rule.destination_type or "global").lower()
+    rule.charge_type = (rule.charge_type or "flat").lower()
+    rule.payment_provider = (rule.payment_provider or "").strip().lower() or None
+    validate_shipping_rule_values(rule)
+    rule.updated_by_id = current_user.id
+    db.add(rule)
+    await db.commit()
+    await db.refresh(rule)
+    return rule
+
+
+@router.delete("/shipping/rules/{rule_id}", response_model=dict)
+async def delete_shipping_rule(
+    rule_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    rule = await _get_shipping_rule_or_404(db, rule_id, current_user.company_id)
+    rule.is_active = False
+    rule.is_enabled = False
+    rule.updated_by_id = current_user.id
+    db.add(rule)
+    await db.commit()
+    return {"ok": True}
+
+
 @router.put("/payment-gateways/{gateway_id}", response_model=schemas.StorePaymentGateway)
 async def update_payment_gateway(
     *,
@@ -2268,6 +2600,34 @@ async def read_public_storefront(
         currency=storefront.currency,
         language=storefront.language,
         branding=_serialize_public_branding(storefront, company),
+    )
+
+
+@router.get("/public/{storefront_id}/shipping/config", response_model=schemas.PublicShippingConfig)
+async def read_public_shipping_config(
+    storefront_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    storefront = await _get_public_storefront_by_id(db, storefront_id)
+    created = await ensure_default_shipping_configuration(db, storefront)
+    if created:
+        await db.commit()
+    destinations_result = await db.execute(
+        select(StorefrontShippingDestination).where(
+            StorefrontShippingDestination.storefront_id == storefront.id,
+            StorefrontShippingDestination.is_active == True,
+        ).order_by(StorefrontShippingDestination.sort_order.asc(), StorefrontShippingDestination.state_name.asc(), StorefrontShippingDestination.city_name.asc())
+    )
+    methods_result = await db.execute(
+        select(StorefrontShippingMethod).where(
+            StorefrontShippingMethod.storefront_id == storefront.id,
+            StorefrontShippingMethod.is_active == True,
+            StorefrontShippingMethod.is_enabled == True,
+        ).order_by(StorefrontShippingMethod.sort_order.asc(), StorefrontShippingMethod.name.asc())
+    )
+    return schemas.PublicShippingConfig(
+        destinations=[schemas.PublicShippingDestination.model_validate(item) for item in destinations_result.scalars().all()],
+        methods=[schemas.PublicShippingMethod.model_validate(item) for item in methods_result.scalars().all()],
     )
 
 
@@ -3103,7 +3463,8 @@ async def preview_public_checkout(
     storefront = await _get_public_storefront_by_id(db, storefront_id)
     rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
 
-    discount, shipping = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal)
+    discount, shipping_result = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal, rows)
+    shipping = shipping_result.shipping
     tax = _calculate_checkout_tax(storefront, subtotal, discount, shipping)
     total = max(0.0, subtotal - discount + shipping + tax)
 
@@ -3115,6 +3476,12 @@ async def preview_public_checkout(
         shipping=shipping,
         tax=tax,
         total=total,
+        total_weight=shipping_result.total_weight,
+        shipping_method_id=shipping_result.method.id if shipping_result.method else None,
+        shipping_method_name=shipping_result.method.name if shipping_result.method else None,
+        shipping_rule_name=shipping_result.rule.name if shipping_result.rule else None,
+        shipping_quote_required=shipping_result.quote_required,
+        shipping_requires_destination=shipping_result.requires_destination,
     )
 
 
@@ -3178,7 +3545,10 @@ async def create_public_checkout_order(
     _validate_gateway_checkout_configuration(gateway)
     rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
 
-    discount, shipping = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal)
+    discount, shipping_result = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal, rows)
+    shipping = shipping_result.shipping
+    if shipping_result.requires_destination:
+        raise HTTPException(status_code=400, detail="Selecciona un departamento y una ciudad para calcular el envío")
     tax = _calculate_checkout_tax(storefront, subtotal, discount, shipping)
     total = max(0.0, subtotal - discount + shipping + tax)
 
@@ -3250,11 +3620,13 @@ async def create_public_checkout_order(
             "payment_provider": gateway.provider,
         },
     )
-    if not await _reserve_storefront_sale(db, sale):
+    shipping_quote_required = shipping_result.quote_required
+    if shipping_quote_required:
+        sale.status = SaleStatus.QUOTE
+    elif not await _reserve_storefront_sale(db, sale):
         raise HTTPException(status_code=400, detail="El stock ya no está disponible para completar este pedido")
 
-    db.add(
-        StorefrontOrder(
+    storefront_order = StorefrontOrder(
             storefront_id=storefront.id,
             sale_id=sale.id,
             idempotency_key=idempotency_key,
@@ -3270,20 +3642,29 @@ async def create_public_checkout_order(
             shipping_state=_normalize_checkout_text(payload.address.state),
             shipping_country=_normalize_checkout_text(payload.address.country),
             shipping_postal_code=_normalize_checkout_text(payload.address.postal_code),
+            shipping_state_code=_normalize_checkout_text(payload.address.state_code),
+            shipping_city_code=_normalize_checkout_text(payload.address.city_code),
+            shipping_method_id=shipping_result.method.id if shipping_result.method else None,
+            shipping_method_name=shipping_result.method.name if shipping_result.method else None,
+            shipping_rule_name=shipping_result.rule.name if shipping_result.rule else None,
+            shipping_weight=shipping_result.total_weight,
+            shipping_quote_required=shipping_quote_required,
             coupon_code=payload.coupon_code,
             buyer_note=buyer_note,
             payment_provider=gateway.provider,
-            payment_status="pending",
+            payment_status="shipping_quote_required" if shipping_quote_required else "pending",
             currency=storefront.currency,
             fulfillment_warehouse_id=warehouse.id,
             company_id=storefront.company_id,
             created_by_id=sale_user.id,
             updated_by_id=sale_user.id,
-        )
     )
+    sale.storefront_order = storefront_order
+    db.add(storefront_order)
 
-    db.add(
-        Payment(
+    if not shipping_quote_required:
+        db.add(
+            Payment(
             sale_id=sale.id,
             method=gateway.provider,
             amount=total,
@@ -3291,21 +3672,25 @@ async def create_public_checkout_order(
             company_id=storefront.company_id,
             created_by_id=sale_user.id,
             updated_by_id=sale_user.id,
+            )
         )
-    )
 
     await log_sale_event(
         db,
         sale_id=str(sale.id),
         company_id=str(storefront.company_id),
-        event_type="PAYMENT_PENDING",
-        title="Pago pendiente",
+        event_type="SHIPPING_QUOTE_REQUIRED" if shipping_quote_required else "PAYMENT_PENDING",
+        title="Envío pendiente de cotización" if shipping_quote_required else "Pago pendiente",
         description=(
-            "La orden se cobrará al momento de la entrega."
-            if gateway.provider == "cod"
-            else f"Esperando confirmación de {gateway.display_name}."
+            "La tienda debe confirmar el costo del envío antes de cobrar."
+            if shipping_quote_required
+            else (
+                "La orden se cobrará al momento de la entrega."
+                if gateway.provider == "cod"
+                else f"Esperando confirmación de {gateway.display_name}."
+            )
         ),
-        status="pending",
+        status="quote" if shipping_quote_required else "pending",
         provider=gateway.provider,
     )
 
@@ -3315,7 +3700,7 @@ async def create_public_checkout_order(
         storefront=storefront,
         sale=sale,
         payment_provider=gateway.provider,
-        payment_status="pending",
+        payment_status="shipping_quote_required" if shipping_quote_required else "pending",
     )
 
 
@@ -3344,6 +3729,8 @@ async def create_public_payment_intent(
     storefront_order = order_result.scalars().first()
     if not storefront_order or not storefront_order.sale:
         raise HTTPException(status_code=404, detail="Checkout order not found")
+    if storefront_order.shipping_quote_required:
+        raise HTTPException(status_code=400, detail="El envío debe ser cotizado antes de iniciar el pago")
     if storefront_order.payment_provider != gateway.provider:
         raise HTTPException(status_code=400, detail="Payment provider does not match the checkout order")
     if storefront_order.payment_status.lower() in {"approved", "approved_partial"}:

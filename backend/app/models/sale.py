@@ -90,6 +90,26 @@ class Sale(BaseModel):
         storefront_order = self.__dict__.get("storefront_order")
         return storefront_order.shipping_postal_code if storefront_order else None
 
+    @property
+    def shipping_method_name(self) -> str | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.shipping_method_name if storefront_order else None
+
+    @property
+    def shipping_rule_name(self) -> str | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.shipping_rule_name if storefront_order else None
+
+    @property
+    def shipping_weight(self) -> float | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.shipping_weight if storefront_order else None
+
+    @property
+    def shipping_quote_required(self) -> bool:
+        storefront_order = self.__dict__.get("storefront_order")
+        return bool(storefront_order.shipping_quote_required) if storefront_order else False
+
 class SaleItem(BaseModel):
     __tablename__ = "sale_items"
 

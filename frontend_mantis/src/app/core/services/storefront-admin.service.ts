@@ -379,6 +379,65 @@ export interface StorefrontReadiness {
   issues: string[];
 }
 
+export interface StorefrontShippingDestination {
+  id: string;
+  storefront_id: string;
+  country_code: string;
+  state_code?: string | null;
+  state_name: string;
+  city_code?: string | null;
+  city_name?: string | null;
+  destination_type: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface StorefrontShippingMethod {
+  id: string;
+  storefront_id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  method_type: string;
+  is_enabled: boolean;
+  sort_order: number;
+  estimate_min_days?: number | null;
+  estimate_max_days?: number | null;
+  is_active: boolean;
+}
+
+export interface StorefrontShippingRule {
+  id: string;
+  storefront_id: string;
+  method_id: string;
+  name: string;
+  priority: number;
+  is_enabled: boolean;
+  destination_type: string;
+  country_code?: string | null;
+  state_code?: string | null;
+  state_name?: string | null;
+  city_code?: string | null;
+  city_name?: string | null;
+  payment_provider?: string | null;
+  min_subtotal?: number | null;
+  max_subtotal?: number | null;
+  min_weight?: number | null;
+  max_weight?: number | null;
+  charge_type: string;
+  amount: number;
+  rate_per_kg: number;
+  estimate_min_days?: number | null;
+  estimate_max_days?: number | null;
+  is_active: boolean;
+}
+
+export interface StorefrontShippingConfig {
+  destinations: StorefrontShippingDestination[];
+  methods: StorefrontShippingMethod[];
+  rules: StorefrontShippingRule[];
+}
+
 export interface CatalogProduct {
   id: string;
   name: string;
@@ -396,6 +455,9 @@ export interface PublicCheckoutPreviewRequest {
   shipping_amount?: number;
   discount_amount?: number;
   coupon_code?: string | null;
+  address?: PublicCheckoutAddress | null;
+  payment_provider?: string | null;
+  shipping_method_id?: string | null;
 }
 
 export interface PublicCheckoutPreviewItem {
@@ -416,6 +478,12 @@ export interface PublicCheckoutPreviewResponse {
   shipping: number;
   tax: number;
   total: number;
+  total_weight?: number;
+  shipping_method_id?: string | null;
+  shipping_method_name?: string | null;
+  shipping_rule_name?: string | null;
+  shipping_quote_required?: boolean;
+  shipping_requires_destination?: boolean;
 }
 
 export interface PublicCheckoutCustomer {
@@ -431,6 +499,8 @@ export interface PublicCheckoutAddress {
   state?: string | null;
   country?: string | null;
   postal_code?: string | null;
+  state_code?: string | null;
+  city_code?: string | null;
 }
 
 export interface PublicCheckoutCreateOrderRequest {
@@ -442,6 +512,7 @@ export interface PublicCheckoutCreateOrderRequest {
   shipping_amount?: number;
   discount_amount?: number;
   coupon_code?: string | null;
+  shipping_method_id?: string | null;
 }
 
 export interface PublicCheckoutCreateOrderResponse {
@@ -456,6 +527,9 @@ export interface PublicCheckoutCreateOrderResponse {
   total: number;
   payment_provider: string;
   payment_status: string;
+  shipping_method_id?: string | null;
+  shipping_method_name?: string | null;
+  shipping_quote_required?: boolean;
 }
 
 export interface PublicPaymentIntentRequest {
@@ -583,6 +657,46 @@ export class StorefrontAdminService {
 
   updatePaymentGateway(id: string, payload: Partial<StorePaymentGateway>): Observable<StorePaymentGateway> {
     return this.api.put<StorePaymentGateway>(`/storefront/payment-gateways/${id}`, payload);
+  }
+
+  getShippingConfig(storefrontId: string): Observable<StorefrontShippingConfig> {
+    return this.api.get<StorefrontShippingConfig>('/storefront/shipping/config', { storefront_id: storefrontId });
+  }
+
+  createShippingDestination(payload: Partial<StorefrontShippingDestination>): Observable<StorefrontShippingDestination> {
+    return this.api.post<StorefrontShippingDestination>('/storefront/shipping/destinations', payload);
+  }
+
+  updateShippingDestination(id: string, payload: Partial<StorefrontShippingDestination>): Observable<StorefrontShippingDestination> {
+    return this.api.put<StorefrontShippingDestination>(`/storefront/shipping/destinations/${id}`, payload);
+  }
+
+  deleteShippingDestination(id: string): Observable<{ ok: boolean }> {
+    return this.api.delete<{ ok: boolean }>(`/storefront/shipping/destinations/${id}`);
+  }
+
+  createShippingMethod(payload: Partial<StorefrontShippingMethod>): Observable<StorefrontShippingMethod> {
+    return this.api.post<StorefrontShippingMethod>('/storefront/shipping/methods', payload);
+  }
+
+  updateShippingMethod(id: string, payload: Partial<StorefrontShippingMethod>): Observable<StorefrontShippingMethod> {
+    return this.api.put<StorefrontShippingMethod>(`/storefront/shipping/methods/${id}`, payload);
+  }
+
+  deleteShippingMethod(id: string): Observable<{ ok: boolean }> {
+    return this.api.delete<{ ok: boolean }>(`/storefront/shipping/methods/${id}`);
+  }
+
+  createShippingRule(payload: Partial<StorefrontShippingRule>): Observable<StorefrontShippingRule> {
+    return this.api.post<StorefrontShippingRule>('/storefront/shipping/rules', payload);
+  }
+
+  updateShippingRule(id: string, payload: Partial<StorefrontShippingRule>): Observable<StorefrontShippingRule> {
+    return this.api.put<StorefrontShippingRule>(`/storefront/shipping/rules/${id}`, payload);
+  }
+
+  deleteShippingRule(id: string): Observable<{ ok: boolean }> {
+    return this.api.delete<{ ok: boolean }>(`/storefront/shipping/rules/${id}`);
   }
 
   getProducts(): Observable<CatalogProduct[]> {

@@ -27,6 +27,8 @@ class Storefront(BaseModel):
     published_products = relationship("PublishedProduct", back_populates="storefront", cascade="all, delete-orphan")
     navigation_items = relationship("StoreNavigationItem", back_populates="storefront", cascade="all, delete-orphan")
     payment_gateways = relationship("StorePaymentGateway", back_populates="storefront", cascade="all, delete-orphan")
+    shipping_destinations = relationship("StorefrontShippingDestination", back_populates="storefront", cascade="all, delete-orphan")
+    shipping_methods = relationship("StorefrontShippingMethod", back_populates="storefront", cascade="all, delete-orphan")
     orders = relationship("StorefrontOrder", back_populates="storefront", cascade="all, delete-orphan")
 
     __table_args__ = (
@@ -151,6 +153,81 @@ class StorePaymentGateway(BaseModel):
     )
 
 
+class StorefrontShippingDestination(BaseModel):
+    __tablename__ = "storefront_shipping_destinations"
+
+    storefront_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("storefronts.id"), nullable=False, index=True)
+    country_code: Mapped[str] = mapped_column(String(8), nullable=False, default="CO")
+    state_code: Mapped[str] = mapped_column(String(32), nullable=True)
+    state_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    city_code: Mapped[str] = mapped_column(String(32), nullable=True)
+    city_name: Mapped[str] = mapped_column(String(120), nullable=True)
+    destination_type: Mapped[str] = mapped_column(String(20), nullable=False, default="city")
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    storefront = relationship("Storefront", back_populates="shipping_destinations")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "storefront_id",
+            "country_code",
+            "state_code",
+            "city_code",
+            name="uq_storefront_shipping_destination_codes",
+        ),
+    )
+
+
+class StorefrontShippingMethod(BaseModel):
+    __tablename__ = "storefront_shipping_methods"
+
+    storefront_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("storefronts.id"), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    method_type: Mapped[str] = mapped_column(String(20), nullable=False, default="delivery")
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    estimate_min_days: Mapped[int] = mapped_column(Integer, nullable=True)
+    estimate_max_days: Mapped[int] = mapped_column(Integer, nullable=True)
+
+    storefront = relationship("Storefront", back_populates="shipping_methods")
+    rules = relationship("StorefrontShippingRule", back_populates="method", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("storefront_id", "code", name="uq_storefront_shipping_method_code"),
+    )
+
+
+class StorefrontShippingRule(BaseModel):
+    __tablename__ = "storefront_shipping_rules"
+
+    storefront_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("storefronts.id"), nullable=False, index=True)
+    method_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("storefront_shipping_methods.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    destination_type: Mapped[str] = mapped_column(String(20), nullable=False, default="global")
+    country_code: Mapped[str] = mapped_column(String(8), nullable=True)
+    state_code: Mapped[str] = mapped_column(String(32), nullable=True)
+    state_name: Mapped[str] = mapped_column(String(120), nullable=True)
+    city_code: Mapped[str] = mapped_column(String(32), nullable=True)
+    city_name: Mapped[str] = mapped_column(String(120), nullable=True)
+    payment_provider: Mapped[str] = mapped_column(String(80), nullable=True)
+    min_subtotal: Mapped[float] = mapped_column(Float, nullable=True)
+    max_subtotal: Mapped[float] = mapped_column(Float, nullable=True)
+    min_weight: Mapped[float] = mapped_column(Float, nullable=True)
+    max_weight: Mapped[float] = mapped_column(Float, nullable=True)
+    charge_type: Mapped[str] = mapped_column(String(20), nullable=False, default="flat")
+    amount: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    rate_per_kg: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    estimate_min_days: Mapped[int] = mapped_column(Integer, nullable=True)
+    estimate_max_days: Mapped[int] = mapped_column(Integer, nullable=True)
+
+    storefront = relationship("Storefront")
+    method = relationship("StorefrontShippingMethod", back_populates="rules")
+
+
 class StorefrontOrder(BaseModel):
     __tablename__ = "storefront_orders"
 
@@ -169,6 +246,13 @@ class StorefrontOrder(BaseModel):
     shipping_state: Mapped[str] = mapped_column(String, nullable=True)
     shipping_country: Mapped[str] = mapped_column(String, nullable=True)
     shipping_postal_code: Mapped[str] = mapped_column(String, nullable=True)
+    shipping_state_code: Mapped[str] = mapped_column(String(32), nullable=True)
+    shipping_city_code: Mapped[str] = mapped_column(String(32), nullable=True)
+    shipping_method_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    shipping_method_name: Mapped[str] = mapped_column(String(120), nullable=True)
+    shipping_rule_name: Mapped[str] = mapped_column(String(120), nullable=True)
+    shipping_weight: Mapped[float] = mapped_column(Float, nullable=True)
+    shipping_quote_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     coupon_code: Mapped[str] = mapped_column(String, nullable=True)
     buyer_note: Mapped[str] = mapped_column(Text, nullable=True)
     payment_provider: Mapped[str] = mapped_column(String, nullable=False)

@@ -53,6 +53,10 @@ export interface Sale {
     shipping_state?: string;
     shipping_country?: string;
     shipping_postal_code?: string;
+    shipping_method_name?: string;
+    shipping_rule_name?: string;
+    shipping_weight?: number;
+    shipping_quote_required?: boolean;
     notes?: string;
     created_at: string;
     updated_at?: string;
