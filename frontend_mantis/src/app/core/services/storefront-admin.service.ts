@@ -438,6 +438,16 @@ export interface StorefrontShippingConfig {
   rules: StorefrontShippingRule[];
 }
 
+export interface StorefrontShippingDestinationImportResult {
+  success: boolean;
+  count: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  error_count: number;
+  errors: string[];
+}
+
 export interface CatalogProduct {
   id: string;
   name: string;
@@ -665,6 +675,12 @@ export class StorefrontAdminService {
 
   createShippingDestination(payload: Partial<StorefrontShippingDestination>): Observable<StorefrontShippingDestination> {
     return this.api.post<StorefrontShippingDestination>('/storefront/shipping/destinations', payload);
+  }
+
+  importShippingDestinations(storefrontId: string, file: File): Observable<StorefrontShippingDestinationImportResult> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    return this.api.post<StorefrontShippingDestinationImportResult>(`/storefront/shipping/destinations/import?storefront_id=${encodeURIComponent(storefrontId)}`, formData);
   }
 
   updateShippingDestination(id: string, payload: Partial<StorefrontShippingDestination>): Observable<StorefrontShippingDestination> {

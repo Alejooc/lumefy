@@ -14,7 +14,7 @@ from typing import Any, List
 import requests
 import dns.resolver
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -2317,6 +2317,207 @@ async def create_shipping_destination(
         raise HTTPException(status_code=409, detail="Ese destino ya existe en la tienda") from exc
     await db.refresh(destination)
     return destination
+
+
+def _normalize_import_column(value: Any) -> str:
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+
+
+def _import_cell_text(value: Any) -> str:
+    if value is None:
+        return ""
+    try:
+        import pandas as pd
+        if pd.isna(value):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    return str(value).strip()
+
+
+def _import_cell_code(value: Any) -> str:
+    text = _import_cell_text(value)
+    if text.endswith(".0") and text[:-2].isdigit():
+        text = text[:-2]
+    return text
+
+
+def _shipping_destination_name_key(value: str | None) -> str:
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    return re.sub(r"\s+", " ", text).strip().casefold()
+
+
+@router.post("/shipping/destinations/import", response_model=dict)
+async def import_shipping_destinations(
+    storefront_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    """Import shipping departments/cities from an Excel or CSV file."""
+    await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+
+    filename = (file.filename or "").lower()
+    if not filename.endswith((".csv", ".xls", ".xlsx")):
+        raise HTTPException(status_code=400, detail="Formato inválido. Usa un archivo .xlsx, .xls o .csv.")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="El archivo está vacío.")
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="El archivo no puede superar 10 MB.")
+
+    import io
+    import pandas as pd
+
+    try:
+        source = io.BytesIO(content)
+        if filename.endswith(".csv"):
+            dataframe = pd.read_csv(source, dtype=object)
+        else:
+            dataframe = pd.read_excel(source, dtype=object)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"No se pudo leer el archivo: {exc}") from exc
+
+    if dataframe.empty:
+        raise HTTPException(status_code=422, detail="El archivo no contiene filas para importar.")
+    if len(dataframe.index) > 10000:
+        raise HTTPException(status_code=422, detail="El archivo no puede contener más de 10.000 filas.")
+
+    aliases = {
+        "country_code": {"country_code", "codigo_pais", "pais", "country"},
+        "state_code": {"state_code", "department_code", "departamento_codigo", "codigo_departamento", "depto_codigo", "codigo_depto"},
+        "state_name": {"state_name", "department", "departamento", "department_name", "nombre_departamento", "depto", "depto_nombre"},
+        "city_code": {"city_code", "municipality_code", "municipio_codigo", "codigo_municipio", "codigo_ciudad", "city_id"},
+        "city_name": {"city_name", "city", "municipality", "municipio", "ciudad", "nombre_ciudad", "nombre_municipio"},
+        "destination_type": {"destination_type", "tipo_destino", "tipo"},
+        "sort_order": {"sort_order", "orden", "prioridad"},
+    }
+    normalized_columns = {_normalize_import_column(column): column for column in dataframe.columns}
+    selected_columns: dict[str, Any] = {}
+    for field, field_aliases in aliases.items():
+        source_column = next((normalized_columns[alias] for alias in field_aliases if alias in normalized_columns), None)
+        if source_column is not None:
+            selected_columns[field] = source_column
+    if "state_name" not in selected_columns:
+        raise HTTPException(status_code=422, detail="Falta una columna de departamento. Usa state_name o departamento.")
+
+    existing_result = await db.execute(
+        select(StorefrontShippingDestination).where(
+            StorefrontShippingDestination.storefront_id == storefront_id,
+            StorefrontShippingDestination.company_id == current_user.company_id,
+        )
+    )
+    existing_destinations = existing_result.scalars().all()
+    existing_by_code: dict[tuple[str, str, str, str], StorefrontShippingDestination] = {}
+    existing_by_name: dict[tuple[str, str, str, str], StorefrontShippingDestination] = {}
+
+    def add_existing_index(destination: StorefrontShippingDestination) -> None:
+        country = (destination.country_code or "CO").strip().upper()
+        state_code = (destination.state_code or "").strip().casefold()
+        city_code = (destination.city_code or "").strip().casefold()
+        state_name = _shipping_destination_name_key(destination.state_name)
+        city_name = _shipping_destination_name_key(destination.city_name)
+        if state_code or city_code:
+            existing_by_code[(country, state_code, city_code, destination.destination_type)] = destination
+        existing_by_name[(country, state_name, city_name, destination.destination_type)] = destination
+
+    for existing in existing_destinations:
+        add_existing_index(existing)
+
+    created_count = 0
+    updated_count = 0
+    skipped_count = 0
+    errors: list[str] = []
+
+    for index, row in dataframe.iterrows():
+        row_number = int(index) + 2
+        try:
+            def cell(field: str) -> str:
+                return _import_cell_text(row.get(selected_columns[field])) if field in selected_columns else ""
+
+            state_name = cell("state_name")
+            if not state_name:
+                skipped_count += 1
+                continue
+            country_code = _import_cell_code(cell("country_code")) or "CO"
+            country_code = country_code.upper()
+            state_code = _import_cell_code(cell("state_code"))
+            city_code = _import_cell_code(cell("city_code"))
+            city_name = cell("city_name")
+            destination_type = cell("destination_type").casefold()
+            if destination_type in {"departamento", "department", "depto"}:
+                destination_type = "department"
+            elif destination_type in {"ciudad", "city", "municipio", "municipality"}:
+                destination_type = "city"
+            else:
+                destination_type = "city" if city_name or city_code else "department"
+            if destination_type == "department":
+                city_code = ""
+                city_name = ""
+            elif not city_name and not city_code:
+                raise ValueError("una ciudad requiere city_name/ciudad o city_code/codigo_ciudad")
+
+            sort_order_text = cell("sort_order")
+            sort_order = int(float(sort_order_text)) if sort_order_text else 0
+            identity_code = (country_code, state_code.casefold(), city_code.casefold(), destination_type)
+            identity_name = (
+                country_code,
+                _shipping_destination_name_key(state_name),
+                _shipping_destination_name_key(city_name),
+                destination_type,
+            )
+            destination = existing_by_code.get(identity_code) if (state_code or city_code) else None
+            destination = destination or existing_by_name.get(identity_name)
+            if destination:
+                destination.country_code = country_code
+                destination.state_code = state_code or None
+                destination.state_name = state_name
+                destination.city_code = city_code or None
+                destination.city_name = city_name or None
+                destination.destination_type = destination_type
+                destination.sort_order = sort_order
+                destination.is_active = True
+                destination.updated_by_id = current_user.id
+                updated_count += 1
+            else:
+                destination = StorefrontShippingDestination(
+                    storefront_id=storefront_id,
+                    company_id=current_user.company_id,
+                    created_by_id=current_user.id,
+                    updated_by_id=current_user.id,
+                    country_code=country_code,
+                    state_code=state_code or None,
+                    state_name=state_name,
+                    city_code=city_code or None,
+                    city_name=city_name or None,
+                    destination_type=destination_type,
+                    sort_order=sort_order,
+                )
+                db.add(destination)
+                created_count += 1
+            add_existing_index(destination)
+        except (TypeError, ValueError, OverflowError) as exc:
+            errors.append(f"Fila {row_number}: {exc}")
+
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="El archivo contiene destinos duplicados o datos en conflicto.") from exc
+
+    return {
+        "success": True,
+        "count": created_count + updated_count,
+        "created": created_count,
+        "updated": updated_count,
+        "skipped": skipped_count,
+        "error_count": len(errors),
+        "errors": errors[:100],
+    }
 
 
 @router.put("/shipping/destinations/{destination_id}", response_model=schemas.StorefrontShippingDestination)

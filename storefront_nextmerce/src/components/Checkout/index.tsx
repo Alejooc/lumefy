@@ -152,6 +152,27 @@ function normalizeCheckoutSettings(settings: Record<string, unknown> | undefined
   };
 }
 
+function shippingStateKey(countryCode?: string | null, stateCode?: string | null, stateName?: string | null): string {
+  const normalize = (value?: string | null) =>
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+  return `${normalize(countryCode)}|${normalize(stateCode || stateName)}`;
+}
+
+function checkoutErrorMessage(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message : "";
+  if (/no hay una tarifa de envío disponible|no hay una tarifa de envio disponible/i.test(message)) {
+    return "No tenemos cobertura de envío para ese destino y método. Selecciona otra ubicación o contacta a la tienda.";
+  }
+  if (/método de envío seleccionado no está disponible|metodo de envio seleccionado no esta disponible/i.test(message)) {
+    return "El método de envío seleccionado ya no está disponible. Elige otra opción.";
+  }
+  return message || fallback;
+}
+
 const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
@@ -177,6 +198,42 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   const idempotencyKeyRef = useRef<string>(createCheckoutIdempotencyKey());
   const previewRequestRef = useRef(0);
 
+  const shippingStateOptions = useMemo(() => {
+    const options = new Map<string, {
+      key: string;
+      country_code: string;
+      state_code?: string | null;
+      state_name: string;
+      department_destination_id?: string;
+    }>();
+    shippingConfig.destinations.forEach((destination) => {
+      const key = shippingStateKey(destination.country_code, destination.state_code, destination.state_name);
+      const current = options.get(key);
+      if (!current) {
+        options.set(key, {
+          key,
+          country_code: destination.country_code,
+          state_code: destination.state_code,
+          state_name: destination.state_name,
+          department_destination_id: destination.destination_type === "department" ? destination.id : undefined,
+        });
+      } else if (!current.department_destination_id && destination.destination_type === "department") {
+        current.department_destination_id = destination.id;
+      }
+    });
+    return Array.from(options.values()).sort((a, b) => a.state_name.localeCompare(b.state_name, "es"));
+  }, [shippingConfig.destinations]);
+
+  const selectedShippingStateKey = shippingStateKey(form.country, form.state_code, form.state);
+  const hasSelectedShippingState = Boolean(form.state.trim() || form.state_code.trim());
+  const shippingCityOptions = useMemo(
+    () => shippingConfig.destinations
+      .filter((destination) => destination.destination_type === "city")
+      .filter((destination) => shippingStateKey(destination.country_code, destination.state_code, destination.state_name) === selectedShippingStateKey)
+      .sort((a, b) => (a.city_name || a.city_code || "").localeCompare(b.city_name || b.city_code || "", "es")),
+    [selectedShippingStateKey, shippingConfig.destinations],
+  );
+
   const payloadItems = useMemo(
     () =>
       cartItems
@@ -199,10 +256,20 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
 
   const payloadSignature = JSON.stringify(payloadItems);
   const shippingSignature = JSON.stringify({
-    address: { city: form.city, state: form.state, country: form.country, city_code: form.city_code, state_code: form.state_code },
+    address: {
+      line1: form.address_line1,
+      postal_code: form.postal_code,
+      city: form.city,
+      state: form.state,
+      country: form.country,
+      city_code: form.city_code,
+      state_code: form.state_code,
+    },
     payment_provider: form.payment_provider,
     shipping_method_id: form.shipping_method_id,
   });
+
+  const noCoverage = /no tenemos cobertura|no hay una tarifa de envío|no hay una tarifa de envio/i.test(error);
 
   const canSubmit =
     payloadItems.length > 0 &&
@@ -215,6 +282,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
     paymentOptions.length > 0 &&
     (shippingConfig.methods.length === 0 || Boolean(form.shipping_method_id)) &&
     (shippingConfig.destinations.length === 0 || Boolean(form.shipping_destination_id)) &&
+    !noCoverage &&
     (!requiresAccount || authenticatedForStorefront) &&
     (!settings.require_phone || Boolean(form.phone.trim())) &&
     (form.payment_provider !== "addi" || (Boolean(form.phone.trim()) && Boolean(form.document_id.trim())));
@@ -260,7 +328,17 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
           const destinationId = current.shipping_destination_id && config.destinations.some((item) => item.id === current.shipping_destination_id)
             ? current.shipping_destination_id
             : "";
-          return { ...current, shipping_method_id: methodId, shipping_destination_id: destinationId };
+          const destination = config.destinations.find((item) => item.id === destinationId);
+          return {
+            ...current,
+            shipping_method_id: methodId,
+            shipping_destination_id: destinationId,
+            country: destination?.country_code || current.country,
+            state: destination?.state_name || current.state,
+            state_code: destination?.state_code || current.state_code,
+            city: destination?.city_name || current.city,
+            city_code: destination?.city_code || current.city_code,
+          };
         });
       })
       .catch(() => {
@@ -318,9 +396,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
       if (requestId === previewRequestRef.current) {
         setPreview(null);
         setError(
-          err instanceof Error
-            ? err.message
-            : "No pudimos calcular el resumen de tu pedido.",
+          checkoutErrorMessage(err, "No pudimos calcular el resumen de tu pedido."),
         );
       }
       return null;
@@ -336,7 +412,23 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
     setAppliedCoupon(couponInput.trim().toUpperCase() || null);
   }
 
-  function selectShippingDestination(destinationId: string) {
+  function selectShippingState(stateKey: string) {
+    const state = shippingStateOptions.find((option) => option.key === stateKey);
+    const stateCities = shippingConfig.destinations.filter(
+      (destination) => destination.destination_type === "city" && shippingStateKey(destination.country_code, destination.state_code, destination.state_name) === stateKey,
+    );
+    setForm((current) => ({
+      ...current,
+      shipping_destination_id: stateCities.length ? "" : state?.department_destination_id || "",
+      country: state?.country_code || current.country,
+      state: state?.state_name || "",
+      state_code: state?.state_code || "",
+      city: "",
+      city_code: "",
+    }));
+  }
+
+  function selectShippingCity(destinationId: string) {
     const destination = shippingConfig.destinations.find((item) => item.id === destinationId);
     setForm((current) => ({
       ...current,
@@ -458,9 +550,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
 
       router.push(`/checkout/success?${params.toString()}`);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "No pudimos completar tu pedido.",
-      );
+      setError(checkoutErrorMessage(err, "No pudimos completar tu pedido."));
     } finally {
       setSubmitLoading(false);
     }
@@ -610,25 +700,62 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
 
                     {shippingConfig.destinations.length > 0 ? (
                       <div className="mb-5">
-                        <label htmlFor="shippingDestination" className="block mb-2.5">
-                          Destino de entrega <span className="text-red">*</span>
-                        </label>
-                        <select
-                          id="shippingDestination"
-                          value={form.shipping_destination_id}
-                          onChange={(event) => selectShippingDestination(event.target.value)}
-                          className="rounded-md border border-gray-3 bg-gray-1 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                        >
-                          <option value="">Selecciona tu ciudad</option>
-                          {shippingConfig.destinations.map((destination) => (
-                            <option key={destination.id} value={destination.id}>
-                              {destination.city_name
-                                ? `${destination.city_name}, ${destination.state_name}`
-                                : destination.state_name}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="mt-2 text-xs text-dark-5">La tarifa se calculará según este destino.</p>
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                          <div>
+                            <label htmlFor="shippingState" className="block mb-2.5">
+                              Departamento <span className="text-red">*</span>
+                            </label>
+                            <select
+                              id="shippingState"
+                              value={hasSelectedShippingState ? selectedShippingStateKey : ""}
+                              onChange={(event) => selectShippingState(event.target.value)}
+                              className="rounded-md border border-gray-3 bg-gray-1 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                            >
+                              <option value="">Selecciona tu departamento</option>
+                              {shippingStateOptions.map((state) => (
+                                <option key={state.key} value={state.key}>{state.state_name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {hasSelectedShippingState && shippingCityOptions.length > 0 ? (
+                            <div>
+                              <label htmlFor="shippingCity" className="block mb-2.5">
+                                Ciudad <span className="text-red">*</span>
+                              </label>
+                              <select
+                                id="shippingCity"
+                                value={form.shipping_destination_id}
+                                onChange={(event) => selectShippingCity(event.target.value)}
+                                className="rounded-md border border-gray-3 bg-gray-1 w-full py-2.5 px-5 outline-none focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                              >
+                                <option value="">Selecciona tu ciudad</option>
+                                {shippingCityOptions.map((destination) => (
+                                  <option key={destination.id} value={destination.id}>{destination.city_name || destination.city_code}</option>
+                                ))}
+                              </select>
+                            </div>
+                          ) : hasSelectedShippingState ? (
+                            <div>
+                              <label htmlFor="shippingCityManual" className="block mb-2.5">
+                                Ciudad <span className="text-red">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                id="shippingCityManual"
+                                value={form.city}
+                                onChange={(event) => setForm({ ...form, city: event.target.value, city_code: "" })}
+                                placeholder="Escribe tu ciudad o municipio"
+                                className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 text-xs text-dark-5">
+                          {hasSelectedShippingState && shippingCityOptions.length > 0
+                            ? "Selecciona los valores configurados por la tienda para calcular tu tarifa."
+                            : "La tienda cubre este departamento; escribe tu ciudad para validar la tarifa."}
+                        </p>
                       </div>
                     ) : (
                       <>
@@ -799,9 +926,13 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                       <div>
                         <p className="text-dark text-right">
                           {preview
-                            ? preview.shipping > 0
-                              ? moneyLabel(preview.currency, preview.shipping)
-                              : "Gratis"
+                            ? preview.shipping_requires_destination
+                              ? "Selecciona destino"
+                              : preview.shipping_quote_required
+                                ? "Por cotizar"
+                                : preview.shipping > 0
+                                  ? moneyLabel(preview.currency, preview.shipping)
+                                  : "Gratis"
                             : "Calculando..."}
                         </p>
                       </div>
@@ -878,11 +1009,13 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                           </span>
                           <span className="shrink-0 font-medium text-dark">
                             {preview && preview.shipping_method_id === method.id
-                              ? preview.shipping_quote_required
-                                ? "Por cotizar"
-                                : preview.shipping > 0
-                                  ? moneyLabel(preview.currency, preview.shipping)
-                                  : "Gratis"
+                              ? preview.shipping_requires_destination
+                                ? "Selecciona destino"
+                                : preview.shipping_quote_required
+                                  ? "Por cotizar"
+                                  : preview.shipping > 0
+                                    ? moneyLabel(preview.currency, preview.shipping)
+                                    : "Gratis"
                               : "—"}
                           </span>
                         </label>
