@@ -60,6 +60,16 @@ class Sale(BaseModel):
     payments = relationship("Payment", back_populates="sale", cascade="all, delete-orphan")
     storefront_order = relationship("StorefrontOrder", back_populates="sale", uselist=False)
 
+    @property
+    def payment_status(self) -> str | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.payment_status if storefront_order else None
+
+    @property
+    def payment_provider(self) -> str | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.payment_provider if storefront_order else None
+
 class SaleItem(BaseModel):
     __tablename__ = "sale_items"
 

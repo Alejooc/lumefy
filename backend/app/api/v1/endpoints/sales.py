@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.models.sale import Sale, SaleItem, SaleStatus, Payment
+from app.models.audit import AuditLog
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.services.outbox import enqueue_outbox_event
@@ -16,6 +17,7 @@ from app.models.client import Client
 from app.models.logistics import SalePackage, SalePackageItem
 from app.models.user import User
 from app.core.permissions import PermissionChecker
+from app.core.audit import log_sale_event
 from app.services.inventory_consumption import consume_fifo_lots
 from app.schemas import sale as schemas
 import uuid
@@ -63,7 +65,8 @@ async def read_sales(
     query = select(Sale).options(
         selectinload(Sale.client),
         selectinload(Sale.user),
-        selectinload(Sale.branch)
+        selectinload(Sale.branch),
+        selectinload(Sale.storefront_order)
     ).where(
         Sale.company_id == current_user.company_id
     ).offset(skip).limit(limit).order_by(Sale.created_at.desc())
@@ -92,6 +95,7 @@ async def export_sales(
         selectinload(Sale.client),
         selectinload(Sale.user),
         selectinload(Sale.branch),
+        selectinload(Sale.storefront_order),
     ).where(Sale.company_id == current_user.company_id).order_by(Sale.created_at.desc())
 
     if status:
@@ -134,6 +138,47 @@ async def export_sales(
         return ExportService.to_csv_response(rows, columns, filename="ventas")
     return ExportService.to_excel_response(rows, columns, filename="ventas")
 
+
+@router.get("/{id}/timeline", response_model=List[schemas.SaleTimelineEvent])
+async def read_sale_timeline(
+    *,
+    db: AsyncSession = Depends(get_db),
+    id: uuid.UUID,
+    current_user: User = Depends(PermissionChecker("view_sales")),
+) -> Any:
+    """Return chronological business and payment events for a sale."""
+    sale_exists = await db.scalar(
+        select(Sale.id).where(Sale.id == id, Sale.company_id == current_user.company_id)
+    )
+    if not sale_exists:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    result = await db.execute(
+        select(AuditLog)
+        .where(
+            AuditLog.company_id == current_user.company_id,
+            AuditLog.entity_type == "Sale",
+            AuditLog.entity_id == str(id),
+        )
+        .order_by(AuditLog.created_at.asc())
+    )
+    events = []
+    for event in result.scalars().all():
+        details = event.details or {}
+        events.append({
+            "id": event.id,
+            "event_type": details.get("event_type") or event.action,
+            "title": details.get("title") or event.action,
+            "description": details.get("description"),
+            "status": details.get("status") or "info",
+            "provider": details.get("provider"),
+            "reference": details.get("reference"),
+            "metadata": details.get("metadata") or {},
+            "actor_type": details.get("actor_type") or ("user" if event.user_id else "system"),
+            "created_at": event.created_at,
+        })
+    return events
+
 @router.get("/{id}", response_model=schemas.Sale)
 async def read_sale(
     *,
@@ -156,7 +201,8 @@ async def read_sale(
         selectinload(Sale.payments),
         selectinload(Sale.client),
         selectinload(Sale.user),
-        selectinload(Sale.branch)
+        selectinload(Sale.branch),
+        selectinload(Sale.storefront_order)
     ).where(
         Sale.id == id,
         Sale.company_id == current_user.company_id
@@ -233,6 +279,16 @@ async def create_sale(
         # 3. Finalize
         sale.subtotal = total_amount
         sale.total = total_amount # + tax + shipping
+
+        await log_sale_event(
+            db,
+            sale_id=str(sale.id),
+            company_id=str(current_user.company_id),
+            event_type="ORDER_CREATED",
+            title="Venta creada",
+            description="Venta creada desde el panel administrativo.",
+            user_id=str(current_user.id),
+        )
         
         # Las cuentas por cobrar se generan al contabilizar una factura. Una
         # orden comercial por sí sola no debe modificar el saldo del cliente.
@@ -332,7 +388,8 @@ async def update_status(
         selectinload(Sale.payments),
         selectinload(Sale.client),
         selectinload(Sale.user),
-        selectinload(Sale.branch)
+        selectinload(Sale.branch),
+        selectinload(Sale.storefront_order)
     ).where(
         Sale.id == id,
         Sale.company_id == current_user.company_id
@@ -535,6 +592,26 @@ async def update_status(
                     ))
     
     sale.status = new_status
+    status_titles = {
+        SaleStatus.CONFIRMED: "Orden confirmada",
+        SaleStatus.PICKING: "Picking iniciado",
+        SaleStatus.PACKING: "Orden empacada",
+        SaleStatus.DISPATCHED: "Orden despachada",
+        SaleStatus.DELIVERED: "Orden entregada",
+        SaleStatus.COMPLETED: "Venta completada",
+        SaleStatus.CANCELLED: "Orden cancelada",
+    }
+    await log_sale_event(
+        db,
+        sale_id=str(sale.id),
+        company_id=str(current_user.company_id),
+        event_type="SALE_STATUS_CHANGED",
+        title=status_titles.get(new_status, "Estado actualizado"),
+        description=f"El estado cambió de {old_status.value} a {new_status.value}.",
+        status="warning" if new_status == SaleStatus.CANCELLED else "success",
+        metadata={"from": old_status.value, "to": new_status.value},
+        user_id=str(current_user.id),
+    )
     if new_status == SaleStatus.CONFIRMED:
         enqueue_outbox_event(
             db, event_type="inventory.reserved", aggregate_type="sale", aggregate_id=sale.id,
@@ -703,6 +780,7 @@ async def confirm_delivery(
             selectinload(Sale.user),
             selectinload(Sale.branch),
             selectinload(Sale.client),
+            selectinload(Sale.storefront_order),
         ).where(
             Sale.id == sale_id,
             Sale.company_id == current_user.company_id,
@@ -721,9 +799,57 @@ async def confirm_delivery(
     sale.delivery_notes = delivery_in.notes
     sale.delivery_evidence_url = delivery_in.evidence_url
 
+    # A delivered cash-on-delivery order represents a collected payment. Keep
+    # the financial state separate from fulfillment, but close both states at
+    # the point where the delivery is confirmed.
+    storefront_order = sale.__dict__.get("storefront_order")
+    if storefront_order and storefront_order.payment_provider == "cod":
+        previous_payment_status = (storefront_order.payment_status or "pending").lower()
+        if previous_payment_status not in {"approved", "approved_partial"}:
+            storefront_order.payment_status = "approved"
+            cod_payment = next(
+                (payment for payment in sale.payments if (payment.method or "").lower() == "cod"),
+                None,
+            )
+            if cod_payment and not cod_payment.reference:
+                cod_payment.reference = "cod_delivery"
+            await log_sale_event(
+                db,
+                sale_id=str(sale.id),
+                company_id=str(current_user.company_id),
+                event_type="PAYMENT_STATUS_UPDATED",
+                title="Pago contraentrega recibido",
+                description="El pago fue registrado al confirmar la entrega.",
+                status="success",
+                provider="cod",
+                reference=cod_payment.reference if cod_payment else "cod_delivery",
+                metadata={"from": previous_payment_status, "to": "approved", "source": "delivery"},
+            )
+
+    await log_sale_event(
+        db,
+        sale_id=str(sale.id),
+        company_id=str(current_user.company_id),
+        event_type="SALE_STATUS_CHANGED",
+        title="Orden entregada",
+        description="La entrega fue confirmada desde el panel.",
+        status="success",
+        metadata={"to": SaleStatus.DELIVERED.value},
+        user_id=str(current_user.id),
+    )
+
     await db.commit()
-    await db.refresh(sale)
-    return sale
+    refreshed = await db.execute(
+        select(Sale).options(
+            selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(Sale.payments),
+            selectinload(Sale.client),
+            selectinload(Sale.user),
+            selectinload(Sale.branch),
+            selectinload(Sale.storefront_order),
+        ).where(Sale.id == sale_id)
+    )
+    return refreshed.scalars().first()
 
 
 @router.post("/{sale_id}/complete", response_model=schemas.Sale)
@@ -748,6 +874,7 @@ async def complete_sale(
             selectinload(Sale.user),
             selectinload(Sale.branch),
             selectinload(Sale.client),
+            selectinload(Sale.storefront_order),
         ).where(
             Sale.id == sale_id,
             Sale.company_id == current_user.company_id,
@@ -760,11 +887,42 @@ async def complete_sale(
     if sale.status != SaleStatus.DELIVERED:
         raise HTTPException(status_code=400, detail=f"Sale must be DELIVERED to complete. Current: {sale.status.value}")
 
+    storefront_order = sale.__dict__.get("storefront_order")
+    if storefront_order and (storefront_order.payment_status or "pending").lower() not in {
+        "approved",
+        "approved_partial",
+    }:
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede cerrar la venta mientras el pago siga pendiente o rechazado",
+        )
+
     from datetime import datetime, timezone
     sale.status = SaleStatus.COMPLETED
     sale.completed_at = datetime.now(timezone.utc)
 
+    await log_sale_event(
+        db,
+        sale_id=str(sale.id),
+        company_id=str(current_user.company_id),
+        event_type="SALE_STATUS_CHANGED",
+        title="Venta completada",
+        description="La venta fue cerrada desde el panel.",
+        status="success",
+        metadata={"to": SaleStatus.COMPLETED.value},
+        user_id=str(current_user.id),
+    )
+
     await db.commit()
-    await db.refresh(sale)
-    return sale
+    refreshed = await db.execute(
+        select(Sale).options(
+            selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(Sale.payments),
+            selectinload(Sale.client),
+            selectinload(Sale.user),
+            selectinload(Sale.branch),
+            selectinload(Sale.storefront_order),
+        ).where(Sale.id == sale_id)
+    )
+    return refreshed.scalars().first()
 

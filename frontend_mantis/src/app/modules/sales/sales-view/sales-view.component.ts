@@ -2,7 +2,7 @@ import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { SaleService, Sale } from '../../../core/services/sale.service';
+import { SaleService, Sale, SaleTimelineEvent } from '../../../core/services/sale.service';
 import Swal from 'sweetalert2';
 import { LogisticsService } from '../../logistics/logistics.service';
 import { InvoiceService } from '../../../core/services/invoice.service';
@@ -15,6 +15,7 @@ import { InvoiceService } from '../../../core/services/invoice.service';
 })
 export class SalesViewComponent implements OnInit {
     sale: Sale | null = null;
+    timeline: SaleTimelineEvent[] = [];
     loading = false;
     packedQuantities: { [key: string]: number } = {};
 
@@ -51,6 +52,7 @@ export class SalesViewComponent implements OnInit {
                 this.sale = data;
                 this.loading = false;
                 this.cdr.detectChanges(); // Force UI update
+                this.loadTimeline(id);
 
                 // Fetch packages if status warrants it (or always)
                 if (['PICKING', 'PACKING', 'DISPATCHED', 'DELIVERED'].includes(this.sale.status)) {
@@ -62,6 +64,18 @@ export class SalesViewComponent implements OnInit {
                 this.cdr.detectChanges();
                 Swal.fire('Error', 'No se pudo cargar la venta', 'error');
                 this.router.navigate(['/sales']);
+            }
+        });
+    }
+
+    loadTimeline(saleId: string) {
+        this.saleService.getTimeline(saleId).subscribe({
+            next: (events) => {
+                this.timeline = events;
+                this.cdr.detectChanges();
+            },
+            error: () => {
+                this.timeline = [];
             }
         });
     }
@@ -184,6 +198,7 @@ export class SalesViewComponent implements OnInit {
                     next: (updated) => {
                         this.sale = updated;
                         this.loading = false;
+                        this.loadTimeline(this.sale.id);
                         this.cdr.detectChanges();
                         Swal.fire('Actualizado', 'El estado ha sido actualizado.', 'success');
                     },
@@ -209,6 +224,70 @@ export class SalesViewComponent implements OnInit {
             case 'COMPLETED': return 'badge bg-success';
             case 'CANCELLED': return 'badge bg-danger';
             default: return 'badge bg-secondary';
+        }
+    }
+
+    getPaymentStatusLabel(status?: string): string {
+        switch ((status || '').toLowerCase()) {
+            case 'approved':
+            case 'approved_partial': return 'Pago aprobado';
+            case 'pending': return 'Pago pendiente';
+            case 'declined': return 'Pago rechazado';
+            case 'cancelled':
+            case 'voided': return 'Pago cancelado';
+            case 'expired': return 'Pago expirado';
+            case 'error': return 'Error de pago';
+            case 'approved_stock_unavailable': return 'Pago aprobado · revisar stock';
+            default: return status || 'Sin pago registrado';
+        }
+    }
+
+    getStatusLabel(status: string): string {
+        switch (status) {
+            case 'QUOTE': return 'Cotización';
+            case 'DRAFT': return 'Borrador';
+            case 'CONFIRMED': return 'Confirmada';
+            case 'PICKING': return 'En preparación';
+            case 'PACKING': return 'Empacando';
+            case 'DISPATCHED': return 'Despachada';
+            case 'DELIVERED': return 'Entregada';
+            case 'COMPLETED': return 'Completada';
+            case 'CANCELLED': return 'Cancelada';
+            default: return status;
+        }
+    }
+
+    getPaymentStatusClass(status?: string): string {
+        const normalized = (status || '').toLowerCase();
+        if (['approved', 'approved_partial'].includes(normalized)) return 'badge bg-success';
+        if (['declined', 'cancelled', 'voided', 'expired', 'error'].includes(normalized)) return 'badge bg-danger';
+        if (normalized === 'approved_stock_unavailable') return 'badge bg-warning text-dark';
+        return 'badge bg-warning text-dark';
+    }
+
+    getPaymentProviderLabel(provider?: string): string {
+        switch ((provider || '').toLowerCase()) {
+            case 'cod': return 'Contraentrega';
+            case 'wompi': return 'Wompi';
+            default: return provider || 'No especificado';
+        }
+    }
+
+    getTimelineIcon(event: SaleTimelineEvent): string {
+        const type = event.event_type.toUpperCase();
+        if (type.includes('PAYMENT') || type.includes('WEBHOOK')) return 'ti ti-credit-card';
+        if (type.includes('INVENTORY')) return 'ti ti-package';
+        if (type.includes('STATUS')) return 'ti ti-refresh';
+        if (type.includes('CREATED')) return 'ti ti-shopping-cart';
+        return 'ti ti-activity';
+    }
+
+    getTimelineTone(event: SaleTimelineEvent): string {
+        switch (event.status) {
+            case 'success': return 'text-success bg-light-success';
+            case 'warning': return 'text-warning bg-light-warning';
+            case 'pending': return 'text-warning bg-light-warning';
+            default: return 'text-primary bg-light-primary';
         }
     }
 
@@ -257,6 +336,7 @@ export class SalesViewComponent implements OnInit {
             next: (updated) => {
                 this.sale = updated;
                 this.isSubmittingDelivery = false;
+                this.loadTimeline(this.sale.id);
                 this.closeDeliveryModal();
                 Swal.fire('Entregado', 'La entrega ha sido confirmada exitosamente.', 'success');
                 this.cdr.detectChanges();
@@ -288,6 +368,7 @@ export class SalesViewComponent implements OnInit {
                     next: (updated) => {
                         this.sale = updated;
                         this.loading = false;
+                        this.loadTimeline(this.sale.id);
                         this.cdr.detectChanges();
                         Swal.fire('Completada', 'La venta ha sido cerrada exitosamente.', 'success');
                     },

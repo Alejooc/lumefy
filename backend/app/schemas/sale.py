@@ -1,5 +1,5 @@
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field
 from uuid import UUID
 from datetime import datetime
 from app.schemas.product import Product
@@ -67,6 +67,8 @@ class Sale(SaleBase):
     discount: float
     shipping_cost: float
     total: float
+    payment_provider: Optional[str] = None
+    payment_status: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     
@@ -85,6 +87,19 @@ class Sale(SaleBase):
     class Config:
         from_attributes = True
 
+
+class SaleTimelineEvent(BaseModel):
+    id: UUID
+    event_type: str
+    title: str
+    description: Optional[str] = None
+    status: str = "info"
+    provider: Optional[str] = None
+    reference: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    actor_type: str = "system"
+    created_at: datetime
+
 class SaleSummary(SaleBase):
     id: UUID
     user_id: UUID
@@ -94,6 +109,8 @@ class SaleSummary(SaleBase):
     discount: float
     shipping_cost: float
     total: float
+    payment_provider: Optional[str] = None
+    payment_status: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     delivered_at: Optional[datetime] = None

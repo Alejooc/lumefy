@@ -20,6 +20,19 @@ export interface Payment {
     reference?: string;
 }
 
+export interface SaleTimelineEvent {
+    id: string;
+    event_type: string;
+    title: string;
+    description?: string;
+    status: 'info' | 'pending' | 'success' | 'warning' | string;
+    provider?: string;
+    reference?: string;
+    metadata?: Record<string, unknown>;
+    actor_type?: string;
+    created_at: string;
+}
+
 export interface Sale {
     id: string;
     branch_id: string;
@@ -31,6 +44,8 @@ export interface Sale {
     discount: number;
     shipping_cost: number;
     total: number;
+    payment_provider?: string;
+    payment_status?: string;
     payment_method?: string;
     valid_until?: string;
     shipping_address?: string;
@@ -82,6 +97,10 @@ export class SaleService {
 
     getSale(id: string): Observable<Sale> {
         return this.http.get<Sale>(`${this.apiUrl}/${id}`);
+    }
+
+    getTimeline(id: string): Observable<SaleTimelineEvent[]> {
+        return this.http.get<SaleTimelineEvent[]>(`${this.apiUrl}/${id}/timeline`);
     }
 
     createSale(saleData: SalePayload): Observable<Sale> {

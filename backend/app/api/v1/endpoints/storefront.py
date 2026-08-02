@@ -21,6 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app.core import auth, security
+from app.core.audit import log_sale_event
 from app.core.database import get_db
 from app.core.permissions import PermissionChecker
 from app.core.plan_limits import PlanLimitChecker
@@ -365,6 +366,19 @@ async def _apply_gateway_payment_status(
     normalized_status = status.lower()
     previous_status = (storefront_order.payment_status or "").lower()
     if previous_status == "approved" and normalized_status != "approved":
+        await log_sale_event(
+            db,
+            sale_id=str(sale.id),
+            company_id=str(sale.company_id),
+            event_type="PAYMENT_STATUS_IGNORED",
+            title="Actualización de pago ignorada",
+            description="Se recibió un estado posterior distinto a un pago ya aprobado.",
+            status="warning",
+            provider=provider,
+            reference=transaction_id,
+            metadata={"current": previous_status, "received": normalized_status},
+        )
+        await db.commit()
         return "ignored"
 
     payment = await db.scalar(
@@ -388,6 +402,21 @@ async def _apply_gateway_payment_status(
         SaleStatus.CONFIRMED,
     }:
         await _cancel_storefront_sale_and_release_reservation(db, sale)
+
+    final_status = (storefront_order.payment_status or normalized_status).lower()
+    if previous_status != final_status:
+        await log_sale_event(
+            db,
+            sale_id=str(sale.id),
+            company_id=str(sale.company_id),
+            event_type="PAYMENT_STATUS_UPDATED",
+            title="Estado de pago actualizado",
+            description=f"El proveedor reportó el pago como {final_status.upper()}.",
+            status="success" if final_status in {"approved", "approved_partial"} else "warning" if final_status in {"declined", "cancelled", "expired", "rejected"} else "pending",
+            provider=provider,
+            reference=transaction_id,
+            metadata={"from": previous_status or "none", "to": final_status},
+        )
 
     db.add(storefront_order)
     db.add(sale)
@@ -1337,7 +1366,28 @@ async def _reserve_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
             company_id=sale.company_id,
         ))
 
+    previous_status = sale.status
     sale.status = SaleStatus.CONFIRMED
+    await log_sale_event(
+        db,
+        sale_id=str(sale.id),
+        company_id=str(sale.company_id),
+        event_type="SALE_STATUS_CHANGED",
+        title="Orden confirmada",
+        description="La orden fue confirmada y quedó lista para preparación.",
+        status="success",
+        metadata={"from": previous_status.value, "to": SaleStatus.CONFIRMED.value},
+    )
+    await log_sale_event(
+        db,
+        sale_id=str(sale.id),
+        company_id=str(sale.company_id),
+        event_type="INVENTORY_RESERVED",
+        title="Inventario reservado",
+        description="El inventario quedó reservado para esta orden.",
+        status="success",
+        metadata={"warehouse_id": str(sale.warehouse_id)},
+    )
     enqueue_outbox_event(
         db,
         event_type="inventory.reserved",
@@ -1354,8 +1404,19 @@ async def _cancel_storefront_sale_and_release_reservation(
     sale: Sale,
 ) -> bool:
     """Cancel a checkout sale and release any reservation made at checkout."""
+    previous_status = sale.status
     if sale.status in {SaleStatus.DRAFT, SaleStatus.QUOTE}:
         sale.status = SaleStatus.CANCELLED
+        await log_sale_event(
+            db,
+            sale_id=str(sale.id),
+            company_id=str(sale.company_id),
+            event_type="SALE_STATUS_CHANGED",
+            title="Orden cancelada",
+            description="La orden fue cancelada por el estado del pago.",
+            status="warning",
+            metadata={"from": previous_status.value, "to": SaleStatus.CANCELLED.value},
+        )
         return True
     if sale.status != SaleStatus.CONFIRMED:
         return False
@@ -1399,6 +1460,25 @@ async def _cancel_storefront_sale_and_release_reservation(
         ))
 
     sale.status = SaleStatus.CANCELLED
+    await log_sale_event(
+        db,
+        sale_id=str(sale.id),
+        company_id=str(sale.company_id),
+        event_type="SALE_STATUS_CHANGED",
+        title="Orden cancelada",
+        description="La orden fue cancelada por el estado del pago.",
+        status="warning",
+        metadata={"from": previous_status.value, "to": SaleStatus.CANCELLED.value},
+    )
+    await log_sale_event(
+        db,
+        sale_id=str(sale.id),
+        company_id=str(sale.company_id),
+        event_type="INVENTORY_RELEASED",
+        title="Inventario liberado",
+        description="La reserva de inventario fue liberada al cancelar la orden.",
+        status="warning",
+    )
     enqueue_outbox_event(
         db,
         event_type="inventory.released",
@@ -3173,6 +3253,16 @@ async def create_public_checkout_order(
     db.add(sale)
 
     await db.flush()
+    await log_sale_event(
+        db,
+        sale_id=str(sale.id),
+        company_id=str(storefront.company_id),
+        event_type="ORDER_CREATED",
+        title="Pedido recibido",
+        description=f"Pedido creado desde la tienda con {gateway.display_name}.",
+        status="info",
+        provider=gateway.provider,
+    )
     if not await _reserve_storefront_sale(db, sale):
         raise HTTPException(status_code=400, detail="El stock ya no está disponible para completar este pedido")
 
@@ -3215,6 +3305,21 @@ async def create_public_checkout_order(
             created_by_id=sale_user.id,
             updated_by_id=sale_user.id,
         )
+    )
+
+    await log_sale_event(
+        db,
+        sale_id=str(sale.id),
+        company_id=str(storefront.company_id),
+        event_type="PAYMENT_PENDING",
+        title="Pago pendiente",
+        description=(
+            "La orden se cobrará al momento de la entrega."
+            if gateway.provider == "cod"
+            else f"Esperando confirmación de {gateway.display_name}."
+        ),
+        status="pending",
+        provider=gateway.provider,
     )
 
     await db.commit()
@@ -3553,6 +3658,20 @@ async def create_public_payment_intent(
         flow = "external_redirect"
         instructions = instructions or extra_config.get("instructions") or "Serás redirigido para completar el pago."
 
+    await log_sale_event(
+        db,
+        sale_id=str(storefront_order.sale_id),
+        company_id=str(storefront.company_id),
+        event_type="PAYMENT_INTENT_CREATED",
+        title="Intento de pago preparado",
+        description=f"Se preparó el checkout de {gateway.display_name}.",
+        status="info",
+        provider=gateway.provider,
+        reference=external_reference,
+        metadata={"flow": flow, "mode": mode},
+    )
+    await db.commit()
+
     return schemas.PublicPaymentIntentResponse(
         provider=gateway.provider,
         flow=flow,
@@ -3624,6 +3743,7 @@ async def read_public_payment_status(
 
     result_status = status
     if storefront_order:
+        previous_status = (storefront_order.payment_status or "").lower()
         storefront_order.payment_status = status.lower()
         storefront_order.updated_by_id = storefront_order.updated_by_id or storefront_order.created_by_id
         db.add(storefront_order)
@@ -3662,6 +3782,20 @@ async def read_public_payment_status(
             SaleStatus.CONFIRMED,
         }:
             await _cancel_storefront_sale_and_release_reservation(db, sale)
+        final_status = (storefront_order.payment_status or status).lower()
+        if previous_status != final_status:
+            await log_sale_event(
+                db,
+                sale_id=str(sale.id),
+                company_id=str(sale.company_id),
+                event_type="PAYMENT_STATUS_UPDATED",
+                title="Estado de pago verificado",
+                description=f"El estado consultado en Wompi es {final_status.upper()}.",
+                status="success" if final_status in {"approved", "approved_partial"} else "warning" if final_status in {"declined", "error", "voided"} else "pending",
+                provider="wompi",
+                reference=clean_transaction_id,
+                metadata={"from": previous_status or "none", "to": final_status, "source": "status_api"},
+            )
         sale.updated_by_id = sale.updated_by_id or sale.created_by_id
         db.add(sale)
         await db.commit()
@@ -3889,7 +4023,20 @@ async def receive_wompi_payment_event(
 
     sale = storefront_order.sale
     existing_status = (storefront_order.payment_status or "").lower()
+    await log_sale_event(
+        db,
+        sale_id=str(sale.id),
+        company_id=str(sale.company_id),
+        event_type="PAYMENT_WEBHOOK_RECEIVED",
+        title="Webhook de pago recibido",
+        description=f"Wompi notificó el estado {status}.",
+        status="info",
+        provider="wompi",
+        reference=transaction_id,
+        metadata={"provider_status": status},
+    )
     if existing_status in {"approved", "approved_partial"} and status not in {"APPROVED", "APPROVED_PARTIAL"}:
+        await db.commit()
         return {"received": True, "ignored": True}
 
     if status in {"APPROVED", "APPROVED_PARTIAL"}:
@@ -3919,6 +4066,20 @@ async def receive_wompi_payment_event(
         SaleStatus.CONFIRMED,
     }:
         await _cancel_storefront_sale_and_release_reservation(db, sale)
+    final_status = (storefront_order.payment_status or status).lower()
+    if existing_status != final_status:
+        await log_sale_event(
+            db,
+            sale_id=str(sale.id),
+            company_id=str(sale.company_id),
+            event_type="PAYMENT_STATUS_UPDATED",
+            title="Estado de pago actualizado",
+            description=f"El pago quedó en estado {final_status.upper()}.",
+            status="success" if final_status in {"approved", "approved_partial"} else "warning" if final_status in {"declined", "error", "voided"} else "pending",
+            provider="wompi",
+            reference=transaction_id,
+            metadata={"from": existing_status or "none", "to": final_status},
+        )
     db.add(sale)
     await db.commit()
     return {"received": True}
