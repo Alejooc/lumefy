@@ -70,6 +70,26 @@ class Sale(BaseModel):
         storefront_order = self.__dict__.get("storefront_order")
         return storefront_order.payment_provider if storefront_order else None
 
+    @property
+    def shipping_city(self) -> str | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.shipping_city if storefront_order else None
+
+    @property
+    def shipping_state(self) -> str | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.shipping_state if storefront_order else None
+
+    @property
+    def shipping_country(self) -> str | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.shipping_country if storefront_order else None
+
+    @property
+    def shipping_postal_code(self) -> str | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.shipping_postal_code if storefront_order else None
+
 class SaleItem(BaseModel):
     __tablename__ = "sale_items"
 

@@ -49,6 +49,10 @@ export interface Sale {
     payment_method?: string;
     valid_until?: string;
     shipping_address?: string;
+    shipping_city?: string;
+    shipping_state?: string;
+    shipping_country?: string;
+    shipping_postal_code?: string;
     notes?: string;
     created_at: string;
     updated_at?: string;

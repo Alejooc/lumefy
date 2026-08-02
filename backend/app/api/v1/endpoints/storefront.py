@@ -3194,24 +3194,6 @@ async def create_public_checkout_order(
         db.add(storefront_customer_account)
     buyer_note = payload.notes if bool(checkout_settings.get("enable_order_notes", True)) else None
 
-    notes_parts = [
-        "Ecommerce order",
-        f"storefront_id={storefront.id}",
-        f"customer={customer_name}<{customer_email}>",
-        f"phone={payload.customer.phone or ''}",
-        f"document_id={payload.customer.document_id or ''}",
-        f"address={address_line1}",
-        f"city={payload.address.city or ''}",
-        f"state={payload.address.state or ''}",
-        f"country={payload.address.country or ''}",
-        f"postal_code={payload.address.postal_code or ''}",
-        f"provider={gateway.provider}",
-    ]
-    if payload.coupon_code:
-        notes_parts.append(f"coupon={payload.coupon_code}")
-    if buyer_note:
-        notes_parts.append(f"buyer_note={buyer_note}")
-
     sale = Sale(
         branch_id=warehouse.branch_id,
         warehouse_id=warehouse.id,
@@ -3222,7 +3204,7 @@ async def create_public_checkout_order(
         # pending or a manual transfer is being verified.
         status=SaleStatus.DRAFT,
         payment_method=gateway.provider,
-        notes=" | ".join(notes_parts),
+        notes=buyer_note,
         shipping_address=address_line1,
         subtotal=subtotal,
         tax=tax,
@@ -3262,6 +3244,11 @@ async def create_public_checkout_order(
         description=f"Pedido creado desde la tienda con {gateway.display_name}.",
         status="info",
         provider=gateway.provider,
+        metadata={
+            "source": "storefront",
+            "storefront_id": str(storefront.id),
+            "payment_provider": gateway.provider,
+        },
     )
     if not await _reserve_storefront_sale(db, sale):
         raise HTTPException(status_code=400, detail="El stock ya no está disponible para completar este pedido")

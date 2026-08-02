@@ -69,6 +69,10 @@ class Sale(SaleBase):
     total: float
     payment_provider: Optional[str] = None
     payment_status: Optional[str] = None
+    shipping_city: Optional[str] = None
+    shipping_state: Optional[str] = None
+    shipping_country: Optional[str] = None
+    shipping_postal_code: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     
@@ -111,6 +115,10 @@ class SaleSummary(SaleBase):
     total: float
     payment_provider: Optional[str] = None
     payment_status: Optional[str] = None
+    shipping_city: Optional[str] = None
+    shipping_state: Optional[str] = None
+    shipping_country: Optional[str] = None
+    shipping_postal_code: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     delivered_at: Optional[datetime] = None

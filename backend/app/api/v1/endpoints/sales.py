@@ -26,6 +26,18 @@ from datetime import datetime
 router = APIRouter()
 
 
+def _prepare_sale_for_response(sale: Sale | None) -> Sale | None:
+    """Keep storefront checkout metadata out of the generic sale notes field."""
+    if sale is None:
+        return None
+    storefront_order = sale.__dict__.get("storefront_order")
+    if storefront_order:
+        # New orders store this directly in StorefrontOrder. This also keeps
+        # legacy ecommerce notes from leaking into the admin UI.
+        sale.notes = storefront_order.buyer_note
+    return sale
+
+
 async def _validate_sale_relations(db: AsyncSession, sale_in: schemas.SaleCreate, company_id: uuid.UUID) -> None:
     if not sale_in.items:
         raise HTTPException(status_code=400, detail="La venta debe incluir al menos un producto")
@@ -77,7 +89,8 @@ async def read_sales(
         query = query.where(Sale.client_id == uuid.UUID(client_id))
         
     result = await db.execute(query)
-    return result.scalars().all()
+    sales = result.scalars().all()
+    return [_prepare_sale_for_response(sale) for sale in sales]
 
 @router.get("/export")
 async def export_sales(
@@ -212,7 +225,7 @@ async def read_sale(
     sale = result.scalars().first()
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
-    return sale
+    return _prepare_sale_for_response(sale)
 
 @router.post("/", response_model=schemas.Sale)
 async def create_sale(
@@ -638,13 +651,14 @@ async def update_status(
         selectinload(Sale.payments),
         selectinload(Sale.client),
         selectinload(Sale.user),
-        selectinload(Sale.branch)
+        selectinload(Sale.branch),
+        selectinload(Sale.storefront_order),
     ).where(Sale.id == id)
     
     result = await db.execute(query)
     sale = result.scalars().first()
     
-    return sale
+    return _prepare_sale_for_response(sale)
 
 @router.delete("/{id}")
 async def delete_sale(
@@ -714,7 +728,8 @@ async def download_pdf(
         ),
         selectinload(Sale.client),
         selectinload(Sale.user),
-        selectinload(Sale.branch)
+        selectinload(Sale.branch),
+        selectinload(Sale.storefront_order),
     ).where(
         Sale.id == id,
         Sale.company_id == current_user.company_id
@@ -724,6 +739,8 @@ async def download_pdf(
     
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
+
+    _prepare_sale_for_response(sale)
         
     # Validation logic
     if doc_type == "picking" and sale.status not in [SaleStatus.CONFIRMED, SaleStatus.PICKING, SaleStatus.PACKING, SaleStatus.DISPATCHED]:
@@ -849,7 +866,7 @@ async def confirm_delivery(
             selectinload(Sale.storefront_order),
         ).where(Sale.id == sale_id)
     )
-    return refreshed.scalars().first()
+    return _prepare_sale_for_response(refreshed.scalars().first())
 
 
 @router.post("/{sale_id}/complete", response_model=schemas.Sale)
@@ -924,5 +941,5 @@ async def complete_sale(
             selectinload(Sale.storefront_order),
         ).where(Sale.id == sale_id)
     )
-    return refreshed.scalars().first()
+    return _prepare_sale_for_response(refreshed.scalars().first())
 
