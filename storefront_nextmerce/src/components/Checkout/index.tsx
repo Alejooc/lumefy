@@ -190,6 +190,8 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   const [preview, setPreview] = useState<CheckoutPreviewResponse | null>(null);
   const [paymentOptions, setPaymentOptions] = useState<PublicStorePaymentGateway[]>([]);
   const [shippingConfig, setShippingConfig] = useState<PublicShippingConfig>({ destinations: [], methods: [] });
+  const [shippingConfigLoading, setShippingConfigLoading] = useState(true);
+  const [shippingConfigError, setShippingConfigError] = useState("");
   const [error, setError] = useState("");
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
@@ -280,6 +282,8 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
     Boolean(form.city.trim()) &&
     Boolean(form.state.trim()) &&
     paymentOptions.length > 0 &&
+    !shippingConfigLoading &&
+    !shippingConfigError &&
     (shippingConfig.methods.length === 0 || Boolean(form.shipping_method_id)) &&
     (shippingConfig.destinations.length === 0 || Boolean(form.shipping_destination_id)) &&
     !noCoverage &&
@@ -317,10 +321,14 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
 
   useEffect(() => {
     let active = true;
+    setShippingConfigLoading(true);
+    setShippingConfigError("");
     getPublicShippingConfig(storefrontId)
       .then((config) => {
         if (!active) return;
         setShippingConfig(config);
+        setShippingConfigLoading(false);
+        setShippingConfigError("");
         setForm((current) => {
           const methodId = current.shipping_method_id && config.methods.some((item) => item.id === current.shipping_method_id)
             ? current.shipping_method_id
@@ -342,7 +350,11 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
         });
       })
       .catch(() => {
-        if (active) setShippingConfig({ destinations: [], methods: [] });
+        if (active) {
+          setShippingConfig({ destinations: [], methods: [] });
+          setShippingConfigLoading(false);
+          setShippingConfigError("No se pudo validar la cobertura de esta tienda. Actualiza la página o inténtalo más tarde.");
+        }
       });
 
     return () => {
@@ -698,7 +710,15 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                       </div>
                     </div>
 
-                    {shippingConfig.destinations.length > 0 ? (
+                    {shippingConfigLoading ? (
+                      <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        Validando destinos y cobertura de envío...
+                      </div>
+                    ) : shippingConfigError ? (
+                      <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {shippingConfigError}
+                      </div>
+                    ) : shippingConfig.destinations.length > 0 ? (
                       <div className="mb-5">
                         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                           <div>

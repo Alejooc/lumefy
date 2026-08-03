@@ -604,6 +604,9 @@ class PublicShippingDestination(BaseModel):
     city_name: Optional[str] = None
     destination_type: str
 
+    class Config:
+        from_attributes = True
+
 
 class PublicShippingMethod(BaseModel):
     id: UUID
@@ -614,6 +617,9 @@ class PublicShippingMethod(BaseModel):
     sort_order: int = 0
     estimate_min_days: Optional[int] = None
     estimate_max_days: Optional[int] = None
+
+    class Config:
+        from_attributes = True
 
 
 class PublicShippingConfig(BaseModel):

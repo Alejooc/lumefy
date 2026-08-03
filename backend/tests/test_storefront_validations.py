@@ -25,12 +25,41 @@ from app.schemas.storefront import (
     PublicCheckoutPreviewRequest,
     PublicPaymentIntentRequest,
     PublicProduct,
+    PublicShippingDestination,
+    PublicShippingMethod,
 )
 from app.models.sale import SaleStatus
 from app.models.inventory_movement import InventoryMovement, MovementType
 
 
 class StorefrontValidationTests(unittest.TestCase):
+    def test_public_shipping_config_serializes_orm_rows(self):
+        destination = SimpleNamespace(
+            id=uuid4(),
+            country_code="CO",
+            state_code="76",
+            state_name="Valle del Cauca",
+            city_code="76001",
+            city_name="Cali",
+            destination_type="city",
+        )
+        method = SimpleNamespace(
+            id=uuid4(),
+            code="standard",
+            name="Entrega estándar",
+            description="Entrega nacional",
+            method_type="delivery",
+            sort_order=0,
+            estimate_min_days=2,
+            estimate_max_days=5,
+        )
+
+        serialized_destination = PublicShippingDestination.model_validate(destination)
+        serialized_method = PublicShippingMethod.model_validate(method)
+
+        self.assertEqual(serialized_destination.city_name, "Cali")
+        self.assertEqual(serialized_method.code, "standard")
+
     def test_checkout_requires_a_valid_customer_email(self):
         valid = PublicCheckoutCustomer(full_name="Cliente de prueba", email="cliente@example.com")
         self.assertEqual(str(valid.email), "cliente@example.com")
