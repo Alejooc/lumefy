@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator, model_validator
+from pydantic import EmailStr, Field, field_validator, model_validator
 from cryptography.fernet import Fernet
 from typing import Optional, Union
 
@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     # Email Settings
     MAIL_USERNAME: str = "admin@lumefy.com"
     MAIL_PASSWORD: str = "change-me"
-    MAIL_FROM: str = "admin@lumefy.com"
-    MAIL_PORT: int = 587
+    MAIL_FROM: EmailStr = "admin@lumefy.com"
+    MAIL_PORT: int = Field(default=587, ge=1, le=65535)
     MAIL_SERVER: str = "smtp.gmail.com"
     MAIL_FROM_NAME: str = "Lumefy Support"
     MAIL_STARTTLS: bool = True
@@ -56,14 +56,47 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_secrets(self) -> "Settings":
+        if self.MAIL_STARTTLS and self.MAIL_SSL_TLS:
+            raise ValueError("MAIL_STARTTLS and MAIL_SSL_TLS cannot both be enabled")
         if self.ENVIRONMENT.lower() != "production":
             return self
+        insecure_fragments = ("replace-with", "change-me", "admin123", "tu_clave")
+        production_values = {
+            "SECRET_KEY": (self.SECRET_KEY, 32),
+            "POSTGRES_PASSWORD": (self.POSTGRES_PASSWORD, 12),
+            "FIRST_SUPERUSER_PASSWORD": (self.FIRST_SUPERUSER_PASSWORD, 12),
+        }
+        for field_name, (value, minimum_length) in production_values.items():
+            if len(value) < minimum_length or any(
+                fragment in value.lower() for fragment in insecure_fragments
+            ):
+                raise ValueError(f"{field_name} is not safe for production")
+        if not self.DATABASE_URL:
+            raise ValueError("DATABASE_URL is required in production")
         if not self.CREDENTIAL_ENCRYPTION_KEY:
             raise ValueError("CREDENTIAL_ENCRYPTION_KEY is required in production")
         try:
             Fernet(self.CREDENTIAL_ENCRYPTION_KEY.encode("ascii"))
         except (ValueError, TypeError) as exc:
             raise ValueError("CREDENTIAL_ENCRYPTION_KEY must be a valid Fernet key") from exc
+        if self.CREDENTIAL_ENCRYPTION_KEY == self.SECRET_KEY:
+            raise ValueError("CREDENTIAL_ENCRYPTION_KEY must be different from SECRET_KEY")
+        if not self.MAIL_SERVER.strip():
+            raise ValueError("MAIL_SERVER is required in production")
+        if self.USE_CREDENTIALS:
+            smtp_values = {
+                "MAIL_USERNAME": (self.MAIL_USERNAME, 3),
+                "MAIL_PASSWORD": (self.MAIL_PASSWORD, 12),
+            }
+            for field_name, (value, minimum_length) in smtp_values.items():
+                if len(value) < minimum_length or any(
+                    fragment in value.lower() for fragment in insecure_fragments
+                ):
+                    raise ValueError(f"{field_name} is not safe for production")
+            if not (self.MAIL_STARTTLS or self.MAIL_SSL_TLS):
+                raise ValueError("Authenticated SMTP must use TLS in production")
+        if (self.MAIL_STARTTLS or self.MAIL_SSL_TLS) and not self.VALIDATE_CERTS:
+            raise ValueError("SMTP certificates must be validated in production")
         return self
 
     class Config:

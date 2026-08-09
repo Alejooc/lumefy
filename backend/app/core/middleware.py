@@ -1,9 +1,74 @@
+import json
+import logging
+import re
+import time
+from uuid import uuid4
+
+from starlette.datastructures import MutableHeaders
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from sqlalchemy import select
+
 from app.core.database import SessionLocal
 from app.models.system_setting import SystemSetting
+
+logger = logging.getLogger(__name__)
+REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+
+def _request_id(scope: dict) -> str:
+    for name, value in scope.get("headers", []):
+        if name.lower() == b"x-request-id":
+            candidate = value.decode("ascii", errors="ignore")
+            if REQUEST_ID_PATTERN.fullmatch(candidate):
+                return candidate
+            break
+    return uuid4().hex
+
+
+class RequestObservabilityMiddleware:
+    """Attach a safe correlation ID and emit one structured completion event."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request_id = _request_id(scope)
+        scope.setdefault("state", {})["request_id"] = request_id
+        started_at = time.perf_counter()
+        status_code = 500
+
+        async def send_with_request_id(message):
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+                headers = MutableHeaders(scope=message)
+                headers["X-Request-ID"] = request_id
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_with_request_id)
+        finally:
+            path = scope.get("path", "")
+            if path not in {"/healthz", "/readyz"} or status_code >= 400:
+                event = {
+                    "event": "http_request_completed",
+                    "request_id": request_id,
+                    "method": scope.get("method"),
+                    "path": path,
+                    "status": status_code,
+                    "duration_ms": round((time.perf_counter() - started_at) * 1000, 2),
+                }
+                logger.log(
+                    logging.WARNING if status_code >= 500 else logging.INFO,
+                    json.dumps(event, separators=(",", ":")),
+                )
+
 
 class MaintenanceMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -15,6 +80,7 @@ class MaintenanceMiddleware(BaseHTTPMiddleware):
             path.startswith("/docs") or 
             path.startswith("/openapi.json") or
             path.startswith("/static") or
+            path in {"/healthz", "/readyz"} or
             request.method == "OPTIONS" # CORS preflight
         ):
             return await call_next(request)
@@ -39,11 +105,9 @@ class MaintenanceMiddleware(BaseHTTPMiddleware):
                             "code": "MAINTENANCE_MODE"
                         }
                     )
-        except Exception as e:
+        except Exception:
             # If DB fails, we probably shouldn't block everything unless intended.
             # But if DB is down, app is effectively down.
-            import logging
-            logging.getLogger(__name__).warning(f"Maintenance check failed: {e}")
-            pass
+            logger.warning("Maintenance check failed", exc_info=True)
 
         return await call_next(request)

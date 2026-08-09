@@ -1,4 +1,4 @@
-FROM node:24-alpine AS build
+FROM node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS build
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:24-alpine AS runtime
+FROM node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS runtime
 
 WORKDIR /app
 ENV NODE_ENV=production
@@ -21,9 +21,11 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV INTERNAL_API_URL=http://backend:8000/api/v1
 
-COPY --from=build /app/public ./public
-COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.next/static ./.next/static
+COPY --from=build --chown=node:node /app/public ./public
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
+
+USER node
 
 EXPOSE 3000
 CMD ["node", "server.js"]

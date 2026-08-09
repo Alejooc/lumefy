@@ -1,43 +1,46 @@
-from typing import List, Any, Dict
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
-from pydantic import EmailStr
-from app.core.config import settings
-from pathlib import Path
+from email.message import EmailMessage
+from email.utils import formataddr
 import logging
 
-logger = logging.getLogger(__name__)
+import aiosmtplib
+from pydantic import EmailStr
 
-# Basic configuration
-conf = ConnectionConfig(
-    MAIL_USERNAME=settings.MAIL_USERNAME,
-    MAIL_PASSWORD=settings.MAIL_PASSWORD,
-    MAIL_FROM=settings.MAIL_FROM,
-    MAIL_PORT=settings.MAIL_PORT,
-    MAIL_SERVER=settings.MAIL_SERVER,
-    MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
-    MAIL_STARTTLS=settings.MAIL_STARTTLS,
-    MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
-    USE_CREDENTIALS=settings.USE_CREDENTIALS,
-    VALIDATE_CERTS=settings.VALIDATE_CERTS
-)
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 class EmailService:
     @staticmethod
     async def send_email(email_to: EmailStr, subject: str, html_content: str):
-        message = MessageSchema(
-            subject=subject,
-            recipients=[email_to],
-            body=html_content,
-            subtype=MessageType.html
+        message = EmailMessage()
+        message["From"] = formataddr((settings.MAIL_FROM_NAME, settings.MAIL_FROM))
+        message["To"] = str(email_to)
+        message["Subject"] = subject
+        message.set_content("Este mensaje requiere un cliente compatible con HTML.")
+        message.add_alternative(html_content, subtype="html")
+
+        credentials = (
+            (settings.MAIL_USERNAME, settings.MAIL_PASSWORD)
+            if settings.USE_CREDENTIALS
+            else (None, None)
         )
-        fm = FastMail(conf)
         try:
-            await fm.send_message(message)
-        except Exception as e:
-            logger.warning(f"Email send failed to {email_to}: {e}")
+            await aiosmtplib.send(
+                message,
+                hostname=settings.MAIL_SERVER,
+                port=settings.MAIL_PORT,
+                username=credentials[0],
+                password=credentials[1],
+                start_tls=settings.MAIL_STARTTLS,
+                use_tls=settings.MAIL_SSL_TLS,
+                validate_certs=settings.VALIDATE_CERTS,
+                timeout=30,
+            )
+        except Exception:
+            logger.warning("Email send failed to %s", email_to, exc_info=True)
             # Don't re-raise in dev to allow flow testing
-            if settings.ENVIRONMENT == "production":
-                raise e
+            if settings.ENVIRONMENT.lower() == "production":
+                raise
 
     @staticmethod
     async def send_reset_password_email(email_to: str, token: str):

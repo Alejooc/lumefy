@@ -1,7 +1,26 @@
+x-backend-service: &backend-service
+  build: ./backend
+  image: lumefy-backend:${LUMEFY_IMAGE_TAG:-local}
+  env_file:
+    - ${BACKEND_ENV_FILE:-./backend/.env.production}
+  environment:
+    REDIS_URL: redis://redis:6379/0
+  init: true
+  security_opt:
+    - no-new-privileges:true
+  logging: &default-logging
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:15-alpine@sha256:3d0f7584ed7d04e27fa050d6683a74746608faf21f202be78460d679cc56461f
     restart: unless-stopped
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
     env_file: ${ROOT_ENV_FILE:-.env.production}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -12,24 +31,37 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
     restart: unless-stopped
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  backend:
-    build: ./backend
-    restart: unless-stopped
-    env_file:
-      - ${BACKEND_ENV_FILE:-./backend/.env.production}
-    environment:
-      REDIS_URL: redis://redis:6379/0
+  migrate:
+    <<: *backend-service
+    restart: "no"
+    command: python -m alembic upgrade head
     depends_on:
       db:
         condition: service_healthy
-    command: >
-      sh -c "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
+
+  backend:
+    <<: *backend-service
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*
     volumes:
       - backend_static:/app/static
     networks:
@@ -46,36 +78,45 @@ services:
       start_period: 30s
 
   outbox-relay:
-    build: ./backend
+    <<: *backend-service
     restart: unless-stopped
     command: python -m app.workers.outbox_relay
-    env_file:
-      - ${BACKEND_ENV_FILE:-./backend/.env.production}
-    environment:
-      REDIS_URL: redis://redis:6379/0
-    depends_on: [db, redis]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
 
   operations-consumer:
-    build: ./backend
+    <<: *backend-service
     restart: unless-stopped
     command: python -m app.workers.operations_consumer
-    env_file:
-      - ${BACKEND_ENV_FILE:-./backend/.env.production}
-    environment:
-      REDIS_URL: redis://redis:6379/0
-    depends_on: [db, redis, outbox-relay]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      outbox-relay:
+        condition: service_started
 
   email-delivery-worker:
-    build: ./backend
+    <<: *backend-service
     restart: unless-stopped
     command: python -m app.workers.email_delivery_worker
-    env_file:
-      - ${BACKEND_ENV_FILE:-./backend/.env.production}
-    depends_on: [db, operations-consumer]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      operations-consumer:
+        condition: service_started
 
   frontend:
     build: ./frontend_mantis
+    image: lumefy-frontend:${LUMEFY_IMAGE_TAG:-local}
     restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     depends_on:
       backend:
         condition: service_healthy
@@ -97,7 +138,12 @@ services:
       args:
         NEXT_PUBLIC_API_URL: /api/v1
         NEXT_PUBLIC_PLATFORM_STOREFRONT_DOMAIN: ${PLATFORM_STOREFRONT_DOMAIN}
+    image: lumefy-storefront:${LUMEFY_IMAGE_TAG:-local}
     restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     environment:
       NEXT_PUBLIC_API_URL: /api/v1
       NEXT_PUBLIC_PLATFORM_STOREFRONT_DOMAIN: ${PLATFORM_STOREFRONT_DOMAIN}
@@ -120,8 +166,11 @@ services:
 
   caddy:
     profiles: ["caddy"]
-    image: caddy:2.8-alpine
+    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
     ports:
       - "80:80"
       - "443:443"
@@ -143,15 +192,15 @@ services:
 
 volumes:
   postgres_data:
-    name: lumefy_postgres_data
+    name: ${POSTGRES_VOLUME_NAME:-lumefy_postgres_data}
   redis_data:
-    name: lumefy_redis_data
+    name: ${REDIS_VOLUME_NAME:-lumefy_redis_data}
   backend_static:
-    name: lumefy_backend_static
+    name: ${BACKEND_STATIC_VOLUME:-lumefy_backend_static}
   caddy_data:
-    name: lumefy_caddy_data
+    name: ${CADDY_DATA_VOLUME_NAME:-lumefy_caddy_data}
   caddy_config:
-    name: lumefy_caddy_config
+    name: ${CADDY_CONFIG_VOLUME_NAME:-lumefy_caddy_config}
 
 networks:
   proxy:
