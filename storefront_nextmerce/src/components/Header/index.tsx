@@ -31,8 +31,6 @@ const Header = () => {
   const [stickyMenu, setStickyMenu] = useState(false);
   const [menuItems, setMenuItems] = useState<Menu[]>(menuData);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
-  const [supportPhone, setSupportPhone] = useState("");
-  const [supportLabel, setSupportLabel] = useState("Atención al cliente");
   const [searchPlaceholder, setSearchPlaceholder] = useState("Buscar productos...");
   const [accountHeading, setAccountHeading] = useState("cuenta");
   const [guestAccountLabel, setGuestAccountLabel] = useState("Ingresar");
@@ -137,8 +135,6 @@ const Header = () => {
         }
 
         setLogoUrl(branding.logoUrl);
-        setSupportPhone(branding.supportPhone);
-        setSupportLabel(branding.header.supportLabel);
         setSearchPlaceholder(branding.header.searchPlaceholder);
         setAccountHeading(branding.header.accountHeading);
         setGuestAccountLabel(branding.header.guestAccountLabel);
@@ -428,12 +424,6 @@ const Header = () => {
               </Link>
             </div>
 
-            {supportPhone ? <>
-              <p className="mb-1 text-xs font-medium uppercase tracking-[0.18em] text-dark-4">
-                {supportLabel}
-              </p>
-              <p className="text-sm font-medium text-dark">{supportPhone}</p>
-            </> : null}
           </div>
         </aside>
       </div>
@@ -605,18 +595,6 @@ const Header = () => {
 
           {/* <!-- header top right --> */}
           <div className="flex w-full lg:w-auto items-center gap-5 xl:gap-6">
-            {supportPhone ? <><div className="hidden xl:flex flex-col rounded-xl bg-gray-1 px-4 py-2.5">
-              <span className="block text-2xs text-dark-4 uppercase">
-                {supportLabel}
-              </span>
-              <p className="font-medium text-custom-sm text-dark">
-                {supportPhone}
-              </p>
-            </div>
-
-            {/* <!-- divider --> */}
-            <span className="hidden xl:block w-px h-7.5 bg-gray-4"></span></> : null}
-
             <div className="hidden lg:flex w-full lg:w-auto justify-between items-center gap-5">
               <div className="flex items-center gap-5">
                 <Link href={session ? "/account" : "/login"} className="flex items-center gap-2.5">

@@ -52,7 +52,14 @@ export type PublicStorePaymentGateway = {
   is_sandbox: boolean;
   sort_order: number;
   checkout_flow: string;
-  public_config: Record<string, unknown>;
+  public_config: {
+    redirect_url?: string | null;
+    checkout_url?: string | null;
+    checkout_icon_url?: string | null;
+    checkout_description?: string | null;
+    checkout_accent?: string | null;
+    [key: string]: unknown;
+  };
 };
 
 export type PublicStorefrontAccountUser = {

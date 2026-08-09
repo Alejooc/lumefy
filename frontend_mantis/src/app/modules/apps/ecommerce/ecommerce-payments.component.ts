@@ -173,6 +173,19 @@ export class EcommercePaymentsComponent implements OnInit {
       { key: 'instructions', label: 'Instrucciones', placeholder: 'Texto que vera el cliente al pagar', help: 'Se muestra despues del checkout.' }
     ]
   };
+  readonly checkoutAccentOptions = [
+    { value: 'indigo', label: 'Azul / índigo' },
+    { value: 'emerald', label: 'Verde' },
+    { value: 'sky', label: 'Celeste' },
+    { value: 'amber', label: 'Ámbar' },
+    { value: 'rose', label: 'Rosado' },
+    { value: 'slate', label: 'Gris' }
+  ];
+  private readonly checkoutPresentationKeys = [
+    'checkout_icon_url',
+    'checkout_description',
+    'checkout_accent'
+  ];
   form: Partial<StorePaymentGateway> = this.createForm();
   editingId = '';
   showEditor = false;
@@ -438,14 +451,17 @@ export class EcommercePaymentsComponent implements OnInit {
       public_key: '',
       secret_key_encrypted: '',
       merchant_id: '',
-      extra_config: this.pruneExtraConfig(provider, {}),
+      extra_config: this.pruneExtraConfig(provider, { checkout_accent: meta.accent }),
       sort_order: 0
     };
   }
 
   private pruneExtraConfig(provider: string, config: Record<string, unknown> | undefined): Record<string, unknown> {
     const next: Record<string, unknown> = {};
-    const allowedKeys = new Set((this.providerExtraFields[provider] || []).map((field) => field.key));
+    const allowedKeys = new Set([
+      ...this.checkoutPresentationKeys,
+      ...(this.providerExtraFields[provider] || []).map((field) => field.key)
+    ]);
     for (const [key, value] of Object.entries(config || {})) {
       if (allowedKeys.has(key) && value !== null && value !== undefined && `${value}`.trim() !== '') {
         next[key] = value;

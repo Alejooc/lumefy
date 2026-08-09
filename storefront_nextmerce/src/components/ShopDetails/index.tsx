@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useDispatch } from "react-redux";
 
 import Breadcrumb from "../Common/Breadcrumb";
@@ -315,12 +314,6 @@ const ShopDetails = ({
                       </svg>
                     </button>
 
-                    <Link
-                      href={product.href || "/products"}
-                      className="inline-flex items-center gap-2 font-medium text-dark bg-gray-1 border border-gray-3 py-3 px-6 rounded-md ease-out duration-200 hover:text-blue"
-                    >
-                      Ver detalle
-                    </Link>
                   </div>
                 </div>
               </div>

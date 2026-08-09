@@ -3240,6 +3240,9 @@ async def read_public_payment_gateways(
             public_config={
                 "redirect_url": (gateway.extra_config or {}).get("redirect_url"),
                 "checkout_url": (gateway.extra_config or {}).get("checkout_url"),
+                "checkout_icon_url": (gateway.extra_config or {}).get("checkout_icon_url"),
+                "checkout_description": (gateway.extra_config or {}).get("checkout_description"),
+                "checkout_accent": (gateway.extra_config or {}).get("checkout_accent"),
             },
         )
         for gateway in gateways

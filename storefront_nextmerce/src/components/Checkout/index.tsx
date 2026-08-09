@@ -22,6 +22,7 @@ import { removeAllItemsFromCart } from "@/redux/features/cart-slice";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
+import { storefrontImageUrl } from "@/lib/storefront-image";
 
 type Props = {
   storefrontId: string;
@@ -162,6 +163,24 @@ function shippingStateKey(countryCode?: string | null, stateCode?: string | null
   return `${normalize(countryCode)}|${normalize(stateCode || stateName)}`;
 }
 
+const COUNTRY_LABELS: Record<string, string> = {
+  CO: "Colombia",
+  AR: "Argentina",
+  BR: "Brasil",
+  CL: "Chile",
+  CR: "Costa Rica",
+  EC: "Ecuador",
+  MX: "México",
+  PA: "Panamá",
+  PE: "Perú",
+  US: "Estados Unidos",
+};
+
+function countryLabel(countryCode: string): string {
+  const normalized = countryCode.trim().toUpperCase();
+  return COUNTRY_LABELS[normalized] || normalized;
+}
+
 function checkoutErrorMessage(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : "";
   if (/no hay una tarifa de envío disponible|no hay una tarifa de envio disponible/i.test(message)) {
@@ -171,6 +190,56 @@ function checkoutErrorMessage(error: unknown, fallback: string): string {
     return "El método de envío seleccionado ya no está disponible. Elige otra opción.";
   }
   return message || fallback;
+}
+
+type PaymentPresentation = {
+  initials: string;
+  iconUrl?: string;
+  description?: string;
+  accentClass: string;
+};
+
+const DEFAULT_PAYMENT_PRESENTATIONS: Record<string, { initials: string; description: string; accentClass: string }> = {
+  wompi: { initials: "W", description: "Paga en línea de forma segura.", accentClass: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+  payu: { initials: "P", description: "Paga en línea con PayU.", accentClass: "bg-rose-50 text-rose-700 border-rose-100" },
+  mercadopago: { initials: "MP", description: "Paga en línea con Mercado Pago.", accentClass: "bg-sky-50 text-sky-700 border-sky-100" },
+  addi: { initials: "A", description: "Compra ahora y paga con Addi.", accentClass: "bg-amber-50 text-amber-700 border-amber-100" },
+  sistecredito: { initials: "S", description: "Financia tu compra con Sistecrédito.", accentClass: "bg-indigo-50 text-indigo-700 border-indigo-100" },
+  whatsapp: { initials: "WA", description: "Confirma tu pedido por WhatsApp.", accentClass: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+  cod: { initials: "CD", description: "Paga al recibir tu pedido.", accentClass: "bg-amber-50 text-amber-700 border-amber-100" },
+  manual_transfer: { initials: "TR", description: "Recibe las instrucciones después de comprar.", accentClass: "bg-slate-100 text-slate-700 border-slate-200" },
+};
+
+const DEFAULT_PAYMENT_PRESENTATION = {
+  initials: "$",
+  description: "Sigue las instrucciones para completar el pago.",
+  accentClass: "bg-blue-50 text-blue-700 border-blue-100",
+};
+
+function paymentPresentation(option: PublicStorePaymentGateway): PaymentPresentation {
+  const fallback = DEFAULT_PAYMENT_PRESENTATIONS[option.provider] || DEFAULT_PAYMENT_PRESENTATION;
+  const configuredIcon = option.public_config?.checkout_icon_url;
+  const configuredDescription = option.public_config?.checkout_description;
+  const configuredAccent = option.public_config?.checkout_accent;
+  const accentClasses: Record<string, string> = {
+    indigo: "bg-indigo-50 text-indigo-700 border-indigo-100",
+    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    sky: "bg-sky-50 text-sky-700 border-sky-100",
+    amber: "bg-amber-50 text-amber-700 border-amber-100",
+    rose: "bg-rose-50 text-rose-700 border-rose-100",
+    slate: "bg-slate-100 text-slate-700 border-slate-200",
+  };
+
+  return {
+    initials: fallback.initials,
+    iconUrl: typeof configuredIcon === "string" ? storefrontImageUrl(configuredIcon) : undefined,
+    description: typeof configuredDescription === "string" && configuredDescription.trim()
+      ? configuredDescription.trim()
+      : fallback.description,
+    accentClass: typeof configuredAccent === "string" && accentClasses[configuredAccent]
+      ? accentClasses[configuredAccent]
+      : fallback.accentClass,
+  };
 }
 
 const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
@@ -200,6 +269,20 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   const idempotencyKeyRef = useRef<string>(createCheckoutIdempotencyKey());
   const previewRequestRef = useRef(0);
 
+  const shippingCountryOptions = useMemo(() => {
+    const configuredCountries = new Set(
+      shippingConfig.destinations
+        .map((destination) => destination.country_code.trim().toUpperCase())
+        .filter(Boolean),
+    );
+    if (!configuredCountries.size) {
+      configuredCountries.add("CO");
+    }
+    return Array.from(configuredCountries)
+      .sort((a, b) => countryLabel(a).localeCompare(countryLabel(b), "es"))
+      .map((code) => ({ code, label: countryLabel(code) }));
+  }, [shippingConfig.destinations]);
+
   const shippingStateOptions = useMemo(() => {
     const options = new Map<string, {
       key: string;
@@ -208,23 +291,25 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
       state_name: string;
       department_destination_id?: string;
     }>();
-    shippingConfig.destinations.forEach((destination) => {
-      const key = shippingStateKey(destination.country_code, destination.state_code, destination.state_name);
-      const current = options.get(key);
-      if (!current) {
-        options.set(key, {
-          key,
-          country_code: destination.country_code,
-          state_code: destination.state_code,
-          state_name: destination.state_name,
-          department_destination_id: destination.destination_type === "department" ? destination.id : undefined,
-        });
-      } else if (!current.department_destination_id && destination.destination_type === "department") {
-        current.department_destination_id = destination.id;
-      }
-    });
+    shippingConfig.destinations
+      .filter((destination) => destination.country_code.trim().toUpperCase() === form.country.trim().toUpperCase())
+      .forEach((destination) => {
+        const key = shippingStateKey(destination.country_code, destination.state_code, destination.state_name);
+        const current = options.get(key);
+        if (!current) {
+          options.set(key, {
+            key,
+            country_code: destination.country_code,
+            state_code: destination.state_code,
+            state_name: destination.state_name,
+            department_destination_id: destination.destination_type === "department" ? destination.id : undefined,
+          });
+        } else if (!current.department_destination_id && destination.destination_type === "department") {
+          current.department_destination_id = destination.id;
+        }
+      });
     return Array.from(options.values()).sort((a, b) => a.state_name.localeCompare(b.state_name, "es"));
-  }, [shippingConfig.destinations]);
+  }, [form.country, shippingConfig.destinations]);
 
   const selectedShippingStateKey = shippingStateKey(form.country, form.state_code, form.state);
   const hasSelectedShippingState = Boolean(form.state.trim() || form.state_code.trim());
@@ -330,6 +415,14 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
         setShippingConfigLoading(false);
         setShippingConfigError("");
         setForm((current) => {
+          const configuredCountries = Array.from(new Set(
+            config.destinations
+              .map((item) => item.country_code.trim().toUpperCase())
+              .filter(Boolean),
+          ));
+          const defaultCountry = configuredCountries.includes(current.country.trim().toUpperCase())
+            ? current.country.trim().toUpperCase()
+            : configuredCountries[0] || "CO";
           const methodId = current.shipping_method_id && config.methods.some((item) => item.id === current.shipping_method_id)
             ? current.shipping_method_id
             : config.methods[0]?.id || "";
@@ -341,7 +434,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
             ...current,
             shipping_method_id: methodId,
             shipping_destination_id: destinationId,
-            country: destination?.country_code || current.country,
+            country: destination?.country_code || defaultCountry,
             state: destination?.state_name || current.state,
             state_code: destination?.state_code || current.state_code,
             city: destination?.city_name || current.city,
@@ -422,6 +515,18 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   function applyCoupon() {
     setError("");
     setAppliedCoupon(couponInput.trim().toUpperCase() || null);
+  }
+
+  function selectShippingCountry(countryCode: string) {
+    setForm((current) => ({
+      ...current,
+      country: countryCode,
+      state: "",
+      state_code: "",
+      city: "",
+      city_code: "",
+      shipping_destination_id: "",
+    }));
   }
 
   function selectShippingState(stateKey: string) {
@@ -668,17 +773,19 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
 
                     <div className="mb-5">
                       <label htmlFor="countryName" className="block mb-2.5">
-                        Pais / Region <span className="text-red">*</span>
+                        País / región <span className="text-red">*</span>
                       </label>
-                      <input
-                        type="text"
+                      <select
                         id="countryName"
                         value={form.country}
-                        onChange={(event) =>
-                          setForm({ ...form, country: event.target.value })
-                        }
-                        className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                      />
+                        onChange={(event) => selectShippingCountry(event.target.value)}
+                        className="rounded-md border border-gray-3 bg-gray-1 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                      >
+                        {shippingCountryOptions.map((country) => (
+                          <option key={country.code} value={country.code}>{country.label}</option>
+                        ))}
+                      </select>
+                      <p className="mt-2 text-xs text-dark-5">Países disponibles según la cobertura configurada por la tienda.</p>
                     </div>
 
                     <div className="mb-5">
@@ -720,10 +827,15 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                       </div>
                     ) : shippingConfig.destinations.length > 0 ? (
                       <div className="mb-5">
+                        <div className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-4 py-3">
+                          <p className="text-sm font-medium text-blue-800">Selecciona tu destino de entrega</p>
+                          <p className="mt-1 text-xs text-blue-700">Primero elige el departamento y después la ciudad para calcular la cobertura y el valor del envío.</p>
+                        </div>
                         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                           <div>
-                            <label htmlFor="shippingState" className="block mb-2.5">
-                              Departamento <span className="text-red">*</span>
+                            <label htmlFor="shippingState" className="mb-2.5 flex items-center gap-2">
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue text-xs font-medium text-white">1</span>
+                              <span>Departamento <span className="text-red">*</span></span>
                             </label>
                             <select
                               id="shippingState"
@@ -736,13 +848,27 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                                 <option key={state.key} value={state.key}>{state.state_name}</option>
                               ))}
                             </select>
+                            <p className="mt-2 text-xs text-dark-5">Elige el departamento donde recibirás tu pedido.</p>
                           </div>
 
-                          {hasSelectedShippingState && shippingCityOptions.length > 0 ? (
-                            <div>
-                              <label htmlFor="shippingCity" className="block mb-2.5">
-                                Ciudad <span className="text-red">*</span>
-                              </label>
+                          <div>
+                            <label
+                              htmlFor={!hasSelectedShippingState || shippingCityOptions.length > 0 ? "shippingCity" : "shippingCityManual"}
+                              className="mb-2.5 flex items-center gap-2"
+                            >
+                              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium ${hasSelectedShippingState ? "bg-blue text-white" : "bg-gray-3 text-dark-5"}`}>2</span>
+                              <span>Ciudad <span className="text-red">*</span></span>
+                            </label>
+                            {!hasSelectedShippingState ? (
+                              <select
+                                id="shippingCity"
+                                value=""
+                                disabled
+                                className="rounded-md border border-gray-3 bg-gray-1 text-dark-5 w-full py-2.5 px-5 outline-none disabled:cursor-not-allowed disabled:bg-gray-2"
+                              >
+                                <option value="">Selecciona primero un departamento</option>
+                              </select>
+                            ) : shippingCityOptions.length > 0 ? (
                               <select
                                 id="shippingCity"
                                 value={form.shipping_destination_id}
@@ -754,28 +880,26 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                                   <option key={destination.id} value={destination.id}>{destination.city_name || destination.city_code}</option>
                                 ))}
                               </select>
-                            </div>
-                          ) : hasSelectedShippingState ? (
-                            <div>
-                              <label htmlFor="shippingCityManual" className="block mb-2.5">
-                                Ciudad <span className="text-red">*</span>
-                              </label>
+                            ) : (
                               <input
                                 type="text"
                                 id="shippingCityManual"
                                 value={form.city}
+                                disabled={!hasSelectedShippingState}
                                 onChange={(event) => setForm({ ...form, city: event.target.value, city_code: "" })}
-                                placeholder="Escribe tu ciudad o municipio"
-                                className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                                placeholder={hasSelectedShippingState ? "Escribe tu ciudad o municipio" : "Selecciona primero un departamento"}
+                                className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20 disabled:cursor-not-allowed disabled:bg-gray-2 disabled:text-dark-5"
                               />
-                            </div>
-                          ) : null}
+                            )}
+                            <p className="mt-2 text-xs text-dark-5">
+                              {!hasSelectedShippingState
+                                ? "Selecciona primero un departamento."
+                                : shippingCityOptions.length > 0
+                                  ? "Selecciona una ciudad cubierta por la tienda."
+                                  : "Escribe tu ciudad para validar la tarifa de envío."}
+                            </p>
+                          </div>
                         </div>
-                        <p className="mt-2 text-xs text-dark-5">
-                          {hasSelectedShippingState && shippingCityOptions.length > 0
-                            ? "Selecciona los valores configurados por la tienda para calcular tu tarifa."
-                            : "La tienda cubre este departamento; escribe tu ciudad para validar la tarifa."}
-                        </p>
                       </div>
                     ) : (
                       <>
@@ -810,21 +934,6 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                         </div>
                       </>
                     )}
-
-                    <div className="mb-5">
-                      <label htmlFor="postalCode" className="block mb-2.5">
-                        Codigo postal
-                      </label>
-                      <input
-                        type="text"
-                        id="postalCode"
-                        value={form.postal_code}
-                        onChange={(event) =>
-                          setForm({ ...form, postal_code: event.target.value })
-                        }
-                        className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                      />
-                    </div>
 
                     <div className="mb-5">
                       <label htmlFor="phone" className="block mb-2.5">
@@ -1110,48 +1219,66 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
 
                   <div className="p-4 sm:p-8.5">
                     {paymentOptions.length ? (
-                    <div className="flex flex-col gap-3">
-                      {paymentOptions.map((option) => ({
-                        id: option.provider,
-                        label: option.display_name,
-                      })).map((option) => (
-                        <label
-                          key={option.id}
-                          htmlFor={option.id}
-                          className="flex cursor-pointer select-none items-start gap-3"
-                        >
-                          <div className="relative">
-                            <input
-                              type="radio"
-                              name="payment"
-                              id={option.id}
-                              checked={form.payment_provider === option.id}
-                              onChange={() =>
-                                setForm({ ...form, payment_provider: option.id })
-                              }
-                              className="sr-only"
-                            />
-                            <div
-                              className={`flex h-4 w-4 items-center justify-center rounded-full ${
-                                form.payment_provider === option.id
-                                  ? "border-4 border-blue"
-                                  : "border border-gray-4"
-                              }`}
-                            ></div>
-                          </div>
+                      <div className="flex flex-col gap-3">
+                        {paymentOptions.map((option) => {
+                          const presentation = paymentPresentation(option);
+                          return (
+                            <label
+                              key={option.provider}
+                              htmlFor={option.provider}
+                              className="flex cursor-pointer select-none items-center gap-3"
+                            >
+                              <div className="relative flex h-5 w-5 shrink-0 items-center justify-center">
+                                <input
+                                  type="radio"
+                                  name="payment"
+                                  id={option.provider}
+                                  checked={form.payment_provider === option.provider}
+                                  onChange={() =>
+                                    setForm({ ...form, payment_provider: option.provider })
+                                  }
+                                  className="sr-only"
+                                />
+                                <div
+                                  className={`flex h-5 w-5 items-center justify-center rounded-full ${
+                                    form.payment_provider === option.provider
+                                      ? "border-4 border-blue"
+                                      : "border border-gray-4"
+                                  }`}
+                                ></div>
+                              </div>
 
-                          <div
-                            className={`min-w-0 flex-1 rounded-md border-[0.5px] py-3.5 px-5 ease-out duration-200 hover:bg-gray-2 hover:border-transparent hover:shadow-none ${
-                              form.payment_provider === option.id
-                                ? "border-transparent bg-gray-2"
-                                : " border-gray-4 shadow-1"
-                            }`}
-                          >
-                            <p>{option.label}</p>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
+                              <div
+                                className={`flex min-w-0 flex-1 items-center gap-4 rounded-md border-[0.5px] py-3.5 px-5 ease-out duration-200 hover:bg-gray-2 hover:border-transparent hover:shadow-none ${
+                                  form.payment_provider === option.provider
+                                    ? "border-transparent bg-gray-2"
+                                    : "border-gray-4 shadow-1"
+                                }`}
+                              >
+                                <div className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-lg border text-xs font-bold ${presentation.accentClass}`}>
+                                  {presentation.iconUrl ? (
+                                    // Payment logos are tenant-configured URLs and do not use Next's fixed image allowlist.
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={presentation.iconUrl}
+                                      alt=""
+                                      className="max-h-6 max-w-10 object-contain"
+                                    />
+                                  ) : (
+                                    presentation.initials
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-dark">{option.display_name}</p>
+                                  {presentation.description ? (
+                                    <p className="mt-1 text-sm text-dark-4">{presentation.description}</p>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
                     ) : (
                       <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                         Esta tienda todavía no tiene métodos de pago habilitados. Puedes continuar cuando el administrador configure uno.

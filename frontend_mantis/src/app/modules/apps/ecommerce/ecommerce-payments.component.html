@@ -141,6 +141,51 @@
                   <input class="form-control" type="password" [(ngModel)]="form.secret_key_encrypted" [placeholder]="secretPlaceholder(form.provider)" autocomplete="new-password" />
                 </div>
               }
+              <div class="col-12">
+                <div class="gateway-presentation-panel">
+                  <div class="settings-block__header mb-0">
+                    <div>
+                      <h6 class="mb-1">Presentación en checkout</h6>
+                      <small class="text-muted">Personaliza cómo verá el cliente esta forma de pago sin modificar sus credenciales.</small>
+                    </div>
+                  </div>
+
+                  <div class="row g-3 mt-0">
+                    <div class="col-md-7">
+                      <label class="form-label">Descripción para el cliente</label>
+                      <textarea
+                        class="form-control"
+                        rows="2"
+                        [ngModel]="extraFieldValue('checkout_description')"
+                        (ngModelChange)="setExtraFieldValue('checkout_description', $event)"
+                        placeholder="Ej. Paga de forma segura con Wompi."
+                      ></textarea>
+                    </div>
+                    <div class="col-md-5">
+                      <label class="form-label">Logo de la pasarela</label>
+                      <input
+                        class="form-control"
+                        [ngModel]="extraFieldValue('checkout_icon_url')"
+                        (ngModelChange)="setExtraFieldValue('checkout_icon_url', $event)"
+                        placeholder="https://.../wompi.svg"
+                      />
+                      <small class="form-hint">Opcional. Si queda vacío, se usa el distintivo fijo del proveedor.</small>
+                    </div>
+                    <div class="col-md-5">
+                      <label class="form-label">Color del distintivo</label>
+                      <select
+                        class="form-select"
+                        [ngModel]="extraFieldValue('checkout_accent')"
+                        (ngModelChange)="setExtraFieldValue('checkout_accent', $event)"
+                      >
+                        @for (accent of checkoutAccentOptions; track accent.value) {
+                          <option [value]="accent.value">{{ accent.label }}</option>
+                        }
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
               @if (providerFields.length > 0) {
                 <div class="col-12">
                   <div class="gateway-extra-panel">
