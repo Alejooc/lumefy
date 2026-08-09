@@ -1,4 +1,5 @@
 from datetime import timedelta, datetime
+import logging
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
@@ -15,6 +16,7 @@ from app.schemas.token import Token
 from app.core.rate_limit import limiter
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/login/access-token", response_model=Token)
 @limiter.limit("5/minute")
@@ -55,7 +57,8 @@ class PasswordReset(BaseModel):
     new_password: str = Field(..., min_length=8)
 
 from app.services.email import EmailService
-from jose import jwt, JWTError
+import jwt
+from jwt.exceptions import PyJWTError
 
 @router.post("/password-recovery/{email}", response_model=Msg)
 @limiter.limit("3/minute")
@@ -94,7 +97,7 @@ async def reset_password(
         if not email or token_type != "reset":
              raise HTTPException(status_code=400, detail="Invalid token")
              
-    except (JWTError, AttributeError):
+    except (PyJWTError, AttributeError):
         raise HTTPException(status_code=400, detail="Invalid or expired token")
         
     result = await db.execute(select(User).where(User.email == email))
@@ -206,9 +209,10 @@ async def register(
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=400, detail="Database integrity error")
-    except Exception as e:
+    except Exception:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
+        logger.exception("Registration failed")
+        raise HTTPException(status_code=500, detail="Registration failed")
 
     # 3. Return Access Token (Auto Login)
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

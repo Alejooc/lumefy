@@ -9,7 +9,7 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.rate_limit import limiter
-from app.core.middleware import MaintenanceMiddleware
+from app.core.middleware import MaintenanceMiddleware, RequestObservabilityMiddleware
 import app.models # Import all models to ensure they are registered with SQLAlchemy
 from app.api.v1.api import api_router
 
@@ -53,6 +53,9 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+# Registered last so every application response carries the same correlation ID.
+app.add_middleware(RequestObservabilityMiddleware)
 
 from fastapi.staticfiles import StaticFiles
 import os

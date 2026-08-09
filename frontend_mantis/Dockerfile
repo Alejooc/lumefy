@@ -1,5 +1,5 @@
 # Stage 1: Build the Angular application
-FROM node:24-alpine as build
+FROM node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS build
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ COPY . .
 RUN npx ng build --configuration production --base-href /
 
 # Stage 2: Serve with Nginx
-FROM nginx:alpine
+FROM nginx:alpine@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752
 
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
