@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+.env.*
+node_modules/
+.angular/
+dist/
+coverage/
+*.log
+build_log.txt
+

@@ -60,6 +60,7 @@ from app.services.storefront_shipping import (
     ensure_default_shipping_configuration,
     validate_shipping_rule_values,
 )
+from app.core.credential_crypto import SENSITIVE_GATEWAY_CONFIG_KEYS
 
 router = APIRouter()
 
@@ -73,12 +74,6 @@ SUPPORTED_PUBLIC_PAYMENT_PROVIDERS = {
 RESERVED_STOREFRONT_SUBDOMAINS = {
     "www", "api", "admin", "app", "panel", "mail", "static", "cdn", "support", "help",
 }
-SENSITIVE_GATEWAY_CONFIG_KEYS = {
-    "integrity_secret", "events_secret", "webhook_secret", "api_key",
-    "api_login", "access_token", "client_secret", "secret", "callback_password",
-}
-
-
 def _safe_float(value: Any, default: float = 0.0) -> float:
     try:
         if value is None:

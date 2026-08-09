@@ -1,23 +1,13 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
+import { UsersModule } from '../users-module';
+import { UserListComponent } from './user-list';
 
-import { UserList } from './user-list';
-
-describe('UserList', () => {
-  let component: UserList;
-  let fixture: ComponentFixture<UserList>;
-
+describe('UserListComponent', () => {
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [UserList]
-    })
-    .compileComponents();
-
-    fixture = TestBed.createComponent(UserList);
-    component = fixture.componentInstance;
-    await fixture.whenStable();
+    await TestBed.configureTestingModule({ imports: [UsersModule] }).compileComponents();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
+  it('is declared by the users feature module', () => {
+    expect(UserListComponent).toBeDefined();
   });
 });

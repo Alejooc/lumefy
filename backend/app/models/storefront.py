@@ -4,6 +4,8 @@ from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, Stri
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.encrypted_types import EncryptedCredential, EncryptedGatewayConfig
+
 from app.models.base import BaseModel
 
 
@@ -141,9 +143,9 @@ class StorePaymentGateway(BaseModel):
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     is_sandbox: Mapped[bool] = mapped_column(Boolean, default=True)
     public_key: Mapped[str] = mapped_column(String, nullable=True)
-    secret_key_encrypted: Mapped[str] = mapped_column(String, nullable=True)
+    secret_key_encrypted: Mapped[str] = mapped_column(EncryptedCredential(), nullable=True)
     merchant_id: Mapped[str] = mapped_column(String, nullable=True)
-    extra_config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    extra_config: Mapped[dict] = mapped_column(EncryptedGatewayConfig(), nullable=False, default=dict)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     storefront = relationship("Storefront", back_populates="payment_gateways")

@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
+from cryptography.fernet import Fernet
 from typing import Optional, Union
 
 class Settings(BaseSettings):
@@ -29,6 +30,7 @@ class Settings(BaseSettings):
         return v
     
     SECRET_KEY: str
+    CREDENTIAL_ENCRYPTION_KEY: Optional[str] = None
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
@@ -51,6 +53,18 @@ class Settings(BaseSettings):
     MAIL_SSL_TLS: bool = False
     USE_CREDENTIALS: bool = True
     VALIDATE_CERTS: bool = True
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> "Settings":
+        if self.ENVIRONMENT.lower() != "production":
+            return self
+        if not self.CREDENTIAL_ENCRYPTION_KEY:
+            raise ValueError("CREDENTIAL_ENCRYPTION_KEY is required in production")
+        try:
+            Fernet(self.CREDENTIAL_ENCRYPTION_KEY.encode("ascii"))
+        except (ValueError, TypeError) as exc:
+            raise ValueError("CREDENTIAL_ENCRYPTION_KEY must be a valid Fernet key") from exc
+        return self
 
     class Config:
         case_sensitive = True
