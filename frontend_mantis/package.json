@@ -33,7 +33,7 @@
     "@popperjs/core": "2.11.8",
     "apexcharts": "5.3.6",
     "bootstrap": "5.3.8",
-    "ng-apexcharts": "2.0.4",
+    "ng-apexcharts": "2.4.0",
     "ngx-scrollbar": "18.0.0",
     "rxjs": "~7.8.2",
     "sweetalert2": "^11.26.18",
