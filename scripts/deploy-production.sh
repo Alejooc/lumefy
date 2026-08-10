@@ -14,6 +14,17 @@ export COMPOSE_FILE ROOT_ENV_FILE BACKEND_ENV_FILE LUMEFY_IMAGE_TAG
 test -s "$ROOT_ENV_FILE"
 test -s "$BACKEND_ENV_FILE"
 
+compose() {
+  docker compose --env-file "$ROOT_ENV_FILE" -f "$COMPOSE_FILE" "$@"
+}
+
+show_deploy_diagnostics() {
+  echo "Production stack failed to become healthy. Current state:" >&2
+  compose ps -a >&2 || true
+  echo "Migration service logs:" >&2
+  compose logs --no-color --tail=200 migrate >&2 || true
+}
+
 read_root_env() {
   key=$1
   sed -n "s/^${key}=//p" "$ROOT_ENV_FILE" | tail -n 1 | tr -d '\r'
@@ -34,7 +45,7 @@ for volume_name in "$POSTGRES_VOLUME_NAME" "$BACKEND_STATIC_VOLUME"; do
   esac
 done
 
-docker compose --env-file "$ROOT_ENV_FILE" -f "$COMPOSE_FILE" config --quiet
+compose config --quiet
 
 if docker volume inspect "$POSTGRES_VOLUME_NAME" >/dev/null 2>&1 \
   && docker volume inspect "$BACKEND_STATIC_VOLUME" >/dev/null 2>&1; then
@@ -52,9 +63,18 @@ else
   echo "No production data volumes found; treating this as the initial deployment."
 fi
 
-docker compose --env-file "$ROOT_ENV_FILE" -f "$COMPOSE_FILE" build --pull
-docker compose --env-file "$ROOT_ENV_FILE" -f "$COMPOSE_FILE" up \
-  -d --remove-orphans --wait --wait-timeout 180
+compose build --pull
+
+# Validate application settings before Compose replaces any running service.
+# This catches missing production secrets without turning a configuration error
+# into an outage.
+compose run --rm --no-deps migrate python -c \
+  "from app.core.config import settings; assert settings.ENVIRONMENT.lower() == 'production'"
+
+if ! compose up -d --remove-orphans --wait --wait-timeout 180; then
+  show_deploy_diagnostics
+  exit 1
+fi
 sh scripts/smoke-production.sh
 
 mkdir -p backups/deployments
