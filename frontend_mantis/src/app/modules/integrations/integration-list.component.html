@@ -20,92 +20,158 @@
         <button class="btn btn-sm btn-outline-secondary" (click)="closeForm()">Cerrar</button>
       </div>
       <div class="card-body">
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">Nombre del origen</label>
-            <input class="form-control" [(ngModel)]="form.name" placeholder="Ej. Proveedor mayorista">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">URL base</label>
-            <input class="form-control" [(ngModel)]="form.base_url" placeholder="https://api.proveedor.com">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Autenticación</label>
-            <select class="form-select" [(ngModel)]="form.auth_type">
-              <option value="bearer">Bearer token</option>
-              <option value="api_key">API key</option>
-              <option value="none">Sin autenticación</option>
-            </select>
-          </div>
-          <div class="col-md-4" [hidden]="form.auth_type === 'none'">
-            <label class="form-label">Token / API key</label>
-            <input class="form-control" type="password" [(ngModel)]="form.token" placeholder="Se guarda cifrado">
-          </div>
-          <div class="col-md-4" [hidden]="form.auth_type !== 'api_key'">
-            <label class="form-label">Header de API key</label>
-            <input class="form-control" [(ngModel)]="form.api_key_header" placeholder="X-API-Key">
-          </div>
-
-          <div class="col-12"><hr class="my-1"><h6 class="mb-0">Endpoints</h6></div>
-          <div class="col-md-6">
-            <label class="form-label">Endpoint de productos</label>
-            <input class="form-control" [(ngModel)]="form.products_path" placeholder="/products">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Ruta de datos de productos</label>
-            <input class="form-control" [(ngModel)]="form.products_data_path" placeholder="items (vacío si la respuesta es una lista)">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Endpoint de inventario (opcional)</label>
-            <input class="form-control" [(ngModel)]="form.inventory_path" placeholder="/inventory">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Ruta de datos de inventario</label>
-            <input class="form-control" [(ngModel)]="form.inventory_data_path" placeholder="items">
-          </div>
-          <div class="col-12"><hr class="my-1"><h6 class="mb-0">Paginación</h6></div>
-          <div class="col-12">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="paginationEnabled" [(ngModel)]="form.pagination_enabled">
-              <label class="form-check-label" for="paginationEnabled">
-                Este origen usa paginación
-              </label>
-            </div>
-            <small class="text-muted">Actívalo para APIs que usan parámetros como <code>?page=1&amp;per_page=50</code>. Se recorrerán todas las páginas hasta terminar.</small>
-          </div>
-          @if (form.pagination_enabled) {
-            <div class="col-md-3">
-              <label class="form-label">Parámetro de página</label>
-              <input class="form-control" [(ngModel)]="form.page_param" placeholder="page">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Parámetro de tamaño</label>
-              <input class="form-control" [(ngModel)]="form.per_page_param" placeholder="per_page">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Registros por página</label>
-              <input class="form-control" type="number" min="1" [(ngModel)]="form.per_page">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Página inicial</label>
-              <input class="form-control" type="number" min="1" [(ngModel)]="form.start_page">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Máximo de páginas</label>
-              <input class="form-control" type="number" min="1" [(ngModel)]="form.max_pages">
-            </div>
-          }
-
-          <div class="col-12"><hr class="my-1"><h6 class="mb-0">Mapeo de campos</h6></div>
-          <div class="col-md-3"><label class="form-label">ID producto</label><input class="form-control" [(ngModel)]="form.product_id_field"></div>
-          <div class="col-md-3"><label class="form-label">Nombre</label><input class="form-control" [(ngModel)]="form.product_name_field"></div>
-          <div class="col-md-3"><label class="form-label">SKU</label><input class="form-control" [(ngModel)]="form.product_sku_field"></div>
-          <div class="col-md-3"><label class="form-label">Precio</label><input class="form-control" [(ngModel)]="form.product_price_field"></div>
-          <div class="col-md-3"><label class="form-label">Costo</label><input class="form-control" [(ngModel)]="form.product_cost_field"></div>
-          <div class="col-md-3"><label class="form-label">ID inventario</label><input class="form-control" [(ngModel)]="form.inventory_id_field"></div>
-          <div class="col-md-3"><label class="form-label">SKU inventario</label><input class="form-control" [(ngModel)]="form.inventory_sku_field"></div>
-          <div class="col-md-3"><label class="form-label">Cantidad</label><input class="form-control" [(ngModel)]="form.inventory_quantity_field"></div>
+        <div class="form-tabs" role="tablist" aria-label="Configuración del origen">
+          <button
+            type="button"
+            class="form-tab"
+            role="tab"
+            id="integration-tab-connection"
+            [class.active]="activeFormTab === 'connection'"
+            [attr.aria-selected]="activeFormTab === 'connection'"
+            aria-controls="integration-panel-connection"
+            (click)="selectFormTab('connection')"
+          >
+            <span class="form-tab-icon"><i class="ti ti-plug-connected"></i></span>
+            <span><strong>Conexión</strong><small>URL y credenciales</small></span>
+          </button>
+          <button
+            type="button"
+            class="form-tab"
+            role="tab"
+            id="integration-tab-catalog"
+            [class.active]="activeFormTab === 'catalog'"
+            [attr.aria-selected]="activeFormTab === 'catalog'"
+            aria-controls="integration-panel-catalog"
+            (click)="selectFormTab('catalog')"
+          >
+            <span class="form-tab-icon"><i class="ti ti-package"></i></span>
+            <span><strong>Catálogo</strong><small>Productos y precios</small></span>
+          </button>
+          <button
+            type="button"
+            class="form-tab"
+            role="tab"
+            id="integration-tab-inventory"
+            [class.active]="activeFormTab === 'inventory'"
+            [attr.aria-selected]="activeFormTab === 'inventory'"
+            aria-controls="integration-panel-inventory"
+            (click)="selectFormTab('inventory')"
+          >
+            <span class="form-tab-icon"><i class="ti ti-boxes"></i></span>
+            <span><strong>Inventario</strong><small>Cantidades y stock</small></span>
+          </button>
         </div>
+
+        @if (activeFormTab === 'connection') {
+          <div class="form-tab-panel" id="integration-panel-connection" role="tabpanel" aria-labelledby="integration-tab-connection">
+            <div class="form-panel-intro">
+              <div class="eyebrow">Paso 1 · Compartido</div>
+              <h6>Conecta el proveedor</h6>
+              <p>Estos datos se usan para las dos sincronizaciones. El token se almacena cifrado y no vuelve a mostrarse.</p>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Nombre del origen</label>
+                <input class="form-control" [(ngModel)]="form.name" placeholder="Ej. Proveedor mayorista">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">URL base</label>
+                <input class="form-control" [(ngModel)]="form.base_url" placeholder="https://api.proveedor.com">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Autenticación</label>
+                <select class="form-select" [(ngModel)]="form.auth_type">
+                  <option value="bearer">Bearer token</option>
+                  <option value="api_key">API key</option>
+                  <option value="none">Sin autenticación</option>
+                </select>
+              </div>
+              <div class="col-md-4" [hidden]="form.auth_type === 'none'">
+                <label class="form-label">Token / API key</label>
+                <input class="form-control" type="password" [(ngModel)]="form.token" placeholder="Se guarda cifrado">
+              </div>
+              <div class="col-md-4" [hidden]="form.auth_type !== 'api_key'">
+                <label class="form-label">Header de API key</label>
+                <input class="form-control" [(ngModel)]="form.api_key_header" placeholder="X-API-Key">
+              </div>
+            </div>
+          </div>
+        } @else if (activeFormTab === 'catalog') {
+          <div class="form-tab-panel" id="integration-panel-catalog" role="tabpanel" aria-labelledby="integration-tab-catalog">
+            <div class="form-panel-intro catalog-intro">
+              <div class="eyebrow">Paso 2 · Menos frecuente</div>
+              <h6>Productos, variantes y precios</h6>
+              <p>Define cómo leer el catálogo. Después de guardar, configura la homologación desde <strong>Mapeo pendiente</strong> y ejecuta <strong>Actualizar catálogo</strong>.</p>
+            </div>
+            <div class="row g-3">
+              <div class="col-12"><h6 class="form-section-title">Endpoint de productos</h6></div>
+              <div class="col-md-6">
+                <label class="form-label">Endpoint de productos</label>
+                <input class="form-control" [(ngModel)]="form.products_path" placeholder="/products">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Ruta de datos de productos</label>
+                <input class="form-control" [(ngModel)]="form.products_data_path" placeholder="items (vacío si la respuesta es una lista)">
+              </div>
+
+              <div class="col-12"><h6 class="form-section-title">Paginación del catálogo</h6></div>
+              <div class="col-12">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="paginationEnabled" [(ngModel)]="form.pagination_enabled">
+                  <label class="form-check-label" for="paginationEnabled">Este origen usa paginación</label>
+                </div>
+                <small class="text-muted">Actívalo para APIs que usan parámetros como <code>?page=1&amp;per_page=50</code>. Se recorrerán todas las páginas hasta terminar.</small>
+              </div>
+              @if (form.pagination_enabled) {
+                <div class="col-md-3">
+                  <label class="form-label">Parámetro de página</label>
+                  <input class="form-control" [(ngModel)]="form.page_param" placeholder="page">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Parámetro de tamaño</label>
+                  <input class="form-control" [(ngModel)]="form.per_page_param" placeholder="per_page">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Registros por página</label>
+                  <input class="form-control" type="number" min="1" [(ngModel)]="form.per_page">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Página inicial</label>
+                  <input class="form-control" type="number" min="1" [(ngModel)]="form.start_page">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Máximo de páginas</label>
+                  <input class="form-control" type="number" min="1" [(ngModel)]="form.max_pages">
+                </div>
+              }
+
+            </div>
+          </div>
+        } @else {
+          <div class="form-tab-panel" id="integration-panel-inventory" role="tabpanel" aria-labelledby="integration-tab-inventory">
+            <div class="form-panel-intro inventory-intro">
+              <div class="eyebrow">Paso 3 · Alta frecuencia</div>
+              <h6>Existencias y cantidades</h6>
+              <p>Configura el endpoint de stock. El mapeo se confirma después desde <strong>Mapeo pendiente</strong>; luego podrás elegir manual o automático y la frecuencia desde la tarjeta.</p>
+            </div>
+            <div class="row g-3">
+              <div class="col-12"><h6 class="form-section-title">Endpoint de inventario</h6></div>
+              <div class="col-md-6">
+                <label class="form-label">Endpoint de inventario <span class="text-muted">(opcional)</span></label>
+                <input class="form-control" [(ngModel)]="form.inventory_path" placeholder="/inventory">
+                <small class="text-muted">Déjalo vacío si el stock viene dentro de cada producto o variante.</small>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Ruta de datos de inventario</label>
+                <input class="form-control" [(ngModel)]="form.inventory_data_path" placeholder="items">
+              </div>
+
+              <div class="col-12">
+                <div class="form-note"><i class="ti ti-info-circle me-2"></i>La sincronización de inventario actualiza cantidades y no modifica nombres, precios ni imágenes.</div>
+              </div>
+            </div>
+          </div>
+        }
         <div class="d-flex justify-content-end gap-2 mt-4">
           <button class="btn btn-outline-secondary" (click)="closeForm()">Cancelar</button>
           <button class="btn btn-primary" (click)="save()" [disabled]="saving">
@@ -320,6 +386,36 @@
                     }
                   </div>
                   <p class="sync-description">Crea o actualiza productos, variantes, imágenes y precios sin tocar existencias.</p>
+                  @if (syncProgress(source, 'CATALOG'); as progress) {
+                    <div class="sync-progress" [class.progress-complete]="progress.percent >= 100">
+                      <div class="sync-progress-heading">
+                        <span>{{ progress.message }}</span>
+                        <strong>{{ progress.percent }}%</strong>
+                      </div>
+                      <div class="progress" role="progressbar" aria-label="Progreso de sincronización del catálogo" [attr.aria-valuenow]="progress.percent" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar" [style.width.%]="progress.percent"></div>
+                      </div>
+                      <div class="sync-progress-meta">
+                        @if (progress.page && progress.pages_total) {
+                          <span>Página {{ progress.page }} de {{ progress.pages_total }}</span>
+                        } @else if (progress.items_received !== null) {
+                          <span>{{ progress.items_received }} recibidos</span>
+                        }
+                        @if (progress.items_total !== null) {
+                          <span>{{ progress.current }} de {{ progress.items_total }} procesados</span>
+                        }
+                        @if (progress.created !== null) {
+                          <span>{{ progress.created }} nuevos</span>
+                        }
+                        @if (progress.updated !== null) {
+                          <span>{{ progress.updated }} actualizados</span>
+                        }
+                        @if (progress.items_failed) {
+                          <span class="text-danger">{{ progress.items_failed }} con error</span>
+                        }
+                      </div>
+                    </div>
+                  }
                   <div class="sync-lane-footer">
                     <small class="text-muted">
                       {{ source.last_catalog_synced_at ? ('Última: ' + (source.last_catalog_synced_at | date:'short')) : 'Aún no ejecutado' }}
@@ -343,6 +439,33 @@
                     }
                   </div>
                   <p class="sync-description">Actualiza únicamente cantidades. Lumefy ejecuta un proceso por origen para evitar cruces.</p>
+                  @if (syncProgress(source, 'INVENTORY'); as progress) {
+                    <div class="sync-progress" [class.progress-complete]="progress.percent >= 100">
+                      <div class="sync-progress-heading">
+                        <span>{{ progress.message }}</span>
+                        <strong>{{ progress.percent }}%</strong>
+                      </div>
+                      <div class="progress" role="progressbar" aria-label="Progreso de sincronización del inventario" [attr.aria-valuenow]="progress.percent" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar" [style.width.%]="progress.percent"></div>
+                      </div>
+                      <div class="sync-progress-meta">
+                        @if (progress.page && progress.pages_total) {
+                          <span>Página {{ progress.page }} de {{ progress.pages_total }}</span>
+                        } @else if (progress.items_received !== null) {
+                          <span>{{ progress.items_received }} recibidos</span>
+                        }
+                        @if (progress.items_total !== null) {
+                          <span>{{ progress.current }} de {{ progress.items_total }} procesados</span>
+                        }
+                        @if (progress.updated !== null) {
+                          <span>{{ progress.updated }} existencias actualizadas</span>
+                        }
+                        @if (progress.items_failed) {
+                          <span class="text-danger">{{ progress.items_failed }} con error</span>
+                        }
+                      </div>
+                    </div>
+                  }
                   @if (scheduleDrafts[source.id]; as schedule) {
                     <div class="schedule-controls">
                       <div>

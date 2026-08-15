@@ -15,6 +15,7 @@ La primera versión soporta:
 - Catálogos simples y catálogos con variantes, imágenes, atributos e inventario por variante.
 - Relación estable entre el ID externo y el producto de Lumefy.
 - Historial de ejecuciones y errores.
+- Progreso persistido por ejecución: etapa, porcentaje, página actual, registros recibidos/procesados y fallos.
 - Cola duradera en PostgreSQL y recuperación de ejecuciones interrumpidas.
 - Una sola ejecución concurrente por origen y una sola solicitud activa por tipo.
 
@@ -62,7 +63,9 @@ Los encabezados personalizados también se cifran de forma recursiva. Por defect
 }
 ```
 
-Cuando `pagination.enabled` es `false`, Lumefy hace una sola solicitud. Cuando es `true`, reemplaza o agrega los parámetros de página en cada solicitud y continúa hasta encontrar una página vacía, una página menor al tamaño configurado, `last_page`/`total` si se configuran, o el límite `max_pages`.
+Cuando `pagination.enabled` es `false`, Lumefy hace una sola solicitud. Cuando es `true`, reemplaza o agrega los parámetros de página en cada solicitud y continúa hasta encontrar una página vacía, una página menor al tamaño configurado, metadatos de páginas/total devueltos por el proveedor, `last_page`/`total` configurados o el límite `max_pages`.
+
+Cada elemento de `GET /api/v1/integrations/sources/{id}/runs` incluye el estado operativo en `details.progress`. Sus campos principales son `stage` (`STARTING`, `FETCHING`, `PROCESSING`, `COMPLETED` o `FAILED`), `percent`, `message`, `current`, `total`, `page`, `pages_total`, `items_received`, `items_total` e `items_failed`. El panel consulta este historial mientras la ejecución está en cola o en curso y conserva el último resultado al terminar.
 
 ## Catálogo, inventario y programación
 

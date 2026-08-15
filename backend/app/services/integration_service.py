@@ -7,16 +7,17 @@ import json
 import socket
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Awaitable, Callable
 from urllib import error as urlerror
 from urllib import parse as urlparse
 from urllib import request as urlrequest
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.database import SessionLocal
 from app.models.branch import Branch
 from app.models.category import Category
 from app.models.integration import IntegrationRecordLink, IntegrationSource, IntegrationSyncRun
@@ -35,6 +36,50 @@ class IntegrationRequestError(Exception):
 
 class IntegrationSyncConflict(Exception):
     """Raised when an equivalent sync is already queued or running."""
+
+
+ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
+
+
+async def _report_progress(
+    progress_callback: ProgressCallback | None,
+    *,
+    stage: str,
+    message: str,
+    percent: int,
+    current: int = 0,
+    total: int | None = None,
+    entity: str | None = None,
+    page: int | None = None,
+    pages_total: int | None = None,
+    items_received: int | None = None,
+    items_total: int | None = None,
+    items_failed: int | None = None,
+    created: int | None = None,
+    updated: int | None = None,
+) -> None:
+    if not progress_callback:
+        return
+    progress: dict[str, Any] = {
+        "stage": stage,
+        "message": message,
+        "percent": max(0, min(100, int(percent))),
+        "current": max(0, int(current)),
+    }
+    for key, value in {
+        "total": total,
+        "entity": entity,
+        "page": page,
+        "pages_total": pages_total,
+        "items_received": items_received,
+        "items_total": items_total,
+        "items_failed": items_failed,
+        "created": created,
+        "updated": updated,
+    }.items():
+        if value is not None:
+            progress[key] = value
+    await progress_callback(progress)
 
 
 def validate_source(source: IntegrationSource) -> None:
@@ -733,7 +778,11 @@ async def preview_source(source: IntegrationSource) -> dict[str, Any]:
     }
 
 
-async def _fetch_entity(source: IntegrationSource, entity: str) -> list[dict[str, Any]]:
+async def _fetch_entity(
+    source: IntegrationSource,
+    entity: str,
+    progress_callback: ProgressCallback | None = None,
+) -> list[dict[str, Any]]:
     endpoint = _endpoint_config(source, entity)
     path = endpoint.get("path")
     if not path:
@@ -741,9 +790,34 @@ async def _fetch_entity(source: IntegrationSource, entity: str) -> list[dict[str
     url = _url_for(source, str(path))
     headers = _build_headers(source)
     pagination = _pagination_config(endpoint)
+    entity_label = "catálogo" if entity == "products" else "inventario"
     if not pagination.get("enabled", False):
+        await _report_progress(
+            progress_callback,
+            stage="FETCHING",
+            message=f"Consultando {entity_label}...",
+            percent=10,
+            current=0,
+            total=1,
+            entity=entity,
+            page=1,
+            pages_total=1,
+        )
         status_code, payload = await _request_json(url, headers)
-        return _extract_entity_rows(payload, endpoint, entity, status_code)
+        rows = _extract_entity_rows(payload, endpoint, entity, status_code)
+        await _report_progress(
+            progress_callback,
+            stage="FETCHING",
+            message=f"Datos de {entity_label} recibidos.",
+            percent=40,
+            current=1,
+            total=1,
+            entity=entity,
+            page=1,
+            pages_total=1,
+            items_received=len(rows),
+        )
+        return rows
 
     if str(pagination.get("type", "page")).lower() != "page":
         raise IntegrationRequestError("La paginación configurada debe usar el tipo 'page'.")
@@ -761,10 +835,43 @@ async def _fetch_entity(source: IntegrationSource, entity: str) -> list[dict[str
         page_items = _extract_entity_rows(payload, endpoint, entity, status_code)
         all_items.extend(page_items)
 
+        metadata = payload.get("meta") if isinstance(payload, dict) else None
+        pages_total_value = (
+            metadata.get("pages") or metadata.get("last_page")
+            if isinstance(metadata, dict)
+            else None
+        )
+        total_items_value = (
+            metadata.get("total") or metadata.get("count")
+            if isinstance(metadata, dict)
+            else None
+        )
+        pages_total = int(_as_float(pages_total_value) or 0) or None
+        total_items = int(_as_float(total_items_value) or 0) or None
+        progress_total = pages_total or max_pages
+        progress_percent = 10 + int(30 * min(page, progress_total) / progress_total)
+        await _report_progress(
+            progress_callback,
+            stage="FETCHING",
+            message=f"Descargando {entity_label}: página {page}{f' de {pages_total}' if pages_total else ''}.",
+            percent=progress_percent,
+            current=page,
+            total=pages_total,
+            entity=entity,
+            page=page,
+            pages_total=pages_total,
+            items_received=len(all_items),
+            items_total=total_items,
+        )
+
         if not page_items:
             break
         next_value = _value(payload, pagination.get("next_path")) if pagination.get("next_path") else None
         if pagination.get("next_path") and not next_value:
+            break
+        if pages_total is not None and page >= pages_total:
+            break
+        if total_items is not None and len(all_items) >= total_items:
             break
         last_page = _as_float(_value(payload, pagination.get("last_page_path"))) if pagination.get("last_page_path") else None
         if last_page is not None and page >= last_page:
@@ -780,6 +887,19 @@ async def _fetch_entity(source: IntegrationSource, entity: str) -> list[dict[str
             f"La sincronización de {entity} superó el máximo de {max_pages} páginas configurado."
         )
 
+    await _report_progress(
+        progress_callback,
+        stage="FETCHING",
+        message=f"Datos de {entity_label} recibidos: {len(all_items)} registros.",
+        percent=40,
+        current=pages_total or page,
+        total=pages_total,
+        entity=entity,
+        page=page,
+        pages_total=pages_total,
+        items_received=len(all_items),
+        items_total=total_items,
+    )
     return all_items
 
 
@@ -904,9 +1024,10 @@ async def _load_embedded_inventory(
     db: AsyncSession,
     source: IntegrationSource,
     run: IntegrationSyncRun,
+    progress_callback: ProgressCallback | None = None,
 ) -> list[dict[str, Any]]:
     """Read stock embedded in the catalog without modifying catalog records."""
-    items = await _fetch_entity(source, "products")
+    items = await _fetch_entity(source, "products", progress_callback)
     mapping = _field_map(source)
     collections = (source.configuration or {}).get("collections") or {}
     variants_path = collections.get("variants_path") or "variants[]"
@@ -991,9 +1112,12 @@ async def _load_embedded_inventory(
 
 
 async def _sync_products(
-    db: AsyncSession, source: IntegrationSource, run: IntegrationSyncRun
+    db: AsyncSession,
+    source: IntegrationSource,
+    run: IntegrationSyncRun,
+    progress_callback: ProgressCallback | None = None,
 ) -> tuple[dict[str, Product], dict[str, ProductVariant], list[dict[str, Any]]]:
-    items = await _fetch_entity(source, "products")
+    items = await _fetch_entity(source, "products", progress_callback)
     mapping = _field_map(source)
     configuration = source.configuration or {}
     collections = configuration.get("collections") or {}
@@ -1006,11 +1130,45 @@ async def _sync_products(
     embedded_inventory: list[dict[str, Any]] = []
     run.products_processed = len(items)
 
-    for item in items:
+    await _report_progress(
+        progress_callback,
+        stage="PROCESSING",
+        message=f"Procesando catálogo: 0 de {len(items)} registros.",
+        percent=45,
+        current=0,
+        total=len(items),
+        entity="products",
+        items_received=len(items),
+        items_total=len(items),
+        items_failed=run.items_failed,
+        created=run.products_created,
+        updated=run.products_updated,
+    )
+
+    async def report_processed(index: int) -> None:
+        if index != len(items) and index % 25 != 0:
+            return
+        await _report_progress(
+            progress_callback,
+            stage="PROCESSING",
+            message=f"Procesando catálogo: {index} de {len(items)} registros.",
+            percent=45 + int(50 * index / max(1, len(items))),
+            current=index,
+            total=len(items),
+            entity="products",
+            items_received=len(items),
+            items_total=len(items),
+            items_failed=run.items_failed,
+            created=run.products_created,
+            updated=run.products_updated,
+        )
+
+    for index, item in enumerate(items, start=1):
         external_id = str(_mapped(item, mapping, "product.external_id", "id", "external_id", "uuid") or "").strip()
         name = str(_mapped(item, mapping, "product.name", "name", "title") or "").strip()
         if not external_id or not name:
             run.items_failed += 1
+            await report_processed(index)
             continue
 
         sku_value = _mapped(item, mapping, "product.sku", "sku", "code", "reference")
@@ -1231,6 +1389,8 @@ async def _sync_products(
                     "raw": item,
                 })
 
+        await report_processed(index)
+
     return external_products, external_variants, embedded_inventory
 
 
@@ -1241,16 +1401,30 @@ async def _sync_inventory(
     external_products: dict[str, Product] | None = None,
     external_variants: dict[str, ProductVariant] | None = None,
     embedded_inventory: list[dict[str, Any]] | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> None:
     external_products = external_products or {}
     external_variants = external_variants or {}
-    items = await _fetch_entity(source, "inventory")
+    items = await _fetch_entity(source, "inventory", progress_callback)
     if embedded_inventory is None:
         embedded_inventory = []
         if not _endpoint_config(source, "inventory").get("path"):
-            embedded_inventory = await _load_embedded_inventory(db, source, run)
+            embedded_inventory = await _load_embedded_inventory(db, source, run, progress_callback)
     if not items and not embedded_inventory:
         run.details = {**(run.details or {}), "inventory_message": "El origen no devolvió existencias."}
+        await _report_progress(
+            progress_callback,
+            stage="PROCESSING",
+            message="El origen no devolvió existencias.",
+            percent=100,
+            current=0,
+            total=0,
+            entity="inventory",
+            items_received=0,
+            items_total=0,
+            items_failed=run.items_failed,
+            updated=run.inventory_updated,
+        )
         return
     branch, warehouse = await _resolve_inventory_location(db, source)
     if not branch:
@@ -1260,6 +1434,38 @@ async def _sync_inventory(
 
     mapping = _field_map(source)
     run.inventory_processed = len(items) + len(embedded_inventory)
+    inventory_total = run.inventory_processed
+    inventory_current = 0
+    await _report_progress(
+        progress_callback,
+        stage="PROCESSING",
+        message=f"Procesando inventario: 0 de {inventory_total} registros.",
+        percent=45,
+        current=0,
+        total=inventory_total,
+        entity="inventory",
+        items_received=inventory_total,
+        items_total=inventory_total,
+        items_failed=run.items_failed,
+        updated=run.inventory_updated,
+    )
+
+    async def report_inventory_processed() -> None:
+        if inventory_current != inventory_total and inventory_current % 25 != 0:
+            return
+        await _report_progress(
+            progress_callback,
+            stage="PROCESSING",
+            message=f"Procesando inventario: {inventory_current} de {inventory_total} registros.",
+            percent=45 + int(50 * inventory_current / max(1, inventory_total)),
+            current=inventory_current,
+            total=inventory_total,
+            entity="inventory",
+            items_received=inventory_total,
+            items_total=inventory_total,
+            items_failed=run.items_failed,
+            updated=run.inventory_updated,
+        )
     inventory_cache: dict[tuple[Any, Any, Any, Any, Any], Inventory] = {}
     warehouse_id = warehouse.id if warehouse else None
 
@@ -1301,6 +1507,8 @@ async def _sync_inventory(
 
     for embedded in embedded_inventory:
         await upsert_inventory(embedded["product"], embedded.get("variant"), embedded["quantity"])
+        inventory_current += 1
+        await report_inventory_processed()
 
     for item in items:
         variant_external_value = _mapped(
@@ -1329,8 +1537,12 @@ async def _sync_inventory(
         quantity = _as_float(_mapped(item, mapping, "inventory.quantity", "quantity", "stock", "available"))
         if not product or product.company_id != source.company_id or quantity is None:
             run.items_failed += 1
+            inventory_current += 1
+            await report_inventory_processed()
             continue
         await upsert_inventory(product, variant, quantity)
+        inventory_current += 1
+        await report_inventory_processed()
 
 
 async def enqueue_sync(
@@ -1398,16 +1610,54 @@ async def execute_sync_run(db: AsyncSession, run: IntegrationSyncRun) -> Integra
         await db.commit()
         return run
 
+    async def persist_progress(progress: dict[str, Any]) -> None:
+        run.details = {**(run.details or {}), "progress": progress}
+        try:
+            async with SessionLocal() as progress_db:
+                await progress_db.execute(
+                    update(IntegrationSyncRun)
+                    .where(IntegrationSyncRun.id == run_id)
+                    .values(details=run.details)
+                )
+                await progress_db.commit()
+        except Exception:  # noqa: BLE001 - progress must never stop the sync
+            return
+
     try:
         validate_source(source)
+        await _report_progress(
+            persist_progress,
+            stage="STARTING",
+            message="Preparando la sincronización...",
+            percent=2,
+            current=0,
+            entity=run.sync_type.lower(),
+        )
         if run.sync_type in {"CATALOG", "FULL"}:
-            products, variants, embedded_inventory = await _sync_products(db, source, run)
+            products, variants, embedded_inventory = await _sync_products(
+                db, source, run, persist_progress
+            )
         else:
             products, variants, embedded_inventory = {}, {}, None
         if run.sync_type in {"INVENTORY", "FULL"}:
-            await _sync_inventory(db, source, run, products, variants, embedded_inventory)
+            await _sync_inventory(
+                db, source, run, products, variants, embedded_inventory, persist_progress
+            )
         run.status = "PARTIAL" if run.items_failed else "SUCCESS"
         run.finished_at = datetime.utcnow()
+        run.details = {
+            **(run.details or {}),
+            "progress": {
+                "stage": "COMPLETED",
+                "message": "Sincronización completada." if run.status == "SUCCESS" else "Sincronización completada con alertas.",
+                "percent": 100,
+                "current": run.products_processed or run.inventory_processed,
+                "total": run.products_processed or run.inventory_processed,
+                "items_failed": run.items_failed,
+                "created": run.products_created,
+                "updated": run.products_updated or run.inventory_updated,
+            },
+        }
         source.status = "CONNECTED"
         source.last_synced_at = run.finished_at
         if run.sync_type in {"CATALOG", "FULL"}:
@@ -1425,6 +1675,19 @@ async def execute_sync_run(db: AsyncSession, run: IntegrationSyncRun) -> Integra
             failed_run.status = "FAILED"
             failed_run.finished_at = datetime.utcnow()
             failed_run.error_message = str(exc)[:2000]
+            failed_run.details = {
+                **(failed_run.details or {}),
+                "progress": {
+                    "stage": "FAILED",
+                    "message": "La sincronización falló.",
+                    "percent": 100,
+                    "current": failed_run.products_processed or failed_run.inventory_processed,
+                    "total": failed_run.products_processed or failed_run.inventory_processed,
+                    "items_failed": failed_run.items_failed,
+                    "created": failed_run.products_created,
+                    "updated": failed_run.products_updated or failed_run.inventory_updated,
+                },
+            }
             failed_source.status = "ERROR"
             failed_source.last_sync_status = "FAILED"
             failed_source.last_error = str(exc)[:2000]

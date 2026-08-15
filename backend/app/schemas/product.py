@@ -1,5 +1,5 @@
 from typing import Any, Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from uuid import UUID
 from app.schemas.unit_of_measure import UnitOfMeasure as UnitOfMeasureSchema
 from app.schemas.brand import Brand as BrandSchema
@@ -84,3 +84,23 @@ class Product(ProductBase):
 
     class Config:
         from_attributes = True
+
+
+class ProductBulkDeleteRequest(BaseModel):
+    """Products selected by the user for a guarded bulk deletion."""
+
+    product_ids: List[UUID] = Field(min_length=1, max_length=500)
+
+
+class ProductBulkDeleteBlocked(BaseModel):
+    id: UUID
+    name: str
+    reasons: List[str]
+
+
+class ProductBulkDeleteResponse(BaseModel):
+    requested: int
+    deleted: int
+    deleted_ids: List[UUID]
+    blocked: List[ProductBulkDeleteBlocked]
+    not_found: List[UUID]

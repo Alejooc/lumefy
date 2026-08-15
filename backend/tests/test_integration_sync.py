@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from pydantic import ValidationError
 
 from app.schemas.integration import IntegrationInventoryScheduleUpdate, IntegrationSyncRunOut
-from app.services.integration_service import _sync_inventory
+from app.services.integration_service import _fetch_entity, _sync_inventory
 
 
 class IntegrationScheduleSchemaTests(unittest.TestCase):
@@ -91,6 +91,53 @@ class IntegrationInventoryIdempotencyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(created_inventory.quantity, 9)
         self.assertEqual(run.inventory_processed, 2)
         self.assertEqual(run.inventory_updated, 2)
+
+
+class IntegrationProgressTests(unittest.IsolatedAsyncioTestCase):
+    async def test_pagination_reports_progress_and_honors_response_page_count(self):
+        source = SimpleNamespace(
+            base_url="https://provider.example.com/api",
+            auth_type="none",
+            credentials={},
+            configuration={
+                "endpoints": {
+                    "products": {
+                        "path": "/products",
+                        "pagination": {
+                            "enabled": True,
+                            "type": "page",
+                            "page_param": "page",
+                            "per_page_param": "per_page",
+                            "per_page": 2,
+                            "max_pages": 50,
+                        },
+                    }
+                }
+            },
+        )
+        requests = []
+
+        async def request_json(url, headers):
+            requests.append(url)
+            page = len(requests)
+            return 200, {
+                "data": [{"id": f"{page}-a"}, {"id": f"{page}-b"}],
+                "meta": {"page": page, "pages": 2, "total": 4},
+            }
+
+        progress = []
+
+        async def on_progress(value):
+            progress.append(value)
+
+        with patch("app.services.integration_service._request_json", new=request_json):
+            rows = await _fetch_entity(source, "products", on_progress)
+
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(progress[-1]["items_received"], 4)
+        self.assertEqual(progress[-1]["pages_total"], 2)
+        self.assertEqual(progress[-1]["percent"], 40)
 
 
 if __name__ == "__main__":

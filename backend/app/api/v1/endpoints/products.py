@@ -10,6 +10,17 @@ from app.core.database import get_db
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.storefront import PublishedProduct, Storefront
+from app.models.invoice import InvoiceItem
+from app.models.inventory import Inventory
+from app.models.inventory_lot import InventoryLot
+from app.models.inventory_movement import InventoryMovement
+from app.models.manufacturing import BillOfMaterials, BillOfMaterialsLine
+from app.models.pricelist_item import PriceListItem
+from app.models.procurement import PurchaseRequestItem, SupplierQuoteItem
+from app.models.purchase_item import PurchaseOrderItem
+from app.models.return_order import ReturnOrderItem
+from app.models.sale import SaleItem
+from app.models.stock_take import StockTakeItem
 from app.schemas import product as schemas
 from app.schemas import product_variant as variant_schemas
 from app.models.user import User
@@ -159,6 +170,49 @@ async def _sync_product_ecommerce(
 def _attach_ecommerce_state(product: Product, published_product: PublishedProduct | None) -> None:
     product.visible_in_ecommerce = bool(published_product and published_product.is_published)
 
+
+# A product is historical data once another business document points to it.  These
+# checks keep the bulk operation useful (safe products are still removed) while
+# protecting sales, inventory and accounting history from accidental deletion.
+_PRODUCT_DELETE_RELATIONS = (
+    ("Tiene una orden o venta asociada", SaleItem.product_id),
+    ("Tiene una factura asociada", InvoiceItem.product_id),
+    ("Tiene existencias registradas", Inventory.product_id),
+    ("Tiene lotes de inventario registrados", InventoryLot.product_id),
+    ("Tiene movimientos de inventario registrados", InventoryMovement.product_id),
+    ("Tiene una orden de compra asociada", PurchaseOrderItem.product_id),
+    ("Tiene una solicitud de compra asociada", PurchaseRequestItem.product_id),
+    ("Tiene una cotización de proveedor asociada", SupplierQuoteItem.product_id),
+    ("Tiene una devolución asociada", ReturnOrderItem.product_id),
+    ("Tiene una lista de precios asociada", PriceListItem.product_id),
+    ("Tiene un conteo de inventario asociado", StockTakeItem.product_id),
+    ("Está publicado en ecommerce", PublishedProduct.product_id),
+    ("Está usado como producto terminado en fabricación", BillOfMaterials.product_id),
+    ("Está usado como componente en fabricación", BillOfMaterialsLine.component_id),
+)
+
+
+async def _find_product_delete_blockers(db: AsyncSession, product_ids: list[Any]) -> dict[Any, list[str]]:
+    """Return the historical relations that make each product undeletable."""
+    blockers: dict[Any, list[str]] = {product_id: [] for product_id in product_ids}
+    if not product_ids:
+        return blockers
+    for reason, product_column in _PRODUCT_DELETE_RELATIONS:
+        result = await db.execute(
+            select(product_column).where(product_column.in_(product_ids)).distinct()
+        )
+        for product_id in result.scalars().all():
+            if product_id in blockers and reason not in blockers[product_id]:
+                blockers[product_id].append(reason)
+    return blockers
+
+
+def _delete_blocker_detail(product: Product, reasons: list[str]) -> str:
+    return (
+        f"No se puede eliminar '{product.name}' porque {', '.join(reasons).lower()}. "
+        "Primero elimina o desvincula esas relaciones."
+    )
+
 @router.get("/", response_model=List[schemas.Product])
 async def read_products(
     db: AsyncSession = Depends(get_db),
@@ -280,6 +334,93 @@ async def export_products(
     if format == "csv":
         return ExportService.to_csv_response(rows, columns, filename="productos")
     return ExportService.to_excel_response(rows, columns, filename="productos")
+
+
+@router.post("/bulk-delete", response_model=schemas.ProductBulkDeleteResponse)
+async def bulk_delete_products(
+    *,
+    product_in: schemas.ProductBulkDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> schemas.ProductBulkDeleteResponse:
+    """Delete selected products, skipping anything referenced by business history."""
+    # Keep the response deterministic and do not process the same product twice
+    # if a client accidentally submits duplicate checkbox values.
+    product_ids = list(dict.fromkeys(product_in.product_ids))
+    result = await db.execute(
+        select(Product)
+        .options(selectinload(Product.variants))
+        .where(
+            Product.company_id == current_user.company_id,
+            Product.id.in_(product_ids),
+        )
+    )
+    products = result.scalars().all()
+    products_by_id = {product.id: product for product in products}
+    not_found = [product_id for product_id in product_ids if product_id not in products_by_id]
+    blockers = await _find_product_delete_blockers(db, list(products_by_id))
+
+    deleted_ids = []
+    blocked = []
+    try:
+        for product_id in product_ids:
+            product = products_by_id.get(product_id)
+            if product is None:
+                continue
+
+            reasons = blockers.get(product_id, [])
+            if reasons:
+                blocked.append(
+                    schemas.ProductBulkDeleteBlocked(
+                        id=product.id,
+                        name=product.name,
+                        reasons=reasons,
+                    )
+                )
+                continue
+
+            # A savepoint makes an unexpected database-level relation safe: one
+            # problematic row is reported as blocked without rolling back other
+            # products that were eligible for deletion.
+            try:
+                async with db.begin_nested():
+                    for variant in product.variants:
+                        await db.delete(variant)
+                    await db.delete(product)
+                    await db.flush()
+            except IntegrityError:
+                blocked.append(
+                    schemas.ProductBulkDeleteBlocked(
+                        id=product.id,
+                        name=product.name,
+                        reasons=["Tiene una relación protegida por la base de datos"],
+                    )
+                )
+                continue
+
+            deleted_ids.append(product.id)
+            await log_activity(
+                db,
+                action="DELETE",
+                entity_type="Product",
+                entity_id=product.id,
+                user_id=current_user.id,
+                company_id=current_user.company_id,
+                details={"bulk": True, "name": product.name},
+            )
+
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    return schemas.ProductBulkDeleteResponse(
+        requested=len(product_ids),
+        deleted=len(deleted_ids),
+        deleted_ids=deleted_ids,
+        blocked=blocked,
+        not_found=not_found,
+    )
 
 @router.get("/{product_id}", response_model=schemas.Product)
 async def read_product(
@@ -511,6 +652,13 @@ async def delete_product(
     product = result.scalars().first()
     if not product:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
+
+    blockers = await _find_product_delete_blockers(db, [product.id])
+    if blockers.get(product.id):
+        raise HTTPException(
+            status_code=409,
+            detail=_delete_blocker_detail(product, blockers[product.id]),
+        )
     
     # Delete variants first
     for variant in product.variants:
