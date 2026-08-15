@@ -22,6 +22,12 @@
               <i class="ti ti-trash"></i> Eliminar seleccionados ({{ selectedCount }})
             </button>
           }
+          @if (totalProducts > 0) {
+            <button class="btn btn-outline-danger" (click)="deleteAllProducts()" [disabled]="isLoading"
+              title="Eliminar todos los productos del catálogo, no solo los visibles">
+              <i class="ti ti-trash-x"></i> Eliminar todo el catálogo
+            </button>
+          }
         </div>
       </ng-template>
 
@@ -40,7 +46,11 @@
         </div>
         <div class="col-lg-7 text-lg-end text-muted small">
           @if (!isLoading) {
-            <span>{{ products.length }} producto(s) en el catálogo</span>
+            @if (totalProducts > 0) {
+              <span>Mostrando {{ firstVisibleProduct }}–{{ lastVisibleProduct }} de {{ totalProducts }} producto(s)</span>
+            } @else {
+              <span>0 productos en el catálogo</span>
+            }
             @if (selectedCount > 0) {
               <span class="ms-2 badge bg-light-danger text-danger">{{ selectedCount }} seleccionado(s)</span>
             }
@@ -152,6 +162,43 @@
                 }
               </tbody>
             </table>
+          </div>
+        }
+
+        @if (!isLoading && totalProducts > 0) {
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 product-pagination-bar">
+            <div class="d-flex align-items-center gap-2 text-muted small">
+              <label for="product-page-size" class="mb-0">Por página</label>
+              <select id="product-page-size" class="form-select form-select-sm product-page-size"
+                [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)" aria-label="Productos por página">
+                <option [ngValue]="25">25</option>
+                <option [ngValue]="50">50</option>
+                <option [ngValue]="100">100</option>
+              </select>
+              <span>Página {{ page }} de {{ totalPages }}</span>
+            </div>
+            @if (totalPages > 1) {
+              <nav aria-label="Paginación de productos">
+                <ul class="pagination pagination-sm mb-0">
+                  <li class="page-item" [class.disabled]="page === 1">
+                    <button class="page-link" type="button" (click)="goToPage(page - 1)" [disabled]="page === 1">
+                      <i class="ti ti-chevron-left"></i><span class="visually-hidden">Anterior</span>
+                    </button>
+                  </li>
+                  @for (pageNumber of pageNumbers; track pageNumber) {
+                    <li class="page-item" [class.active]="pageNumber === page">
+                      <button class="page-link" type="button" (click)="goToPage(pageNumber)"
+                        [attr.aria-current]="pageNumber === page ? 'page' : null">{{ pageNumber }}</button>
+                    </li>
+                  }
+                  <li class="page-item" [class.disabled]="page === totalPages">
+                    <button class="page-link" type="button" (click)="goToPage(page + 1)" [disabled]="page === totalPages">
+                      <i class="ti ti-chevron-right"></i><span class="visually-hidden">Siguiente</span>
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            }
           </div>
         }
 

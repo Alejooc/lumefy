@@ -63,7 +63,67 @@ else
   echo "No production data volumes found; treating this as the initial deployment."
 fi
 
-compose build --pull
+build_services=""
+changed_files=""
+
+add_build_service() {
+  case " $build_services " in
+    *" $1 "*) ;;
+    *) build_services="$build_services $1" ;;
+  esac
+}
+
+# Rebuild only the image(s) affected by this revision.  Every deploy used to
+# rebuild Angular, the storefront and the backend on the VPS, even when only
+# one of them changed.  Keeping the previous revision's image under its own
+# immutable tag lets us reuse the other services without sacrificing rollback.
+if [ "$PREVIOUS_REVISION" != "unknown" ] && git cat-file -e "$PREVIOUS_REVISION^{commit}" 2>/dev/null; then
+  changed_files=$(git diff --name-only "$PREVIOUS_REVISION" HEAD || true)
+  printf '%s\n' "Changed files since $PREVIOUS_REVISION:"
+  printf '%s\n' "$changed_files"
+
+  case "$changed_files" in
+    *"docker-compose.prod.yml"*)
+      build_services="backend frontend storefront"
+      ;;
+    *)
+      case "$changed_files" in *"backend/"*) add_build_service backend ;; esac
+      case "$changed_files" in *"frontend_mantis/"*) add_build_service frontend ;; esac
+      case "$changed_files" in *"storefront_nextmerce/"*) add_build_service storefront ;; esac
+      ;;
+  esac
+fi
+
+if [ -z "$build_services" ] && [ "$PREVIOUS_REVISION" = "unknown" ]; then
+  build_services="backend frontend storefront"
+fi
+
+if [ -n "$build_services" ]; then
+  printf '%s\n' "Building affected services:$build_services"
+  # shellcheck disable=SC2086
+  compose build --pull $build_services
+else
+  printf '%s\n' "No application image changes detected; reusing previous images."
+fi
+
+for service in backend frontend storefront; do
+  case " $build_services " in
+    *" $service "*)
+      continue
+      ;;
+  esac
+
+  previous_image="lumefy-$service:$PREVIOUS_REVISION"
+  current_image="lumefy-$service:$LUMEFY_IMAGE_TAG"
+  if ! docker image inspect "$previous_image" >/dev/null 2>&1; then
+    echo "Cannot reuse missing image $previous_image; rebuilding $service." >&2
+    # shellcheck disable=SC2086
+    compose build --pull "$service"
+    continue
+  fi
+  docker tag "$previous_image" "$current_image"
+  printf '%s\n' "Reusing $previous_image as $current_image"
+done
 
 # Validate application settings before Compose replaces any running service.
 # This catches missing production secrets without turning a configuration error

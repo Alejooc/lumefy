@@ -19,6 +19,14 @@ interface BulkDeleteResponse {
     not_found: string[];
 }
 
+interface ProductPageResponse {
+    items: Product[];
+    total: number;
+    page: number;
+    page_size: number;
+    total_pages: number;
+}
+
 @Component({
     selector: 'app-product-list',
     standalone: false,
@@ -36,6 +44,10 @@ export class ProductListComponent implements OnInit {
     isLoading = false;
     searchQuery = '';
     selectedProductIds = new Set<string>();
+    page = 1;
+    pageSize = 100;
+    totalProducts = 0;
+    totalPages = 0;
 
     currencySymbol = '$';
 
@@ -52,16 +64,19 @@ export class ProductListComponent implements OnInit {
 
     loadProducts() {
         this.isLoading = true;
-        const params = this.searchQuery ? `?search=${encodeURIComponent(this.searchQuery)}` : '';
-        this.apiService.get<Product[]>(`/products${params}`).subscribe({
+        const params: Record<string, string | number> = {
+            page: this.page,
+            page_size: this.pageSize
+        };
+        if (this.searchQuery.trim()) {
+            params['search'] = this.searchQuery.trim();
+        }
+        this.apiService.get<ProductPageResponse>('/products/paged', params).subscribe({
             next: (data) => {
-                this.products = data;
-                const visibleIds = new Set(
-                    data.map((product) => product.id).filter((id): id is string => Boolean(id))
-                );
-                this.selectedProductIds = new Set(
-                    Array.from(this.selectedProductIds).filter((id) => visibleIds.has(id))
-                );
+                this.products = data.items;
+                this.totalProducts = data.total;
+                this.totalPages = data.total_pages;
+                this.page = data.page;
                 this.isLoading = false;
                 this.cdr.detectChanges();
             },
@@ -75,7 +90,47 @@ export class ProductListComponent implements OnInit {
 
     onSearch() {
         this.clearSelection();
+        this.page = 1;
         this.loadProducts();
+    }
+
+    onPageSizeChange(value: number | string): void {
+        const nextPageSize = Number(value);
+        if (!Number.isFinite(nextPageSize) || nextPageSize < 1 || nextPageSize > 100) {
+            return;
+        }
+        this.pageSize = nextPageSize;
+        this.page = 1;
+        this.clearSelection();
+        this.loadProducts();
+    }
+
+    goToPage(page: number): void {
+        if (page < 1 || page > this.totalPages || page === this.page || this.isLoading) {
+            return;
+        }
+        this.page = page;
+        this.loadProducts();
+    }
+
+    get pageNumbers(): number[] {
+        const maxVisiblePages = 7;
+        if (this.totalPages <= maxVisiblePages) {
+            return Array.from({ length: this.totalPages }, (_, index) => index + 1);
+        }
+
+        let start = Math.max(1, this.page - 3);
+        const end = Math.min(this.totalPages, start + maxVisiblePages - 1);
+        start = Math.max(1, end - maxVisiblePages + 1);
+        return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+    }
+
+    get firstVisibleProduct(): number {
+        return this.totalProducts ? ((this.page - 1) * this.pageSize) + 1 : 0;
+    }
+
+    get lastVisibleProduct(): number {
+        return Math.min(this.page * this.pageSize, this.totalProducts);
     }
 
     isSelected(productId: string | undefined): boolean {
@@ -186,27 +241,7 @@ export class ProductListComponent implements OnInit {
                     .subscribe({
                         next: (response) => {
                             this.clearSelection();
-                            if (response.blocked.length || response.not_found.length) {
-                                const examples = response.blocked
-                                    .slice(0, 3)
-                                    .map((item) => `${item.name}: ${item.reasons.join(', ')}`)
-                                    .join(' | ');
-                                const details = [
-                                    `Eliminados: ${response.deleted}.`,
-                                    `Conservados por seguridad: ${response.blocked.length}.`,
-                                    response.not_found.length ? `No encontrados: ${response.not_found.length}.` : '',
-                                    examples ? `Ejemplos: ${examples}.` : ''
-                                ]
-                                    .filter(Boolean)
-                                    .join(' ');
-                                this.swal.warning('Borrado parcial', details);
-                            } else {
-                                this.swal.success(
-                                    'Productos eliminados',
-                                    `${response.deleted} producto(s) eliminado(s) correctamente.`
-                                );
-                            }
-                            this.loadProducts();
+                            this.showBulkDeleteResult(response);
                         },
                         error: (err) => {
                             console.error('Error deleting selected products', err);
@@ -220,6 +255,69 @@ export class ProductListComponent implements OnInit {
                         }
                     });
             });
+    }
+
+    deleteAllProducts(): void {
+        if (!this.totalProducts || this.isLoading) {
+            return;
+        }
+
+        const scope = this.searchQuery.trim()
+            ? 'Se eliminará todo el catálogo, aunque un producto no coincida con la búsqueda actual.'
+            : `Se procesarán los ${this.totalProducts} producto(s) de todas las páginas.`;
+        this.swal
+            .confirm(
+                '¿Eliminar todo el catálogo?',
+                `${scope} Los productos relacionados con ventas, inventario, órdenes u otros documentos se conservarán.`
+            )
+            .then((result) => {
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                this.isLoading = true;
+                this.apiService.post<BulkDeleteResponse>('/products/bulk-delete-all', {}).subscribe({
+                    next: (response) => {
+                        this.clearSelection();
+                        this.page = 1;
+                        this.showBulkDeleteResult(response, 'Borrado global parcial');
+                    },
+                    error: (err) => {
+                        console.error('Error deleting all products', err);
+                        const detail = err?.error?.detail;
+                        this.swal.error(
+                            'No se pudo completar el borrado global',
+                            typeof detail === 'string' ? detail : 'Intenta nuevamente.'
+                        );
+                        this.isLoading = false;
+                        this.cdr.detectChanges();
+                    }
+                });
+            });
+    }
+
+    private showBulkDeleteResult(response: BulkDeleteResponse, partialTitle = 'Borrado parcial'): void {
+        if (response.blocked.length || response.not_found.length) {
+            const examples = response.blocked
+                .slice(0, 3)
+                .map((item) => `${item.name}: ${item.reasons.join(', ')}`)
+                .join(' | ');
+            const details = [
+                `Eliminados: ${response.deleted}.`,
+                `Conservados por seguridad: ${response.blocked.length}.`,
+                response.not_found.length ? `No encontrados: ${response.not_found.length}.` : '',
+                examples ? `Ejemplos: ${examples}.` : ''
+            ]
+                .filter(Boolean)
+                .join(' ');
+            this.swal.warning(partialTitle, details);
+        } else {
+            this.swal.success(
+                'Productos eliminados',
+                `${response.deleted} producto(s) eliminado(s) correctamente.`
+            );
+        }
+        this.loadProducts();
     }
 
     trackByFn(index: number, item: Product): string | undefined {

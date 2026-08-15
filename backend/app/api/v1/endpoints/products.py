@@ -213,6 +213,72 @@ def _delete_blocker_detail(product: Product, reasons: list[str]) -> str:
         "Primero elimina o desvincula esas relaciones."
     )
 
+
+def _product_collection_query(
+    *,
+    company_id: Any,
+    search: str | None = None,
+    category_id: str | None = None,
+    brand_id: str | None = None,
+    product_type: str | None = None,
+):
+    """Build the shared catalog query used by list and paginated endpoints."""
+    query = select(Product).options(
+        selectinload(Product.brand),
+        selectinload(Product.unit_of_measure),
+        selectinload(Product.purchase_uom),
+        selectinload(Product.variants),
+        selectinload(Product.images),
+        selectinload(Product.category),
+    )
+
+    if company_id:
+        query = query.where(Product.company_id == company_id)
+
+    if search:
+        search_filter = f"%{search}%"
+        query = query.where(
+            or_(
+                Product.name.ilike(search_filter),
+                Product.sku.ilike(search_filter),
+                Product.barcode.ilike(search_filter),
+                Product.internal_reference.ilike(search_filter),
+            )
+        )
+
+    if category_id:
+        query = query.where(Product.category_id == category_id)
+    if brand_id:
+        query = query.where(Product.brand_id == brand_id)
+    if product_type:
+        query = query.where(Product.product_type == product_type)
+
+    # Stable ordering is important: records must not jump between pages while
+    # the user navigates the catalog.
+    return query.order_by(Product.created_at.desc(), Product.id.desc())
+
+
+async def _attach_published_state(
+    db: AsyncSession,
+    products: list[Product],
+    company_id: Any,
+) -> list[Product]:
+    if not products or not company_id:
+        return products
+
+    product_ids = [product.id for product in products]
+    published_result = await db.execute(
+        select(PublishedProduct).where(
+            PublishedProduct.company_id == company_id,
+            PublishedProduct.product_id.in_(product_ids),
+            PublishedProduct.is_active == True,
+        )
+    )
+    published_map = {item.product_id: item for item in published_result.scalars().all()}
+    for product in products:
+        _attach_ecommerce_state(product, published_map.get(product.id))
+    return products
+
 @router.get("/", response_model=List[schemas.Product])
 async def read_products(
     db: AsyncSession = Depends(get_db),
@@ -225,53 +291,60 @@ async def read_products(
     current_user: User = Depends(PermissionChecker("view_products")),
 ) -> Any:
     """Retrieve products with all relations."""
-    query = select(Product).options(
-        selectinload(Product.brand),
-        selectinload(Product.unit_of_measure),
-        selectinload(Product.purchase_uom),
-        selectinload(Product.variants),
-        selectinload(Product.images),
-        selectinload(Product.category)
+    query = _product_collection_query(
+        company_id=current_user.company_id,
+        search=search,
+        category_id=category_id,
+        brand_id=brand_id,
+        product_type=product_type,
     ).offset(skip).limit(limit)
-    
-    if current_user.company_id:
-        query = query.where(Product.company_id == current_user.company_id)
-        
-    if search:
-        search_filter = f"%{search}%"
-        query = query.where(
-            or_(
-                Product.name.ilike(search_filter),
-                Product.sku.ilike(search_filter),
-                Product.barcode.ilike(search_filter),
-                Product.internal_reference.ilike(search_filter)
-            )
-        )
-    
-    if category_id:
-        query = query.where(Product.category_id == category_id)
-    if brand_id:
-        query = query.where(Product.brand_id == brand_id)
-    if product_type:
-        query = query.where(Product.product_type == product_type)
-        
     result = await db.execute(query)
     products = result.scalars().all()
-    if not products or not current_user.company_id:
-        return products
+    return await _attach_published_state(db, products, current_user.company_id)
 
-    product_ids = [product.id for product in products]
-    published_result = await db.execute(
-        select(PublishedProduct).where(
-            PublishedProduct.company_id == current_user.company_id,
-            PublishedProduct.product_id.in_(product_ids),
-            PublishedProduct.is_active == True
-        )
+
+@router.get("/paged", response_model=schemas.ProductPage)
+async def read_products_page(
+    db: AsyncSession = Depends(get_db),
+    page: int = 1,
+    page_size: int = 100,
+    search: str = None,
+    category_id: str = None,
+    brand_id: str = None,
+    product_type: str = None,
+    current_user: User = Depends(PermissionChecker("view_products")),
+) -> schemas.ProductPage:
+    """Retrieve a catalog page together with the total matching product count."""
+    if page < 1:
+        raise HTTPException(status_code=422, detail="La página debe ser mayor o igual a 1.")
+    if page_size < 1 or page_size > 100:
+        raise HTTPException(status_code=422, detail="El tamaño de página debe estar entre 1 y 100.")
+
+    filters = {
+        "company_id": current_user.company_id,
+        "search": search,
+        "category_id": category_id,
+        "brand_id": brand_id,
+        "product_type": product_type,
+    }
+    count_query = _product_collection_query(**filters).order_by(None).subquery()
+    total = int((await db.scalar(select(func.count()).select_from(count_query))) or 0)
+    total_pages = (total + page_size - 1) // page_size if total else 0
+    page = min(page, total_pages) if total_pages else 1
+
+    result = await db.execute(
+        _product_collection_query(**filters)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     )
-    published_map = {item.product_id: item for item in published_result.scalars().all()}
-    for product in products:
-        _attach_ecommerce_state(product, published_map.get(product.id))
-    return products
+    products = await _attach_published_state(db, result.scalars().all(), current_user.company_id)
+    return schemas.ProductPage(
+        items=products,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
 
 @router.get("/export")
 async def export_products(
@@ -358,6 +431,24 @@ async def bulk_delete_products(
     products = result.scalars().all()
     products_by_id = {product.id: product for product in products}
     not_found = [product_id for product_id in product_ids if product_id not in products_by_id]
+    return await _delete_products_guarded(
+        db=db,
+        product_ids=product_ids,
+        products_by_id=products_by_id,
+        not_found=not_found,
+        current_user=current_user,
+    )
+
+
+async def _delete_products_guarded(
+    *,
+    db: AsyncSession,
+    product_ids: list[Any],
+    products_by_id: dict[Any, Product],
+    not_found: list[Any],
+    current_user: User,
+) -> schemas.ProductBulkDeleteResponse:
+    """Delete eligible products while reporting every protected product."""
     blockers = await _find_product_delete_blockers(db, list(products_by_id))
 
     deleted_ids = []
@@ -420,6 +511,50 @@ async def bulk_delete_products(
         deleted_ids=deleted_ids,
         blocked=blocked,
         not_found=not_found,
+    )
+
+
+@router.post("/bulk-delete-all", response_model=schemas.ProductBulkDeleteResponse)
+async def bulk_delete_all_products(
+    *,
+    product_in: schemas.ProductBulkDeleteAllRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> schemas.ProductBulkDeleteResponse:
+    """Delete every product in the company that has no protected history."""
+    product_in = product_in or schemas.ProductBulkDeleteAllRequest()
+    query = (
+        select(Product)
+        .options(selectinload(Product.variants))
+        .where(Product.company_id == current_user.company_id)
+    )
+    if product_in.search:
+        search_filter = f"%{product_in.search}%"
+        query = query.where(
+            or_(
+                Product.name.ilike(search_filter),
+                Product.sku.ilike(search_filter),
+                Product.barcode.ilike(search_filter),
+                Product.internal_reference.ilike(search_filter),
+            )
+        )
+    if product_in.category_id:
+        query = query.where(Product.category_id == product_in.category_id)
+    if product_in.brand_id:
+        query = query.where(Product.brand_id == product_in.brand_id)
+    if product_in.product_type:
+        query = query.where(Product.product_type == product_in.product_type)
+
+    result = await db.execute(query)
+    products = result.scalars().all()
+    products_by_id = {product.id: product for product in products}
+    product_ids = list(products_by_id)
+    return await _delete_products_guarded(
+        db=db,
+        product_ids=product_ids,
+        products_by_id=products_by_id,
+        not_found=[],
+        current_user=current_user,
     )
 
 @router.get("/{product_id}", response_model=schemas.Product)

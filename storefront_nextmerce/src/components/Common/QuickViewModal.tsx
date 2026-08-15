@@ -157,16 +157,17 @@ const QuickViewModal = () => {
                       <Image
                         src={img || ""}
                         alt="thumbnail"
-                        width={61}
-                        height={61}
-                        className="aspect-square"
+                        width={80}
+                        height={80}
+                        className="block h-full w-full object-cover"
+                        sizes="80px"
                       />
                     </button>
                   ))}
                 </div>
 
-                <div className="relative z-1 overflow-hidden flex items-center justify-center w-full sm:min-h-[508px] bg-gray-1 rounded-lg border border-gray-3">
-                  <div>
+                <div className="relative z-1 aspect-square overflow-hidden flex items-center justify-center w-full sm:min-h-[508px] bg-gray-1 rounded-lg border border-gray-3">
+                  <div className="h-full w-full">
                     <button
                       onClick={handlePreviewSlider}
                       aria-label="button for zoom"
@@ -193,8 +194,10 @@ const QuickViewModal = () => {
                       <Image
                         src={previewImages[activePreview]}
                         alt="products-details"
-                        width={400}
-                        height={400}
+                        width={508}
+                        height={508}
+                        sizes="(min-width: 640px) 508px, 100vw"
+                        className="block h-full w-full object-cover"
                       />
                     )}
                   </div>
