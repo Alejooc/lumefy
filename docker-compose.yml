@@ -28,6 +28,20 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    build: ./backend
+    restart: "no"
+    command: python -m alembic upgrade head
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/lumefy_db
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
   backend:
     build: ./backend
     restart: always
@@ -41,8 +55,10 @@ services:
       - POSTGRES_SERVER=db
       - REDIS_URL=redis://redis:6379/0
     depends_on:
-      - db
-      - redis
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     volumes:
       - ./backend:/app
     healthcheck:
@@ -59,8 +75,8 @@ services:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/lumefy_db
       - REDIS_URL=redis://redis:6379/0
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     volumes:
@@ -94,6 +110,22 @@ services:
         condition: service_healthy
       operations-consumer:
         condition: service_started
+    volumes:
+      - ./backend:/app
+
+  integration-sync-worker:
+    build: ./backend
+    restart: unless-stopped
+    command: python -m app.workers.integration_sync_worker
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/lumefy_db
+      - INTEGRATION_SYNC_POLL_SECONDS=2
+      - INTEGRATION_SYNC_STALE_MINUTES=60
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - ./backend:/app
 

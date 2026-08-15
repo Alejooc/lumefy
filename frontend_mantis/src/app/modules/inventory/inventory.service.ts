@@ -13,6 +13,7 @@ export interface InventoryProduct {
 export interface InventoryItem {
     id: string;
     product_id: string;
+    variant_id?: string;
     branch_id: string;
     quantity: number;
     reserved_quantity: number;

@@ -52,6 +52,7 @@ from app.models.storefront import (
     StorePaymentGateway,
     StorefrontOrder,
 )
+from app.models.integration import IntegrationSource, IntegrationSyncRun, IntegrationRecordLink
 
 from app.core.config import settings
 

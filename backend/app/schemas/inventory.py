@@ -15,6 +15,7 @@ class MovementType(str, Enum):
 # --- Inventory Stock Schemas ---
 class InventoryBase(BaseModel):
     product_id: UUID
+    variant_id: Optional[UUID] = None
     branch_id: UUID
     warehouse_id: Optional[UUID] = None
     quantity: float

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel
 from uuid import UUID
 
@@ -8,6 +8,9 @@ class ProductVariantBase(BaseModel):
     barcode: Optional[str] = None
     price_extra: float = 0.0
     cost_extra: float = 0.0
+    price: Optional[float] = None
+    cost: Optional[float] = None
+    attributes: dict[str, Any] = {}
     weight: Optional[float] = None
 
 class ProductVariantCreate(ProductVariantBase):
@@ -19,6 +22,9 @@ class ProductVariantUpdate(BaseModel):
     barcode: Optional[str] = None
     price_extra: Optional[float] = None
     cost_extra: Optional[float] = None
+    price: Optional[float] = None
+    cost: Optional[float] = None
+    attributes: Optional[dict[str, Any]] = None
     weight: Optional[float] = None
 
 class ProductVariant(ProductVariantBase):

@@ -17,6 +17,7 @@ export interface Product {
     barcode?: string;
     description?: string;
     image_url?: string;
+    attributes?: Record<string, unknown>;
     product_type: string;
     price: number;
     cost: number;
@@ -46,6 +47,9 @@ export interface ProductVariant {
     barcode?: string;
     price_extra: number;
     cost_extra: number;
+    price?: number;
+    cost?: number;
+    attributes?: Record<string, unknown>;
 }
 
 @Injectable({

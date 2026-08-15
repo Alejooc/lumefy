@@ -1,4 +1,4 @@
-from sqlalchemy import String, Float, Boolean, ForeignKey, Enum, Text
+from sqlalchemy import String, Float, Boolean, ForeignKey, Enum, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
@@ -21,6 +21,7 @@ class Product(BaseModel):
     barcode: Mapped[str] = mapped_column(String, index=True, nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     image_url: Mapped[str] = mapped_column(String, nullable=True)
+    attributes: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     product_type: Mapped[str] = mapped_column(String, default="STORABLE")  # STORABLE, CONSUMABLE, SERVICE
 
     # Pricing
