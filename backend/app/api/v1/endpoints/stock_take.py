@@ -93,26 +93,28 @@ async def create_stock_take(
     )
     inv_result = await db.execute(inv_query)
     quantities_by_product = {
-        inventory.product_id: inventory.quantity
+        (inventory.product_id, inventory.variant_id): inventory.quantity
         for inventory in inv_result.scalars().all()
     }
     product_result = await db.execute(
-        select(Product.id).where(
+        select(Product).options(selectinload(Product.variants)).where(
             Product.company_id == current_user.company_id,
             Product.track_inventory.is_(True),
         )
     )
 
-    for product_id in product_result.scalars().all():
-        item = StockTakeItem(
-            stock_take_id=stock_take.id,
-            product_id=product_id,
-            system_qty=quantities_by_product.get(product_id, 0.0),
-            counted_qty=None,
-            difference=0.0,
-            company_id=current_user.company_id,
-        )
-        db.add(item)
+    for product in product_result.scalars().all():
+        variant_ids = [variant.id for variant in product.variants] if product.variants else [None]
+        for variant_id in variant_ids:
+            db.add(StockTakeItem(
+                stock_take_id=stock_take.id,
+                product_id=product.id,
+                variant_id=variant_id,
+                system_qty=quantities_by_product.get((product.id, variant_id), 0.0),
+                counted_qty=None,
+                difference=0.0,
+                company_id=current_user.company_id,
+            ))
 
     await db.commit()
 
@@ -191,7 +193,7 @@ async def apply_stock_take(
 
     # Load items
     items_result = await db.execute(
-        select(StockTakeItem).where(StockTakeItem.stock_take_id == stock_take_id)
+        select(StockTakeItem).options(selectinload(StockTakeItem.product)).where(StockTakeItem.stock_take_id == stock_take_id)
     )
     items = items_result.scalars().all()
 
@@ -202,7 +204,8 @@ async def apply_stock_take(
         inv_result = await db.execute(
             select(Inventory).where(
                 Inventory.product_id == item.product_id,
-                Inventory.branch_id == stock_take.branch_id
+                Inventory.branch_id == stock_take.branch_id,
+                Inventory.variant_id == item.variant_id if item.variant_id else Inventory.variant_id.is_(None),
             )
         )
         inv = inv_result.scalars().first()
@@ -225,6 +228,7 @@ async def apply_stock_take(
         else:
             inv = Inventory(
                 product_id=item.product_id,
+                variant_id=item.variant_id,
                 branch_id=stock_take.branch_id,
                 quantity=new_stock,
                 company_id=current_user.company_id,
@@ -234,6 +238,7 @@ async def apply_stock_take(
         # Create ADJ movement
         movement = InventoryMovement(
             product_id=item.product_id,
+            variant_id=item.variant_id,
             branch_id=stock_take.branch_id,
             user_id=current_user.id,
             type=MovementType.ADJ,
@@ -285,7 +290,8 @@ async def _get_stock_take_detail(db: AsyncSession, stock_take_id: UUID, company_
             selectinload(Product.brand),
             selectinload(Product.unit_of_measure),
             selectinload(Product.category)
-        )
+        ),
+        selectinload(StockTake.items).selectinload(StockTakeItem.variant)
     ).where(StockTake.id == stock_take_id, StockTake.company_id == company_id)
 
     result = await db.execute(query)

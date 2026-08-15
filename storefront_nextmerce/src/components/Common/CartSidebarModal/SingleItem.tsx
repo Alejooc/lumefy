@@ -24,6 +24,7 @@ const SingleItem = ({ item, removeItemFromCart }) => {
           <h3 className="font-medium text-dark mb-1 ease-out duration-200 hover:text-blue">
             <Link href={item.href || "/products"}> {item.title} </Link>
           </h3>
+          {item.variantName ? <p className="text-xs text-dark-3">{item.variantName}</p> : null}
           <p className="text-custom-sm">Price: {format(item.discountedPrice)}</p>
         </div>
       </div>

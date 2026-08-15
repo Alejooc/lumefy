@@ -6,6 +6,7 @@ from app.schemas.product import Product
 from app.schemas.user import User
 from app.schemas.branch import Branch
 from app.schemas.client import Client # Added Import
+from app.schemas.product_variant import ProductVariant
 
 # --- Payment Schemas ---
 class PaymentBase(BaseModel):
@@ -26,6 +27,7 @@ class Payment(PaymentBase):
 # --- SaleItem Schemas ---
 class SaleItemBase(BaseModel):
     product_id: UUID
+    variant_id: Optional[UUID] = None
     quantity: float
     price: float
     discount: float = 0.0
@@ -39,6 +41,7 @@ class SaleItem(SaleItemBase):
     total: float
     quantity_picked: float = 0.0
     product: Optional[Product] = None
+    variant: Optional[ProductVariant] = None
     
     class Config:
         from_attributes = True

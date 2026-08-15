@@ -4,6 +4,8 @@ import { RootState } from "../store";
 export type CartItem = {
   id: number;
   publishedProductId?: string;
+  variantId?: string;
+  variantName?: string;
   title: string;
   price: number;
   discountedPrice: number;
@@ -43,7 +45,7 @@ export const cart = createSlice({
       state.items = action.payload;
     },
     addItemToCart: (state, action: PayloadAction<CartItem>) => {
-      const { id, publishedProductId, title, price, quantity, discountedPrice, imgs, href, slug, inStock, stockQuantity } =
+      const { id, publishedProductId, variantId, variantName, title, price, quantity, discountedPrice, imgs, href, slug, inStock, stockQuantity } =
         action.payload;
       const requestedQuantity = Math.max(1, quantity);
       if (inStock === false || stockQuantity === 0) {
@@ -59,6 +61,8 @@ export const cart = createSlice({
         state.items.push({
           id,
           publishedProductId,
+          variantId,
+          variantName,
           title,
           price,
           quantity: stockQuantity === undefined ? requestedQuantity : Math.min(requestedQuantity, stockQuantity),

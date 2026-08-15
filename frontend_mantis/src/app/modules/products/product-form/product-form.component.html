@@ -305,13 +305,14 @@
                   <table class="table table-sm align-middle">
                     <thead class="table-light">
                       <tr>
-                        <th style="width: 25%;">Nombre</th>
-                        <th style="width: 15%;">SKU</th>
-                        <th style="width: 15%;">Codigo Barras</th>
-                        <th style="width: 13%;">Precio Extra</th>
-                        <th style="width: 13%;">Costo Extra</th>
-                        <th style="width: 12%;">Peso (kg)</th>
-                        <th style="width: 7%;" class="text-center">Accion</th>
+                        <th>Nombre</th>
+                        <th>Color</th>
+                        <th>Talla / medida</th>
+                        <th>SKU</th>
+                        <th>Precio variante</th>
+                        <th>Precio extra</th>
+                        <th>Stock</th>
+                        <th class="text-center">Accion</th>
                       </tr>
                     </thead>
                     <tbody formArrayName="variants">
@@ -321,10 +322,20 @@
                             <input type="text" class="form-control form-control-sm" formControlName="name" placeholder="Ej: Rojo / XL">
                           </td>
                           <td>
-                            <input type="text" class="form-control form-control-sm" formControlName="sku" placeholder="SKU variante">
+                            <input type="text" class="form-control form-control-sm" formControlName="color" placeholder="Rojo">
                           </td>
                           <td>
-                            <input type="text" class="form-control form-control-sm" formControlName="barcode" placeholder="Barcode">
+                            <input type="text" class="form-control form-control-sm" formControlName="size" placeholder="M / 500 ml">
+                          </td>
+                          <td>
+                            <input type="text" class="form-control form-control-sm" formControlName="sku" placeholder="SKU variante">
+                            <input type="text" class="form-control form-control-sm mt-1" formControlName="barcode" placeholder="Código de barras">
+                          </td>
+                          <td>
+                            <div class="input-group input-group-sm">
+                              <span class="input-group-text">$</span>
+                              <input type="number" class="form-control" formControlName="price" step="0.01" placeholder="Base + extra">
+                            </div>
                           </td>
                           <td>
                             <div class="input-group input-group-sm">
@@ -333,13 +344,7 @@
                             </div>
                           </td>
                           <td>
-                            <div class="input-group input-group-sm">
-                              <span class="input-group-text">+$</span>
-                              <input type="number" class="form-control" formControlName="cost_extra" step="0.01">
-                            </div>
-                          </td>
-                          <td>
-                            <input type="number" class="form-control form-control-sm" formControlName="weight" step="0.01" placeholder="kg">
+                            <span class="text-muted small">Se ajusta en Inventario</span>
                           </td>
                           <td class="text-center">
                             <button type="button" class="btn btn-icon btn-outline-danger btn-sm" (click)="removeVariant(i)" title="Eliminar variante" aria-label="Eliminar variante">

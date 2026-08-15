@@ -11,6 +11,7 @@ from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.services.outbox import enqueue_outbox_event
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.branch import Branch
 from app.models.warehouse import Warehouse
 from app.models.client import Client
@@ -57,10 +58,17 @@ async def _validate_sale_relations(db: AsyncSession, sale_in: schemas.SaleCreate
 
     product_ids = {item.product_id for item in sale_in.items}
     product_result = await db.execute(
-        select(Product.id).where(Product.id.in_(product_ids), Product.company_id == company_id)
+        select(Product).options(selectinload(Product.variants)).where(Product.id.in_(product_ids), Product.company_id == company_id)
     )
-    if len(product_result.scalars().all()) != len(product_ids):
+    products = {product.id: product for product in product_result.scalars().all()}
+    if len(products) != len(product_ids):
         raise HTTPException(status_code=404, detail="Uno o más productos no pertenecen a la empresa")
+    for item in sale_in.items:
+        product = products[item.product_id]
+        if product.variants and not item.variant_id:
+            raise HTTPException(status_code=400, detail=f"Selecciona una variante para '{product.name}'")
+        if item.variant_id and not any(variant.id == item.variant_id for variant in product.variants):
+            raise HTTPException(status_code=400, detail=f"La variante no pertenece a '{product.name}'")
 
 @router.get("/", response_model=List[schemas.SaleSummary])
 async def read_sales(
@@ -211,6 +219,7 @@ async def read_sale(
             selectinload(Product.purchase_uom),
             selectinload(Product.category)
         ),
+        selectinload(Sale.items).selectinload(SaleItem.variant),
         selectinload(Sale.payments),
         selectinload(Sale.client),
         selectinload(Sale.user),
@@ -282,6 +291,7 @@ async def create_sale(
             sale_item = SaleItem(
                 sale_id=sale.id,
                 product_id=item_in.product_id,
+                variant_id=item_in.variant_id,
                 quantity=item_in.quantity,
                 price=item_in.price,
                 discount=item_in.discount,
@@ -359,6 +369,7 @@ async def create_sale(
                 selectinload(Product.purchase_uom),
                 selectinload(Product.category)
             ),
+            selectinload(Sale.items).selectinload(SaleItem.variant),
             selectinload(Sale.payments),
             selectinload(Sale.client),
             selectinload(Sale.user),
@@ -486,14 +497,16 @@ async def update_status(
         for item in sale.items:
             if not item.product or not item.product.track_inventory:
                 continue
-            required_by_product[item.product_id] = required_by_product.get(item.product_id, 0.0) + item.quantity
+            key = (item.product_id, item.variant_id)
+            required_by_product[key] = required_by_product.get(key, 0.0) + item.quantity
 
-        for product_id, requested_quantity in required_by_product.items():
+        for (product_id, variant_id), requested_quantity in required_by_product.items():
             product = next(item.product for item in sale.items if item.product_id == product_id)
             inv_result = await db.execute(select(Inventory).where(
                 Inventory.product_id == product_id,
                 Inventory.branch_id == sale.branch_id,
                 Inventory.warehouse_id == sale.warehouse_id,
+                Inventory.variant_id == variant_id if variant_id else Inventory.variant_id.is_(None),
             ).with_for_update())
             inventory = inv_result.scalars().first()
             available = (inventory.quantity - inventory.reserved_quantity) if inventory else 0
@@ -509,12 +522,14 @@ async def update_status(
                     Inventory.product_id == item.product_id,
                     Inventory.branch_id == sale.branch_id,
                     Inventory.warehouse_id == sale.warehouse_id,
+                    Inventory.variant_id == item.variant_id if item.variant_id else Inventory.variant_id.is_(None),
                 ))
                 inventory = inv_result.scalars().first()
                 # The first pass guarantees that an inventory row and free stock exist.
                 inventory.reserved_quantity += item.quantity
                 db.add(InventoryMovement(
                     product_id=item.product_id,
+                    variant_id=item.variant_id,
                     branch_id=sale.branch_id,
                     warehouse_id=sale.warehouse_id,
                     user_id=current_user.id,
@@ -537,6 +552,7 @@ async def update_status(
                 Inventory.product_id == item.product_id,
                 Inventory.branch_id == sale.branch_id,
                 Inventory.warehouse_id == sale.warehouse_id,
+                Inventory.variant_id == item.variant_id if item.variant_id else Inventory.variant_id.is_(None),
             ))
             inventory = inv_result.scalars().first()
             if not inventory or inventory.reserved_quantity < item.quantity or inventory.quantity < item.quantity:
@@ -553,6 +569,7 @@ async def update_status(
             )
             db.add(InventoryMovement(
                 product_id=item.product_id,
+                variant_id=item.variant_id,
                 branch_id=sale.branch_id,
                 warehouse_id=sale.warehouse_id,
                 user_id=current_user.id,
@@ -573,12 +590,14 @@ async def update_status(
                     Inventory.product_id == item.product_id,
                     Inventory.branch_id == sale.branch_id,
                     Inventory.warehouse_id == sale.warehouse_id,
+                    Inventory.variant_id == item.variant_id if item.variant_id else Inventory.variant_id.is_(None),
                 ))
                 inventory = inv_result.scalars().first()
                 
                 if not inventory:
                     inventory = Inventory(
                         product_id=item.product_id,
+                        variant_id=item.variant_id,
                         branch_id=sale.branch_id,
                         warehouse_id=sale.warehouse_id,
                         quantity=0.0,
@@ -591,6 +610,7 @@ async def update_status(
                     inventory.reserved_quantity -= item.quantity
                     db.add(InventoryMovement(
                         product_id=item.product_id,
+                        variant_id=item.variant_id,
                         branch_id=sale.branch_id,
                         warehouse_id=sale.warehouse_id,
                         user_id=current_user.id,
@@ -648,6 +668,7 @@ async def update_status(
     # Reload with eager relationships for response
     query = select(Sale).options(
         selectinload(Sale.items).selectinload(SaleItem.product),
+        selectinload(Sale.items).selectinload(SaleItem.variant),
         selectinload(Sale.payments),
         selectinload(Sale.client),
         selectinload(Sale.user),

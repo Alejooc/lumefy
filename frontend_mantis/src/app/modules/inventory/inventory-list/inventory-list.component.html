@@ -45,6 +45,7 @@
           <thead>
             <tr>
               <th>Producto</th>
+              <th>Variante</th>
               <th>Sucursal</th>
               <th>Disponible</th>
               <th>Costo Promedio</th>
@@ -59,6 +60,14 @@
             @for (item of inventoryItems; track item) {
               <tr>
                 <td>{{ item.product?.name || 'Producto #' + item.product_id }}</td>
+                <td>
+                  @if (item.variant) {
+                    <span class="badge bg-light-primary text-primary">{{ item.variant.name }}</span>
+                    @if (item.variant.sku) { <small class="d-block text-muted">SKU: {{ item.variant.sku }}</small> }
+                  } @else {
+                    <span class="text-muted">Producto base</span>
+                  }
+                </td>
                 <td>{{ item.branch?.name || 'Sucursal #' + item.branch_id }}</td>
                 <td>
                   <span class="badge"
@@ -75,7 +84,7 @@
                 <td>
                   <button class="btn btn-icon btn-outline-info btn-sm" title="Ver Movimientos (Kardex)"
                     [routerLink]="['/inventory/history', item.product_id]"
-                    [queryParams]="{branchId: item.branch_id}">
+                    [queryParams]="{branchId: item.branch_id, variantId: item.variant_id || null}">
                     <i class="ti ti-list"></i>
                   </button>
                 </td>
@@ -83,7 +92,7 @@
             }
             @if (inventoryItems.length === 0 && !isLoading) {
               <tr>
-                <td colspan="9" class="text-center text-muted py-4">
+                <td colspan="10" class="text-center text-muted py-4">
                   No hay registros de inventario.
                   <br>
                     <small>Crea un movimiento de entrada para comenzar.</small>

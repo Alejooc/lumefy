@@ -31,6 +31,7 @@ def _return_options():
             selectinload(Product.variants),
             selectinload(Product.images),
         ),
+        selectinload(ReturnOrder.items).selectinload(ReturnOrderItem.sale_item),
         selectinload(ReturnOrder.creator),
         selectinload(ReturnOrder.approver),
     ]
@@ -86,7 +87,7 @@ async def create_return(
     try:
         # Validate sale exists and is in valid state
         sale_result = await db.execute(
-            select(Sale).options(selectinload(Sale.items)).where(
+        select(Sale).options(selectinload(Sale.items)).where(
                 Sale.id == return_in.sale_id,
                 Sale.company_id == current_user.company_id,
             )
@@ -192,7 +193,8 @@ async def approve_return(
     """Approve a return, restore inventory and apply financial reversal when needed."""
     result = await db.execute(
         select(ReturnOrder).options(
-            selectinload(ReturnOrder.items)
+        selectinload(ReturnOrder.items)
+            .selectinload(ReturnOrderItem.sale_item),
         ).where(
             ReturnOrder.id == return_id,
             ReturnOrder.company_id == current_user.company_id,
@@ -230,6 +232,7 @@ async def approve_return(
             select(Inventory).where(
                 Inventory.product_id == item.product_id,
                 Inventory.branch_id == sale.branch_id,
+                Inventory.variant_id == (item.sale_item.variant_id if item.sale_item else None) if (item.sale_item and item.sale_item.variant_id) else Inventory.variant_id.is_(None),
             )
         )
         inventory = inv_result.scalars().first()
@@ -240,6 +243,7 @@ async def approve_return(
         else:
             inventory = Inventory(
                 product_id=item.product_id,
+                variant_id=item.sale_item.variant_id if item.sale_item else None,
                 branch_id=sale.branch_id,
                 quantity=0.0,
                 company_id=current_user.company_id,
@@ -252,6 +256,7 @@ async def approve_return(
         # Record movement
         movement = InventoryMovement(
             product_id=item.product_id,
+            variant_id=item.sale_item.variant_id if item.sale_item else None,
             branch_id=sale.branch_id,
             user_id=current_user.id,
             type=MovementType.IN,

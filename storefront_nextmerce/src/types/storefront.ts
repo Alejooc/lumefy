@@ -138,6 +138,7 @@ export type PublicProduct = {
   product_type?: string | null;
   available_sizes: string[];
   available_colors: string[];
+  variants: PublicProductVariant[];
   image_url?: string | null;
   gallery: string[];
   price: number;
@@ -149,6 +150,17 @@ export type PublicProduct = {
   stock_quantity?: number | null;
   seo_title?: string | null;
   seo_description?: string | null;
+};
+
+export type PublicProductVariant = {
+  id: string;
+  name: string;
+  sku?: string | null;
+  attributes: Record<string, unknown>;
+  price: number;
+  compare_at_price?: number | null;
+  in_stock: boolean;
+  stock_quantity?: number | null;
 };
 
 export type PublicCatalogCategory = {
@@ -190,6 +202,7 @@ export type PublicCatalogResponse = {
 
 export type CheckoutItemInput = {
   published_product_id: string;
+  variant_id?: string | null;
   quantity: number;
 };
 
@@ -206,8 +219,10 @@ export type CheckoutPreviewRequest = {
 export type CheckoutPreviewItem = {
   published_product_id: string;
   product_id: string;
+  variant_id?: string | null;
   slug: string;
   title: string;
+  variant_name?: string | null;
   quantity: number;
   unit_price: number;
   line_subtotal: number;

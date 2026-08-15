@@ -199,28 +199,48 @@ async def get_pos_products(
     """
     Optimized endpoint to fetch all products and their stock for the POS interface.
     """
-    query = select(Product, Inventory, Category).outerjoin(
-        Inventory, 
-        and_(Inventory.product_id == Product.id, Inventory.branch_id == branch_id)
-    ).outerjoin(
-        Category, Category.id == Product.category_id
-    ).where(Product.company_id == current_user.company_id, Product.is_active == True)
-    
+    query = select(Product, Category).outerjoin(Category, Category.id == Product.category_id).where(
+        Product.company_id == current_user.company_id, Product.is_active == True
+    ).options(selectinload(Product.variants))
     result = await db.execute(query)
     rows = result.all()
-    
+    product_ids = [product.id for product, _category in rows]
+    inventory_result = await db.execute(
+        select(Inventory.product_id, Inventory.variant_id, Inventory.quantity, Inventory.reserved_quantity).where(
+            Inventory.branch_id == branch_id,
+            Inventory.product_id.in_(product_ids) if product_ids else False,
+        )
+    )
+    stock_map: dict[tuple[uuid.UUID, uuid.UUID | None], float] = {}
+    for product_id, variant_id, quantity, reserved_quantity in inventory_result.all():
+        key = (product_id, variant_id)
+        stock_map[key] = stock_map.get(key, 0.0) + max(0.0, float(quantity or 0) - float(reserved_quantity or 0))
+
     products = []
-    for product, inventory, category in rows:
+    for product, category in rows:
+        variant_payload = []
+        for variant in product.variants or []:
+            variant_price = float(variant.price) if variant.price is not None else float(product.price or 0) + float(variant.price_extra or 0)
+            variant_payload.append({
+                "id": variant.id,
+                "name": variant.name,
+                "sku": variant.sku,
+                "attributes": variant.attributes or {},
+                "price": variant_price,
+                "stock": stock_map.get((product.id, variant.id), 0.0),
+            })
+        product_stock = sum(item["stock"] for item in variant_payload) if variant_payload else stock_map.get((product.id, None), 0.0)
         products.append({
             "id": product.id,
             "name": product.name,
             "sku": product.sku,
             "barcode": product.barcode,
-            "price": product.price,
-            "stock": inventory.quantity if inventory else 0.0,
+            "price": min((item["price"] for item in variant_payload), default=float(product.price or 0)),
+            "stock": product_stock,
             "category_id": product.category_id,
             "category_name": category.name if category else None,
-            "image_url": product.image_url
+            "image_url": product.image_url,
+            "variants": variant_payload,
         })
         
     return products
@@ -564,6 +584,7 @@ async def void_pos_sale(
     result = await db.execute(
         select(Sale).options(
             selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(Sale.items).selectinload(SaleItem.variant),
             selectinload(Sale.client)
         ).where(
             Sale.id == sale_id,
@@ -587,13 +608,15 @@ async def void_pos_sale(
         inv_result = await db.execute(
             select(Inventory).where(
                 Inventory.product_id == item.product_id,
-                Inventory.branch_id == sale.branch_id
+                Inventory.branch_id == sale.branch_id,
+                Inventory.variant_id == item.variant_id if item.variant_id else Inventory.variant_id.is_(None),
             )
         )
         inventory = inv_result.scalars().first()
         if not inventory:
             inventory = Inventory(
                 product_id=item.product_id,
+                variant_id=item.variant_id,
                 branch_id=sale.branch_id,
                 quantity=0.0,
                 company_id=current_user.company_id
@@ -681,26 +704,50 @@ async def pos_checkout(
                 raise HTTPException(status_code=400, detail="Las cantidades, precios y descuentos deben ser válidos")
             if item.discount > item.price * item.quantity:
                 raise HTTPException(status_code=400, detail="El descuento no puede superar el valor del artículo")
-            quantities_by_product[item.product_id] = quantities_by_product.get(item.product_id, 0) + item.quantity
+            key = (item.product_id, item.variant_id)
+            quantities_by_product[key] = quantities_by_product.get(key, 0) + item.quantity
 
         product_result = await db.execute(
             select(Product).where(
-                Product.id.in_(quantities_by_product.keys()),
+                Product.id.in_({product_id for product_id, _variant_id in quantities_by_product}),
                 Product.company_id == current_user.company_id,
-            )
+            ).options(selectinload(Product.variants))
         )
         products = {product.id: product for product in product_result.scalars().all()}
-        if len(products) != len(quantities_by_product):
+        if len(products) != len({product_id for product_id, _variant_id in quantities_by_product}):
             raise HTTPException(status_code=404, detail="Uno o más productos no pertenecen a la empresa")
-        for product_id, quantity in quantities_by_product.items():
+        variant_prices: dict[tuple[uuid.UUID, uuid.UUID | None], float] = {}
+        for (product_id, variant_id), quantity in quantities_by_product.items():
             product = products[product_id]
             if not product.sale_ok:
                 raise HTTPException(status_code=400, detail=f"El producto '{product.name}' no está habilitado para venta")
+            variant = None
+            if product.variants:
+                if not variant_id:
+                    raise HTTPException(status_code=400, detail=f"Selecciona una variante para '{product.name}'")
+                variant = next((entry for entry in product.variants if entry.id == variant_id), None)
+                if not variant:
+                    raise HTTPException(status_code=400, detail=f"La variante no pertenece a '{product.name}'")
+            elif variant_id:
+                raise HTTPException(status_code=400, detail=f"El producto '{product.name}' no tiene esa variante")
+            variant_prices[(product_id, variant_id)] = (
+                float(variant.price) if variant and variant.price is not None
+                else float(product.price or 0) + float(variant.price_extra or 0) if variant else float(product.price or 0)
+            )
+            if next(
+                item.discount for item in checkout_in.items
+                if item.product_id == product_id and item.variant_id == variant_id
+            ) > variant_prices[(product_id, variant_id)] * quantity:
+                raise HTTPException(status_code=400, detail="El descuento no puede superar el valor del artículo")
             if not product.track_inventory:
                 continue
             inventory_result = await db.execute(
                 select(Inventory)
-                .where(Inventory.product_id == product_id, Inventory.branch_id == checkout_in.branch_id)
+                .where(
+                    Inventory.product_id == product_id,
+                    Inventory.branch_id == checkout_in.branch_id,
+                    Inventory.variant_id == variant_id if variant_id else Inventory.variant_id.is_(None),
+                )
                 .with_for_update()
             )
             inventory = inventory_result.scalars().first()
@@ -748,15 +795,17 @@ async def pos_checkout(
         # 2. Process Items and Inventory
         for item_in in checkout_in.items:
             # Sale Item
-            item_total = (item_in.price * item_in.quantity) - item_in.discount
+            effective_price = variant_prices[(item_in.product_id, item_in.variant_id)]
+            item_total = (effective_price * item_in.quantity) - item_in.discount
             total_amount += item_total
             
             sale_item = SaleItem(
                 sale_id=sale.id,
                 product_id=item_in.product_id,
+                variant_id=item_in.variant_id,
                 quantity=item_in.quantity,
                 quantity_picked=item_in.quantity, # Fully picked
-                price=item_in.price,
+                price=effective_price,
                 discount=item_in.discount,
                 total=item_total
             )
@@ -770,7 +819,8 @@ async def pos_checkout(
             inv_result = await db.execute(
                 select(Inventory).where(
                     Inventory.product_id == item_in.product_id,
-                    Inventory.branch_id == checkout_in.branch_id
+                    Inventory.branch_id == checkout_in.branch_id,
+                    Inventory.variant_id == item_in.variant_id if item_in.variant_id else Inventory.variant_id.is_(None),
                 )
             )
             inventory = inv_result.scalars().first()
@@ -782,6 +832,7 @@ async def pos_checkout(
             # Inventory Movement (kardex entry)
             movement = InventoryMovement(
                 product_id=item_in.product_id,
+                variant_id=item_in.variant_id,
                 branch_id=checkout_in.branch_id,
                 user_id=current_user.id,
                 type=MovementType.OUT,

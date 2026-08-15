@@ -115,6 +115,11 @@ class SaleItem(BaseModel):
 
     sale_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("sales.id"), index=True)
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"))
+    # Keep the exact sellable unit on the line. Nullable preserves legacy
+    # product-only sales created before variant inventory was enabled.
+    variant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("product_variants.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     
     quantity: Mapped[float] = mapped_column(Float)
     quantity_picked: Mapped[float] = mapped_column(Float, default=0.0) # Track picked amount
@@ -125,6 +130,7 @@ class SaleItem(BaseModel):
     # Relationships
     sale = relationship("Sale", back_populates="items")
     product = relationship(Product)
+    variant = relationship("ProductVariant")
 
 class Payment(BaseModel):
     __tablename__ = "payments"

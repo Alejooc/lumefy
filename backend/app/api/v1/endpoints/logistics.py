@@ -387,6 +387,7 @@ async def get_logistics_board(
             selectinload(Sale.warehouse),
             selectinload(Sale.storefront_order),
             selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(Sale.items).selectinload(SaleItem.variant),
         ).where(
             Sale.company_id == current_user.company_id,
             Sale.status == stage,
@@ -442,6 +443,7 @@ async def move_sale_stage(
     result = await db.execute(
         select(Sale).options(
             selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(Sale.items).selectinload(SaleItem.variant),
         ).where(
             Sale.id == sale_id,
             Sale.company_id == current_user.company_id
@@ -504,6 +506,7 @@ async def move_sale_stage(
                 Inventory.product_id == item.product_id,
                 Inventory.branch_id == sale.branch_id,
                 Inventory.warehouse_id == sale.warehouse_id,
+                Inventory.variant_id == item.variant_id if item.variant_id else Inventory.variant_id.is_(None),
             ))
             inventory = inv_result.scalars().first()
             if not inventory or inventory.reserved_quantity < item.quantity or inventory.quantity < item.quantity:
@@ -511,15 +514,18 @@ async def move_sale_stage(
             previous_stock = inventory.quantity
             inventory.reserved_quantity -= item.quantity
             inventory.quantity -= item.quantity
-            fifo_unit_cost = await consume_fifo_lots(
-                db,
-                product=item.product,
-                branch_id=sale.branch_id,
-                company_id=current_user.company_id,
-                quantity=item.quantity,
-            )
+            fifo_unit_cost = None
+            if not item.variant_id:
+                fifo_unit_cost = await consume_fifo_lots(
+                    db,
+                    product=item.product,
+                    branch_id=sale.branch_id,
+                    company_id=current_user.company_id,
+                    quantity=item.quantity,
+                )
             db.add(InventoryMovement(
                 product_id=item.product_id,
+                variant_id=item.variant_id,
                 branch_id=sale.branch_id,
                 warehouse_id=sale.warehouse_id,
                 user_id=current_user.id,

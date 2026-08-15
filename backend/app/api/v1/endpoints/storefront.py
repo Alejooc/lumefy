@@ -778,7 +778,16 @@ def _extract_variant_facets(variants: list[ProductVariant] | None) -> tuple[list
     seen_colors: set[str] = set()
 
     for variant in variants:
-        for token in _split_variant_tokens(variant.name):
+        attributes = variant.attributes if isinstance(variant.attributes, dict) else {}
+        explicit_sizes = attributes.get("size") or attributes.get("talla") or attributes.get("medida")
+        explicit_colors = attributes.get("color") or attributes.get("colour") or attributes.get("colored")
+        tokens = []
+        if explicit_sizes:
+            tokens.extend([str(explicit_sizes)])
+        if explicit_colors:
+            tokens.extend([str(explicit_colors)])
+        tokens.extend(_split_variant_tokens(variant.name))
+        for token in tokens:
             compact = token.strip()
             normalized = compact.lower().replace(" ", "")
             if normalized in known_sizes or normalized.isdigit():
@@ -792,6 +801,16 @@ def _extract_variant_facets(variants: list[ProductVariant] | None) -> tuple[list
                     colors.append(title)
 
     return sizes, colors
+
+
+def _variant_attribute(variant: ProductVariant, *keys: str) -> str | None:
+    attributes = variant.attributes if isinstance(variant.attributes, dict) else {}
+    normalized = {str(key).strip().lower(): value for key, value in attributes.items()}
+    for key in keys:
+        value = normalized.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return None
 
 
 def _serialize_admin_published_product(published_product: PublishedProduct) -> schemas.PublishedProduct:
@@ -820,19 +839,49 @@ def _serialize_admin_published_product(published_product: PublishedProduct) -> s
 def _serialize_public_product(
     published_product: PublishedProduct,
     product: Product,
-    stock_quantity: float | None = None,
+    stock_map: dict[tuple[uuid.UUID, uuid.UUID | None], float] | None = None,
 ) -> schemas.PublicProduct:
     title = (published_product.custom_title or product.name or "").strip()
     description = (published_product.custom_description or product.description or "").strip() or None
     base_price = float(product.price or 0)
-    price = _safe_float(published_product.price_override, base_price)
+    stock_map = stock_map or {}
+    variants: list[schemas.PublicProductVariant] = []
+    for variant in product.variants or []:
+        raw_variant_price = float(variant.price) if variant.price is not None else base_price + float(variant.price_extra or 0)
+        variant_price = _safe_float(
+            published_product.price_override,
+            raw_variant_price,
+        )
+        if published_product.price_override is not None and base_price:
+            variant_price = float(published_product.price_override) + (raw_variant_price - base_price)
+        variant_stock = max(0.0, _safe_float(stock_map.get((product.id, variant.id), 0.0)))
+        variants.append(
+            schemas.PublicProductVariant(
+                id=variant.id,
+                name=(variant.name or "").strip(),
+                sku=variant.sku,
+                attributes=variant.attributes if isinstance(variant.attributes, dict) else {},
+                price=variant_price,
+                compare_at_price=(
+                    float(published_product.compare_at_price)
+                    if published_product.compare_at_price is not None
+                    else None
+                ),
+                in_stock=not bool(product.track_inventory) or variant_stock > 0,
+                stock_quantity=variant_stock if product.track_inventory else None,
+            )
+        )
+    price = min((variant.price for variant in variants), default=_safe_float(published_product.price_override, base_price))
     image_url = published_product.product.image_url or product.image_url
     gallery = [img.image_url for img in sorted(product.images or [], key=lambda item: item.order)]
     if image_url and image_url not in gallery:
         gallery.insert(0, image_url)
     available_sizes, available_colors = _extract_variant_facets(product.variants or [])
     is_tracked = bool(product.track_inventory)
-    available_stock = max(0.0, _safe_float(stock_quantity)) if is_tracked else None
+    if variants:
+        available_stock = sum(float(variant.stock_quantity or 0) for variant in variants) if is_tracked else None
+    else:
+        available_stock = max(0.0, _safe_float(stock_map.get((product.id, None), 0.0))) if is_tracked else None
     return schemas.PublicProduct(
         id=published_product.id,
         product_id=product.id,
@@ -844,6 +893,7 @@ def _serialize_public_product(
         product_type=product.product_type,
         available_sizes=available_sizes,
         available_colors=available_colors,
+        variants=variants,
         image_url=image_url,
         gallery=gallery,
         price=price,
@@ -860,6 +910,20 @@ def _serialize_public_product(
         seo_title=title,
         seo_description=description,
     )
+
+
+def _public_product_starting_price(published_product: PublishedProduct, product: Product) -> float:
+    """Return the lowest sellable variant price used by catalog filters/sort."""
+    base_price = float(product.price or 0)
+    if not product.variants:
+        return _safe_float(published_product.price_override, base_price)
+    prices: list[float] = []
+    for variant in product.variants:
+        raw_price = float(variant.price) if variant.price is not None else base_price + float(variant.price_extra or 0)
+        if published_product.price_override is not None and base_price:
+            raw_price = float(published_product.price_override) + (raw_price - base_price)
+        prices.append(raw_price)
+    return min(prices, default=_safe_float(published_product.price_override, base_price))
 
 
 def _normalize_catalog_sort(value: str | None) -> str:
@@ -1163,20 +1227,21 @@ async def _get_storefront_stock_map(
     db: AsyncSession,
     storefront: Storefront,
     product_ids: list[uuid.UUID],
-) -> dict[uuid.UUID, float]:
+) -> dict[tuple[uuid.UUID, uuid.UUID | None], float]:
     if not product_ids:
         return {}
     warehouse = await _resolve_storefront_fulfillment_warehouse(db, storefront)
     result = await db.execute(
-        select(Inventory.product_id, Inventory.quantity, Inventory.reserved_quantity).where(
+        select(Inventory.product_id, Inventory.variant_id, Inventory.quantity, Inventory.reserved_quantity).where(
             Inventory.warehouse_id == warehouse.id,
             Inventory.product_id.in_(product_ids),
         )
     )
-    return {
-        product_id: max(0.0, _safe_float(quantity) - _safe_float(reserved_quantity))
-        for product_id, quantity, reserved_quantity in result.all()
-    }
+    stock: dict[tuple[uuid.UUID, uuid.UUID | None], float] = {}
+    for product_id, variant_id, quantity, reserved_quantity in result.all():
+        key = (product_id, variant_id)
+        stock[key] = stock.get(key, 0.0) + max(0.0, _safe_float(quantity) - _safe_float(reserved_quantity))
+    return stock
 
 
 async def _resolve_storefront_fulfillment_warehouse(db: AsyncSession, storefront: Storefront) -> Warehouse:
@@ -1217,13 +1282,14 @@ async def _load_checkout_products(
     if not items:
         raise HTTPException(status_code=400, detail="At least one item is required")
 
-    merged: dict[uuid.UUID, float] = {}
+    merged: dict[tuple[uuid.UUID, uuid.UUID | None], float] = {}
     for item in items:
         if item.quantity <= 0:
             raise HTTPException(status_code=400, detail="Item quantity must be greater than zero")
-        merged[item.published_product_id] = merged.get(item.published_product_id, 0.0) + float(item.quantity)
+        key = (item.published_product_id, item.variant_id)
+        merged[key] = merged.get(key, 0.0) + float(item.quantity)
 
-    published_ids = list(merged.keys())
+    published_ids = list({published_id for published_id, _variant_id in merged})
     result = await db.execute(
         select(PublishedProduct)
         .options(
@@ -1246,21 +1312,35 @@ async def _load_checkout_products(
 
     rows: list[schemas.PublicCheckoutPreviewItem] = []
     subtotal = 0.0
-    for published_id in published_ids:
+    for (published_id, variant_id), quantity in merged.items():
         published = published_map[published_id]
         product = published.product
         if not product:
             raise HTTPException(status_code=400, detail="One or more products are not available")
-        unit_price = _safe_float(published.price_override, _safe_float(product.price))
-        quantity = merged[published_id]
+        variant = None
+        if variant_id:
+            variant = next((entry for entry in product.variants or [] if entry.id == variant_id), None)
+            if not variant:
+                raise HTTPException(status_code=400, detail=f"La variante seleccionada no pertenece a '{product.name}'")
+        elif product.variants:
+            raise HTTPException(status_code=400, detail=f"Selecciona una variante para '{product.name}'")
+        raw_price = (
+            float(variant.price) if variant and variant.price is not None
+            else _safe_float(product.price) + float(variant.price_extra or 0) if variant else _safe_float(product.price)
+        )
+        unit_price = _safe_float(published.price_override, raw_price)
+        if variant and published.price_override is not None and product.price:
+            unit_price = float(published.price_override) + (raw_price - float(product.price))
         line_subtotal = unit_price * quantity
         subtotal += line_subtotal
         rows.append(
             schemas.PublicCheckoutPreviewItem(
                 published_product_id=published.id,
                 product_id=product.id,
+                variant_id=variant_id,
                 slug=published.slug,
                 title=(product.name or "").strip(),
+                variant_name=variant.name if variant else None,
                 quantity=quantity,
                 unit_price=unit_price,
                 line_subtotal=line_subtotal,
@@ -1282,12 +1362,15 @@ async def _validate_checkout_inventory(
         if not product or not product.track_inventory:
             continue
 
-        inventory_result = await db.execute(
-            select(Inventory.quantity, Inventory.reserved_quantity).where(
-                Inventory.product_id == product.id,
-                Inventory.warehouse_id == warehouse_id,
-            )
+        inventory_query = select(Inventory.quantity, Inventory.reserved_quantity).where(
+            Inventory.product_id == product.id,
+            Inventory.warehouse_id == warehouse_id,
         )
+        if row.variant_id:
+            inventory_query = inventory_query.where(Inventory.variant_id == row.variant_id)
+        else:
+            inventory_query = inventory_query.where(Inventory.variant_id.is_(None))
+        inventory_result = await db.execute(inventory_query)
         inventory_row = inventory_result.one_or_none()
         available = (_safe_float(inventory_row[0]) - _safe_float(inventory_row[1])) if inventory_row else 0.0
         if available < row.quantity:
@@ -1305,7 +1388,7 @@ async def _tracked_sale_items(db: AsyncSession, sale: Sale) -> list[tuple[SaleIt
     if sale_items is None:
         result = await db.execute(
             select(SaleItem)
-            .options(selectinload(SaleItem.product))
+            .options(selectinload(SaleItem.product), selectinload(SaleItem.variant))
             .where(SaleItem.sale_id == sale.id)
         )
         sale_items = result.scalars().all()
@@ -1347,17 +1430,19 @@ async def _reserve_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
         return False
 
     tracked_items = await _tracked_sale_items(db, sale)
-    requested_by_product: dict[uuid.UUID, float] = {}
+    requested_by_product: dict[tuple[uuid.UUID, uuid.UUID | None], float] = {}
     for item, _product in tracked_items:
-        requested_by_product[item.product_id] = requested_by_product.get(item.product_id, 0.0) + item.quantity
+        key = (item.product_id, getattr(item, "variant_id", None))
+        requested_by_product[key] = requested_by_product.get(key, 0.0) + item.quantity
 
-    inventories: dict[uuid.UUID, Inventory] = {}
-    for product_id, requested_quantity in requested_by_product.items():
+    inventories: dict[tuple[uuid.UUID, uuid.UUID | None], Inventory] = {}
+    for (product_id, variant_id), requested_quantity in requested_by_product.items():
         result = await db.execute(
             select(Inventory)
             .where(
                 Inventory.product_id == product_id,
                 Inventory.warehouse_id == sale.warehouse_id,
+                Inventory.variant_id == variant_id if variant_id else Inventory.variant_id.is_(None),
             )
             .with_for_update()
         )
@@ -1365,13 +1450,14 @@ async def _reserve_storefront_sale(db: AsyncSession, sale: Sale) -> bool:
         available = (inventory.quantity - inventory.reserved_quantity) if inventory else 0
         if available < requested_quantity:
             return False
-        inventories[product_id] = inventory
+        inventories[(product_id, variant_id)] = inventory
 
     for item, _product in tracked_items:
-        inventory = inventories[item.product_id]
+        inventory = inventories[(item.product_id, getattr(item, "variant_id", None))]
         inventory.reserved_quantity += item.quantity
         db.add(InventoryMovement(
             product_id=item.product_id,
+            variant_id=getattr(item, "variant_id", None),
             branch_id=sale.branch_id,
             warehouse_id=sale.warehouse_id,
             user_id=sale.user_id,
@@ -1441,30 +1527,33 @@ async def _cancel_storefront_sale_and_release_reservation(
         return False
 
     tracked_items = await _tracked_sale_items(db, sale)
-    requested_by_product: dict[uuid.UUID, float] = {}
+    requested_by_product: dict[tuple[uuid.UUID, uuid.UUID | None], float] = {}
     for item, _product in tracked_items:
-        requested_by_product[item.product_id] = requested_by_product.get(item.product_id, 0.0) + item.quantity
+        key = (item.product_id, getattr(item, "variant_id", None))
+        requested_by_product[key] = requested_by_product.get(key, 0.0) + item.quantity
 
-    inventories: dict[uuid.UUID, Inventory] = {}
-    for product_id, requested_quantity in requested_by_product.items():
+    inventories: dict[tuple[uuid.UUID, uuid.UUID | None], Inventory] = {}
+    for (product_id, variant_id), requested_quantity in requested_by_product.items():
         result = await db.execute(
             select(Inventory)
             .where(
                 Inventory.product_id == product_id,
                 Inventory.warehouse_id == sale.warehouse_id,
+                Inventory.variant_id == variant_id if variant_id else Inventory.variant_id.is_(None),
             )
             .with_for_update()
         )
         inventory = result.scalars().first()
         if not inventory or inventory.reserved_quantity < requested_quantity:
             return False
-        inventories[product_id] = inventory
+        inventories[(product_id, variant_id)] = inventory
 
-    for product_id, requested_quantity in requested_by_product.items():
-        inventory = inventories[product_id]
+    for (product_id, variant_id), requested_quantity in requested_by_product.items():
+        inventory = inventories[(product_id, variant_id)]
         inventory.reserved_quantity -= requested_quantity
         db.add(InventoryMovement(
             product_id=product_id,
+            variant_id=variant_id,
             branch_id=sale.branch_id,
             warehouse_id=sale.warehouse_id,
             user_id=sale.user_id,
@@ -1669,7 +1758,9 @@ async def read_storefront_readiness(
     out_of_stock_count = sum(
         1
         for item in published_products
-        if item.product and item.product.track_inventory and stock_map.get(item.product_id, 0) <= 0
+        if item.product and item.product.track_inventory and sum(
+            value for (product_id, _variant_id), value in stock_map.items() if product_id == item.product_id
+        ) <= 0
     )
     gateways_result = await db.execute(
         select(StorePaymentGateway.id).where(
@@ -3318,7 +3409,7 @@ async def read_public_collection_detail(
             _serialize_public_product(
                 published_product,
                 published_product.product,
-                stock_map.get(published_product.product_id),
+                stock_map,
             )
         )
     return schemas.PublicCollection(
@@ -3462,7 +3553,7 @@ async def read_public_products(
             or not selected_colors
             or any(item.lower() in selected_colors for item in colors_list)
         )
-        unit_price = _safe_float(published_product.price_override, _safe_float(product.price))
+        unit_price = _public_product_starting_price(published_product, product)
         matches_min = ignore_price or min_price is None or unit_price >= float(min_price)
         matches_max = ignore_price or max_price is None or unit_price <= float(max_price)
         return (
@@ -3479,10 +3570,7 @@ async def read_public_products(
 
     filtered_products = [item for item in published_products if matches_filters(item)]
     price_facet_values = [
-        _safe_float(
-            item.price_override,
-            _safe_float(item.product.price if item.product else 0),
-        )
+        _public_product_starting_price(item, item.product)
         for item in published_products
         if matches_filters(item, ignore_price=True)
     ]
@@ -3491,10 +3579,7 @@ async def read_public_products(
 
     def product_sort_key(item: PublishedProduct) -> Any:
         product = item.product
-        unit_price = _safe_float(
-            item.price_override,
-            _safe_float(product.price if product else 0),
-        )
+        unit_price = _public_product_starting_price(item, product) if product else 0.0
         if normalized_sort == "best-selling":
             return (int(bool(item.is_featured)), item.sort_order or 0, item.created_at)
         if normalized_sort == "price-low":
@@ -3571,7 +3656,7 @@ async def read_public_products(
             _serialize_public_product(
                 published_product,
                 published_product.product,
-                stock_map.get(published_product.product_id),
+                stock_map,
             )
             for published_product in paginated_products
             if published_product.product
@@ -3649,7 +3734,7 @@ async def read_public_product_detail(
     return _serialize_public_product(
         published_product,
         published_product.product,
-        stock_map.get(published_product.product_id),
+        stock_map,
     )
 
 
@@ -3790,6 +3875,7 @@ async def create_public_checkout_order(
     sale.items = [
         SaleItem(
             product_id=row.product_id,
+            variant_id=row.variant_id,
             quantity=row.quantity,
             quantity_picked=0.0,
             price=row.unit_price,

@@ -8,6 +8,14 @@ export interface InventoryProduct {
     id: string;
     name: string;
     sku?: string;
+    variants?: InventoryVariant[];
+}
+
+export interface InventoryVariant {
+    id: string;
+    name: string;
+    sku?: string;
+    attributes?: Record<string, unknown>;
 }
 
 export interface InventoryItem {
@@ -22,12 +30,14 @@ export interface InventoryItem {
     batch_number?: string;
     expiry_date?: string;
     product?: InventoryProduct;
+    variant?: InventoryVariant;
     branch?: Branch;
 }
 
 export interface InventoryMovement {
     id?: string;
     product_id: string;
+    variant_id?: string;
     branch_id: string;
     type: 'IN' | 'OUT' | 'ADJ' | 'TRF' | 'RESERVE' | 'RELEASE';
     quantity: number;
@@ -43,10 +53,12 @@ export interface InventoryMovement {
 export interface StockTakeItem {
     id: string;
     product_id: string;
+    variant_id?: string;
     system_qty: number;
     counted_qty: number | null;
     difference: number;
     product?: InventoryProduct;
+    variant?: InventoryVariant;
 }
 
 export interface StockTake {

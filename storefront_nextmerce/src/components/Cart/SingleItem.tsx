@@ -54,6 +54,7 @@ const SingleItem = ({ item }: { item: CartItem }) => {
               <h3 className="text-dark ease-out duration-200 hover:text-blue">
                 <Link href={item.href || "/products"}> {item.title} </Link>
               </h3>
+              {item.variantName ? <p className="text-sm text-dark-3">{item.variantName}</p> : null}
             </div>
           </div>
         </div>

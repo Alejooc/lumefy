@@ -18,6 +18,10 @@ interface ProductVariantInput {
     barcode?: string;
     price_extra?: number;
     cost_extra?: number;
+    price?: number | null;
+    attributes?: Record<string, unknown>;
+    color?: string;
+    size?: string;
     weight?: number | null;
 }
 interface ProductDetailResponse {
@@ -166,6 +170,9 @@ export class ProductFormComponent implements OnInit {
                             barcode: [v.barcode || ''],
                             price_extra: [v.price_extra || 0],
                             cost_extra: [v.cost_extra || 0],
+                            price: [v.price ?? null],
+                            color: [(v.attributes?.['color'] || v.attributes?.['colour'] || '') as string],
+                            size: [(v.attributes?.['size'] || v.attributes?.['talla'] || v.attributes?.['medida'] || '') as string],
                             weight: [v.weight]
                         }));
                     });
@@ -191,6 +198,9 @@ export class ProductFormComponent implements OnInit {
             barcode: [''],
             price_extra: [0],
             cost_extra: [0],
+            price: [null],
+            color: [''],
+            size: [''],
             weight: [null]
         }));
     }
@@ -280,8 +290,7 @@ export class ProductFormComponent implements OnInit {
 
         let completed = 0;
         newVariants.forEach((v: ProductVariantInput) => {
-            const variantData = { ...v };
-            delete variantData.id;
+            const variantData = this.toVariantPayload(v);
             this.api.post(`/products/${productId}/variants`, variantData).subscribe({
                 next: () => {
                     completed++;
@@ -321,8 +330,7 @@ export class ProductFormComponent implements OnInit {
 
         // Create new
         newVariants.forEach((v: ProductVariantInput) => {
-            const variantData = { ...v };
-            delete variantData.id;
+            const variantData = this.toVariantPayload(v);
             this.api.post(`/products/${productId}/variants`, variantData).subscribe({
                 next: checkDone,
                 error: checkDone
@@ -331,12 +339,24 @@ export class ProductFormComponent implements OnInit {
 
         // Update existing
         existingVariants.forEach((v: ProductVariantInput) => {
-            const { id, ...variantData } = v;
+            const { id, ...rawVariantData } = v;
+            const variantData = this.toVariantPayload(rawVariantData);
             this.api.put(`/products/${productId}/variants/${id}`, variantData).subscribe({
                 next: checkDone,
                 error: checkDone
             });
         });
+    }
+
+    private toVariantPayload(variant: ProductVariantInput): Record<string, unknown> {
+        const { color, size, ...payload } = variant;
+        const existing = (payload.attributes || {}) as Record<string, unknown>;
+        const attributes = { ...existing };
+        if (color?.trim()) attributes['color'] = color.trim();
+        else delete attributes['color'];
+        if (size?.trim()) attributes['size'] = size.trim();
+        else delete attributes['size'];
+        return { ...payload, attributes };
     }
 
     getMargin(): number {
