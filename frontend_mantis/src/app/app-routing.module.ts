@@ -191,6 +191,11 @@ const routes: Routes = [
         loadComponent: () => import('./modules/apps/app-store.component').then((c) => c.AppStoreComponent)
       },
       {
+        path: 'integrations',
+        canActivate: [TenantGuard],
+        loadComponent: () => import('./modules/integrations/integration-list.component').then((c) => c.IntegrationListComponent)
+      },
+      {
         path: 'apps/installed/:slug',
         canActivate: [TenantGuard],
         loadComponent: () => import('./modules/apps/app-installed-detail.component').then((c) => c.AppInstalledDetailComponent)

@@ -1,4 +1,4 @@
-from sqlalchemy import String, Float, Boolean, ForeignKey
+from sqlalchemy import String, Float, Boolean, ForeignKey, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
@@ -13,6 +13,9 @@ class ProductVariant(BaseModel):
     barcode: Mapped[str] = mapped_column(String, index=True, nullable=True)
     price_extra: Mapped[float] = mapped_column(Float, default=0.0)  # Additional price over base
     cost_extra: Mapped[float] = mapped_column(Float, default=0.0)   # Additional cost over base
+    price: Mapped[float] = mapped_column(Float, nullable=True)  # Absolute sale price from integrations
+    cost: Mapped[float] = mapped_column(Float, nullable=True)  # Absolute cost from integrations
+    attributes: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     weight: Mapped[float] = mapped_column(Float, nullable=True)  # Override weight if different
 
     # Relationship back to product

@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Any, Optional, List
 from pydantic import BaseModel
 from uuid import UUID
 from app.schemas.unit_of_measure import UnitOfMeasure as UnitOfMeasureSchema
@@ -13,6 +13,7 @@ class ProductBase(BaseModel):
     barcode: Optional[str] = None
     description: Optional[str] = None
     image_url: Optional[str] = None
+    attributes: dict[str, Any] = {}
     product_type: str = "STORABLE"  # STORABLE, CONSUMABLE, SERVICE
 
     # Pricing
@@ -50,6 +51,7 @@ class ProductUpdate(BaseModel):
     barcode: Optional[str] = None
     description: Optional[str] = None
     image_url: Optional[str] = None
+    attributes: Optional[dict[str, Any]] = None
     images: Optional[List[ProductImageCreate]] = None
     product_type: Optional[str] = None
     price: Optional[float] = None

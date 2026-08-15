@@ -1,0 +1,319 @@
+<div class="integrations-page">
+  <div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+    <div>
+      <h4 class="mb-1">Orígenes de datos</h4>
+      <p class="text-muted mb-0">Conecta APIs externas para importar productos, precios e inventario a Lumefy.</p>
+    </div>
+    <button class="btn btn-primary" (click)="openCreate()">
+      <i class="ti ti-plus me-1"></i> Nuevo origen
+    </button>
+  </div>
+
+  <div class="alert alert-info border-0 mb-4">
+    <strong>Cómo funciona:</strong> configura una API REST, prueba sus credenciales y ejecuta una sincronización manual. Las credenciales se almacenan cifradas y nunca se muestran en el panel.
+  </div>
+
+  @if (showForm) {
+    <div class="card mb-4 form-card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">{{ editingId ? 'Editar origen' : 'Crear origen REST' }}</h5>
+        <button class="btn btn-sm btn-outline-secondary" (click)="closeForm()">Cerrar</button>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nombre del origen</label>
+            <input class="form-control" [(ngModel)]="form.name" placeholder="Ej. Proveedor mayorista">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">URL base</label>
+            <input class="form-control" [(ngModel)]="form.base_url" placeholder="https://api.proveedor.com">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Autenticación</label>
+            <select class="form-select" [(ngModel)]="form.auth_type">
+              <option value="bearer">Bearer token</option>
+              <option value="api_key">API key</option>
+              <option value="none">Sin autenticación</option>
+            </select>
+          </div>
+          <div class="col-md-4" [hidden]="form.auth_type === 'none'">
+            <label class="form-label">Token / API key</label>
+            <input class="form-control" type="password" [(ngModel)]="form.token" placeholder="Se guarda cifrado">
+          </div>
+          <div class="col-md-4" [hidden]="form.auth_type !== 'api_key'">
+            <label class="form-label">Header de API key</label>
+            <input class="form-control" [(ngModel)]="form.api_key_header" placeholder="X-API-Key">
+          </div>
+
+          <div class="col-12"><hr class="my-1"><h6 class="mb-0">Endpoints</h6></div>
+          <div class="col-md-6">
+            <label class="form-label">Endpoint de productos</label>
+            <input class="form-control" [(ngModel)]="form.products_path" placeholder="/products">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Ruta de datos de productos</label>
+            <input class="form-control" [(ngModel)]="form.products_data_path" placeholder="items (vacío si la respuesta es una lista)">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Endpoint de inventario (opcional)</label>
+            <input class="form-control" [(ngModel)]="form.inventory_path" placeholder="/inventory">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Ruta de datos de inventario</label>
+            <input class="form-control" [(ngModel)]="form.inventory_data_path" placeholder="items">
+          </div>
+          <div class="col-12"><hr class="my-1"><h6 class="mb-0">Paginación</h6></div>
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="paginationEnabled" [(ngModel)]="form.pagination_enabled">
+              <label class="form-check-label" for="paginationEnabled">
+                Este origen usa paginación
+              </label>
+            </div>
+            <small class="text-muted">Actívalo para APIs que usan parámetros como <code>?page=1&amp;per_page=50</code>. Se recorrerán todas las páginas hasta terminar.</small>
+          </div>
+          @if (form.pagination_enabled) {
+            <div class="col-md-3">
+              <label class="form-label">Parámetro de página</label>
+              <input class="form-control" [(ngModel)]="form.page_param" placeholder="page">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Parámetro de tamaño</label>
+              <input class="form-control" [(ngModel)]="form.per_page_param" placeholder="per_page">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Registros por página</label>
+              <input class="form-control" type="number" min="1" [(ngModel)]="form.per_page">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Página inicial</label>
+              <input class="form-control" type="number" min="1" [(ngModel)]="form.start_page">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Máximo de páginas</label>
+              <input class="form-control" type="number" min="1" [(ngModel)]="form.max_pages">
+            </div>
+          }
+
+          <div class="col-12"><hr class="my-1"><h6 class="mb-0">Mapeo de campos</h6></div>
+          <div class="col-md-3"><label class="form-label">ID producto</label><input class="form-control" [(ngModel)]="form.product_id_field"></div>
+          <div class="col-md-3"><label class="form-label">Nombre</label><input class="form-control" [(ngModel)]="form.product_name_field"></div>
+          <div class="col-md-3"><label class="form-label">SKU</label><input class="form-control" [(ngModel)]="form.product_sku_field"></div>
+          <div class="col-md-3"><label class="form-label">Precio</label><input class="form-control" [(ngModel)]="form.product_price_field"></div>
+          <div class="col-md-3"><label class="form-label">Costo</label><input class="form-control" [(ngModel)]="form.product_cost_field"></div>
+          <div class="col-md-3"><label class="form-label">ID inventario</label><input class="form-control" [(ngModel)]="form.inventory_id_field"></div>
+          <div class="col-md-3"><label class="form-label">SKU inventario</label><input class="form-control" [(ngModel)]="form.inventory_sku_field"></div>
+          <div class="col-md-3"><label class="form-label">Cantidad</label><input class="form-control" [(ngModel)]="form.inventory_quantity_field"></div>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <button class="btn btn-outline-secondary" (click)="closeForm()">Cancelar</button>
+          <button class="btn btn-primary" (click)="save()" [disabled]="saving">
+            {{ saving ? 'Guardando...' : 'Guardar origen' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (mappingDraft) {
+    <div class="card mapping-card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center gap-2">
+        <div>
+          <h5 class="mb-1">Homologación automática: {{ mappingSourceName }}</h5>
+          <small class="text-muted">{{ mappingDraft.message }} · {{ mappingDraft.sample_count }} registros analizados · Forma detectada: {{ mappingDraft.detected_shape === 'variants' ? 'con variantes' : 'simple' }}</small>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" (click)="closeMapping()">Cerrar</button>
+      </div>
+      <div class="card-body">
+        @if (mappingDraft.request_url) {
+          <div class="small mb-3"><span class="text-muted">Petición de análisis:</span> <code>{{ mappingDraft.request_url }}</code></div>
+        }
+        @if (mappingDraft.warnings.length) {
+          <div class="alert alert-warning py-2 small">
+            @for (warning of mappingDraft.warnings; track warning) { <div>{{ warning }}</div> }
+          </div>
+        }
+        <div class="table-responsive mapping-table">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Campo Lumefy</th><th>Campo detectado en la API</th><th>Confianza</th><th>Alternativas</th></tr></thead>
+            <tbody>
+              @for (suggestion of mappingDraft.suggestions; track suggestion.canonical) {
+                <tr>
+                  <td>
+                    <strong>{{ canonicalLabel(suggestion.canonical) }}</strong>
+                    @if (suggestion.required) { <span class="badge bg-light-danger text-danger ms-1">Requerido</span> }
+                    @if (suggestion.reason) { <div class="small text-muted">{{ suggestion.reason }}</div> }
+                  </td>
+                  <td>
+                    <input class="form-control form-control-sm" [(ngModel)]="mappingValues[suggestion.canonical]" [placeholder]="suggestion.source_path || 'No detectado'">
+                  </td>
+                  <td [class]="mappingConfidenceClass(suggestion.confidence)"><strong>{{ suggestion.confidence }}%</strong></td>
+                  <td class="small text-muted">{{ suggestion.candidates.join(', ') || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-3">
+          <button class="btn btn-outline-secondary" (click)="closeMapping()">Cancelar</button>
+          <button class="btn btn-success" (click)="confirmMapping()" [disabled]="confirmingMapping">
+            {{ confirmingMapping ? 'Guardando...' : 'Confirmar y guardar mapeo' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (previewResult) {
+    <div class="card preview-card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center gap-2">
+        <div>
+          <h5 class="mb-1">Vista previa: {{ previewSourceName }}</h5>
+          <small class="text-muted">{{ previewResult.message }}</small>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" (click)="previewResult = null">Cerrar</button>
+      </div>
+      <div class="card-body">
+        @if (previewResult.errors.length) {
+          <div class="alert alert-warning py-2">
+            @for (error of previewResult.errors; track error) { <div>{{ error }}</div> }
+          </div>
+        }
+
+        <div class="preview-section">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <h6 class="mb-0">Productos</h6>
+            <span class="small text-muted">
+              {{ previewResult.products.received_count }} recibidos
+              @if (previewResult.products.status_code) { · HTTP {{ previewResult.products.status_code }} }
+              @if (previewResult.products.pagination_enabled) { · Página {{ previewResult.products.page }} · {{ previewResult.products.page_size }} por página }
+              @if (previewResult.products.variants_count) { · {{ previewResult.products.variants_count }} variantes }
+              @if (previewResult.products.images_count) { · {{ previewResult.products.images_count }} imágenes }
+              @if (previewResult.products.attributes_count) { · {{ previewResult.products.attributes_count }} atributos }
+            </span>
+          </div>
+          @if (previewResult.products.request_url) {
+            <div class="small mb-2"><span class="text-muted">Petición:</span> <code>{{ previewResult.products.request_url }}</code></div>
+          }
+          @if (previewResult.products.error) {
+            <div class="alert alert-danger py-2 small">{{ previewResult.products.error }}</div>
+          } @else if (previewResult.products.mapped.length) {
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-2">
+                <thead><tr><th>ID externo</th><th>Nombre</th><th>SKU</th><th>Precio</th><th>Costo</th></tr></thead>
+                <tbody>
+                  @for (item of previewResult.products.mapped; track $index) {
+                    <tr>
+                      <td>{{ item['external_id'] ?? '—' }}</td>
+                      <td>{{ item['name'] ?? '—' }}</td>
+                      <td>{{ item['sku'] ?? '—' }}</td>
+                      <td>{{ item['price'] ?? '—' }}</td>
+                      <td>{{ item['cost'] ?? '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <details>
+              <summary class="small text-muted">Ver JSON original de la muestra</summary>
+              <pre class="preview-json mt-2">{{ previewResult.products.raw | json }}</pre>
+            </details>
+          } @else {
+            <p class="small text-muted mb-0">La petición respondió sin registros en esta página.</p>
+          }
+        </div>
+
+        @if (previewResult.inventory) {
+          <div class="preview-section mt-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+              <h6 class="mb-0">Inventario</h6>
+              <span class="small text-muted">
+                {{ previewResult.inventory.received_count }} recibidos
+                @if (previewResult.inventory.status_code) { · HTTP {{ previewResult.inventory.status_code }} }
+                @if (previewResult.inventory.pagination_enabled) { · Página {{ previewResult.inventory.page }} · {{ previewResult.inventory.page_size }} por página }
+              </span>
+            </div>
+            @if (previewResult.inventory.request_url) {
+              <div class="small mb-2"><span class="text-muted">Petición:</span> <code>{{ previewResult.inventory.request_url }}</code></div>
+            }
+            @if (previewResult.inventory.error) {
+              <div class="alert alert-danger py-2 small">{{ previewResult.inventory.error }}</div>
+            } @else if (previewResult.inventory.mapped.length) {
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-2">
+                  <thead><tr><th>ID externo</th><th>SKU</th><th>Cantidad</th></tr></thead>
+                  <tbody>
+                    @for (item of previewResult.inventory.mapped; track $index) {
+                      <tr>
+                        <td>{{ item['external_id'] ?? '—' }}</td>
+                        <td>{{ item['sku'] ?? '—' }}</td>
+                        <td>{{ item['quantity'] ?? '—' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <details>
+                <summary class="small text-muted">Ver JSON original de la muestra</summary>
+                <pre class="preview-json mt-2">{{ previewResult.inventory.raw | json }}</pre>
+              </details>
+            } @else {
+              <p class="small text-muted mb-0">La petición respondió sin registros en esta página.</p>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  @if (loading) {
+    <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+  } @else if (sources.length === 0) {
+    <div class="card empty-state"><div class="card-body text-center py-5">
+      <i class="ti ti-plug-connected empty-icon"></i>
+      <h5 class="mt-3">Aún no tienes orígenes conectados</h5>
+      <p class="text-muted">Crea tu primer origen para comenzar a traer productos e inventario.</p>
+      <button class="btn btn-primary" (click)="openCreate()">Crear primer origen</button>
+    </div></div>
+  } @else {
+    <div class="row g-3">
+      @for (source of sources; track source.id) {
+        <div class="col-12 col-xl-6">
+          <div class="card source-card h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <div><h5 class="mb-1">{{ source.name }}</h5><small class="text-muted">{{ source.base_url }}</small></div>
+                <span class="badge" [class.bg-success]="source.status === 'CONNECTED'" [class.bg-danger]="source.status === 'ERROR'" [class.bg-secondary]="source.status !== 'CONNECTED' && source.status !== 'ERROR'">
+                  {{ statusLabel(source.status) }}
+                </span>
+              </div>
+              <div class="small text-muted mb-3">
+                <span class="me-3">REST</span>
+                <span>{{ source.credentials_configured ? 'Credenciales configuradas' : 'Sin credenciales' }}</span>
+              </div>
+              @if (source.last_error) { <div class="alert alert-danger py-2 small">{{ source.last_error }}</div> }
+              @if (source.last_synced_at) { <p class="small text-muted mb-3">Última sincronización: {{ source.last_synced_at | date:'short' }}</p> }
+              <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-sm btn-outline-primary" (click)="test(source)" [disabled]="testingId === source.id">
+                  {{ testingId === source.id ? 'Probando...' : 'Probar conexión' }}
+                </button>
+                <button class="btn btn-sm btn-outline-success" (click)="detectMapping(source)" [disabled]="mappingRunningId === source.id">
+                  {{ mappingRunningId === source.id ? 'Detectando campos...' : mappingStatus(source) }}
+                </button>
+                <button class="btn btn-sm btn-outline-dark" (click)="preview(source)" [disabled]="previewingId === source.id">
+                  {{ previewingId === source.id ? 'Cargando muestra...' : 'Ver previa / debug' }}
+                </button>
+                <button class="btn btn-sm btn-primary" (click)="sync(source)" [disabled]="syncingId === source.id || !source.is_active">
+                  {{ syncingId === source.id ? 'Sincronizando...' : 'Sincronizar ahora' }}
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" (click)="openEdit(source)">Editar</button>
+                <button class="btn btn-sm btn-outline-danger" (click)="disable(source)" [disabled]="!source.is_active">Desactivar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

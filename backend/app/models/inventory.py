@@ -10,6 +10,9 @@ class Inventory(BaseModel):
     __tablename__ = "inventory"
 
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), index=True)
+    variant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("product_variants.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     branch_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id"), index=True)
     warehouse_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=True, index=True)
     
@@ -26,5 +29,6 @@ class Inventory(BaseModel):
 
     # Relationships
     product = relationship(Product)
+    variant = relationship("ProductVariant")
     branch = relationship(Branch)
     warehouse = relationship("Warehouse")
