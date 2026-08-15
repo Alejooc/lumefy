@@ -10,7 +10,7 @@
   </div>
 
   <div class="alert alert-info border-0 mb-4">
-    <strong>Cómo funciona:</strong> configura una API REST, prueba sus credenciales y ejecuta una sincronización manual. Las credenciales se almacenan cifradas y nunca se muestran en el panel.
+    <strong>Dos ritmos, un solo origen:</strong> actualiza el catálogo cuando cambien productos o precios y mueve el inventario manualmente o por intervalos. Las credenciales se almacenan cifradas y nunca se muestran en el panel.
   </div>
 
   @if (showForm) {
@@ -293,8 +293,7 @@
                 <span>{{ source.credentials_configured ? 'Credenciales configuradas' : 'Sin credenciales' }}</span>
               </div>
               @if (source.last_error) { <div class="alert alert-danger py-2 small">{{ source.last_error }}</div> }
-              @if (source.last_synced_at) { <p class="small text-muted mb-3">Última sincronización: {{ source.last_synced_at | date:'short' }}</p> }
-              <div class="d-flex gap-2 flex-wrap">
+              <div class="d-flex gap-2 flex-wrap source-tools">
                 <button class="btn btn-sm btn-outline-primary" (click)="test(source)" [disabled]="testingId === source.id">
                   {{ testingId === source.id ? 'Probando...' : 'Probar conexión' }}
                 </button>
@@ -304,11 +303,86 @@
                 <button class="btn btn-sm btn-outline-dark" (click)="preview(source)" [disabled]="previewingId === source.id">
                   {{ previewingId === source.id ? 'Cargando muestra...' : 'Ver previa / debug' }}
                 </button>
-                <button class="btn btn-sm btn-primary" (click)="sync(source)" [disabled]="syncingId === source.id || !source.is_active">
-                  {{ syncingId === source.id ? 'Sincronizando...' : 'Sincronizar ahora' }}
-                </button>
                 <button class="btn btn-sm btn-outline-secondary" (click)="openEdit(source)">Editar</button>
                 <button class="btn btn-sm btn-outline-danger" (click)="disable(source)" [disabled]="!source.is_active">Desactivar</button>
+              </div>
+
+              <div class="sync-grid mt-4">
+                <section class="sync-lane catalog-lane">
+                  <div class="sync-lane-heading">
+                    <span class="sync-icon"><i class="ti ti-package"></i></span>
+                    <div>
+                      <div class="eyebrow">Menos frecuente</div>
+                      <h6 class="mb-0">Catálogo y precios</h6>
+                    </div>
+                    @if (syncStatus(source, 'CATALOG')) {
+                      <span class="run-state">{{ syncStatus(source, 'CATALOG') }}</span>
+                    }
+                  </div>
+                  <p class="sync-description">Crea o actualiza productos, variantes, imágenes y precios sin tocar existencias.</p>
+                  <div class="sync-lane-footer">
+                    <small class="text-muted">
+                      {{ source.last_catalog_synced_at ? ('Última: ' + (source.last_catalog_synced_at | date:'short')) : 'Aún no ejecutado' }}
+                    </small>
+                    <button class="btn btn-sm btn-dark" (click)="syncCatalog(source)" [disabled]="isSyncActive(source, 'CATALOG') || !source.is_active">
+                      <i class="ti ti-refresh me-1"></i>
+                      {{ isSyncActive(source, 'CATALOG') ? 'Procesando' : 'Actualizar catálogo' }}
+                    </button>
+                  </div>
+                </section>
+
+                <section class="sync-lane inventory-lane">
+                  <div class="sync-lane-heading">
+                    <span class="sync-icon"><i class="ti ti-boxes"></i></span>
+                    <div>
+                      <div class="eyebrow">Alta frecuencia</div>
+                      <h6 class="mb-0">Inventario</h6>
+                    </div>
+                    @if (syncStatus(source, 'INVENTORY')) {
+                      <span class="run-state">{{ syncStatus(source, 'INVENTORY') }}</span>
+                    }
+                  </div>
+                  <p class="sync-description">Actualiza únicamente cantidades. Lumefy ejecuta un proceso por origen para evitar cruces.</p>
+                  @if (scheduleDrafts[source.id]; as schedule) {
+                    <div class="schedule-controls">
+                      <div>
+                        <label class="form-label small">Ejecución</label>
+                        <select class="form-select form-select-sm" [(ngModel)]="schedule.mode">
+                          <option value="MANUAL">Manual</option>
+                          <option value="AUTOMATIC">Automática</option>
+                        </select>
+                      </div>
+                      @if (schedule.mode === 'AUTOMATIC') {
+                        <div>
+                          <label class="form-label small">Frecuencia</label>
+                          <select class="form-select form-select-sm" [(ngModel)]="schedule.interval_minutes">
+                            @for (minutes of inventoryIntervals; track minutes) {
+                              <option [ngValue]="minutes">{{ intervalLabel(minutes) }}</option>
+                            }
+                          </select>
+                        </div>
+                      }
+                      <button class="btn btn-sm btn-outline-success schedule-save" (click)="saveInventorySchedule(source)" [disabled]="scheduleSavingId === source.id">
+                        {{ scheduleSavingId === source.id ? 'Guardando...' : 'Guardar' }}
+                      </button>
+                    </div>
+                  }
+                  <div class="sync-lane-footer inventory-footer">
+                    <small class="text-muted">
+                      @if (source.next_inventory_sync_at) {
+                        Próxima: {{ source.next_inventory_sync_at | date:'short' }}
+                      } @else if (source.last_inventory_synced_at) {
+                        Última: {{ source.last_inventory_synced_at | date:'short' }}
+                      } @else {
+                        Aún no ejecutado
+                      }
+                    </small>
+                    <button class="btn btn-sm btn-success" (click)="syncInventory(source)" [disabled]="isSyncActive(source, 'INVENTORY') || !source.is_active">
+                      <i class="ti ti-bolt me-1"></i>
+                      {{ isSyncActive(source, 'INVENTORY') ? 'Procesando' : 'Actualizar inventario' }}
+                    </button>
+                  </div>
+                </section>
               </div>
             </div>
           </div>

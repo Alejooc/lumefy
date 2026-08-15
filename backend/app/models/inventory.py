@@ -1,4 +1,4 @@
-from sqlalchemy import String, Float, ForeignKey, Date
+from sqlalchemy import Date, Float, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
@@ -8,6 +8,18 @@ from app.models.branch import Branch
 
 class Inventory(BaseModel):
     __tablename__ = "inventory"
+    __table_args__ = (
+        Index(
+            "uq_inventory_stock_identity",
+            "company_id",
+            "product_id",
+            "branch_id",
+            "warehouse_id",
+            "variant_id",
+            unique=True,
+            postgresql_nulls_not_distinct=True,
+        ),
+    )
 
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), index=True)
     variant_id: Mapped[uuid.UUID | None] = mapped_column(

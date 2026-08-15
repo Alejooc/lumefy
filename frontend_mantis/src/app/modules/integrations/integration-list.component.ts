@@ -1,12 +1,15 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription, map, switchMap, takeWhile, timer } from 'rxjs';
 import {
   IntegrationMapping,
   IntegrationPreview,
   IntegrationService,
   IntegrationSource,
-  IntegrationSourcePayload
+  IntegrationSourcePayload,
+  IntegrationSyncRun,
+  JsonObject
 } from '../../core/services/integration.service';
 import { SweetAlertService } from '../../theme/shared/services/sweet-alert.service';
 
@@ -36,6 +39,11 @@ interface IntegrationForm {
   inventory_quantity_field: string;
 }
 
+interface InventoryScheduleDraft {
+  mode: 'MANUAL' | 'AUTOMATIC';
+  interval_minutes: number;
+}
+
 @Component({
   selector: 'app-integration-list',
   standalone: true,
@@ -43,7 +51,7 @@ interface IntegrationForm {
   templateUrl: './integration-list.component.html',
   styleUrls: ['./integration-list.component.scss']
 })
-export class IntegrationListComponent implements OnInit {
+export class IntegrationListComponent implements OnInit, OnDestroy {
   private integrationService = inject(IntegrationService);
   private swal = inject(SweetAlertService);
 
@@ -54,21 +62,29 @@ export class IntegrationListComponent implements OnInit {
   editingId: string | null = null;
   testingId: string | null = null;
   previewingId: string | null = null;
-  syncingId: string | null = null;
   previewResult: IntegrationPreview | null = null;
   previewSourceName: string | null = null;
   mappingDraft: IntegrationMapping | null = null;
   mappingSourceName: string | null = null;
-  mappingValues: Record<string, any> = {};
+  mappingValues: JsonObject = {};
   mappingSourceId: string | null = null;
   mappingRunningId: string | null = null;
   confirmingMapping = false;
-  editingConfiguration: Record<string, any> = {};
+  editingConfiguration: JsonObject = {};
+  scheduleDrafts: Record<string, InventoryScheduleDraft> = {};
+  scheduleSavingId: string | null = null;
+  activeRuns: Record<string, IntegrationSyncRun> = {};
+  readonly inventoryIntervals = [5, 15, 30, 60, 180, 360, 720, 1440];
+  private readonly polling = new Subscription();
 
   form: IntegrationForm = this.emptyForm();
 
   ngOnInit(): void {
     this.loadSources();
+  }
+
+  ngOnDestroy(): void {
+    this.polling.unsubscribe();
   }
 
   emptyForm(): IntegrationForm {
@@ -104,6 +120,12 @@ export class IntegrationListComponent implements OnInit {
     this.integrationService.listSources().subscribe({
       next: (sources) => {
         this.sources = sources;
+        for (const source of sources) {
+          this.scheduleDrafts[source.id] ??= {
+            mode: source.inventory_sync_mode,
+            interval_minutes: source.inventory_sync_interval_minutes || 15
+          };
+        }
         this.loading = false;
       },
       error: () => {
@@ -122,11 +144,11 @@ export class IntegrationListComponent implements OnInit {
 
   openEdit(source: IntegrationSource): void {
     const config = source.configuration || {};
-    const endpoints = config['endpoints'] || {};
-    const products = endpoints['products'] || {};
-    const inventory = endpoints['inventory'] || {};
-    const pagination = products['pagination'] || {};
-    const fieldMap = config['field_map'] || {};
+    const endpoints = this.objectValue(config['endpoints']);
+    const products = this.objectValue(endpoints['products']);
+    const inventory = this.objectValue(endpoints['inventory']);
+    const pagination = this.objectValue(products['pagination']);
+    const fieldMap = this.objectValue(config['field_map']);
     this.editingId = source.id;
     this.editingConfiguration = config;
     this.form = {
@@ -134,25 +156,25 @@ export class IntegrationListComponent implements OnInit {
       name: source.name,
       base_url: source.base_url,
       auth_type: source.auth_type,
-      api_key_header: config['api_key_header'] || 'X-API-Key',
-      products_path: products['path'] || '',
-      products_data_path: products['data_path'] || '',
-      inventory_path: inventory['path'] || '',
-      inventory_data_path: inventory['data_path'] || '',
+      api_key_header: this.stringValue(config['api_key_header'], 'X-API-Key'),
+      products_path: this.stringValue(products['path']),
+      products_data_path: this.stringValue(products['data_path']),
+      inventory_path: this.stringValue(inventory['path']),
+      inventory_data_path: this.stringValue(inventory['data_path']),
       pagination_enabled: pagination['enabled'] === true,
-      page_param: pagination['page_param'] || 'page',
-      per_page_param: pagination['per_page_param'] || 'per_page',
+      page_param: this.stringValue(pagination['page_param'], 'page'),
+      per_page_param: this.stringValue(pagination['per_page_param'], 'per_page'),
       per_page: Number(pagination['per_page'] || 50),
       start_page: Number(pagination['start_page'] || 1),
       max_pages: Number(pagination['max_pages'] || 1000),
-      product_id_field: fieldMap['product.external_id'] || 'id',
-      product_name_field: fieldMap['product.name'] || 'name',
-      product_sku_field: fieldMap['product.sku'] || 'sku',
-      product_price_field: fieldMap['product.price'] || 'price',
-      product_cost_field: fieldMap['product.cost'] || 'cost',
-      inventory_id_field: fieldMap['inventory.external_id'] || 'product_id',
-      inventory_sku_field: fieldMap['inventory.sku'] || 'sku',
-      inventory_quantity_field: fieldMap['inventory.quantity'] || 'quantity'
+      product_id_field: this.stringValue(fieldMap['product.external_id'], 'id'),
+      product_name_field: this.stringValue(fieldMap['product.name'], 'name'),
+      product_sku_field: this.stringValue(fieldMap['product.sku'], 'sku'),
+      product_price_field: this.stringValue(fieldMap['product.price'], 'price'),
+      product_cost_field: this.stringValue(fieldMap['product.cost'], 'cost'),
+      inventory_id_field: this.stringValue(fieldMap['inventory.external_id'], 'product_id'),
+      inventory_sku_field: this.stringValue(fieldMap['inventory.sku'], 'sku'),
+      inventory_quantity_field: this.stringValue(fieldMap['inventory.quantity'], 'quantity')
     };
     this.showForm = true;
   }
@@ -199,10 +221,10 @@ export class IntegrationListComponent implements OnInit {
       start_page: Math.max(1, Number(this.form.start_page) || 1),
       max_pages: Math.max(1, Number(this.form.max_pages) || 1000)
     };
-    const existingEndpoints = this.editingConfiguration['endpoints'] || {};
-    const endpoints: Record<string, any> = {
+    const existingEndpoints = this.objectValue(this.editingConfiguration['endpoints']);
+    const endpoints: JsonObject = {
       products: {
-        ...(existingEndpoints['products'] || {}),
+        ...this.objectValue(existingEndpoints['products']),
         path: this.form.products_path.trim(),
         data_path: this.form.products_data_path.trim(),
         pagination
@@ -210,16 +232,16 @@ export class IntegrationListComponent implements OnInit {
     };
     if (this.form.inventory_path.trim()) {
       endpoints['inventory'] = {
-        ...(existingEndpoints['inventory'] || {}),
+        ...this.objectValue(existingEndpoints['inventory']),
         path: this.form.inventory_path.trim(),
         data_path: this.form.inventory_data_path.trim()
       };
     }
-    const credentials: Record<string, any> = {};
+    const credentials: JsonObject = {};
     if (this.form.token.trim()) {
       credentials[this.form.auth_type === 'api_key' ? 'api_key' : 'token'] = this.form.token.trim();
     }
-    const existingFieldMap = this.editingConfiguration['field_map'] || {};
+    const existingFieldMap = this.objectValue(this.editingConfiguration['field_map']);
     const mappingConfirmed = this.editingConfiguration['mapping_status'] === 'confirmed';
     const fieldMap = mappingConfirmed ? existingFieldMap : {
       'product.external_id': this.form.product_id_field.trim(),
@@ -371,19 +393,119 @@ export class IntegrationListComponent implements OnInit {
     return source.configuration?.['mapping_status'] === 'confirmed' ? 'Mapeo confirmado' : 'Mapeo pendiente';
   }
 
-  sync(source: IntegrationSource): void {
-    this.syncingId = source.id;
-    this.integrationService.syncSource(source.id).subscribe({
-      next: (run) => {
-        this.syncingId = null;
-        this.swal.success('Sincronización terminada', `${run.products_created} creados, ${run.products_updated} actualizados.`);
-        this.loadSources();
+  saveInventorySchedule(source: IntegrationSource): void {
+    const draft = this.scheduleDrafts[source.id];
+    if (!draft) return;
+    this.scheduleSavingId = source.id;
+    this.integrationService.updateInventorySchedule(source.id, {
+      mode: draft.mode,
+      interval_minutes: draft.mode === 'AUTOMATIC' ? Number(draft.interval_minutes) : null
+    }).subscribe({
+      next: (updated) => {
+        this.scheduleSavingId = null;
+        this.sources = this.sources.map((item) => item.id === updated.id ? updated : item);
+        this.swal.success(
+          'Programación guardada',
+          draft.mode === 'AUTOMATIC' ? 'El inventario se ejecutará automáticamente.' : 'El inventario quedó en modo manual.'
+        );
       },
       error: (error) => {
-        this.syncingId = null;
-        this.swal.error('Error', error?.error?.detail || 'No se pudo ejecutar la sincronización.');
+        this.scheduleSavingId = null;
+        this.swal.error('Error', error?.error?.detail || 'No se pudo guardar la programación.');
       }
     });
+  }
+
+  syncCatalog(source: IntegrationSource): void {
+    this.queueSync(source, 'CATALOG');
+  }
+
+  syncInventory(source: IntegrationSource): void {
+    this.queueSync(source, 'INVENTORY');
+  }
+
+  isSyncActive(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY'): boolean {
+    const status = this.activeRuns[this.runKey(source.id, syncType)]?.status;
+    return status === 'QUEUED' || status === 'RUNNING';
+  }
+
+  syncStatus(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY'): string | null {
+    const run = this.activeRuns[this.runKey(source.id, syncType)];
+    if (!run) return null;
+    const labels: Record<string, string> = {
+      QUEUED: 'En cola',
+      RUNNING: 'Ejecutando',
+      SUCCESS: 'Completada',
+      PARTIAL: 'Completada con alertas',
+      FAILED: 'Falló'
+    };
+    return labels[run.status] || run.status;
+  }
+
+  intervalLabel(minutes: number | null): string {
+    if (!minutes) return 'Manual';
+    if (minutes < 60) return `Cada ${minutes} min`;
+    if (minutes === 60) return 'Cada hora';
+    if (minutes < 1440) return `Cada ${minutes / 60} h`;
+    return 'Cada día';
+  }
+
+  private queueSync(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY'): void {
+    const request = syncType === 'CATALOG'
+      ? this.integrationService.syncCatalog(source.id)
+      : this.integrationService.syncInventory(source.id);
+    request.subscribe({
+      next: (run) => {
+        this.activeRuns[this.runKey(source.id, syncType)] = run;
+        this.swal.success('Sincronización en cola', 'Puedes seguir trabajando mientras Lumefy procesa los datos.');
+        this.pollRun(source, run);
+      },
+      error: (error) => {
+        this.swal.error('Error', error?.error?.detail || 'No se pudo poner la sincronización en cola.');
+      }
+    });
+  }
+
+  private pollRun(source: IntegrationSource, queuedRun: IntegrationSyncRun): void {
+    const key = this.runKey(source.id, queuedRun.sync_type === 'FULL' ? 'CATALOG' : queuedRun.sync_type);
+    const terminalStatuses = new Set(['SUCCESS', 'PARTIAL', 'FAILED']);
+    const subscription = timer(1000, 2000).pipe(
+      switchMap(() => this.integrationService.listRuns(source.id)),
+      map((runs) => runs.find((run) => run.id === queuedRun.id) || queuedRun),
+      takeWhile((run) => !terminalStatuses.has(run.status), true)
+    ).subscribe({
+      next: (run) => {
+        this.activeRuns[key] = run;
+        if (!terminalStatuses.has(run.status)) return;
+        this.loadSources();
+        if (run.status === 'FAILED') {
+          this.swal.error('Sincronización fallida', run.error_message || 'Revisa la configuración del origen.');
+        } else if (run.status === 'PARTIAL') {
+          this.swal.warning('Sincronización parcial', `${run.items_failed} registros no pudieron procesarse.`);
+        } else if (run.sync_type === 'CATALOG') {
+          this.swal.success('Catálogo actualizado', `${run.products_created} creados y ${run.products_updated} actualizados.`);
+        } else {
+          this.swal.success('Inventario actualizado', `${run.inventory_updated} existencias actualizadas.`);
+        }
+      },
+      error: () => {
+        delete this.activeRuns[key];
+        this.swal.error('Seguimiento interrumpido', 'Actualiza la página para consultar el resultado.');
+      }
+    });
+    this.polling.add(subscription);
+  }
+
+  private runKey(sourceId: string, syncType: 'CATALOG' | 'INVENTORY'): string {
+    return `${sourceId}:${syncType}`;
+  }
+
+  private objectValue(value: unknown): JsonObject {
+    return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : {};
+  }
+
+  private stringValue(value: unknown, fallback = ''): string {
+    return typeof value === 'string' ? value : fallback;
   }
 
   async disable(source: IntegrationSource): Promise<void> {

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,8 +26,13 @@ class IntegrationSource(BaseModel):
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="DRAFT")
     last_tested_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_catalog_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_inventory_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_sync_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    inventory_sync_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="MANUAL")
+    inventory_sync_interval_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    next_inventory_sync_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
 
     sync_runs = relationship(
         "IntegrationSyncRun",
@@ -44,6 +49,21 @@ class IntegrationSource(BaseModel):
 
 class IntegrationSyncRun(BaseModel):
     __tablename__ = "integration_sync_runs"
+    __table_args__ = (
+        Index(
+            "uq_integration_sync_runs_active_type",
+            "source_id",
+            "sync_type",
+            unique=True,
+            postgresql_where=text("status IN ('QUEUED', 'RUNNING')"),
+        ),
+        Index(
+            "uq_integration_sync_runs_running_source",
+            "source_id",
+            unique=True,
+            postgresql_where=text("status = 'RUNNING'"),
+        ),
+    )
 
     source_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("integration_sources.id", ondelete="CASCADE"), nullable=False, index=True
@@ -51,8 +71,11 @@ class IntegrationSyncRun(BaseModel):
     triggered_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
-    status: Mapped[str] = mapped_column(String(30), nullable=False, default="RUNNING")
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    sync_type: Mapped[str] = mapped_column(String(20), nullable=False, default="FULL")
+    trigger_type: Mapped[str] = mapped_column(String(20), nullable=False, default="MANUAL")
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="QUEUED")
+    queued_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     products_processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     products_created: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -2,6 +2,12 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
 
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
+
 export interface IntegrationSource {
   id: string;
   company_id: string | null;
@@ -11,13 +17,18 @@ export interface IntegrationSource {
   base_url: string;
   auth_type: string;
   credentials_configured: boolean;
-  configuration: Record<string, any>;
+  configuration: JsonObject;
   status: string;
   is_active: boolean;
   last_tested_at: string | null;
   last_synced_at: string | null;
+  last_catalog_synced_at: string | null;
+  last_inventory_synced_at: string | null;
   last_sync_status: string | null;
   last_error: string | null;
+  inventory_sync_mode: 'MANUAL' | 'AUTOMATIC';
+  inventory_sync_interval_minutes: number | null;
+  next_inventory_sync_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -28,8 +39,8 @@ export interface IntegrationSourcePayload {
   source_type: string;
   base_url: string;
   auth_type: string;
-  credentials: Record<string, any>;
-  configuration: Record<string, any>;
+  credentials: JsonObject;
+  configuration: JsonObject;
 }
 
 export interface IntegrationTestResult {
@@ -47,8 +58,8 @@ export interface IntegrationPreviewEntity {
   page: number | null;
   page_size: number | null;
   received_count: number;
-  mapped: Record<string, any>[];
-  raw: Record<string, any>[];
+  mapped: JsonObject[];
+  raw: JsonObject[];
   error: string | null;
   variants_count: number;
   images_count: number;
@@ -82,8 +93,8 @@ export interface IntegrationMapping {
   sample_count: number;
   catalog_mode: string;
   detected_shape: string;
-  mapping: Record<string, any>;
-  collections: Record<string, any>;
+  mapping: JsonObject;
+  collections: JsonObject;
   suggestions: IntegrationMappingSuggestion[];
   detected_paths: string[];
   warnings: string[];
@@ -92,8 +103,11 @@ export interface IntegrationMapping {
 export interface IntegrationSyncRun {
   id: string;
   source_id: string;
+  sync_type: 'CATALOG' | 'INVENTORY' | 'FULL';
+  trigger_type: 'MANUAL' | 'SCHEDULED';
   status: string;
-  started_at: string;
+  queued_at: string;
+  started_at: string | null;
   finished_at: string | null;
   products_processed: number;
   products_created: number;
@@ -101,7 +115,7 @@ export interface IntegrationSyncRun {
   inventory_processed: number;
   inventory_updated: number;
   items_failed: number;
-  details: Record<string, any>;
+  details: JsonObject;
   error_message: string | null;
   created_at: string;
 }
@@ -138,12 +152,23 @@ export class IntegrationService {
     return this.api.post<IntegrationMapping>(`/integrations/sources/${id}/mapping-suggestion`, {});
   }
 
-  confirmMapping(id: string, payload: { mapping: Record<string, any>; catalog_mode: string; collections: Record<string, any> }): Observable<IntegrationSource> {
+  confirmMapping(id: string, payload: { mapping: JsonObject; catalog_mode: string; collections: JsonObject }): Observable<IntegrationSource> {
     return this.api.post<IntegrationSource>(`/integrations/sources/${id}/mapping-confirm`, payload);
   }
 
-  syncSource(id: string): Observable<IntegrationSyncRun> {
-    return this.api.post<IntegrationSyncRun>(`/integrations/sources/${id}/sync`, {});
+  updateInventorySchedule(
+    id: string,
+    payload: { mode: 'MANUAL' | 'AUTOMATIC'; interval_minutes: number | null }
+  ): Observable<IntegrationSource> {
+    return this.api.put<IntegrationSource>(`/integrations/sources/${id}/inventory-schedule`, payload);
+  }
+
+  syncCatalog(id: string): Observable<IntegrationSyncRun> {
+    return this.api.post<IntegrationSyncRun>(`/integrations/sources/${id}/sync/catalog`, {});
+  }
+
+  syncInventory(id: string): Observable<IntegrationSyncRun> {
+    return this.api.post<IntegrationSyncRun>(`/integrations/sources/${id}/sync/inventory`, {});
   }
 
   listRuns(id: string): Observable<IntegrationSyncRun[]> {

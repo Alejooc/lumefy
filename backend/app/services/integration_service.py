@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import ipaddress
 import json
+import socket
 import uuid
 from datetime import datetime
 from typing import Any
@@ -11,8 +13,10 @@ from urllib import parse as urlparse
 from urllib import request as urlrequest
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.branch import Branch
 from app.models.category import Category
 from app.models.integration import IntegrationRecordLink, IntegrationSource, IntegrationSyncRun
@@ -29,16 +33,63 @@ class IntegrationRequestError(Exception):
         self.status_code = status_code
 
 
+class IntegrationSyncConflict(Exception):
+    """Raised when an equivalent sync is already queued or running."""
+
+
 def validate_source(source: IntegrationSource) -> None:
     if source.source_type.upper() != "REST":
         raise IntegrationRequestError("El primer conector soportado es REST.")
-    parsed = urlparse.urlparse(source.base_url)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise IntegrationRequestError("La URL base debe usar http:// o https:// y contener un host válido.")
+    _validate_outbound_url(source.base_url)
+
+
+def _validate_url_syntax(url: str) -> urlparse.SplitResult:
+    parsed = urlparse.urlsplit(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise IntegrationRequestError("La URL debe usar http:// o https:// y contener un host válido.")
+    if parsed.username or parsed.password:
+        raise IntegrationRequestError("La URL no puede incluir usuario ni contraseña.")
+    return parsed
+
+
+def _validate_outbound_url(url: str) -> None:
+    parsed = _validate_url_syntax(url)
+    if settings.INTEGRATION_ALLOW_PRIVATE_NETWORKS:
+        return
+    try:
+        addresses = socket.getaddrinfo(
+            parsed.hostname,
+            parsed.port or (443 if parsed.scheme == "https" else 80),
+            type=socket.SOCK_STREAM,
+        )
+    except socket.gaierror as exc:
+        raise IntegrationRequestError("No se pudo resolver el host del origen de datos.") from exc
+    if not addresses:
+        raise IntegrationRequestError("El host del origen de datos no resolvió ninguna dirección.")
+    for address in addresses:
+        raw_ip = str(address[4][0]).split("%", 1)[0]
+        try:
+            resolved_ip = ipaddress.ip_address(raw_ip)
+        except ValueError as exc:
+            raise IntegrationRequestError("El host resolvió una dirección no válida.") from exc
+        if not resolved_ip.is_global:
+            raise IntegrationRequestError(
+                "Por seguridad, el origen no puede apuntar a localhost ni a una red privada o reservada."
+            )
+
+
+def _origin(parsed: urlparse.SplitResult) -> tuple[str, str, int]:
+    default_port = 443 if parsed.scheme == "https" else 80
+    return parsed.scheme, str(parsed.hostname).lower(), parsed.port or default_port
 
 
 def _url_for(source: IntegrationSource, path: str | None) -> str:
-    return urlparse.urljoin(source.base_url.rstrip("/") + "/", (path or "").lstrip("/"))
+    base = _validate_url_syntax(source.base_url)
+    url = urlparse.urljoin(source.base_url.rstrip("/") + "/", (path or "").lstrip("/"))
+    target = _validate_url_syntax(url)
+    if _origin(base) != _origin(target):
+        raise IntegrationRequestError("Los endpoints deben permanecer en el mismo host que la URL base.")
+    return url
 
 
 def _url_with_query(url: str, params: dict[str, Any]) -> str:
@@ -80,10 +131,24 @@ def _build_headers(source: IntegrationSource) -> dict[str, str]:
     return headers
 
 
+class _SafeRedirectHandler(urlrequest.HTTPRedirectHandler):
+    def __init__(self, allowed_origin: tuple[str, str, int]):
+        super().__init__()
+        self.allowed_origin = allowed_origin
+
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> Any:
+        _validate_outbound_url(newurl)
+        if _origin(_validate_url_syntax(newurl)) != self.allowed_origin:
+            raise IntegrationRequestError("La API intentó redirigir la petición a otro host.")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def _request_json_sync(url: str, headers: dict[str, str]) -> tuple[int, Any]:
+    _validate_outbound_url(url)
     request = urlrequest.Request(url, headers=headers, method="GET")
     try:
-        with urlrequest.urlopen(request, timeout=30) as response:
+        opener = urlrequest.build_opener(_SafeRedirectHandler(_origin(_validate_url_syntax(url))))
+        with opener.open(request, timeout=settings.INTEGRATION_REQUEST_TIMEOUT_SECONDS) as response:
             status_code = int(response.getcode())
             body = response.read().decode("utf-8")
             try:
@@ -778,6 +843,153 @@ async def _find_link(
     return result.scalars().first()
 
 
+async def _find_link_by_sku(
+    db: AsyncSession, source_id: Any, entity_type: str, external_sku: str
+) -> IntegrationRecordLink | None:
+    result = await db.execute(
+        select(IntegrationRecordLink)
+        .where(
+            IntegrationRecordLink.source_id == source_id,
+            IntegrationRecordLink.entity_type == entity_type,
+            IntegrationRecordLink.external_sku == external_sku,
+        )
+        .order_by(IntegrationRecordLink.updated_at.desc())
+        .limit(1)
+    )
+    return result.scalars().first()
+
+
+async def _linked_product(
+    db: AsyncSession,
+    source: IntegrationSource,
+    external_id: str | None,
+    sku: str | None,
+) -> Product | None:
+    link = await _find_link(db, source.id, "product", external_id) if external_id else None
+    if not link and sku:
+        link = await _find_link_by_sku(db, source.id, "product", sku)
+    product = await db.get(Product, link.local_product_id) if link and link.local_product_id else None
+    if product and product.company_id == source.company_id:
+        return product
+    if sku:
+        return (await db.execute(
+            select(Product).where(Product.company_id == source.company_id, Product.sku == sku).limit(1)
+        )).scalars().first()
+    return None
+
+
+async def _linked_variant(
+    db: AsyncSession,
+    source: IntegrationSource,
+    external_id: str | None,
+    sku: str | None,
+) -> ProductVariant | None:
+    link = await _find_link(db, source.id, "variant", external_id) if external_id else None
+    if not link and sku:
+        link = await _find_link_by_sku(db, source.id, "variant", sku)
+    variant = await db.get(ProductVariant, link.local_variant_id) if link and link.local_variant_id else None
+    if variant and variant.company_id == source.company_id:
+        return variant
+    if sku:
+        return (await db.execute(
+            select(ProductVariant).where(
+                ProductVariant.company_id == source.company_id,
+                ProductVariant.sku == sku,
+            ).limit(1)
+        )).scalars().first()
+    return None
+
+
+async def _load_embedded_inventory(
+    db: AsyncSession,
+    source: IntegrationSource,
+    run: IntegrationSyncRun,
+) -> list[dict[str, Any]]:
+    """Read stock embedded in the catalog without modifying catalog records."""
+    items = await _fetch_entity(source, "products")
+    mapping = _field_map(source)
+    collections = (source.configuration or {}).get("collections") or {}
+    variants_path = collections.get("variants_path") or "variants[]"
+    variants_prefix = str(variants_path)
+    if not variants_prefix.endswith("[]"):
+        variants_prefix = f"{variants_prefix}[]"
+    embedded_inventory: list[dict[str, Any]] = []
+
+    for item in items:
+        external_id_value = _mapped(item, mapping, "product.external_id", "id", "external_id", "uuid")
+        external_id = str(external_id_value).strip() if external_id_value not in (None, "") else None
+        sku_value = _mapped(item, mapping, "product.sku", "sku", "code", "reference")
+        sku = str(sku_value).strip() if sku_value not in (None, "") else None
+        product = await _linked_product(db, source, external_id, sku)
+        variant_items = _as_list(_value(item, variants_path))
+
+        if variant_items:
+            for variant_item in variant_items:
+                if not isinstance(variant_item, dict):
+                    continue
+                quantity = _as_float(_mapped_context(
+                    variant_item,
+                    mapping,
+                    "variant.stock",
+                    variants_prefix,
+                    "stock",
+                    "quantity",
+                    "available",
+                    "inventory",
+                ))
+                if quantity is None:
+                    continue
+                variant_external_value = _mapped_context(
+                    variant_item,
+                    mapping,
+                    "variant.external_id",
+                    variants_prefix,
+                    "variant_id",
+                    "external_id",
+                    "id",
+                    "uuid",
+                )
+                variant_external_id = (
+                    str(variant_external_value).strip() if variant_external_value not in (None, "") else None
+                )
+                variant_sku_value = _mapped_context(
+                    variant_item,
+                    mapping,
+                    "variant.sku",
+                    variants_prefix,
+                    "sku",
+                    "code",
+                    "reference",
+                )
+                variant_sku = str(variant_sku_value).strip() if variant_sku_value not in (None, "") else None
+                variant = await _linked_variant(db, source, variant_external_id, variant_sku)
+                if not variant:
+                    run.items_failed += 1
+                    continue
+                variant_product = await db.get(Product, variant.product_id)
+                if not variant_product or variant_product.company_id != source.company_id:
+                    run.items_failed += 1
+                    continue
+                embedded_inventory.append(
+                    {
+                        "product": variant_product,
+                        "variant": variant,
+                        "quantity": quantity,
+                    }
+                )
+            continue
+
+        quantity = _as_float(_mapped(item, mapping, "product.stock", "stock", "quantity", "available"))
+        if quantity is None:
+            continue
+        if not product:
+            run.items_failed += 1
+            continue
+        embedded_inventory.append({"product": product, "variant": None, "quantity": quantity})
+
+    return embedded_inventory
+
+
 async def _sync_products(
     db: AsyncSession, source: IntegrationSource, run: IntegrationSyncRun
 ) -> tuple[dict[str, Product], dict[str, ProductVariant], list[dict[str, Any]]]:
@@ -1026,12 +1238,19 @@ async def _sync_inventory(
     db: AsyncSession,
     source: IntegrationSource,
     run: IntegrationSyncRun,
-    external_products: dict[str, Product],
-    external_variants: dict[str, ProductVariant],
-    embedded_inventory: list[dict[str, Any]],
+    external_products: dict[str, Product] | None = None,
+    external_variants: dict[str, ProductVariant] | None = None,
+    embedded_inventory: list[dict[str, Any]] | None = None,
 ) -> None:
+    external_products = external_products or {}
+    external_variants = external_variants or {}
     items = await _fetch_entity(source, "inventory")
+    if embedded_inventory is None:
+        embedded_inventory = []
+        if not _endpoint_config(source, "inventory").get("path"):
+            embedded_inventory = await _load_embedded_inventory(db, source, run)
     if not items and not embedded_inventory:
+        run.details = {**(run.details or {}), "inventory_message": "El origen no devolvió existencias."}
         return
     branch, warehouse = await _resolve_inventory_location(db, source)
     if not branch:
@@ -1041,10 +1260,18 @@ async def _sync_inventory(
 
     mapping = _field_map(source)
     run.inventory_processed = len(items) + len(embedded_inventory)
+    inventory_cache: dict[tuple[Any, Any, Any, Any, Any], Inventory] = {}
+    warehouse_id = warehouse.id if warehouse else None
 
     async def upsert_inventory(
         product: Product, variant: ProductVariant | None, quantity: float
     ) -> None:
+        cache_key = (source.company_id, product.id, branch.id, warehouse_id, variant.id if variant else None)
+        cached_inventory = inventory_cache.get(cache_key)
+        if cached_inventory:
+            cached_inventory.quantity = quantity
+            run.inventory_updated += 1
+            return
         variant_filter = Inventory.variant_id == variant.id if variant else Inventory.variant_id.is_(None)
         inventory = (await db.execute(
             select(Inventory).where(
@@ -1052,7 +1279,7 @@ async def _sync_inventory(
                 Inventory.product_id == product.id,
                 variant_filter,
                 Inventory.branch_id == branch.id,
-                Inventory.warehouse_id == (warehouse.id if warehouse else None),
+                Inventory.warehouse_id == warehouse_id,
             ).limit(1)
         )).scalars().first()
         if not inventory:
@@ -1062,9 +1289,13 @@ async def _sync_inventory(
                 product_id=product.id,
                 variant_id=variant.id if variant else None,
                 branch_id=branch.id,
-                warehouse_id=warehouse.id if warehouse else None,
+                warehouse_id=warehouse_id,
             )
             db.add(inventory)
+            # SessionLocal disables autoflush. Persist the new identity before
+            # another payload record can look it up and create a duplicate.
+            await db.flush()
+        inventory_cache[cache_key] = inventory
         inventory.quantity = quantity
         run.inventory_updated += 1
 
@@ -1072,42 +1303,72 @@ async def _sync_inventory(
         await upsert_inventory(embedded["product"], embedded.get("variant"), embedded["quantity"])
 
     for item in items:
-        variant_external_id = str(_mapped(item, mapping, "inventory.variant_external_id", "variant_id", "product_variant_id") or "").strip()
+        variant_external_value = _mapped(
+            item, mapping, "inventory.variant_external_id", "variant_id", "product_variant_id"
+        )
+        variant_external_id = (
+            str(variant_external_value).strip() if variant_external_value not in (None, "") else None
+        )
         variant_sku_value = _mapped(item, mapping, "inventory.variant_sku", "variant_sku", "sku")
         variant_sku = str(variant_sku_value).strip() if variant_sku_value not in (None, "") else None
-        variant = external_variants.get(variant_external_id) or (external_variants.get(f"sku:{variant_sku}") if variant_sku else None)
-        external_id = str(_mapped(item, mapping, "inventory.external_id", "product_id", "id", "sku") or "").strip()
+        variant = (
+            external_variants.get(variant_external_id or "")
+            or (external_variants.get(f"sku:{variant_sku}") if variant_sku else None)
+        )
+        if not variant and (variant_external_id or variant_sku):
+            variant = await _linked_variant(db, source, variant_external_id, variant_sku)
+        external_id_value = _mapped(item, mapping, "inventory.external_id", "product_id", "id", "sku")
+        external_id = str(external_id_value).strip() if external_id_value not in (None, "") else None
         sku_value = _mapped(item, mapping, "inventory.sku", "sku", "product_sku")
         sku = str(sku_value).strip() if sku_value not in (None, "") else None
-        product = external_products.get(external_id) or (external_products.get(f"sku:{sku}") if sku else None)
+        product = external_products.get(external_id or "") or (external_products.get(f"sku:{sku}") if sku else None)
         if variant:
             product = await db.get(Product, variant.product_id)
-        if not product and external_id:
-            link = await _find_link(db, source.id, "product", external_id)
-            if link and link.local_product_id:
-                product = await db.get(Product, link.local_product_id)
-        if not product and sku:
-            product = (await db.execute(
-                select(Product).where(Product.company_id == source.company_id, Product.sku == sku).limit(1)
-            )).scalars().first()
+        if not product:
+            product = await _linked_product(db, source, external_id, sku)
         quantity = _as_float(_mapped(item, mapping, "inventory.quantity", "quantity", "stock", "available"))
-        if not product or quantity is None:
+        if not product or product.company_id != source.company_id or quantity is None:
             run.items_failed += 1
             continue
         await upsert_inventory(product, variant, quantity)
 
 
-async def sync_source(
-    db: AsyncSession, source: IntegrationSource, triggered_by_user_id: Any
+async def enqueue_sync(
+    db: AsyncSession,
+    source: IntegrationSource,
+    triggered_by_user_id: Any,
+    *,
+    sync_type: str,
+    trigger_type: str = "MANUAL",
 ) -> IntegrationSyncRun:
+    normalized_sync_type = sync_type.upper()
+    normalized_trigger_type = trigger_type.upper()
+    if normalized_sync_type not in {"CATALOG", "INVENTORY", "FULL"}:
+        raise ValueError("Tipo de sincronización no soportado")
+    if normalized_trigger_type not in {"MANUAL", "SCHEDULED"}:
+        raise ValueError("Tipo de ejecución no soportado")
+    active_run = (await db.execute(
+        select(IntegrationSyncRun).where(
+            IntegrationSyncRun.source_id == source.id,
+            IntegrationSyncRun.sync_type == normalized_sync_type,
+            IntegrationSyncRun.status.in_(["QUEUED", "RUNNING"]),
+        ).limit(1)
+    )).scalars().first()
+    if active_run:
+        raise IntegrationSyncConflict("Ya existe una sincronización de este tipo en cola o en ejecución.")
+
+    now = datetime.utcnow()
     run = IntegrationSyncRun(
         id=uuid.uuid4(),
         company_id=source.company_id,
         source_id=source.id,
         triggered_by_user_id=triggered_by_user_id,
         created_by_id=triggered_by_user_id,
-        status="RUNNING",
-        started_at=datetime.utcnow(),
+        sync_type=normalized_sync_type,
+        trigger_type=normalized_trigger_type,
+        status="QUEUED",
+        queued_at=now,
+        started_at=None,
         products_processed=0,
         products_created=0,
         products_updated=0,
@@ -1116,19 +1377,43 @@ async def sync_source(
         items_failed=0,
         details={},
     )
-    run_id = run.id
-    source_id = source.id
     db.add(run)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise IntegrationSyncConflict("Ya existe una sincronización de este tipo en cola o en ejecución.") from exc
+    await db.refresh(run)
+    return run
+
+
+async def execute_sync_run(db: AsyncSession, run: IntegrationSyncRun) -> IntegrationSyncRun:
+    run_id = run.id
+    source_id = run.source_id
+    source = await db.get(IntegrationSource, source_id)
+    if not source:
+        run.status = "FAILED"
+        run.finished_at = datetime.utcnow()
+        run.error_message = "El origen de datos ya no existe."
+        await db.commit()
+        return run
 
     try:
         validate_source(source)
-        products, variants, embedded_inventory = await _sync_products(db, source, run)
-        await _sync_inventory(db, source, run, products, variants, embedded_inventory)
+        if run.sync_type in {"CATALOG", "FULL"}:
+            products, variants, embedded_inventory = await _sync_products(db, source, run)
+        else:
+            products, variants, embedded_inventory = {}, {}, None
+        if run.sync_type in {"INVENTORY", "FULL"}:
+            await _sync_inventory(db, source, run, products, variants, embedded_inventory)
         run.status = "PARTIAL" if run.items_failed else "SUCCESS"
         run.finished_at = datetime.utcnow()
         source.status = "CONNECTED"
         source.last_synced_at = run.finished_at
+        if run.sync_type in {"CATALOG", "FULL"}:
+            source.last_catalog_synced_at = run.finished_at
+        if run.sync_type in {"INVENTORY", "FULL"}:
+            source.last_inventory_synced_at = run.finished_at
         source.last_sync_status = run.status
         source.last_error = None
         await db.commit()
@@ -1146,3 +1431,31 @@ async def sync_source(
             await db.commit()
             return failed_run
     return run
+
+
+async def sync_source(
+    db: AsyncSession,
+    source: IntegrationSource,
+    triggered_by_user_id: Any,
+    sync_type: str = "FULL",
+) -> IntegrationSyncRun:
+    """Backward-compatible synchronous entry point used by tests and internal callers."""
+    run = await enqueue_sync(
+        db,
+        source,
+        triggered_by_user_id,
+        sync_type=sync_type,
+        trigger_type="MANUAL",
+    )
+    run.status = "RUNNING"
+    run.started_at = datetime.utcnow()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        queued_run = await db.get(IntegrationSyncRun, run.id)
+        if queued_run and queued_run.status == "QUEUED":
+            await db.delete(queued_run)
+            await db.commit()
+        raise IntegrationSyncConflict("Ya hay otra sincronización ejecutándose para este origen.") from exc
+    return await execute_sync_run(db, run)

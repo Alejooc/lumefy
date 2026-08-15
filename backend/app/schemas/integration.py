@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class IntegrationSourceCreate(BaseModel):
@@ -44,8 +44,13 @@ class IntegrationSourceOut(BaseModel):
     is_active: bool
     last_tested_at: datetime | None
     last_synced_at: datetime | None
+    last_catalog_synced_at: datetime | None
+    last_inventory_synced_at: datetime | None
     last_sync_status: str | None
     last_error: str | None
+    inventory_sync_mode: str
+    inventory_sync_interval_minutes: int | None
+    next_inventory_sync_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -113,13 +118,29 @@ class IntegrationMappingConfirm(BaseModel):
     collections: dict[str, Any] = Field(default_factory=dict)
 
 
+class IntegrationInventoryScheduleUpdate(BaseModel):
+    mode: Literal["MANUAL", "AUTOMATIC"] = "MANUAL"
+    interval_minutes: int | None = Field(default=None, ge=5, le=1440)
+
+    @model_validator(mode="after")
+    def validate_automatic_interval(self) -> "IntegrationInventoryScheduleUpdate":
+        if self.mode == "AUTOMATIC" and self.interval_minutes is None:
+            raise ValueError("El intervalo es obligatorio para la sincronización automática.")
+        if self.mode == "MANUAL":
+            self.interval_minutes = None
+        return self
+
+
 class IntegrationSyncRunOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     source_id: UUID
+    sync_type: str
+    trigger_type: str
     status: str
-    started_at: datetime
+    queued_at: datetime
+    started_at: datetime | None
     finished_at: datetime | None
     products_processed: int
     products_created: int

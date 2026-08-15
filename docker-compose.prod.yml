@@ -109,6 +109,18 @@ services:
       operations-consumer:
         condition: service_started
 
+  integration-sync-worker:
+    <<: *backend-service
+    restart: unless-stopped
+    command: python -m app.workers.integration_sync_worker
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      INTEGRATION_SYNC_POLL_SECONDS: "2"
+      INTEGRATION_SYNC_STALE_MINUTES: "60"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   frontend:
     build: ./frontend_mantis
     image: lumefy-frontend:${LUMEFY_IMAGE_TAG:-local}

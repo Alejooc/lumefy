@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -15,9 +15,10 @@ from app.models.user import User
 from app.schemas import integration as schemas
 from app.services.integration_service import (
     IntegrationRequestError,
+    IntegrationSyncConflict,
+    enqueue_sync,
     preview_source,
     suggest_mapping_source,
-    sync_source,
     test_source,
     validate_source,
 )
@@ -41,8 +42,13 @@ def _serialize_source(source: IntegrationSource) -> dict[str, Any]:
         "is_active": source.is_active,
         "last_tested_at": source.last_tested_at,
         "last_synced_at": source.last_synced_at,
+        "last_catalog_synced_at": source.last_catalog_synced_at,
+        "last_inventory_synced_at": source.last_inventory_synced_at,
         "last_sync_status": source.last_sync_status,
         "last_error": source.last_error,
+        "inventory_sync_mode": source.inventory_sync_mode,
+        "inventory_sync_interval_minutes": source.inventory_sync_interval_minutes,
+        "next_inventory_sync_at": source.next_inventory_sync_at,
         "created_at": source.created_at,
         "updated_at": source.updated_at,
     }
@@ -128,6 +134,15 @@ async def update_source(
         setattr(source, field, value)
     source.updated_by_id = current_user.id
     source.status = "DRAFT" if source.is_active else "DISABLED"
+    if (
+        source.is_active
+        and source.inventory_sync_mode == "AUTOMATIC"
+        and source.inventory_sync_interval_minutes
+        and source.next_inventory_sync_at is None
+    ):
+        source.next_inventory_sync_at = datetime.utcnow() + timedelta(
+            minutes=source.inventory_sync_interval_minutes
+        )
     source.last_error = None
     try:
         validate_source(source)
@@ -147,6 +162,7 @@ async def disable_source(
     source = await _get_source(db, source_id, current_user.company_id)
     source.is_active = False
     source.status = "DISABLED"
+    source.next_inventory_sync_at = None
     source.updated_by_id = current_user.id
     await db.commit()
     return {"ok": True}
@@ -231,19 +247,91 @@ async def confirm_mapping(
     return _serialize_source(source)
 
 
-@router.post("/sources/{source_id}/sync", response_model=schemas.IntegrationSyncRunOut)
-async def run_sync(
+async def _enqueue_manual_sync(
+    db: AsyncSession,
+    source: IntegrationSource,
+    current_user: User,
+    sync_type: str,
+) -> IntegrationSyncRun:
+    if not source.is_active:
+        raise HTTPException(status_code=400, detail="El origen de datos está desactivado")
+    try:
+        return await enqueue_sync(
+            db,
+            source,
+            current_user.id,
+            sync_type=sync_type,
+            trigger_type="MANUAL",
+        )
+    except IntegrationSyncConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.put("/sources/{source_id}/inventory-schedule", response_model=schemas.IntegrationSourceOut)
+async def update_inventory_schedule(
+    source_id: UUID,
+    payload: schemas.IntegrationInventoryScheduleUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> dict[str, Any]:
+    source = await _get_source(db, source_id, current_user.company_id)
+    if payload.mode == "AUTOMATIC" and not source.is_active:
+        raise HTTPException(status_code=400, detail="Activa el origen antes de programar el inventario")
+    source.inventory_sync_mode = payload.mode
+    source.inventory_sync_interval_minutes = payload.interval_minutes
+    source.next_inventory_sync_at = (
+        datetime.utcnow() + timedelta(minutes=payload.interval_minutes)
+        if payload.mode == "AUTOMATIC" and payload.interval_minutes
+        else None
+    )
+    source.updated_by_id = current_user.id
+    await db.commit()
+    await db.refresh(source)
+    return _serialize_source(source)
+
+
+@router.post(
+    "/sources/{source_id}/sync/catalog",
+    response_model=schemas.IntegrationSyncRunOut,
+    status_code=202,
+)
+async def run_catalog_sync(
     source_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_company")),
 ) -> IntegrationSyncRun:
     source = await _get_source(db, source_id, current_user.company_id)
-    if not source.is_active:
-        raise HTTPException(status_code=400, detail="El origen de datos está desactivado")
-    run = await sync_source(db, source, current_user.id)
-    if run.status == "FAILED":
-        raise HTTPException(status_code=502, detail=run.error_message or "La sincronización falló")
-    return run
+    return await _enqueue_manual_sync(db, source, current_user, "CATALOG")
+
+
+@router.post(
+    "/sources/{source_id}/sync/inventory",
+    response_model=schemas.IntegrationSyncRunOut,
+    status_code=202,
+)
+async def run_inventory_sync(
+    source_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> IntegrationSyncRun:
+    source = await _get_source(db, source_id, current_user.company_id)
+    return await _enqueue_manual_sync(db, source, current_user, "INVENTORY")
+
+
+@router.post(
+    "/sources/{source_id}/sync",
+    response_model=schemas.IntegrationSyncRunOut,
+    status_code=202,
+    deprecated=True,
+)
+async def run_sync(
+    source_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> IntegrationSyncRun:
+    """Compatibility endpoint. New clients should queue catalog and inventory separately."""
+    source = await _get_source(db, source_id, current_user.company_id)
+    return await _enqueue_manual_sync(db, source, current_user, "FULL")
 
 
 @router.get("/sources/{source_id}/runs", response_model=list[schemas.IntegrationSyncRunOut])

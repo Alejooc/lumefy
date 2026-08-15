@@ -83,6 +83,22 @@ class CredentialCryptoTests(unittest.TestCase):
             {"api_key": "private", "checkout_url": "https://checkout.example"},
         )
 
+    def test_nested_custom_headers_are_encrypted_recursively(self):
+        config = {
+            "headers": {
+                "Authorization": "Bearer private-token",
+                "X-API-Key": "private-api-key",
+            },
+            "metadata": {"label": "Proveedor principal"},
+        }
+
+        encrypted = encrypt_sensitive_mapping(config)
+
+        self.assertNotEqual(encrypted["headers"]["Authorization"], config["headers"]["Authorization"])
+        self.assertNotEqual(encrypted["headers"]["X-API-Key"], config["headers"]["X-API-Key"])
+        self.assertEqual(encrypted["metadata"], config["metadata"])
+        self.assertEqual(decrypt_sensitive_mapping(encrypted), config)
+
 
 if __name__ == "__main__":
     unittest.main()

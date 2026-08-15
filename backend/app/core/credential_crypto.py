@@ -16,6 +16,7 @@ SENSITIVE_GATEWAY_CONFIG_KEYS = frozenset(
         "access_token",
         "api_key",
         "api_login",
+        "authorization",
         "callback_password",
         "client_secret",
         "events_secret",
@@ -28,6 +29,7 @@ SENSITIVE_GATEWAY_CONFIG_KEYS = frozenset(
         "webhook_secret",
     }
 )
+SENSITIVE_GATEWAY_CONFIG_CONTAINERS = frozenset({"headers"})
 
 
 class CredentialDecryptionError(ValueError):
@@ -74,18 +76,45 @@ def decrypt_credential(value: str | None) -> str | None:
         raise CredentialDecryptionError("Stored credential could not be decrypted") from exc
 
 
+def _transform_sensitive_value(value: Any, *, decrypt: bool, protect_all_strings: bool = False) -> Any:
+    if isinstance(value, Mapping):
+        transformed: dict[str, Any] = {}
+        for key, nested_value in value.items():
+            normalized_key = str(key).lower()
+            protect_nested_strings = protect_all_strings or normalized_key in SENSITIVE_GATEWAY_CONFIG_CONTAINERS
+            if isinstance(nested_value, (Mapping, list, tuple)):
+                transformed[str(key)] = _transform_sensitive_value(
+                    nested_value,
+                    decrypt=decrypt,
+                    protect_all_strings=protect_nested_strings,
+                )
+            elif isinstance(nested_value, str) and (
+                protect_all_strings or normalized_key in SENSITIVE_GATEWAY_CONFIG_KEYS
+            ):
+                transformed[str(key)] = (
+                    decrypt_credential(nested_value) if decrypt else encrypt_credential(nested_value)
+                )
+            else:
+                transformed[str(key)] = nested_value
+        return transformed
+    if isinstance(value, (list, tuple)):
+        return [
+            _transform_sensitive_value(item, decrypt=decrypt, protect_all_strings=protect_all_strings)
+            if isinstance(item, (Mapping, list, tuple))
+            else (decrypt_credential(item) if decrypt else encrypt_credential(item))
+            if protect_all_strings and isinstance(item, str)
+            else item
+            for item in value
+        ]
+    if protect_all_strings and isinstance(value, str):
+        return decrypt_credential(value) if decrypt else encrypt_credential(value)
+    return value
+
+
 def encrypt_sensitive_mapping(config: Mapping[str, Any] | None) -> dict[str, Any]:
-    encrypted = dict(config or {})
-    for key, value in encrypted.items():
-        if key.lower() in SENSITIVE_GATEWAY_CONFIG_KEYS and value not in (None, ""):
-            encrypted[key] = encrypt_credential(str(value))
-    return encrypted
+    return _transform_sensitive_value(config or {}, decrypt=False)
 
 
 def decrypt_sensitive_mapping(config: Mapping[str, Any] | None) -> dict[str, Any]:
-    decrypted = dict(config or {})
-    for key, value in decrypted.items():
-        if key.lower() in SENSITIVE_GATEWAY_CONFIG_KEYS and isinstance(value, str):
-            decrypted[key] = decrypt_credential(value)
-    return decrypted
+    return _transform_sensitive_value(config or {}, decrypt=True)
 

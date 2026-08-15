@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     SQL_ECHO: bool = False
     FRONTEND_URL: str = "http://localhost:4200"
     PLATFORM_STOREFRONT_DOMAIN: Optional[str] = None
+    INTEGRATION_ALLOW_PRIVATE_NETWORKS: bool = False
+    INTEGRATION_REQUEST_TIMEOUT_SECONDS: int = Field(default=30, ge=1, le=120)
     
     FIRST_SUPERUSER: str
     FIRST_SUPERUSER_PASSWORD: str
