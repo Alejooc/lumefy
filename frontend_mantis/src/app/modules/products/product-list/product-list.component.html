@@ -17,6 +17,11 @@
           <button class="btn btn-primary" routerLink="/products/create">
             <i class="ti ti-plus"></i> Nuevo Producto
           </button>
+          @if (selectedCount > 0) {
+            <button class="btn btn-danger" (click)="deleteSelected()" [disabled]="isLoading">
+              <i class="ti ti-trash"></i> Eliminar seleccionados ({{ selectedCount }})
+            </button>
+          }
         </div>
       </ng-template>
 
@@ -34,7 +39,12 @@
           </div>
         </div>
         <div class="col-lg-7 text-lg-end text-muted small">
-          @if (!isLoading) { {{ products.length }} producto(s) en el catálogo }
+          @if (!isLoading) {
+            <span>{{ products.length }} producto(s) en el catálogo</span>
+            @if (selectedCount > 0) {
+              <span class="ms-2 badge bg-light-danger text-danger">{{ selectedCount }} seleccionado(s)</span>
+            }
+          }
         </div>
 
         <!-- Loading Skeleton -->
@@ -50,6 +60,15 @@
             <table class="table table-hover align-middle mb-0 product-table">
               <thead>
                 <tr>
+                  <th class="selection-column">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      [checked]="allVisibleSelected()"
+                      [indeterminate]="someVisibleSelected()"
+                      (change)="toggleAllVisible($any($event.target).checked)"
+                      aria-label="Seleccionar todos los productos visibles">
+                  </th>
                   <th>Producto</th>
                   <th>SKU</th>
                   <th>Tipo</th>
@@ -64,6 +83,14 @@
               <tbody>
                 @for (product of products; track trackByFn($index, product)) {
                   <tr>
+                    <td class="selection-column">
+                      <input
+                        type="checkbox"
+                        class="form-check-input"
+                        [checked]="isSelected(product.id)"
+                        (change)="toggleSelection(product.id, $any($event.target).checked)"
+                        aria-label="Seleccionar {{ product.name }}">
+                    </td>
                     <td class="product-cell">
                       <div class="d-flex align-items-center gap-2">
                         @if (product.image_url) {

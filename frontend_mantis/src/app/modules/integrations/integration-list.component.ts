@@ -8,6 +8,7 @@ import {
   IntegrationService,
   IntegrationSource,
   IntegrationSourcePayload,
+  IntegrationSyncProgress,
   IntegrationSyncRun,
   JsonObject
 } from '../../core/services/integration.service';
@@ -29,14 +30,6 @@ interface IntegrationForm {
   per_page: number;
   start_page: number;
   max_pages: number;
-  product_id_field: string;
-  product_name_field: string;
-  product_sku_field: string;
-  product_price_field: string;
-  product_cost_field: string;
-  inventory_id_field: string;
-  inventory_sku_field: string;
-  inventory_quantity_field: string;
 }
 
 interface InventoryScheduleDraft {
@@ -59,6 +52,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
   loading = false;
   saving = false;
   showForm = false;
+  activeFormTab: 'connection' | 'catalog' | 'inventory' = 'connection';
   editingId: string | null = null;
   testingId: string | null = null;
   previewingId: string | null = null;
@@ -76,6 +70,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
   activeRuns: Record<string, IntegrationSyncRun> = {};
   readonly inventoryIntervals = [5, 15, 30, 60, 180, 360, 720, 1440];
   private readonly polling = new Subscription();
+  private readonly pollingRunIds = new Set<string>();
 
   form: IntegrationForm = this.emptyForm();
 
@@ -103,15 +98,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       per_page_param: 'per_page',
       per_page: 50,
       start_page: 1,
-      max_pages: 1000,
-      product_id_field: 'id',
-      product_name_field: 'name',
-      product_sku_field: 'sku',
-      product_price_field: 'price',
-      product_cost_field: 'cost',
-      inventory_id_field: 'product_id',
-      inventory_sku_field: 'sku',
-      inventory_quantity_field: 'quantity'
+      max_pages: 1000
     };
   }
 
@@ -125,6 +112,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
             mode: source.inventory_sync_mode,
             interval_minutes: source.inventory_sync_interval_minutes || 15
           };
+          this.loadLatestRun(source);
         }
         this.loading = false;
       },
@@ -139,6 +127,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     this.editingId = null;
     this.editingConfiguration = {};
     this.form = this.emptyForm();
+    this.activeFormTab = 'connection';
     this.showForm = true;
   }
 
@@ -148,7 +137,6 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     const products = this.objectValue(endpoints['products']);
     const inventory = this.objectValue(endpoints['inventory']);
     const pagination = this.objectValue(products['pagination']);
-    const fieldMap = this.objectValue(config['field_map']);
     this.editingId = source.id;
     this.editingConfiguration = config;
     this.form = {
@@ -166,16 +154,9 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       per_page_param: this.stringValue(pagination['per_page_param'], 'per_page'),
       per_page: Number(pagination['per_page'] || 50),
       start_page: Number(pagination['start_page'] || 1),
-      max_pages: Number(pagination['max_pages'] || 1000),
-      product_id_field: this.stringValue(fieldMap['product.external_id'], 'id'),
-      product_name_field: this.stringValue(fieldMap['product.name'], 'name'),
-      product_sku_field: this.stringValue(fieldMap['product.sku'], 'sku'),
-      product_price_field: this.stringValue(fieldMap['product.price'], 'price'),
-      product_cost_field: this.stringValue(fieldMap['product.cost'], 'cost'),
-      inventory_id_field: this.stringValue(fieldMap['inventory.external_id'], 'product_id'),
-      inventory_sku_field: this.stringValue(fieldMap['inventory.sku'], 'sku'),
-      inventory_quantity_field: this.stringValue(fieldMap['inventory.quantity'], 'quantity')
+      max_pages: Number(pagination['max_pages'] || 1000)
     };
+    this.activeFormTab = 'connection';
     this.showForm = true;
   }
 
@@ -185,9 +166,19 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     this.editingConfiguration = {};
   }
 
+  selectFormTab(tab: 'connection' | 'catalog' | 'inventory'): void {
+    this.activeFormTab = tab;
+  }
+
   save(): void {
-    if (!this.form.name.trim() || !this.form.base_url.trim() || !this.form.products_path.trim()) {
-      this.swal.warning('Datos incompletos', 'Completa nombre, URL base y endpoint de productos.');
+    if (!this.form.name.trim() || !this.form.base_url.trim()) {
+      this.activeFormTab = 'connection';
+      this.swal.warning('Datos incompletos', 'Completa el nombre y la URL base en la pestaña Conexión.');
+      return;
+    }
+    if (!this.form.products_path.trim()) {
+      this.activeFormTab = 'catalog';
+      this.swal.warning('Datos incompletos', 'Completa el endpoint de productos en la pestaña Catálogo.');
       return;
     }
     this.saving = true;
@@ -242,16 +233,15 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       credentials[this.form.auth_type === 'api_key' ? 'api_key' : 'token'] = this.form.token.trim();
     }
     const existingFieldMap = this.objectValue(this.editingConfiguration['field_map']);
-    const mappingConfirmed = this.editingConfiguration['mapping_status'] === 'confirmed';
-    const fieldMap = mappingConfirmed ? existingFieldMap : {
-      'product.external_id': this.form.product_id_field.trim(),
-      'product.name': this.form.product_name_field.trim(),
-      'product.sku': this.form.product_sku_field.trim(),
-      'product.price': this.form.product_price_field.trim(),
-      'product.cost': this.form.product_cost_field.trim(),
-      'inventory.external_id': this.form.inventory_id_field.trim(),
-      'inventory.sku': this.form.inventory_sku_field.trim(),
-      'inventory.quantity': this.form.inventory_quantity_field.trim()
+    const fieldMap = Object.keys(existingFieldMap).length ? existingFieldMap : {
+      'product.external_id': 'id',
+      'product.name': 'name',
+      'product.sku': 'sku',
+      'product.price': 'price',
+      'product.cost': 'cost',
+      'inventory.external_id': 'product_id',
+      'inventory.sku': 'sku',
+      'inventory.quantity': 'quantity'
     };
     return {
       name: this.form.name.trim(),
@@ -442,6 +432,28 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     return labels[run.status] || run.status;
   }
 
+  syncProgress(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY'): IntegrationSyncProgress | null {
+    const run = this.activeRuns[this.runKey(source.id, syncType)];
+    const raw = run?.details?.['progress'];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const progress = raw as JsonObject;
+    return {
+      stage: this.stringValue(progress['stage'], 'PROCESSING'),
+      message: this.stringValue(progress['message'], 'Procesando sincronización...'),
+      percent: this.numberValue(progress['percent'], run?.status === 'SUCCESS' ? 100 : 0),
+      current: this.numberValue(progress['current'], 0),
+      total: this.numberOrNull(progress['total']),
+      entity: this.stringOrNull(progress['entity']),
+      page: this.numberOrNull(progress['page']),
+      pages_total: this.numberOrNull(progress['pages_total']),
+      items_received: this.numberOrNull(progress['items_received']),
+      items_total: this.numberOrNull(progress['items_total']),
+      items_failed: this.numberOrNull(progress['items_failed']),
+      created: this.numberOrNull(progress['created']),
+      updated: this.numberOrNull(progress['updated'])
+    };
+  }
+
   intervalLabel(minutes: number | null): string {
     if (!minutes) return 'Manual';
     if (minutes < 60) return `Cada ${minutes} min`;
@@ -467,6 +479,8 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
   }
 
   private pollRun(source: IntegrationSource, queuedRun: IntegrationSyncRun): void {
+    if (this.pollingRunIds.has(queuedRun.id)) return;
+    this.pollingRunIds.add(queuedRun.id);
     const key = this.runKey(source.id, queuedRun.sync_type === 'FULL' ? 'CATALOG' : queuedRun.sync_type);
     const terminalStatuses = new Set(['SUCCESS', 'PARTIAL', 'FAILED']);
     const subscription = timer(1000, 2000).pipe(
@@ -489,8 +503,12 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
         }
       },
       error: () => {
+        this.pollingRunIds.delete(queuedRun.id);
         delete this.activeRuns[key];
         this.swal.error('Seguimiento interrumpido', 'Actualiza la página para consultar el resultado.');
+      },
+      complete: () => {
+        this.pollingRunIds.delete(queuedRun.id);
       }
     });
     this.polling.add(subscription);
@@ -500,12 +518,42 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     return `${sourceId}:${syncType}`;
   }
 
+  private loadLatestRun(source: IntegrationSource): void {
+    this.integrationService.listRuns(source.id).subscribe({
+      next: (runs) => {
+        const latestByKey = new Map<string, IntegrationSyncRun>();
+        for (const run of runs) {
+          const key = this.runKey(source.id, run.sync_type === 'FULL' ? 'CATALOG' : run.sync_type);
+          if (!latestByKey.has(key)) latestByKey.set(key, run);
+        }
+        for (const [key, run] of latestByKey) {
+          this.activeRuns[key] = run;
+          if (run.status === 'QUEUED' || run.status === 'RUNNING') {
+            this.pollRun(source, run);
+          }
+        }
+      }
+    });
+  }
+
   private objectValue(value: unknown): JsonObject {
     return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : {};
   }
 
   private stringValue(value: unknown, fallback = ''): string {
     return typeof value === 'string' ? value : fallback;
+  }
+
+  private stringOrNull(value: unknown): string | null {
+    return typeof value === 'string' ? value : null;
+  }
+
+  private numberValue(value: unknown, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  }
+
+  private numberOrNull(value: unknown): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
   }
 
   async disable(source: IntegrationSource): Promise<void> {

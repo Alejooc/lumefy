@@ -120,6 +120,22 @@ export interface IntegrationSyncRun {
   created_at: string;
 }
 
+export interface IntegrationSyncProgress {
+  stage: string;
+  message: string;
+  percent: number;
+  current: number;
+  total: number | null;
+  entity: string | null;
+  page: number | null;
+  pages_total: number | null;
+  items_received: number | null;
+  items_total: number | null;
+  items_failed: number | null;
+  created: number | null;
+  updated: number | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class IntegrationService {
   private api = inject(ApiService);

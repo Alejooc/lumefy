@@ -14,6 +14,15 @@
   }
 }
 
+.selection-column {
+  width: 44px;
+  text-align: center;
+
+  .form-check-input {
+    cursor: pointer;
+  }
+}
+
 .product-cell {
   min-width: 260px;
 }
