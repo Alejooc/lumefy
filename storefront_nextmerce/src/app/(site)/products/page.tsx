@@ -97,8 +97,6 @@ const ProductsPage = async ({
         activeColors={data.activeColors}
         totalProducts={data.totalProducts}
         currentPage={data.currentPage}
-        totalPages={data.totalPages}
-        hasPreviousPage={data.hasPreviousPage}
         hasNextPage={data.hasNextPage}
       />
     </main>

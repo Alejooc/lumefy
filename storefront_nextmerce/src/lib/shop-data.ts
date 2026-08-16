@@ -1,6 +1,5 @@
 import { Product } from "@/types/product";
-import { PublicCollection, PublicProduct } from "@/types/storefront";
-import { storefrontImageUrl } from "./storefront-image";
+import { PublicCollection } from "@/types/storefront";
 
 import {
   getPublicCollections,
@@ -8,6 +7,9 @@ import {
   getPublicProductBySlug,
   resolveStorefront,
 } from "./storefront-api";
+import { toTemplateProduct } from "./product-view-model";
+
+export { toTemplateProduct } from "./product-view-model";
 
 export type ShopFilterCategory = {
   name: string;
@@ -63,18 +65,6 @@ export type ShopDetailsViewModel = {
   relatedItems: Product[];
 };
 
-function numericId(value: string): number {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) | 0;
-  }
-  return Math.abs(hash) || 1;
-}
-
-function fallbackImage(seed: string): string {
-  return `/images/products/product-${(numericId(seed) % 8) + 1}-bg-1.png`;
-}
-
 function normalizeTypeLabel(value?: string | null): string {
   if (!value) {
     return "Other";
@@ -84,47 +74,6 @@ function normalizeTypeLabel(value?: string | null): string {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-function toTemplateProduct(product: PublicProduct): Product {
-  const previewImage =
-    storefrontImageUrl(product.image_url) || storefrontImageUrl(product.gallery[0]) || fallbackImage(product.slug);
-  const secondaryImage =
-    storefrontImageUrl(product.gallery[1]) || storefrontImageUrl(product.image_url) || fallbackImage(`${product.slug}-alt`);
-  const compare = product.compare_at_price ?? product.base_price ?? product.price;
-
-  return {
-    id: numericId(product.id),
-    publishedProductId: product.id,
-    title: product.title,
-    description: product.description || "",
-    reviews: product.is_featured ? 24 : 12,
-    price: Number(compare || product.price),
-    discountedPrice: Number(product.price),
-    href: `/products/${encodeURIComponent(product.slug)}`,
-    slug: product.slug,
-    categoryName: product.category_name || undefined,
-    brandName: product.brand_name || undefined,
-    productType: product.product_type || undefined,
-    availableSizes: product.available_sizes || [],
-    availableColors: product.available_colors || [],
-    variants: (product.variants || []).map((variant) => ({
-      id: variant.id,
-      name: variant.name,
-      sku: variant.sku,
-      attributes: variant.attributes || {},
-      price: Number(variant.price),
-      compareAtPrice: variant.compare_at_price == null ? undefined : Number(variant.compare_at_price),
-      inStock: variant.in_stock,
-      stockQuantity: variant.stock_quantity == null ? undefined : Number(variant.stock_quantity),
-    })),
-    inStock: product.in_stock,
-    stockQuantity: product.stock_quantity ?? undefined,
-    imgs: {
-      thumbnails: [previewImage, secondaryImage],
-      previews: [previewImage, secondaryImage],
-    },
-  };
 }
 
 async function loadCollections(storefrontId: string): Promise<PublicCollection[]> {
@@ -159,23 +108,23 @@ export async function loadShopViewModel(options?: {
   const normalizedColors = parseMultiValue(options?.color);
   const currentPage = Math.max(1, options?.page || 1);
   const requestedPageSize = Math.max(1, options?.pageSize || 12);
-  const [collections, catalog] = await Promise.all([
-    loadCollections(storefront.id),
-    getPublicProducts(storefront.id, {
-      collection: options?.collectionSlug,
-      category: options?.category,
-      brand: options?.brand,
-      q: options?.searchTerm,
-      type: options?.productType,
-      size: options?.size,
-      color: options?.color,
-      sort: options?.sort,
-      min_price: options?.minPrice,
-      max_price: options?.maxPrice,
-      page: currentPage,
-      page_size: requestedPageSize,
-    }),
-  ]);
+  const catalog = await getPublicProducts(storefront.id, {
+    collection: options?.collectionSlug,
+    category: options?.category,
+    brand: options?.brand,
+    q: options?.searchTerm,
+    type: options?.productType,
+    size: options?.size,
+    color: options?.color,
+    sort: options?.sort,
+    min_price: options?.minPrice,
+    max_price: options?.maxPrice,
+    page: currentPage,
+    page_size: requestedPageSize,
+  });
+  // The catalog response already carries collection facets. Only hit the
+  // separate collections endpoint for an empty catalog (legacy stores).
+  const collections = catalog.collections.length ? [] : await loadCollections(storefront.id);
   const priceRangeMin = Number(catalog.min_price || 0);
   const priceRangeMax = Number(catalog.max_price || 0);
   const minPrice = Number.isFinite(options?.minPrice) ? Number(options?.minPrice) : priceRangeMin;

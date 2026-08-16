@@ -164,10 +164,12 @@ export async function getPublicProducts(
     search.set(key, String(value));
   }
   const suffix = search.toString() ? `?${search.toString()}` : "";
-  // Stock availability changes with reservations. Never serve a stale catalog
-  // response after a checkout has committed inventory.
+  // A short cache prevents every navigation/infinite-scroll request from
+  // recalculating the same catalog. Checkout still validates stock in the
+  // backend, so a few seconds of catalog cache cannot oversell inventory.
   return request<PublicCatalogResponse>(`/storefront/public/${storefrontId}/products${suffix}`, {
-    cache: "no-store",
+    cache: "force-cache",
+    next: { revalidate: 15 },
   });
 }
 

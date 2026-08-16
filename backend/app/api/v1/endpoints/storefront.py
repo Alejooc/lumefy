@@ -3546,6 +3546,7 @@ async def read_public_products(
     sort: str = "latest",
     page: int = 1,
     page_size: int = 12,
+    include_facets: bool = True,
 ) -> Any:
     storefront = await _get_public_storefront_by_id(db, storefront_id)
     # Resolve the warehouse once and let PostgreSQL discard tracked products
@@ -3565,14 +3566,21 @@ async def read_public_products(
     current_page = max(1, page)
     safe_page_size = max(1, min(page_size, 48))
 
-    collections_result = await db.execute(
-        select(StoreCollection).where(
-            StoreCollection.storefront_id == storefront_id,
-            StoreCollection.is_active == True,
-            StoreCollection.is_visible == True,
-        ).order_by(StoreCollection.sort_order.asc(), StoreCollection.name.asc())
-    )
-    collections = collections_result.scalars().all()
+    # Facets are useful for the first render, but recalculating them for every
+    # infinite-scroll page adds several full-catalog passes. A continuation
+    # request only needs products and pagination metadata.
+    load_collection_metadata = include_facets or bool(selected_collections)
+    if load_collection_metadata:
+        collections_result = await db.execute(
+            select(StoreCollection).where(
+                StoreCollection.storefront_id == storefront_id,
+                StoreCollection.is_active == True,
+                StoreCollection.is_visible == True,
+            ).order_by(StoreCollection.sort_order.asc(), StoreCollection.name.asc())
+        )
+        collections = collections_result.scalars().all()
+    else:
+        collections = []
     collection_name_map = {item.slug: item.name for item in collections}
 
     published_product_columns = [
@@ -3730,7 +3738,7 @@ async def read_public_products(
 
     product_collection_map: dict[uuid.UUID, list[str]] = {}
     published_ids = [item.id for item in published_products]
-    if published_ids:
+    if published_ids and load_collection_metadata:
         collection_links_result = await db.execute(
             select(StoreCollectionProduct.published_product_id, StoreCollection.slug)
             .join(StoreCollection, StoreCollection.id == StoreCollectionProduct.collection_id)
@@ -3891,11 +3899,15 @@ async def read_public_products(
         )
 
     filtered_products = [item for item in published_products if matches_filters(item)]
-    price_facet_values = [
-        product_contexts[item.id]["unit_price"]
-        for item in published_products
-        if item.id in product_contexts and matches_filters(item, ignore_price=True)
-    ]
+    price_facet_values = (
+        [
+            product_contexts[item.id]["unit_price"]
+            for item in published_products
+            if item.id in product_contexts and matches_filters(item, ignore_price=True)
+        ]
+        if include_facets
+        else []
+    )
     catalog_min_price = min(price_facet_values, default=0.0)
     catalog_max_price = max(price_facet_values, default=0.0)
 
@@ -3954,37 +3966,38 @@ async def read_public_products(
     size_counts: dict[str, int] = {}
     color_counts: dict[str, int] = {}
 
-    for published_product in published_products:
-        context = product_contexts.get(published_product.id)
-        if not context:
-            continue
-        product = context["product"]
-        if product.category_id and getattr(product, "category", None):
-            category_names[str(product.category_id)] = product.category.name
-        brand_name = context["brand_name"]
-        if brand_name:
-            brand_names[context["brand_normalized"]] = brand_name
+    if include_facets:
+        for published_product in published_products:
+            context = product_contexts.get(published_product.id)
+            if not context:
+                continue
+            product = context["product"]
+            if product.category_id and getattr(product, "category", None):
+                category_names[str(product.category_id)] = product.category.name
+            brand_name = context["brand_name"]
+            if brand_name:
+                brand_names[context["brand_normalized"]] = brand_name
 
-        if matches_filters(published_product, ignore_collection=True):
-            for slug_value in context["collections"]:
-                if slug_value in collection_counts:
-                    collection_counts[slug_value] += 1
-        if product.category_id and matches_filters(published_product, ignore_category=True):
-            category_key = str(product.category_id)
-            category_counts[category_key] = category_counts.get(category_key, 0) + 1
-        if brand_name and matches_filters(published_product, ignore_brand=True):
-            brand_key = context["brand_normalized"]
-            brand_counts[brand_key] = brand_counts.get(brand_key, 0) + 1
-        if matches_filters(published_product, ignore_type=True):
-            product_type_value = context["product_type"] or "OTHER"
-            type_counts[product_type_value] = type_counts.get(product_type_value, 0) + 1
-        sizes_list, colors_list = context["sizes"], context["colors"]
-        if matches_filters(published_product, ignore_size=True):
-            for entry in sizes_list:
-                size_counts[entry] = size_counts.get(entry, 0) + 1
-        if matches_filters(published_product, ignore_color=True):
-            for entry in colors_list:
-                color_counts[entry] = color_counts.get(entry, 0) + 1
+            if matches_filters(published_product, ignore_collection=True):
+                for slug_value in context["collections"]:
+                    if slug_value in collection_counts:
+                        collection_counts[slug_value] += 1
+            if product.category_id and matches_filters(published_product, ignore_category=True):
+                category_key = str(product.category_id)
+                category_counts[category_key] = category_counts.get(category_key, 0) + 1
+            if brand_name and matches_filters(published_product, ignore_brand=True):
+                brand_key = context["brand_normalized"]
+                brand_counts[brand_key] = brand_counts.get(brand_key, 0) + 1
+            if matches_filters(published_product, ignore_type=True):
+                product_type_value = context["product_type"] or "OTHER"
+                type_counts[product_type_value] = type_counts.get(product_type_value, 0) + 1
+            sizes_list, colors_list = context["sizes"], context["colors"]
+            if matches_filters(published_product, ignore_size=True):
+                for entry in sizes_list:
+                    size_counts[entry] = size_counts.get(entry, 0) + 1
+            if matches_filters(published_product, ignore_color=True):
+                for entry in colors_list:
+                    color_counts[entry] = color_counts.get(entry, 0) + 1
 
     selected_collection_name = ", ".join(
         collection_name_map[slug_value]
@@ -4011,7 +4024,7 @@ async def read_public_products(
                 is_refined=key in selected_categories,
             )
             for key, name in sorted(category_names.items(), key=lambda entry: entry[1].lower())
-        ],
+        ] if include_facets else [],
         collections=[
             schemas.PublicCatalogCategory(
                 name=item.name,
@@ -4020,7 +4033,7 @@ async def read_public_products(
                 is_refined=item.slug in selected_collections,
             )
             for item in collections
-        ],
+        ] if include_facets else [],
         brands=[
             schemas.PublicCatalogFacet(
                 value=name,
@@ -4028,7 +4041,7 @@ async def read_public_products(
                 is_refined=key in selected_brands,
             )
             for key, name in sorted(brand_names.items(), key=lambda entry: entry[1].lower())
-        ],
+        ] if include_facets else [],
         product_types=[
             schemas.PublicCatalogProductType(
                 name=_normalize_product_type_label(value),
@@ -4037,7 +4050,7 @@ async def read_public_products(
                 is_refined=value in selected_types,
             )
             for value, count in sorted(type_counts.items(), key=lambda entry: entry[0])
-        ],
+        ] if include_facets else [],
         sizes=[
             schemas.PublicCatalogFacet(
                 value=value,
@@ -4045,7 +4058,7 @@ async def read_public_products(
                 is_refined=value.lower() in selected_sizes,
             )
             for value, count in sorted(size_counts.items(), key=lambda entry: entry[0])
-        ],
+        ] if include_facets else [],
         colors=[
             schemas.PublicCatalogFacet(
                 value=value,
@@ -4053,7 +4066,7 @@ async def read_public_products(
                 is_refined=value.lower() in selected_colors,
             )
             for value, count in sorted(color_counts.items(), key=lambda entry: entry[0])
-        ],
+        ] if include_facets else [],
         total_products=total_products,
         min_price=catalog_min_price,
         max_price=catalog_max_price,

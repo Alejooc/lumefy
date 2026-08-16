@@ -72,8 +72,6 @@ export default async function CollectionPage({
           activeColors={data.activeColors}
           totalProducts={data.totalProducts}
           currentPage={data.currentPage}
-          totalPages={data.totalPages}
-          hasPreviousPage={data.hasPreviousPage}
           hasNextPage={data.hasNextPage}
         />
       </main>

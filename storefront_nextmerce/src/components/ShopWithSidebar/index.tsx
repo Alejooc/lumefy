@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Breadcrumb from "../Common/Breadcrumb";
 import CustomSelect from "./CustomSelect";
@@ -12,6 +12,36 @@ import SingleGridItem from "../Shop/SingleGridItem";
 import SingleListItem from "../Shop/SingleListItem";
 import { Product } from "@/types/product";
 import { ShopFilterCategory, ShopFilterFacet, ShopFilterType } from "@/lib/shop-data";
+import { toTemplateProduct } from "@/lib/product-view-model";
+import { PublicCatalogResponse } from "@/types/storefront";
+
+const PRODUCTS_PER_BATCH = 12;
+
+function ProductLoadingSkeleton({ list }: { list: boolean }) {
+  if (list) {
+    return (
+      <div className="flex gap-5 rounded-lg bg-white p-4 shadow-1" aria-hidden="true">
+        <div className="h-36 w-36 shrink-0 animate-pulse rounded-md bg-gray-2" />
+        <div className="flex flex-1 flex-col justify-center gap-3">
+          <div className="h-4 w-2/3 animate-pulse rounded bg-gray-2" />
+          <div className="h-3 w-1/3 animate-pulse rounded bg-gray-2" />
+          <div className="h-5 w-1/4 animate-pulse rounded bg-gray-2" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg bg-white shadow-1" aria-hidden="true">
+      <div className="aspect-[4/5] animate-pulse bg-gray-2" />
+      <div className="space-y-3 p-4">
+        <div className="h-4 w-4/5 animate-pulse rounded bg-gray-2" />
+        <div className="h-3 w-2/5 animate-pulse rounded bg-gray-2" />
+        <div className="h-5 w-1/3 animate-pulse rounded bg-gray-2" />
+      </div>
+    </div>
+  );
+}
 
 const ShopWithSidebar = ({
   items,
@@ -37,8 +67,6 @@ const ShopWithSidebar = ({
   activeColors,
   totalProducts,
   currentPage,
-  totalPages,
-  hasPreviousPage,
   hasNextPage,
 }: {
   items: Product[];
@@ -64,8 +92,6 @@ const ShopWithSidebar = ({
   activeColors: string[];
   totalProducts: number;
   currentPage: number;
-  totalPages: number;
-  hasPreviousPage: boolean;
   hasNextPage: boolean;
 }) => {
   const router = useRouter();
@@ -73,10 +99,82 @@ const ShopWithSidebar = ({
   const searchParams = useSearchParams();
   const [productStyle, setProductStyle] = useState("grid");
   const [productSidebar, setProductSidebar] = useState(false);
-  const startProduct = items.length ? (currentPage - 1) * 12 + 1 : 0;
-  const endProduct = items.length ? startProduct + items.length - 1 : 0;
+  const [loadedItems, setLoadedItems] = useState<Product[]>(items);
+  const [nextPage, setNextPage] = useState(currentPage + 1);
+  const [hasMoreItems, setHasMoreItems] = useState(hasNextPage);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const startProduct = loadedItems.length ? (currentPage - 1) * PRODUCTS_PER_BATCH + 1 : 0;
+  const endProduct = loadedItems.length ? startProduct + loadedItems.length - 1 : 0;
   const activeMinPrice = searchParams.get("minPrice");
   const activeMaxPrice = searchParams.get("maxPrice");
+
+
+  // Server navigation replaces the first batch when a filter changes. Reset
+  // the client-side list so products from the previous filter never leak into
+  // the new result set.
+  useEffect(() => {
+    setLoadedItems(items);
+    setNextPage(currentPage + 1);
+    setHasMoreItems(hasNextPage);
+    setLoadError(null);
+  }, [items, currentPage, hasNextPage]);
+
+  const loadNextBatch = useCallback(async () => {
+    if (isLoadingMore || !hasMoreItems) return;
+
+    setIsLoadingMore(true);
+    setLoadError(null);
+    try {
+      const params = new URLSearchParams(searchParams.toString());
+      const minPrice = params.get("minPrice");
+      const maxPrice = params.get("maxPrice");
+      params.delete("minPrice");
+      params.delete("maxPrice");
+      if (minPrice) params.set("min_price", minPrice);
+      if (maxPrice) params.set("max_price", maxPrice);
+      params.set("page", String(nextPage));
+      params.set("page_size", String(PRODUCTS_PER_BATCH));
+      params.set("include_facets", "false");
+
+      const response = await fetch(`/api/storefront/products?${params.toString()}`, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error("No se pudo cargar la siguiente tanda de productos");
+      }
+
+      const catalog = (await response.json()) as PublicCatalogResponse;
+      const nextItems = catalog.items.map(toTemplateProduct);
+      setLoadedItems((previous) => {
+        const knownIds = new Set(previous.map((item) => item.publishedProductId || String(item.id)));
+        return [...previous, ...nextItems.filter((item) => !knownIds.has(item.publishedProductId || String(item.id)))];
+      });
+      setNextPage((catalog.current_page || nextPage) + 1);
+      setHasMoreItems(
+        Boolean(nextItems.length) && (catalog.current_page || nextPage) < (catalog.total_pages || nextPage),
+      );
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "No se pudo cargar el catálogo");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMoreItems, isLoadingMore, nextPage, searchParams]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !hasMoreItems) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) void loadNextBatch();
+      },
+      { rootMargin: "720px 0px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMoreItems, loadNextBatch]);
 
   const options = [
     { label: "Mas recientes", value: "latest" },
@@ -125,16 +223,6 @@ const ShopWithSidebar = ({
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const navigateToPage = (page: number) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (page <= 1) {
-      params.delete("page");
-    } else {
-      params.set("page", String(page));
-    }
-    router.push(`${pathname}?${params.toString()}`);
-  };
-
   const removeFilterValue = (key: string, value?: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (!value) {
@@ -172,13 +260,6 @@ const ShopWithSidebar = ({
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const visiblePages = Array.from(
-    new Set(
-      [1, currentPage - 1, currentPage, currentPage + 1, totalPages].filter(
-        (page) => page >= 1 && page <= totalPages,
-      ),
-    ),
-  );
   const categoryLabelMap = new Map(categories.map((item) => [item.slug, item.name]));
   const collectionLabelMap = new Map(collections.map((item) => [item.slug, item.name]));
   const brandLabelMap = new Map(brands.map((item) => [item.value.toLowerCase(), item.value]));
@@ -519,95 +600,50 @@ const ShopWithSidebar = ({
                     : "flex flex-col gap-7.5"
                 }`}
               >
-                {items.map((item, key) =>
+                {loadedItems.map((item) =>
                   productStyle === "grid" ? (
-                    <SingleGridItem item={item} key={key} />
+                    <SingleGridItem item={item} key={item.publishedProductId || item.id} />
                   ) : (
-                    <SingleListItem item={item} key={key} />
+                    <SingleListItem item={item} key={item.publishedProductId || item.id} />
                   )
                 )}
               </div>
               {/* <!-- Products Grid Tab Content End --> */}
 
-              {/* <!-- Products Pagination Start --> */}
-              <div className="mt-15 flex justify-center">
-                <div className="rounded-md bg-white p-2 shadow-1">
-                  <ul className="flex items-center gap-1">
-                    <li>
-                      <button
-                        aria-label="Pagina anterior"
-                        type="button"
-                        disabled={!hasPreviousPage}
-                        onClick={() => navigateToPage(currentPage - 1)}
-                        className="flex h-9 w-8 items-center justify-center rounded-[3px] ease-out duration-200 hover:bg-blue hover:text-white disabled:text-gray-4"
-                      >
-                        <svg
-                          className="fill-current"
-                          width="18"
-                          height="18"
-                          viewBox="0 0 18 18"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M12.1782 16.1156C12.0095 16.1156 11.8407 16.0594 11.7282 15.9187L5.37197 9.45C5.11885 9.19687 5.11885 8.80312 5.37197 8.55L11.7282 2.08125C11.9813 1.82812 12.3751 1.82812 12.6282 2.08125C12.8813 2.33437 12.8813 2.72812 12.6282 2.98125L6.72197 9L12.6563 15.0187C12.9095 15.2719 12.9095 15.6656 12.6563 15.9187C12.4876 16.0312 12.347 16.1156 12.1782 16.1156Z"
-                            fill=""
-                          />
-                        </svg>
-                      </button>
-                    </li>
-                    {visiblePages.map((page, index) => {
-                      const previousPage = visiblePages[index - 1];
-                      const showGap = previousPage && page - previousPage > 1;
-                      return (
-                        <React.Fragment key={page}>
-                          {showGap && (
-                            <li className="px-2 text-sm text-dark-4">...</li>
-                          )}
-                          <li>
-                            <button
-                              type="button"
-                              onClick={() => navigateToPage(page)}
-                              className={`flex rounded-[3px] px-3.5 py-1.5 duration-200 ${
-                                page === currentPage
-                                  ? "bg-blue text-white"
-                                  : "hover:bg-blue hover:text-white"
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          </li>
-                        </React.Fragment>
-                      );
-                    })}
-
-                    <li>
-                      <button
-                        aria-label="Pagina siguiente"
-                        type="button"
-                        disabled={!hasNextPage}
-                        onClick={() => navigateToPage(currentPage + 1)}
-                        className="flex h-9 w-8 items-center justify-center rounded-[3px] ease-out duration-200 hover:bg-blue hover:text-white disabled:text-gray-4"
-                      >
-                        <svg
-                          className="fill-current"
-                          width="18"
-                          height="18"
-                          viewBox="0 0 18 18"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M5.82197 16.1156C5.65322 16.1156 5.5126 16.0594 5.37197 15.9469C5.11885 15.6937 5.11885 15.3 5.37197 15.0469L11.2782 9L5.37197 2.98125C5.11885 2.72812 5.11885 2.33437 5.37197 2.08125C5.6251 1.82812 6.01885 1.82812 6.27197 2.08125L12.6282 8.55C12.8813 8.80312 12.8813 9.19687 12.6282 9.45L6.27197 15.9187C6.15947 16.0312 5.99072 16.1156 5.82197 16.1156Z"
-                            fill=""
-                          />
-                        </svg>
-                      </button>
-                    </li>
-                  </ul>
+              {isLoadingMore && (
+                <div
+                  className={`mt-9 ${
+                    productStyle === "grid"
+                      ? "grid grid-cols-1 gap-x-7.5 gap-y-9 sm:grid-cols-2 lg:grid-cols-3"
+                      : "flex flex-col gap-7.5"
+                  }`}
+                  aria-label="Cargando más productos"
+                >
+                  {Array.from({ length: productStyle === "grid" ? 3 : 2 }).map((_, index) => (
+                    <ProductLoadingSkeleton key={index} list={productStyle === "list"} />
+                  ))}
                 </div>
+              )}
+
+              <div ref={loadMoreRef} className="mt-10 flex min-h-16 items-center justify-center">
+                {loadError ? (
+                  <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-dark-4" role="alert">
+                    <span>{loadError}</span>
+                    <button
+                      type="button"
+                      onClick={() => void loadNextBatch()}
+                      className="rounded-md border border-blue px-3 py-1.5 font-medium text-blue transition hover:bg-blue hover:text-white"
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                ) : !hasMoreItems && loadedItems.length ? (
+                  <p className="text-sm text-dark-4" aria-live="polite">
+                    Has llegado al final del catálogo.
+                  </p>
+                ) : null}
               </div>
-              {/* <!-- Products Pagination End --> */}
+
             </div>
             {/* // <!-- Content End --> */}
           </div>
