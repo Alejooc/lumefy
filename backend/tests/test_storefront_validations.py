@@ -18,6 +18,7 @@ from app.api.v1.endpoints.storefront import (
     _has_valid_payu_confirmation_signature,
     _has_valid_wompi_event_signature,
     _resolve_public_checkout_adjustments,
+    _public_product_has_available_stock,
     _serialize_public_product,
     _validate_payment_gateway_provider,
 )
@@ -110,6 +111,28 @@ class StorefrontValidationTests(unittest.TestCase):
 
         self.assertFalse(product.in_stock)
         self.assertEqual(product.stock_quantity, 0)
+
+    def test_public_catalog_hides_tracked_products_without_stock(self):
+        product_id = uuid4()
+        product = SimpleNamespace(id=product_id, track_inventory=True)
+
+        self.assertFalse(_public_product_has_available_stock(product, {}))
+        self.assertFalse(
+            _public_product_has_available_stock(
+                product,
+                {(product_id, None): 0.0},
+            )
+        )
+        self.assertTrue(
+            _public_product_has_available_stock(
+                product,
+                {(product_id, None): 1.0},
+            )
+        )
+
+    def test_public_catalog_keeps_non_inventory_products_available(self):
+        product = SimpleNamespace(id=uuid4(), track_inventory=False)
+        self.assertTrue(_public_product_has_available_stock(product, {}))
 
     def test_public_catalog_uses_storefront_publishing_overrides(self):
         product = SimpleNamespace(

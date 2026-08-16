@@ -1098,6 +1098,10 @@ async def _get_public_published_product_or_404(db: AsyncSession, storefront_id: 
     published_product = result.scalars().first()
     if not published_product or not published_product.product:
         raise HTTPException(status_code=404, detail="Product not found")
+    storefront = await _get_public_storefront_by_id(db, storefront_id)
+    stock_map = await _get_storefront_stock_map(db, storefront, [published_product.product_id])
+    if not _public_product_has_available_stock(published_product.product, stock_map):
+        raise HTTPException(status_code=404, detail="Product not found")
     return published_product
 
 
@@ -1304,6 +1308,25 @@ async def _get_storefront_stock_map(
         key = (product_id, variant_id)
         stock[key] = stock.get(key, 0.0) + max(0.0, _safe_float(quantity) - _safe_float(reserved_quantity))
     return stock
+
+
+def _public_product_has_available_stock(
+    product: Product | None,
+    stock_map: dict[tuple[uuid.UUID, uuid.UUID | None], float],
+) -> bool:
+    """Return whether a product is sellable in the storefront warehouse.
+
+    Products that do not track inventory (for example services) remain
+    available. Tracked products need a positive available quantity in at
+    least one product/variant inventory row; reserved quantities are already
+    deducted by ``_get_storefront_stock_map``.
+    """
+    if not product or not product.track_inventory:
+        return bool(product)
+    return any(
+        product_id == product.id and quantity > 0
+        for (product_id, _variant_id), quantity in stock_map.items()
+    )
 
 
 async def _resolve_storefront_fulfillment_warehouse(db: AsyncSession, storefront: Storefront) -> Warehouse:
@@ -3465,7 +3488,13 @@ async def read_public_collection_detail(
     products: list[schemas.PublicProduct] = []
     for link in links:
         published_product = link.published_product
-        if not published_product or not published_product.is_published or not published_product.product:
+        if (
+            not published_product
+            or not published_product.is_active
+            or not published_product.is_published
+            or not published_product.product
+            or not _public_product_has_available_stock(published_product.product, stock_map)
+        ):
             continue
         products.append(
             _serialize_public_product(
@@ -3715,6 +3744,27 @@ async def read_public_products(
             "variant_search_values": variant_search_values,
         }
 
+    # Availability is a storefront rule, not a manual publishing action. A
+    # product remains manually published, but it is omitted while its
+    # fulfillment stock is zero and automatically appears again after a
+    # positive inventory sync or a released reservation.
+    catalog_stock_map = await _get_storefront_stock_map(
+        db,
+        storefront,
+        [item.product_id for item in published_products],
+    )
+    published_products = [
+        item
+        for item in published_products
+        if _public_product_has_available_stock(item.product, catalog_stock_map)
+    ]
+    published_product_ids = {item.id for item in published_products}
+    product_contexts = {
+        published_id: context
+        for published_id, context in product_contexts.items()
+        if published_id in published_product_ids
+    }
+
     def matches_filters(
         published_product: PublishedProduct,
         *,
@@ -3835,11 +3885,7 @@ async def read_public_products(
                     images_by_product.get(published_product.product_id, []),
                 )
 
-    stock_map = await _get_storefront_stock_map(
-        db,
-        storefront,
-        [item.product_id for item in paginated_products],
-    )
+    stock_map = catalog_stock_map
 
     collection_counts: dict[str, int] = {item.slug: 0 for item in collections}
     category_names: dict[str, str] = {}
