@@ -100,13 +100,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function getPublicStorefrontBySubdomain(subdomain: string): Promise<PublicStorefront> {
   return request<PublicStorefront>(`/storefront/public/by-subdomain/${encodeURIComponent(subdomain)}`, {
-    cache: "no-store",
+    // Storefront identity changes rarely. Keeping it for one minute avoids a
+    // second lookup during Next metadata + page rendering on every navigation.
+    cache: "force-cache",
   });
 }
 
 export async function getPublicStorefrontByDomain(domain: string): Promise<PublicStorefront> {
   return request<PublicStorefront>(`/storefront/public/by-domain/${encodeURIComponent(domain)}`, {
-    cache: "no-store",
+    cache: "force-cache",
   });
 }
 
@@ -134,7 +136,9 @@ export async function getPublicPaymentGateways(
 
 export async function getPublicCollections(storefrontId: string): Promise<PublicCollection[]> {
   return request<PublicCollection[]>(`/storefront/public/${storefrontId}/collections`, {
-    cache: "no-store",
+    // Collections are catalog navigation metadata, not inventory. A short
+    // cache prevents every page change from refetching the same list.
+    cache: "force-cache",
   });
 }
 

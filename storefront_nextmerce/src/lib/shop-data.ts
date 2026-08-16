@@ -127,9 +127,8 @@ function toTemplateProduct(product: PublicProduct): Product {
   };
 }
 
-async function loadCollections(): Promise<PublicCollection[]> {
-  const storefront = await resolveStorefront();
-  return getPublicCollections(storefront.id);
+async function loadCollections(storefrontId: string): Promise<PublicCollection[]> {
+  return getPublicCollections(storefrontId);
 }
 
 function parseMultiValue(value?: string): string[] {
@@ -154,7 +153,7 @@ export async function loadShopViewModel(options?: {
   pageSize?: number;
 }): Promise<ShopViewModel> {
   const storefront = await resolveStorefront();
-  const collections = await loadCollections();
+  const collections = await loadCollections(storefront.id);
   const selectedCollections = parseMultiValue(options?.collectionSlug);
   const normalizedTypes = parseMultiValue(options?.productType).map((item) => item.toUpperCase());
   const normalizedSizes = parseMultiValue(options?.size);

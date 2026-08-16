@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import load_only, selectinload
 from sqlalchemy.orm.attributes import set_committed_value
 
 from app.core import auth, security
@@ -3529,11 +3529,62 @@ async def read_public_products(
     published_query = (
         select(PublishedProduct)
         .options(
-            selectinload(PublishedProduct.product).selectinload(Product.category),
-            selectinload(PublishedProduct.product).selectinload(Product.brand),
-            selectinload(PublishedProduct.product).selectinload(Product.variants),
+            load_only(
+                PublishedProduct.id,
+                PublishedProduct.product_id,
+                PublishedProduct.custom_title,
+                PublishedProduct.custom_description,
+                PublishedProduct.slug,
+                PublishedProduct.price_override,
+                PublishedProduct.compare_at_price,
+                PublishedProduct.is_featured,
+                PublishedProduct.sort_order,
+                PublishedProduct.created_at,
+            ),
+            selectinload(PublishedProduct.product)
+            .load_only(
+                Product.id,
+                Product.name,
+                Product.description,
+                Product.image_url,
+                Product.product_type,
+                Product.price,
+                Product.track_inventory,
+                Product.category_id,
+                Product.brand_id,
+            ),
+            selectinload(PublishedProduct.product)
+            .selectinload(Product.category)
+            .load_only(Category.id, Category.name),
+            selectinload(PublishedProduct.product)
+            .selectinload(Product.brand)
+            .load_only(Brand.id, Brand.name),
+            selectinload(PublishedProduct.product)
+            .selectinload(Product.variants)
+            .load_only(
+                ProductVariant.id,
+                ProductVariant.product_id,
+                ProductVariant.name,
+                ProductVariant.sku,
+                ProductVariant.barcode,
+                ProductVariant.price_extra,
+                ProductVariant.price,
+                ProductVariant.attributes,
+            ),
             selectinload(PublishedProduct.collections)
-            .selectinload(StoreCollectionProduct.collection),
+            .load_only(
+                StoreCollectionProduct.id,
+                StoreCollectionProduct.published_product_id,
+                StoreCollectionProduct.collection_id,
+            )
+            .selectinload(StoreCollectionProduct.collection)
+            .load_only(
+                StoreCollection.id,
+                StoreCollection.slug,
+                StoreCollection.name,
+                StoreCollection.is_active,
+                StoreCollection.is_visible,
+            ),
         )
         .join(Product, PublishedProduct.product_id == Product.id)
         .where(
@@ -3592,6 +3643,46 @@ async def read_public_products(
             slugs.append(collection_model.slug)
         product_collection_map[published_product.id] = slugs
 
+    # These values are reused by the result filter, price sorting and every
+    # facet count. Computing them once avoids walking every variant repeatedly
+    # (the old code recalculated them up to seven times per product).
+    product_contexts: dict[uuid.UUID, dict[str, Any]] = {}
+    for published_product in published_products:
+        product = published_product.product
+        if not product:
+            continue
+        sizes_list, colors_list = _extract_variant_facets(product.variants or [])
+        brand_name = (product.brand.name if getattr(product, "brand", None) else "") or ""
+        category_name = product.category.name if getattr(product, "category", None) else ""
+        variant_search_values = tuple(
+            _normalize_catalog_text(value)
+            for variant in (product.variants or [])
+            for value in (variant.name, variant.sku, variant.barcode)
+            if value
+        )
+        product_contexts[published_product.id] = {
+            "product": product,
+            "collections": product_collection_map.get(published_product.id, []),
+            "sizes": sizes_list,
+            "colors": colors_list,
+            "category_id": str(product.category_id) if product.category_id else "",
+            "category_name": category_name,
+            "brand_name": brand_name,
+            "brand_normalized": _normalize_catalog_text(brand_name),
+            "product_type": (product.product_type or "").upper(),
+            "unit_price": _public_product_starting_price(published_product, product),
+            "search_values": (
+                _normalize_catalog_text(product.name),
+                _normalize_catalog_text(published_product.custom_title),
+                _normalize_catalog_text(published_product.slug),
+                _normalize_catalog_text(product.description),
+                _normalize_catalog_text(published_product.custom_description),
+                _normalize_catalog_text(brand_name),
+                _normalize_catalog_text(category_name),
+            ),
+            "variant_search_values": variant_search_values,
+        }
+
     def matches_filters(
         published_product: PublishedProduct,
         *,
@@ -3603,22 +3694,20 @@ async def read_public_products(
         ignore_color: bool = False,
         ignore_price: bool = False,
     ) -> bool:
-        product = published_product.product
-        if not product:
+        context = product_contexts.get(published_product.id)
+        if not context:
             return False
-        product_collections = product_collection_map.get(published_product.id, [])
-        sizes_list, colors_list = _extract_variant_facets(product.variants or [])
-        category_id = str(product.category_id) if product.category_id else ""
-        brand_name = (product.brand.name if getattr(product, "brand", None) else "") or ""
+        product_collections = context["collections"]
+        sizes_list = context["sizes"]
+        colors_list = context["colors"]
+        category_id = context["category_id"]
+        brand_name = context["brand_name"]
         matches_search = (
             not normalized_search
-            or normalized_search in _normalize_catalog_text(product.name)
-            or normalized_search in _normalize_catalog_text(published_product.custom_title)
-            or normalized_search in _normalize_catalog_text(published_product.slug)
-            or normalized_search in _normalize_catalog_text(product.description)
-            or normalized_search in _normalize_catalog_text(published_product.custom_description)
-            or normalized_search in _normalize_catalog_text(brand_name)
-            or normalized_search in _normalize_catalog_text(product.category.name if getattr(product, "category", None) else "")
+            or any(
+                normalized_search in value
+                for value in context["search_values"] + context["variant_search_values"]
+            )
         )
         matches_collection = (
             ignore_collection
@@ -3628,13 +3717,13 @@ async def read_public_products(
         matches_type = (
             ignore_type
             or not selected_types
-            or (product.product_type or "").upper() in selected_types
+            or context["product_type"] in selected_types
         )
         matches_category = ignore_category or not selected_categories or category_id in selected_categories
         matches_brand = (
             ignore_brand
             or not selected_brands
-            or _normalize_catalog_text(brand_name) in selected_brands
+            or context["brand_normalized"] in selected_brands
         )
         matches_size = (
             ignore_size
@@ -3646,7 +3735,7 @@ async def read_public_products(
             or not selected_colors
             or any(item.lower() in selected_colors for item in colors_list)
         )
-        unit_price = _public_product_starting_price(published_product, product)
+        unit_price = context["unit_price"]
         matches_min = ignore_price or min_price is None or unit_price >= float(min_price)
         matches_max = ignore_price or max_price is None or unit_price <= float(max_price)
         return (
@@ -3663,16 +3752,16 @@ async def read_public_products(
 
     filtered_products = [item for item in published_products if matches_filters(item)]
     price_facet_values = [
-        _public_product_starting_price(item, item.product)
+        product_contexts[item.id]["unit_price"]
         for item in published_products
-        if matches_filters(item, ignore_price=True)
+        if item.id in product_contexts and matches_filters(item, ignore_price=True)
     ]
     catalog_min_price = min(price_facet_values, default=0.0)
     catalog_max_price = max(price_facet_values, default=0.0)
 
     def product_sort_key(item: PublishedProduct) -> Any:
-        product = item.product
-        unit_price = _public_product_starting_price(item, product) if product else 0.0
+        context = product_contexts.get(item.id)
+        unit_price = context["unit_price"] if context else 0.0
         if normalized_sort == "best-selling":
             return (int(bool(item.is_featured)), item.sort_order or 0, item.created_at)
         if normalized_sort == "price-low":
@@ -3730,29 +3819,30 @@ async def read_public_products(
     color_counts: dict[str, int] = {}
 
     for published_product in published_products:
-        product = published_product.product
-        if not product:
+        context = product_contexts.get(published_product.id)
+        if not context:
             continue
+        product = context["product"]
         if product.category_id and getattr(product, "category", None):
             category_names[str(product.category_id)] = product.category.name
-        brand_name = (product.brand.name if getattr(product, "brand", None) else "") or ""
+        brand_name = context["brand_name"]
         if brand_name:
-            brand_names[_normalize_catalog_text(brand_name)] = brand_name
+            brand_names[context["brand_normalized"]] = brand_name
 
         if matches_filters(published_product, ignore_collection=True):
-            for slug_value in product_collection_map.get(published_product.id, []):
+            for slug_value in context["collections"]:
                 if slug_value in collection_counts:
                     collection_counts[slug_value] += 1
         if product.category_id and matches_filters(published_product, ignore_category=True):
             category_key = str(product.category_id)
             category_counts[category_key] = category_counts.get(category_key, 0) + 1
         if brand_name and matches_filters(published_product, ignore_brand=True):
-            brand_key = _normalize_catalog_text(brand_name)
+            brand_key = context["brand_normalized"]
             brand_counts[brand_key] = brand_counts.get(brand_key, 0) + 1
         if matches_filters(published_product, ignore_type=True):
-            product_type_value = (product.product_type or "OTHER").upper()
+            product_type_value = context["product_type"] or "OTHER"
             type_counts[product_type_value] = type_counts.get(product_type_value, 0) + 1
-        sizes_list, colors_list = _extract_variant_facets(product.variants or [])
+        sizes_list, colors_list = context["sizes"], context["colors"]
         if matches_filters(published_product, ignore_size=True):
             for entry in sizes_list:
                 size_counts[entry] = size_counts.get(entry, 0) + 1
