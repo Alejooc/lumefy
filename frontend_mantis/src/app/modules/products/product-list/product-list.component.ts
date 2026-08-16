@@ -3,7 +3,7 @@ import { ApiService } from '../../../core/services/api.service';
 import { SweetAlertService } from '../../../theme/shared/services/sweet-alert.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ExportService } from '../../../core/services/export.service';
-import { Product } from '../../../core/services/product.service';
+import { Product, productImageUrl } from '../../../core/services/product.service';
 
 interface BulkDeleteBlockedProduct {
     id: string;
@@ -70,6 +70,10 @@ export class ProductListComponent implements OnInit {
     totalPages = 0;
 
     currencySymbol = '$';
+
+    displayImageUrl(value: string | null | undefined): string {
+        return productImageUrl(value);
+    }
 
     ngOnInit(): void {
         this.auth.currentCompany.subscribe(company => {

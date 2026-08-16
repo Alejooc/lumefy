@@ -3,6 +3,25 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+/**
+ * Provider REST image endpoints can require integration credentials. Route
+ * those URLs through the backend proxy for admin previews instead of asking
+ * the browser to fetch them anonymously.
+ */
+export function productImageUrl(value?: string | null): string {
+    const normalized = (value || '').trim();
+    if (!normalized) return '';
+    try {
+        const parsed = new URL(normalized);
+        if (parsed.pathname.includes('/api/external/')) {
+            return `${environment.apiUrl}/integrations/assets?url=${encodeURIComponent(normalized)}`;
+        }
+    } catch {
+        // Keep relative uploads and local paths unchanged.
+    }
+    return normalized;
+}
+
 export interface ProductImage {
     id?: string;
     image_url: string;

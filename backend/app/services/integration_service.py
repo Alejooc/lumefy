@@ -762,31 +762,101 @@ async def _sync_product_images(
     image_items = _as_list(_value(item, path)) if path else []
     if not image_items:
         return
-    first_url: str | None = None
+
+    # The provider response is authoritative when it contains an image list.
+    # Older versions only appended missing rows, so a URL-base correction or a
+    # changed provider payload left stale/broken images attached forever.  Build
+    # a de-duplicated snapshot first and reconcile the rows below in one pass.
+    incoming: list[tuple[int, int, str]] = []
+    seen_urls: set[str] = set()
     for index, image in enumerate(image_items):
         if isinstance(image, str):
             image_url = _asset_url(source, image)
             order = index
         elif isinstance(image, dict):
-            image_url = _asset_url(source, image.get("url") or image.get("image_url") or image.get("src"))
+            image_url = _asset_url(
+                source,
+                image.get("url")
+                or image.get("image_url")
+                or image.get("src")
+                or image.get("image")
+                or image.get("path"),
+            )
             try:
-                order = int(image.get("order") or image.get("position") or index)
+                raw_order = image.get("order")
+                if raw_order in (None, ""):
+                    raw_order = image.get("position")
+                order = int(raw_order) if raw_order not in (None, "") else index
             except (TypeError, ValueError):
                 order = index
         else:
             continue
         if not image_url:
             continue
-        first_url = first_url or image_url
-        existing = (await db.execute(
-            select(ProductImage).where(ProductImage.product_id == product.id, ProductImage.image_url == image_url).limit(1)
-        )).scalars().first()
-        if existing:
-            existing.order = order
+        normalized_url = image_url.strip()
+        url_key = normalized_url.casefold()
+        if not normalized_url or url_key in seen_urls:
+            continue
+        seen_urls.add(url_key)
+        incoming.append((order, index, normalized_url))
+
+    if not incoming:
+        return
+
+    incoming.sort(key=lambda value: (value[0], value[1]))
+    existing_rows = (
+        await db.execute(
+            select(ProductImage)
+            .where(ProductImage.product_id == product.id)
+            .order_by(ProductImage.order, ProductImage.id)
+        )
+    ).scalars().all()
+    existing_by_url = {
+        str(row.image_url).strip().casefold(): row
+        for row in existing_rows
+        if row.image_url and str(row.image_url).strip()
+    }
+    used_ids: set[Any] = set()
+
+    for order, _index, image_url in incoming:
+        url_key = image_url.casefold()
+        existing = existing_by_url.get(url_key)
+        if existing is not None and existing.id in used_ids:
+            existing = None
+
+        # Reuse a row at the same position when the provider changed the URL.
+        # This keeps the table small and fixes stale URLs without recreating
+        # every row on every catalog run.
+        if existing is None:
+            existing = next(
+                (
+                    row
+                    for row in existing_rows
+                    if row.id not in used_ids and (row.order or 0) == order
+                ),
+                None,
+            )
+
+        if existing is None:
+            existing = ProductImage(
+                id=uuid.uuid4(),
+                product_id=product.id,
+                image_url=image_url,
+                order=order,
+            )
+            db.add(existing)
         else:
-            db.add(ProductImage(id=uuid.uuid4(), product_id=product.id, image_url=image_url, order=order))
-    if first_url:
-        product.image_url = first_url
+            existing.image_url = image_url
+            existing.order = order
+        used_ids.add(existing.id)
+
+    # Remove rows that no longer exist in the provider response.  This is what
+    # clears old malformed bases and duplicate entries after the next sync.
+    for row in existing_rows:
+        if row.id not in used_ids:
+            await db.delete(row)
+
+    product.image_url = incoming[0][2]
 
 
 def _safe_preview_url(url: str) -> str:

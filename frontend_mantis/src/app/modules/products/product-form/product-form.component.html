@@ -130,7 +130,7 @@
                       @for (img of images; track img; let i = $index) {
                         <div class="col-6">
                           <div class="border rounded p-1 bg-white position-relative gallery-item">
-                            <img [src]="img.image_url" class="img-fluid w-100 rounded" style="height: 120px; object-fit: cover;">
+                            <img [src]="displayImageUrl(img.image_url)" class="img-fluid w-100 rounded" style="height: 120px; object-fit: cover;">
                             <div class="gallery-actions">
                               <button type="button" class="btn btn-danger btn-sm p-1" (click)="removeImage(i)" title="Eliminar">
                                 <i class="ti ti-trash"></i>

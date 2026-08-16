@@ -116,7 +116,7 @@
                     <td class="product-cell">
                       <div class="d-flex align-items-center gap-2">
                         @if (product.image_url) {
-                          <img [src]="product.image_url" class="product-thumbnail"
+                          <img [src]="displayImageUrl(product.image_url)" class="product-thumbnail"
                             alt="Imagen de {{ product.name }}"
                             (error)="product.image_url = ''">
                         } @else {

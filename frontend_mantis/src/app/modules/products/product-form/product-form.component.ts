@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
+import { productImageUrl } from '../../../core/services/product.service';
 import { SharedModule } from '../../../theme/shared/shared.module';
 import { RichTextEditorComponent } from '../../../theme/shared/components/rich-text-editor/rich-text-editor.component';
 import { CategoryService, Category } from '../../categories/category.service';
@@ -67,6 +68,10 @@ export class ProductFormComponent implements OnInit {
     private router = inject(Router);
     private route = inject(ActivatedRoute);
     private cdr = inject(ChangeDetectorRef);
+
+    displayImageUrl(value: string | null | undefined): string {
+        return productImageUrl(value);
+    }
 
     constructor() {
         this.form = this.fb.group({

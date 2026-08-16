@@ -16,14 +16,20 @@ function fallbackImage(seed: string): string {
 
 /** Convert the public API shape to the card shape used by the storefront. */
 export function toTemplateProduct(product: PublicProduct): Product {
-  const previewImage =
-    storefrontImageUrl(product.image_url) ||
-    storefrontImageUrl(product.gallery[0]) ||
-    fallbackImage(product.slug);
-  const secondaryImage =
-    storefrontImageUrl(product.gallery[1]) ||
-    storefrontImageUrl(product.image_url) ||
-    fallbackImage(`${product.slug}-alt`);
+  // Keep every image for product detail pages. Catalog responses are already
+  // compacted by the backend, while detail responses contain the full gallery.
+  // De-duplicate after converting provider URLs so the primary image does not
+  // appear twice when it is present in both `image_url` and `gallery`.
+  const galleryImages = Array.from(
+    new Set(
+      [product.image_url, ...(product.gallery || [])]
+        .map((value) => storefrontImageUrl(value))
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const previewImage = galleryImages[0] || fallbackImage(product.slug);
+  const secondaryImage = galleryImages[1] || fallbackImage(`${product.slug}-alt`);
+  const images = galleryImages.length ? galleryImages : [previewImage, secondaryImage];
   const compare = product.compare_at_price ?? product.base_price ?? product.price;
 
   return {
@@ -54,8 +60,8 @@ export function toTemplateProduct(product: PublicProduct): Product {
     inStock: product.in_stock,
     stockQuantity: product.stock_quantity ?? undefined,
     imgs: {
-      thumbnails: [previewImage, secondaryImage],
-      previews: [previewImage, secondaryImage],
+      thumbnails: images,
+      previews: images,
     },
   };
 }

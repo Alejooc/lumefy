@@ -13,6 +13,7 @@ from app.services.integration_service import (
     _fetch_entity,
     _fetch_inventory,
     _mapped,
+    _sync_product_images,
     _sync_inventory,
     _sync_supplier,
 )
@@ -60,6 +61,37 @@ class IntegrationProviderShapeTests(unittest.TestCase):
 
         self.assertEqual(external_id, "10536")
         self.assertEqual(name, "JUEGO DE SABANAS UNICOLOR")
+
+
+class IntegrationImageSyncTests(unittest.IsolatedAsyncioTestCase):
+    async def test_catalog_images_reconcile_duplicates_and_stale_rows(self):
+        product_id = uuid.uuid4()
+        source = SimpleNamespace(
+            base_url="https://provider.example/api",
+            configuration={"asset_base_url": "https://cdn.example/media"},
+        )
+        product = SimpleNamespace(id=product_id, image_url=None)
+        current = SimpleNamespace(id=uuid.uuid4(), product_id=product_id, image_url="https://old.example/a.jpg", order=0)
+        stale = SimpleNamespace(id=uuid.uuid4(), product_id=product_id, image_url="https://old.example/stale.jpg", order=1)
+        result = Mock()
+        result.scalars.return_value.all.return_value = [current, stale]
+        db = SimpleNamespace(execute=AsyncMock(return_value=result), add=Mock(), delete=AsyncMock())
+
+        await _sync_product_images(
+            db,
+            source,
+            product,
+            {"images": ["products/1/a.jpg", "products/1/b.jpg", "products/1/b.jpg"]},
+            {"product.images": "images[]"},
+        )
+
+        self.assertEqual(product.image_url, "https://cdn.example/media/products/1/a.jpg")
+        self.assertEqual(current.image_url, "https://cdn.example/media/products/1/a.jpg")
+        self.assertEqual(current.order, 0)
+        self.assertEqual(db.add.call_count, 1)
+        created = db.add.call_args.args[0]
+        self.assertEqual(created.image_url, "https://cdn.example/media/products/1/b.jpg")
+        db.delete.assert_awaited_once_with(stale)
 
 
 class IntegrationSupplierHomologationTests(unittest.IsolatedAsyncioTestCase):

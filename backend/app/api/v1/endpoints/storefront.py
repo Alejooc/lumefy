@@ -945,9 +945,14 @@ def _serialize_public_product(
         )
     price = min((variant.price for variant in variants), default=_safe_float(published_product.price_override, base_price))
     image_url = published_product.product.image_url or product.image_url
-    gallery = [img.image_url for img in sorted(product.images or [], key=lambda item: item.order)]
-    if image_url and image_url not in gallery:
-        gallery.insert(0, image_url)
+    gallery: list[str] = []
+    seen_gallery: set[str] = set()
+    for candidate in [image_url, *(img.image_url for img in sorted(product.images or [], key=lambda item: item.order))]:
+        normalized_candidate = str(candidate or "").strip()
+        candidate_key = normalized_candidate.casefold()
+        if normalized_candidate and candidate_key not in seen_gallery:
+            seen_gallery.add(candidate_key)
+            gallery.append(normalized_candidate)
     if compact:
         # Listing cards only use the primary and hover image. Keep detail
         # responses unchanged while avoiding needless gallery URLs in pages.
