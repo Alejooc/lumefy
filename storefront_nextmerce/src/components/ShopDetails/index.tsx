@@ -396,10 +396,10 @@ const ShopDetails = ({
                     ) : null}
                   </div>
 
-                  {selectedVariant ? (
+                  {selectedVariant?.sku ? (
                     <div className="mb-5 rounded-md bg-blue/5 px-4 py-3 text-sm text-dark">
-                      Variante seleccionada: <strong>{selectedVariantLabel}</strong>
-                      {selectedVariant.sku ? ` · SKU ${selectedVariant.sku}` : ""}
+                      <span className="font-medium">SKU:</span>{" "}
+                      <strong>{selectedVariant.sku}</strong>
                     </div>
                   ) : null}
 
