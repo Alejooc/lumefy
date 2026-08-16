@@ -8,7 +8,14 @@ from urllib.parse import parse_qs, urlsplit
 from pydantic import ValidationError
 
 from app.schemas.integration import IntegrationInventoryScheduleUpdate, IntegrationSyncRunOut
-from app.services.integration_service import _fetch_entity, _fetch_inventory, _mapped, _sync_inventory, _sync_supplier
+from app.services.integration_service import (
+    _asset_url,
+    _fetch_entity,
+    _fetch_inventory,
+    _mapped,
+    _sync_inventory,
+    _sync_supplier,
+)
 
 
 class IntegrationScheduleSchemaTests(unittest.TestCase):
@@ -29,6 +36,17 @@ class IntegrationScheduleSchemaTests(unittest.TestCase):
 
 
 class IntegrationProviderShapeTests(unittest.TestCase):
+    def test_asset_base_url_keeps_the_provider_relative_path(self):
+        source = SimpleNamespace(
+            base_url="https://api.proveedor.test/api/external",
+            configuration={"asset_base_url": "https://cdn.proveedor.test/media/"},
+        )
+
+        self.assertEqual(
+            _asset_url(source, "products/12529/9_b4.jpg"),
+            "https://cdn.proveedor.test/media/products/12529/9_b4.jpg",
+        )
+
     def test_catalog_accepts_provider_product_id_and_product_name_fields(self):
         item = {
             "product_id": "10536",

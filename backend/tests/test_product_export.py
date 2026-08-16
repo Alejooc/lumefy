@@ -96,5 +96,14 @@ class ProductExportTests(TestCase):
             replace_existing=True,
         )
 
-        self.assertEqual(value, "https://cdn.example.test/images/THO12306.jpg")
+        self.assertEqual(value, "https://cdn.example.test/images/static/catalog/THO12306.jpg")
+        self.assertTrue(changed)
+
+    def test_image_url_completion_preserves_nested_relative_path(self):
+        value, changed = _complete_relative_image_url(
+            "products/12529/9_b4.jpg",
+            "https://cdn.example.test/",
+        )
+
+        self.assertEqual(value, "https://cdn.example.test/products/12529/9_b4.jpg")
         self.assertTrue(changed)

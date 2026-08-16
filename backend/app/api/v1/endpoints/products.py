@@ -562,10 +562,11 @@ def _complete_relative_image_url(
 ) -> tuple[str | None, bool]:
     """Return an image URL under ``prefix``.
 
-    Relative values are always completed.  Absolute values are deliberately
-    preserved unless ``replace_existing`` is enabled; in replacement mode the
-    last path component (the provider's filename) is retained while the old
-    host/base path is discarded.
+    Relative values are always completed. Absolute values are deliberately
+    preserved unless ``replace_existing`` is enabled. In replacement mode the
+    complete provider path is retained while only the old host/base is
+    discarded. This is important for values such as
+    ``products/12529/9_b4.jpg``: the directory segments must not be lost.
     """
     normalized = (value or "").strip()
     if not normalized:
@@ -577,10 +578,12 @@ def _complete_relative_image_url(
         return normalized, False
 
     if is_absolute:
-        filename = parsed.path.rstrip("/").rsplit("/", 1)[-1]
-        if not filename:
+        # Keep the complete path returned by the provider, not only its
+        # filename. For example, old-base/products/12529/9_b4.jpg becomes
+        # new-base/products/12529/9_b4.jpg.
+        path = parsed.path.lstrip("/")
+        if not path:
             return normalized, False
-        path = filename
     else:
         path = normalized.lstrip("/")
 
@@ -601,7 +604,7 @@ async def bulk_complete_image_urls(
     if parsed_prefix.scheme not in {"http", "https"} or not parsed_prefix.netloc:
         raise HTTPException(
             status_code=422,
-            detail="El prefijo debe ser una URL completa, por ejemplo https://cdn.proveedor.com/imagenes/.",
+            detail="La base debe ser una URL completa, por ejemplo https://cdn.proveedor.com/. Se concatenará con la ruta de imagen que entregue el proveedor.",
         )
 
     requested_ids = list(dict.fromkeys(product_in.product_ids or []))

@@ -115,8 +115,8 @@
               </div>
               <div class="col-md-8">
                 <label class="form-label">URL base de imágenes <span class="text-muted">(opcional)</span></label>
-                <input class="form-control" [(ngModel)]="form.asset_base_url" placeholder="https://cdn.proveedor.com/imagenes/">
-                <small class="text-muted">Se antepone a nombres relativos como <code>THO12306.jpg</code>. Déjala vacía si la API ya entrega URLs completas.</small>
+                <input class="form-control" [(ngModel)]="form.asset_base_url" placeholder="https://cdn.proveedor.com/">
+                <small class="text-muted">Se concatena con la ruta relativa completa que entrega la API, por ejemplo <code>products/12529/9_b4.jpg</code> → <code>https://cdn.proveedor.com/products/12529/9_b4.jpg</code>. Déjala vacía si la API ya entrega URLs completas.</small>
               </div>
 
               <div class="col-12"><h6 class="form-section-title">Paginación del catálogo</h6></div>

@@ -325,10 +325,10 @@ export class ProductListComponent implements OnInit {
             : `Se revisarán los ${this.totalProducts} productos del catálogo completo.`;
         const result = await this.swal.input({
             title: 'Completar URLs de imágenes',
-            text: `${scopeText} Las URLs relativas se completarán. Las URLs absolutas se conservarán por ahora y podrás reemplazarlas si quedaron con una base incorrecta.`,
+            text: `${scopeText} Las rutas relativas se completarán conservando todos sus directorios. Las URLs absolutas se conservarán por ahora y podrás reemplazarlas si quedaron con una base incorrecta.`,
             input: 'text',
-            inputLabel: 'Prefijo de imágenes',
-            inputPlaceholder: 'https://cdn.proveedor.com/imagenes/',
+            inputLabel: 'Base de imágenes',
+            inputPlaceholder: 'https://cdn.proveedor.com/',
             inputAttributes: { autocapitalize: 'off', autocorrect: 'off' },
             showCancelButton: true,
             confirmButtonText: 'Revisar URLs',
@@ -371,7 +371,7 @@ export class ProductListComponent implements OnInit {
                     this.swal
                         .confirm(
                             'Hay URLs existentes',
-                            `${response.skipped_valid} imagen(es) ya tienen una URL absoluta. Si esa base es incorrecta, se reemplazarán conservando el nombre del archivo. ¿Continuar?`
+                            `${response.skipped_valid} imagen(es) ya tienen una URL absoluta. Si esa base es incorrecta, se reemplazarán conservando la ruta completa del proveedor (por ejemplo products/12529/9_b4.jpg). ¿Continuar?`
                         )
                         .then((confirmation) => {
                             if (confirmation.isConfirmed) {

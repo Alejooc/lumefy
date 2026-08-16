@@ -605,10 +605,21 @@ def _asset_url(source: IntegrationSource, value: Any) -> str | None:
     if value in (None, ""):
         return None
     url = str(value).strip()
-    if urlparse.urlparse(url).scheme in {"http", "https"}:
+    parsed_url = urlparse.urlsplit(url)
+    if parsed_url.scheme in {"http", "https"} and parsed_url.netloc:
         return url
     configuration = source.configuration or {}
-    base_url = str(configuration.get("asset_base_url") or source.base_url)
+    base_url = str(configuration.get("asset_base_url") or source.base_url or "").strip()
+    parsed_base = urlparse.urlsplit(base_url)
+    if parsed_base.scheme in {"http", "https"} and parsed_base.netloc:
+        # Join URL paths explicitly. ``products/12529/9_b4.jpg`` must remain
+        # intact; only the configured host/base path is prepended.
+        base_path = parsed_base.path.rstrip("/")
+        relative_path = parsed_url.path.lstrip("/")
+        joined_path = f"{base_path}/{relative_path}" if base_path else f"/{relative_path}"
+        return urlparse.urlunsplit(
+            (parsed_base.scheme, parsed_base.netloc, joined_path, parsed_url.query, parsed_url.fragment)
+        )
     return urlparse.urljoin(base_url.rstrip("/") + "/", url.lstrip("/"))
 
 
