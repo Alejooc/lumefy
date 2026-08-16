@@ -153,27 +153,29 @@ export async function loadShopViewModel(options?: {
   pageSize?: number;
 }): Promise<ShopViewModel> {
   const storefront = await resolveStorefront();
-  const collections = await loadCollections(storefront.id);
   const selectedCollections = parseMultiValue(options?.collectionSlug);
   const normalizedTypes = parseMultiValue(options?.productType).map((item) => item.toUpperCase());
   const normalizedSizes = parseMultiValue(options?.size);
   const normalizedColors = parseMultiValue(options?.color);
   const currentPage = Math.max(1, options?.page || 1);
   const requestedPageSize = Math.max(1, options?.pageSize || 12);
-  const catalog = await getPublicProducts(storefront.id, {
-    collection: options?.collectionSlug,
-    category: options?.category,
-    brand: options?.brand,
-    q: options?.searchTerm,
-    type: options?.productType,
-    size: options?.size,
-    color: options?.color,
-    sort: options?.sort,
-    min_price: options?.minPrice,
-    max_price: options?.maxPrice,
-    page: currentPage,
-    page_size: requestedPageSize,
-  });
+  const [collections, catalog] = await Promise.all([
+    loadCollections(storefront.id),
+    getPublicProducts(storefront.id, {
+      collection: options?.collectionSlug,
+      category: options?.category,
+      brand: options?.brand,
+      q: options?.searchTerm,
+      type: options?.productType,
+      size: options?.size,
+      color: options?.color,
+      sort: options?.sort,
+      min_price: options?.minPrice,
+      max_price: options?.maxPrice,
+      page: currentPage,
+      page_size: requestedPageSize,
+    }),
+  ]);
   const priceRangeMin = Number(catalog.min_price || 0);
   const priceRangeMax = Number(catalog.max_price || 0);
   const minPrice = Number.isFinite(options?.minPrice) ? Number(options?.minPrice) : priceRangeMin;

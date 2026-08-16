@@ -17,6 +17,7 @@ import {
   PublicStoreNavigationItem,
   PublicStorefront,
 } from "@/types/storefront";
+import { cache } from "react";
 import { resolveStorefrontHost } from "./storefront-host";
 
 export class StorefrontApiError extends Error {
@@ -337,7 +338,7 @@ export async function sendStorefrontContactMessage(
   });
 }
 
-export async function resolveStorefront(): Promise<PublicStorefront> {
+export const resolveStorefront = cache(async (): Promise<PublicStorefront> => {
   const baseDomain = process.env.NEXT_PUBLIC_PLATFORM_STOREFRONT_DOMAIN;
   let host = "";
 
@@ -359,4 +360,4 @@ export async function resolveStorefront(): Promise<PublicStorefront> {
   return target.type === "subdomain"
     ? getPublicStorefrontBySubdomain(target.value)
     : getPublicStorefrontByDomain(target.value);
-}
+});
