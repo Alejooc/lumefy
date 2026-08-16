@@ -183,7 +183,7 @@ const ShopDetails = ({
             <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
               <div className="flex flex-col lg:flex-row gap-7.5 xl:gap-17.5">
                 <div className="lg:max-w-[570px] w-full">
-                  <div className="lg:min-h-[512px] rounded-lg shadow-1 bg-gray-2 p-4 sm:p-7.5 relative flex items-center justify-center">
+                  <div className="relative aspect-square w-full overflow-hidden rounded-lg shadow-1 bg-gray-2">
                     <button
                       onClick={() => openPreviewModal()}
                       aria-label="ampliar imagen"
@@ -199,7 +199,14 @@ const ShopDetails = ({
                       </svg>
                     </button>
 
-                    <Image src={previewImages[previewImg]} alt={product.title} width={400} height={400} />
+                    <Image
+                      src={previewImages[previewImg]}
+                      alt={product.title}
+                      width={570}
+                      height={570}
+                      sizes="(min-width: 1024px) 570px, 100vw"
+                      className="block h-full w-full object-cover"
+                    />
                   </div>
 
                   <div className="flex flex-wrap sm:flex-nowrap gap-4.5 mt-6">
@@ -211,7 +218,14 @@ const ShopDetails = ({
                           key === previewImg ? "border-blue" : "border-transparent"
                         }`}
                       >
-                        <Image width={50} height={50} src={item} alt={`${product.title}-${key + 1}`} />
+                        <Image
+                          width={100}
+                          height={100}
+                          src={item}
+                          alt={`${product.title}-${key + 1}`}
+                          className="block h-full w-full object-cover"
+                          sizes="100px"
+                        />
                       </button>
                     ))}
                   </div>
