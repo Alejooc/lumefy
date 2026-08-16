@@ -128,6 +128,7 @@ class ProductBulkDeleteRequest(BaseModel):
     """Products selected by the user for a guarded bulk deletion."""
 
     product_ids: List[UUID] = Field(min_length=1, max_length=500)
+    force: bool = False
 
 
 class ProductBulkDeleteBlocked(BaseModel):
@@ -142,6 +143,8 @@ class ProductBulkDeleteResponse(BaseModel):
     deleted_ids: List[UUID]
     blocked: List[ProductBulkDeleteBlocked]
     not_found: List[UUID]
+    archived: int = 0
+    archived_ids: List[UUID] = Field(default_factory=list)
 
 
 class ProductPage(BaseModel):
@@ -155,12 +158,13 @@ class ProductPage(BaseModel):
 
 
 class ProductBulkDeleteAllRequest(BaseModel):
-    """Optional filters for a guarded, whole-catalog deletion."""
+    """Optional filters for a whole-catalog deletion."""
 
     search: Optional[str] = None
     category_id: Optional[UUID] = None
     brand_id: Optional[UUID] = None
     product_type: Optional[str] = None
+    force: bool = False
 
 
 class ProductBulkImageUrlRequest(BaseModel):

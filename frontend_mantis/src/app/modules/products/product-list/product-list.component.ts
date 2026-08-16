@@ -15,6 +15,8 @@ interface BulkDeleteResponse {
     requested: number;
     deleted: number;
     deleted_ids: string[];
+    archived: number;
+    archived_ids: string[];
     blocked: BulkDeleteBlockedProduct[];
     not_found: string[];
 }
@@ -286,7 +288,7 @@ export class ProductListComponent implements OnInit {
         this.swal
             .confirm(
                 '¿Eliminar todo el catálogo?',
-                `${scope} Los productos relacionados con ventas, inventario, órdenes u otros documentos se conservarán.`
+                `${scope} Los productos sin historial se eliminarán. Los que tengan ventas, facturas o inventario se archivarán y dejarán de aparecer en el catálogo/ecommerce, conservando intacto el historial. Esta acción no se puede deshacer desde el panel.`
             )
             .then((result) => {
                 if (!result.isConfirmed) {
@@ -294,11 +296,11 @@ export class ProductListComponent implements OnInit {
                 }
 
                 this.isLoading = true;
-                this.apiService.post<BulkDeleteResponse>('/products/bulk-delete-all', {}).subscribe({
+                this.apiService.post<BulkDeleteResponse>('/products/bulk-delete-all', { force: true }).subscribe({
                     next: (response) => {
                         this.clearSelection();
                         this.page = 1;
-                        this.showBulkDeleteResult(response, 'Borrado global parcial');
+                        this.showBulkDeleteResult(response, 'Catálogo eliminado');
                     },
                     error: (err) => {
                         console.error('Error deleting all products', err);
@@ -455,7 +457,8 @@ export class ProductListComponent implements OnInit {
                 .map((item) => `${item.name}: ${item.reasons.join(', ')}`)
                 .join(' | ');
             const details = [
-                `Eliminados: ${response.deleted}.`,
+                `Eliminados definitivamente: ${response.deleted}.`,
+                response.archived ? `Archivados por historial: ${response.archived}.` : '',
                 `Conservados por seguridad: ${response.blocked.length}.`,
                 response.not_found.length ? `No encontrados: ${response.not_found.length}.` : '',
                 examples ? `Ejemplos: ${examples}.` : ''
@@ -464,10 +467,10 @@ export class ProductListComponent implements OnInit {
                 .join(' ');
             this.swal.warning(partialTitle, details);
         } else {
-            this.swal.success(
-                'Productos eliminados',
-                `${response.deleted} producto(s) eliminado(s) correctamente.`
-            );
+            const archivedText = response.archived
+                ? ` ${response.archived} producto(s) fueron archivados para conservar ventas, facturas e inventario.`
+                : '';
+            this.swal.success('Productos eliminados', `${response.deleted} producto(s) eliminado(s) correctamente.${archivedText}`);
         }
         this.loadProducts();
     }

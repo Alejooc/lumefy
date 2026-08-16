@@ -3,7 +3,7 @@ from uuid import UUID
 from urllib.parse import urljoin, urlsplit
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, load_only, selectinload
 import json
@@ -229,6 +229,9 @@ def _product_filter_conditions(
     conditions = []
     if company_id:
         conditions.append(Product.company_id == company_id)
+    # Archived products remain in the database when they are referenced by
+    # historical documents, but must disappear from the active catalog.
+    conditions.append(Product.is_active.is_(True))
 
     if search:
         search_filter = f"%{search.strip()}%"
@@ -788,6 +791,7 @@ async def bulk_delete_products(
         products_by_id=products_by_id,
         not_found=not_found,
         current_user=current_user,
+        archive_blocked=bool(product_in.force),
     )
 
 
@@ -798,12 +802,28 @@ async def _delete_products_guarded(
     products_by_id: dict[Any, Product],
     not_found: list[Any],
     current_user: User,
+    archive_blocked: bool = False,
 ) -> schemas.ProductBulkDeleteResponse:
-    """Delete eligible products while reporting every protected product."""
+    """Delete eligible products and optionally archive protected history."""
     blockers = await _find_product_delete_blockers(db, list(products_by_id))
 
     deleted_ids = []
+    archived_ids = []
     blocked = []
+    if archive_blocked:
+        blocked_product_ids = [product_id for product_id, reasons in blockers.items() if reasons]
+        if blocked_product_ids:
+            # Remove archived products from every ecommerce channel in one
+            # statement without touching the orders that reference them.
+            await db.execute(
+                update(PublishedProduct)
+                .where(
+                    PublishedProduct.company_id == current_user.company_id,
+                    PublishedProduct.product_id.in_(blocked_product_ids),
+                )
+                .values(is_active=False, is_published=False)
+            )
+
     try:
         for product_id in product_ids:
             product = products_by_id.get(product_id)
@@ -812,6 +832,26 @@ async def _delete_products_guarded(
 
             reasons = blockers.get(product_id, [])
             if reasons:
+                if archive_blocked:
+                    # Historical rows keep their product reference, so sales,
+                    # invoices and inventory remain auditable. The product is
+                    # removed from the active catalog and cannot be sold again.
+                    product.is_active = False
+                    product.sale_ok = False
+                    product.purchase_ok = False
+                    for variant in product.variants:
+                        variant.is_active = False
+                    archived_ids.append(product.id)
+                    await log_activity(
+                        db,
+                        action="ARCHIVE",
+                        entity_type="Product",
+                        entity_id=product.id,
+                        user_id=current_user.id,
+                        company_id=current_user.company_id,
+                        details={"bulk": True, "name": product.name, "reason": "force_delete"},
+                    )
+                    continue
                 blocked.append(
                     schemas.ProductBulkDeleteBlocked(
                         id=product.id,
@@ -860,6 +900,8 @@ async def _delete_products_guarded(
         requested=len(product_ids),
         deleted=len(deleted_ids),
         deleted_ids=deleted_ids,
+        archived=len(archived_ids),
+        archived_ids=archived_ids,
         blocked=blocked,
         not_found=not_found,
     )
@@ -872,12 +914,12 @@ async def bulk_delete_all_products(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> schemas.ProductBulkDeleteResponse:
-    """Delete every product in the company that has no protected history."""
+    """Delete every product in the company, archiving protected history when forced."""
     product_in = product_in or schemas.ProductBulkDeleteAllRequest()
     query = (
         select(Product)
         .options(selectinload(Product.variants))
-        .where(Product.company_id == current_user.company_id)
+        .where(Product.company_id == current_user.company_id, Product.is_active.is_(True))
     )
     if product_in.search:
         search_filter = f"%{product_in.search}%"
@@ -906,6 +948,7 @@ async def bulk_delete_all_products(
         products_by_id=products_by_id,
         not_found=[],
         current_user=current_user,
+        archive_blocked=bool(product_in.force),
     )
 
 @router.get("/{product_id}", response_model=schemas.Product)

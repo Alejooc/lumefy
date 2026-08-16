@@ -1397,6 +1397,9 @@ async def _sync_products(
             run.products_updated += 1
 
         product.name = name
+        # A later catalog sync is the explicit path for restoring an archived
+        # product after a catalog purge.
+        product.is_active = True
         if sku is not None:
             product.sku = sku
         for field, key, *fallbacks in [

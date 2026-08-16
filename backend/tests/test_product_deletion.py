@@ -35,6 +35,13 @@ class ProductBulkDeleteSchemaTests(unittest.TestCase):
 
         self.assertEqual(request.product_ids, product_ids)
 
+    def test_whole_catalog_request_can_explicitly_archive_history(self):
+        from app.schemas.product import ProductBulkDeleteAllRequest
+
+        request = ProductBulkDeleteAllRequest(force=True)
+
+        self.assertTrue(request.force)
+
 
 if __name__ == "__main__":
     unittest.main()
