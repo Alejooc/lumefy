@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlsplit
 from pydantic import ValidationError
 
 from app.schemas.integration import IntegrationInventoryScheduleUpdate, IntegrationSyncRunOut
-from app.services.integration_service import _fetch_entity, _fetch_inventory, _mapped, _sync_inventory
+from app.services.integration_service import _fetch_entity, _fetch_inventory, _mapped, _sync_inventory, _sync_supplier
 
 
 class IntegrationScheduleSchemaTests(unittest.TestCase):
@@ -42,6 +42,36 @@ class IntegrationProviderShapeTests(unittest.TestCase):
 
         self.assertEqual(external_id, "10536")
         self.assertEqual(name, "JUEGO DE SABANAS UNICOLOR")
+
+
+class IntegrationSupplierHomologationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_reuses_supplier_by_external_id(self):
+        company_id = uuid.uuid4()
+        source = SimpleNamespace(company_id=company_id)
+        supplier = SimpleNamespace(id=uuid.uuid4(), company_id=company_id, external_id="105", name="Proveedor")
+        result = Mock()
+        result.scalars.return_value.first.return_value = supplier
+        db = SimpleNamespace(execute=AsyncMock(return_value=result), add=Mock(), flush=AsyncMock())
+
+        resolved = await _sync_supplier(db, source, "105", "Proveedor actualizado")
+
+        self.assertIs(resolved, supplier)
+        db.add.assert_not_called()
+        db.flush.assert_not_awaited()
+
+    async def test_creates_supplier_when_external_id_and_name_are_new(self):
+        company_id = uuid.uuid4()
+        source = SimpleNamespace(company_id=company_id)
+        result = Mock()
+        result.scalars.return_value.first.return_value = None
+        db = SimpleNamespace(execute=AsyncMock(return_value=result), add=Mock(), flush=AsyncMock())
+
+        resolved = await _sync_supplier(db, source, "105", "Proveedor nuevo")
+
+        self.assertEqual(resolved.external_id, "105")
+        self.assertEqual(resolved.name, "Proveedor nuevo")
+        db.add.assert_called_once_with(resolved)
+        db.flush.assert_awaited_once()
 
     def test_queued_run_can_be_serialized_without_a_start_time(self):
         now = datetime.utcnow()

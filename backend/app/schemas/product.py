@@ -39,6 +39,7 @@ class ProductBase(BaseModel):
     brand_id: Optional[UUID] = None
     unit_of_measure_id: Optional[UUID] = None
     purchase_uom_id: Optional[UUID] = None
+    supplier_id: Optional[UUID] = None
 
 from app.schemas.product_image import ProductImageCreate
 
@@ -70,6 +71,7 @@ class ProductUpdate(BaseModel):
     brand_id: Optional[UUID] = None
     unit_of_measure_id: Optional[UUID] = None
     purchase_uom_id: Optional[UUID] = None
+    supplier_id: Optional[UUID] = None
 
 class Product(ProductBase):
     id: UUID

@@ -12,7 +12,7 @@ from urllib import error as urlerror
 from urllib import parse as urlparse
 from urllib import request as urlrequest
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +26,7 @@ from app.models.product import Product
 from app.models.product_image import ProductImage
 from app.models.product_variant import ProductVariant
 from app.models.warehouse import Warehouse
+from app.models.supplier import Supplier
 
 
 class IntegrationRequestError(Exception):
@@ -487,7 +488,7 @@ def _suggest_mapping_from_sample(sample: dict[str, Any]) -> dict[str, Any]:
     if variants_key and not mapping.get("variant.sku"):
         warnings.append("Se detectaron variantes, pero no se encontró un SKU de variante.")
     if mapping.get("product.supplier.external_id") or mapping.get("product.supplier.name"):
-        warnings.append("El proveedor se conservará como dato de relación; confirma si debe vincularse a un proveedor de Lumefy.")
+        warnings.append("El proveedor se homologará automáticamente: se reutiliza si existe y se crea si no existe.")
     return {
         "mapping": mapping,
         "collections": collections,
@@ -630,6 +631,60 @@ async def _sync_category(
         db.add(category)
         await db.flush()
     return category.id
+
+
+async def _sync_supplier(
+    db: AsyncSession,
+    source: IntegrationSource,
+    external_id: Any = None,
+    name: Any = None,
+) -> Supplier | None:
+    """Resolve an external supplier and create it when the catalog introduces it.
+
+    External IDs are the primary key for homologation. A normalized name is a
+    fallback for older sources that do not provide an ID. The lookup is scoped
+    to the tenant so suppliers are never shared between companies.
+    """
+    normalized_external_id = str(external_id).strip() if external_id not in (None, "") else None
+    normalized_name = str(name).strip() if name not in (None, "") else None
+    if not normalized_external_id and not normalized_name:
+        return None
+
+    supplier: Supplier | None = None
+    if normalized_external_id:
+        result = await db.execute(
+            select(Supplier).where(
+                Supplier.company_id == source.company_id,
+                Supplier.external_id == normalized_external_id,
+            ).limit(1)
+        )
+        supplier = result.scalars().first()
+
+    if not supplier and normalized_name:
+        result = await db.execute(
+            select(Supplier).where(
+                Supplier.company_id == source.company_id,
+                func.lower(func.trim(Supplier.name)) == normalized_name.casefold(),
+            ).limit(1)
+        )
+        supplier = result.scalars().first()
+
+    if supplier:
+        if normalized_external_id and not supplier.external_id:
+            supplier.external_id = normalized_external_id
+        if normalized_name and not supplier.name:
+            supplier.name = normalized_name
+        return supplier
+
+    supplier = Supplier(
+        id=uuid.uuid4(),
+        company_id=source.company_id,
+        external_id=normalized_external_id,
+        name=normalized_name or f"Proveedor {normalized_external_id}",
+    )
+    db.add(supplier)
+    await db.flush()
+    return supplier
 
 
 async def _sync_product_images(
@@ -1354,6 +1409,9 @@ async def _sync_products(
         category_name = _mapped(item, mapping, "product.category.name", "category_name")
         supplier_external_id = _mapped(item, mapping, "product.supplier.external_id", "provider_id", "supplier_id")
         supplier_name = _mapped(item, mapping, "product.supplier.name", "provider_name", "supplier_name")
+        supplier = await _sync_supplier(db, source, supplier_external_id, supplier_name)
+        if supplier:
+            product.supplier_id = supplier.id
         if category_external_id not in (None, ""):
             product_attributes["external_category_id"] = str(category_external_id)
         if category_name not in (None, ""):

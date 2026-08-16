@@ -11,6 +11,9 @@ class Supplier(BaseModel):
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=True)
     
     name: Mapped[str] = mapped_column(String, index=True)
+    # Identifier supplied by an external catalog/integration, scoped to the
+    # company because two tenants may receive the same provider ID.
+    external_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     email: Mapped[str] = mapped_column(String, nullable=True)
     phone: Mapped[str] = mapped_column(String, nullable=True)
     address: Mapped[str] = mapped_column(String, nullable=True)
@@ -25,4 +28,5 @@ class Supplier(BaseModel):
     # Relationships
     company = relationship("Company")
     price_list = relationship("PriceList")
+    products = relationship("Product", back_populates="supplier")
     ledger_entries = relationship("AccountLedger", primaryjoin="and_(AccountLedger.partner_id==Supplier.id, AccountLedger.partner_type=='SUPPLIER')", foreign_keys="[AccountLedger.partner_id]", lazy="select", viewonly=True, back_populates="supplier")

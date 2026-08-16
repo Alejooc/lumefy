@@ -104,7 +104,7 @@ El intervalo permitido está entre 5 y 1440 minutos. En modo `MANUAL`, `interval
 
 El botón **Ver previa / debug** ejecuta una consulta de solo lectura al endpoint de productos y, si está configurado, al de inventario. Solo consulta la primera página, muestra la URL sin credenciales, el estado HTTP, el mapeo que usaría la sincronización y una muestra del JSON original. No crea ni actualiza productos, inventario, vínculos o ejecuciones de sincronización.
 
-El botón **Mapeo pendiente** analiza una muestra y propone rutas como `product_id`, `variants[].sku`, `images[]` y `variants[].properties[]`. El usuario puede editar las rutas y confirmar el perfil. Los campos principales se guardan en las entidades normalizadas; especificaciones, propiedades, proveedor y otros campos se conservan en atributos JSON y en el payload original.
+El botón **Mapeo pendiente** analiza una muestra y propone rutas como `product_id`, `variants[].sku`, `images[]` y `variants[].properties[]`. El usuario puede editar las rutas y confirmar el perfil. Los campos principales se guardan en las entidades normalizadas; especificaciones y propiedades se conservan en atributos JSON y en el payload original. Cuando llegan `provider_id`/`supplier_id` o `provider_name`/`supplier_name`, el catálogo homologa el proveedor existente o lo crea automáticamente y guarda la relación en el producto.
 
 ## Próxima evolución
 

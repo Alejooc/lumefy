@@ -45,11 +45,15 @@ class Product(BaseModel):
     brand_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("brands.id"), nullable=True)
     unit_of_measure_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("units_of_measure.id"), nullable=True)
     purchase_uom_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("units_of_measure.id"), nullable=True)
+    supplier_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("suppliers.id"), nullable=True, index=True
+    )
 
     # Relationships
     category = relationship(Category, back_populates="products")
     brand = relationship("Brand", foreign_keys=[brand_id])
     unit_of_measure = relationship("UnitOfMeasure", foreign_keys=[unit_of_measure_id])
     purchase_uom = relationship("UnitOfMeasure", foreign_keys=[purchase_uom_id])
+    supplier = relationship("Supplier", foreign_keys=[supplier_id], back_populates="products")
     variants = relationship("ProductVariant", back_populates="product", cascade="all, delete-orphan")
     images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan")
