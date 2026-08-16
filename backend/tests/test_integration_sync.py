@@ -72,7 +72,7 @@ class IntegrationImageSyncTests(unittest.IsolatedAsyncioTestCase):
         )
         product = SimpleNamespace(id=product_id, image_url=None)
         current = SimpleNamespace(id=uuid.uuid4(), product_id=product_id, image_url="https://old.example/a.jpg", order=0)
-        stale = SimpleNamespace(id=uuid.uuid4(), product_id=product_id, image_url="https://old.example/stale.jpg", order=1)
+        stale = SimpleNamespace(id=uuid.uuid4(), product_id=product_id, image_url="https://old.example/stale.jpg", order=2)
         result = Mock()
         result.scalars.return_value.all.return_value = [current, stale]
         db = SimpleNamespace(execute=AsyncMock(return_value=result), add=Mock(), delete=AsyncMock())
