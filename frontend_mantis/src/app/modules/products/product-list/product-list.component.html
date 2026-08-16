@@ -20,6 +20,11 @@
               <i class="ti ti-photo-edit"></i>
               {{ selectedCount > 0 ? 'Completar imágenes seleccionadas' : 'Completar URLs de imágenes' }}
             </button>
+            <button class="btn btn-outline-primary" (click)="publishToEcommerce()" [disabled]="isLoading"
+              title="Publicar los productos seleccionados o todo el catálogo activo">
+              <i class="ti ti-world-upload"></i>
+              {{ selectedCount > 0 ? 'Publicar seleccionados' : 'Publicar en ecommerce' }}
+            </button>
           }
           <button class="btn btn-primary" routerLink="/products/create">
             <i class="ti ti-plus"></i> Nuevo Producto

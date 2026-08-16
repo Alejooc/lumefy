@@ -138,3 +138,17 @@ class ProductBulkImageUrlResponse(BaseModel):
     images_updated: int
     skipped_valid: int
     not_found: List[UUID]
+
+
+class ProductBulkPublishRequest(BaseModel):
+    """Products to publish; omit IDs to publish the whole active catalog."""
+
+    product_ids: Optional[List[UUID]] = Field(default=None, max_length=10000)
+
+
+class ProductBulkPublishResponse(BaseModel):
+    requested: int
+    published: int
+    reactivated: int
+    already_published: int
+    not_found: List[UUID]

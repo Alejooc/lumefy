@@ -27,6 +27,14 @@ interface BulkImageUrlResponse {
     not_found: string[];
 }
 
+interface BulkPublishResponse {
+    requested: number;
+    published: number;
+    reactivated: number;
+    already_published: number;
+    not_found: string[];
+}
+
 interface ProductPageResponse {
     items: Product[];
     total: number;
@@ -365,6 +373,50 @@ export class ProductListComponent implements OnInit {
                 this.cdr.detectChanges();
             }
         });
+    }
+
+    publishToEcommerce(): void {
+        if (this.isLoading || !this.totalProducts) {
+            return;
+        }
+
+        const selectedIds = Array.from(this.selectedProductIds);
+        const scopeText = selectedIds.length
+            ? `Se publicarán los ${selectedIds.length} productos seleccionados.`
+            : `Se publicarán los ${this.totalProducts} productos activos del catálogo.`;
+        this.swal
+            .confirm(
+                '¿Publicar productos en ecommerce?',
+                `${scopeText} Los que ya estén publicados se conservarán y no se duplicarán.`
+            )
+            .then((result) => {
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                this.isLoading = true;
+                const body = selectedIds.length ? { product_ids: selectedIds } : {};
+                this.apiService.post<BulkPublishResponse>('/products/bulk-publish', body).subscribe({
+                    next: (response) => {
+                        this.clearSelection();
+                        this.isLoading = false;
+                        this.swal.success(
+                            'Productos publicados',
+                            `${response.published} producto(s) listos en ecommerce. ${response.already_published} ya estaban publicados.`
+                        );
+                        this.loadProducts();
+                    },
+                    error: (err) => {
+                        this.isLoading = false;
+                        const detail = err?.error?.detail;
+                        this.swal.error(
+                            'No se pudieron publicar los productos',
+                            typeof detail === 'string' ? detail : 'Intenta nuevamente.'
+                        );
+                        this.cdr.detectChanges();
+                    }
+                });
+            });
     }
 
     private showBulkDeleteResult(response: BulkDeleteResponse, partialTitle = 'Borrado parcial'): void {

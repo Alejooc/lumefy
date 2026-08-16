@@ -486,6 +486,104 @@ async def bulk_complete_image_urls(
     )
 
 
+@router.post("/bulk-publish", response_model=schemas.ProductBulkPublishResponse)
+async def bulk_publish_products(
+    *,
+    product_in: schemas.ProductBulkPublishRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> schemas.ProductBulkPublishResponse:
+    """Publish selected products, or the complete active catalog, in the primary store."""
+    storefront = await _get_primary_storefront(db, current_user.company_id)
+    if not storefront:
+        raise HTTPException(
+            status_code=400,
+            detail="Primero configura y activa una tienda ecommerce.",
+        )
+
+    requested_ids = list(dict.fromkeys(product_in.product_ids or []))
+    query = select(Product).where(
+        Product.company_id == current_user.company_id,
+        Product.is_active == True,
+    )
+    if requested_ids:
+        query = query.where(Product.id.in_(requested_ids))
+    query = query.order_by(Product.created_at.asc(), Product.id.asc())
+    result = await db.execute(query)
+    products = result.scalars().all()
+
+    found_ids = {product.id for product in products}
+    not_found = [product_id for product_id in requested_ids if product_id not in found_ids]
+    published_result = await db.execute(
+        select(PublishedProduct).where(
+            PublishedProduct.company_id == current_user.company_id,
+            PublishedProduct.storefront_id == storefront.id,
+        )
+    )
+    existing = {item.product_id: item for item in published_result.scalars().all()}
+    used_slugs = {item.slug for item in existing.values() if item.slug}
+
+    published = 0
+    reactivated = 0
+    already_published = 0
+    for product in products:
+        published_product = existing.get(product.id)
+        if published_product:
+            was_published = bool(published_product.is_active and published_product.is_published)
+            published_product.is_active = True
+            published_product.is_published = True
+            published_product.updated_by_id = current_user.id
+            if was_published:
+                already_published += 1
+            else:
+                reactivated += 1
+            published += 1
+            continue
+
+        base_slug = _slugify(product.name)
+        slug = base_slug
+        suffix = 2
+        while slug in used_slugs:
+            slug = f"{base_slug}-{suffix}"
+            suffix += 1
+        used_slugs.add(slug)
+        db.add(
+            PublishedProduct(
+                storefront_id=storefront.id,
+                product_id=product.id,
+                slug=slug,
+                is_published=True,
+                is_active=True,
+                company_id=current_user.company_id,
+                created_by_id=current_user.id,
+                updated_by_id=current_user.id,
+            )
+        )
+        published += 1
+
+    await log_activity(
+        db,
+        action="PUBLISH",
+        entity_type="Product",
+        entity_id=current_user.company_id,
+        user_id=current_user.id,
+        company_id=current_user.company_id,
+        details={
+            "bulk": True,
+            "requested": len(requested_ids) if requested_ids else len(products),
+            "published": published,
+        },
+    )
+    await db.commit()
+    return schemas.ProductBulkPublishResponse(
+        requested=len(requested_ids) if requested_ids else len(products),
+        published=published,
+        reactivated=reactivated,
+        already_published=already_published,
+        not_found=not_found,
+    )
+
+
 @router.post("/bulk-delete", response_model=schemas.ProductBulkDeleteResponse)
 async def bulk_delete_products(
     *,
