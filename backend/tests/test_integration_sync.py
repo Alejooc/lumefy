@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlsplit
 from pydantic import ValidationError
 
 from app.schemas.integration import IntegrationInventoryScheduleUpdate, IntegrationSyncRunOut
-from app.services.integration_service import _fetch_entity, _fetch_inventory, _sync_inventory
+from app.services.integration_service import _fetch_entity, _fetch_inventory, _mapped, _sync_inventory
 
 
 class IntegrationScheduleSchemaTests(unittest.TestCase):
@@ -26,6 +26,22 @@ class IntegrationScheduleSchemaTests(unittest.TestCase):
         schedule = IntegrationInventoryScheduleUpdate(mode="MANUAL", interval_minutes=30)
 
         self.assertIsNone(schedule.interval_minutes)
+
+
+class IntegrationProviderShapeTests(unittest.TestCase):
+    def test_catalog_accepts_provider_product_id_and_product_name_fields(self):
+        item = {
+            "product_id": "10536",
+            "product_name": "JUEGO DE SABANAS UNICOLOR",
+            "sku": "THO12306",
+        }
+        mapping = {"product.external_id": "id", "product.name": "name"}
+
+        external_id = _mapped(item, mapping, "product.external_id", "id", "external_id", "uuid", "product_id")
+        name = _mapped(item, mapping, "product.name", "name", "title", "product_name")
+
+        self.assertEqual(external_id, "10536")
+        self.assertEqual(name, "JUEGO DE SABANAS UNICOLOR")
 
     def test_queued_run_can_be_serialized_without_a_start_time(self):
         now = datetime.utcnow()

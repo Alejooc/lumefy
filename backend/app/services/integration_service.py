@@ -1166,7 +1166,15 @@ async def _load_embedded_inventory(
     embedded_inventory: list[dict[str, Any]] = []
 
     for item in items:
-        external_id_value = _mapped(item, mapping, "product.external_id", "id", "external_id", "uuid")
+        external_id_value = _mapped(
+            item,
+            mapping,
+            "product.external_id",
+            "id",
+            "external_id",
+            "uuid",
+            "product_id",
+        )
         external_id = str(external_id_value).strip() if external_id_value not in (None, "") else None
         sku_value = _mapped(item, mapping, "product.sku", "sku", "code", "reference")
         sku = str(sku_value).strip() if sku_value not in (None, "") else None
@@ -1293,8 +1301,10 @@ async def _sync_products(
         )
 
     for index, item in enumerate(items, start=1):
-        external_id = str(_mapped(item, mapping, "product.external_id", "id", "external_id", "uuid") or "").strip()
-        name = str(_mapped(item, mapping, "product.name", "name", "title") or "").strip()
+        external_id = str(
+            _mapped(item, mapping, "product.external_id", "id", "external_id", "uuid", "product_id") or ""
+        ).strip()
+        name = str(_mapped(item, mapping, "product.name", "name", "title", "product_name") or "").strip()
         if not external_id or not name:
             run.items_failed += 1
             await report_processed(index)
