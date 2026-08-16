@@ -163,11 +163,36 @@
               </div>
               <div class="col-md-6">
                 <label class="form-label">Ruta de datos de inventario</label>
-                <input class="form-control" [(ngModel)]="form.inventory_data_path" placeholder="items">
+                <input class="form-control" [(ngModel)]="form.inventory_data_path" placeholder="data">
+                <small class="text-muted">Para tu respuesta JSON usa <code>data</code>.</small>
               </div>
 
               <div class="col-12">
-                <div class="form-note"><i class="ti ti-info-circle me-2"></i>La sincronización de inventario actualiza cantidades y no modifica nombres, precios ni imágenes.</div>
+                <div class="batch-config-card">
+                  <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="inventory-batch-enabled" [(ngModel)]="form.inventory_batch_enabled">
+                    <label class="form-check-label fw-semibold" for="inventory-batch-enabled">Consultar por lotes de SKU</label>
+                  </div>
+                  <p class="small text-muted mb-3">Actívalo cuando el proveedor reciba varios SKU en una sola petición, por ejemplo <code>?skus=THO12306,THO12362</code>. Lumefy genera los lotes automáticamente y nunca envía más de 100 SKU.</p>
+                  @if (form.inventory_batch_enabled) {
+                    <div class="row g-3">
+                      <div class="col-md-6">
+                        <label class="form-label">Parámetro de SKU</label>
+                        <input class="form-control" [(ngModel)]="form.inventory_batch_query_param" placeholder="skus">
+                        <small class="text-muted">En tu endpoint es <code>skus</code>.</small>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Máximo de SKU por petición</label>
+                        <input class="form-control" type="number" min="1" max="100" [(ngModel)]="form.inventory_batch_size">
+                        <small class="text-muted">Se limita automáticamente a 100 por seguridad.</small>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <div class="col-12">
+                <div class="form-note"><i class="ti ti-info-circle me-2"></i>La sincronización lee <code>data[].sku</code> y <code>data[].stock</code>, actualiza la existencia local y convierte cualquier valor negativo en 0. No modifica nombres, precios ni imágenes.</div>
               </div>
             </div>
           </div>

@@ -3,11 +3,12 @@ import uuid
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
+from urllib.parse import parse_qs, urlsplit
 
 from pydantic import ValidationError
 
 from app.schemas.integration import IntegrationInventoryScheduleUpdate, IntegrationSyncRunOut
-from app.services.integration_service import _fetch_entity, _sync_inventory
+from app.services.integration_service import _fetch_entity, _fetch_inventory, _sync_inventory
 
 
 class IntegrationScheduleSchemaTests(unittest.TestCase):
@@ -81,16 +82,62 @@ class IntegrationInventoryIdempotencyTests(unittest.IsolatedAsyncioTestCase):
                 run,
                 embedded_inventory=[
                     {"product": product, "variant": None, "quantity": 7},
-                    {"product": product, "variant": None, "quantity": 9},
+                    {"product": product, "variant": None, "quantity": -9},
                 ],
             )
 
         self.assertEqual(db.add.call_count, 1)
         db.flush.assert_awaited_once()
         created_inventory = db.add.call_args.args[0]
-        self.assertEqual(created_inventory.quantity, 9)
+        self.assertEqual(created_inventory.quantity, 0)
         self.assertEqual(run.inventory_processed, 2)
         self.assertEqual(run.inventory_updated, 2)
+
+
+class IntegrationInventoryBatchTests(unittest.IsolatedAsyncioTestCase):
+    async def test_bulk_inventory_uses_provider_limit_and_data_rows(self):
+        source = SimpleNamespace(
+            id=uuid.uuid4(),
+            base_url="https://provider.example.com",
+            auth_type="none",
+            credentials={},
+            configuration={
+                "endpoints": {
+                    "inventory": {
+                        "path": "/api/external/inventory",
+                        "data_path": "data",
+                        "batch": {"enabled": True, "query_param": "skus", "size": 100},
+                    }
+                }
+            },
+        )
+        sku_map = {f"sku:SKU{index:03d}": object() for index in range(101)}
+        requests = []
+
+        async def request_json(url, headers):
+            requests.append(url)
+            requested_skus = parse_qs(urlsplit(url).query)["skus"][0].split(",")
+            return 200, {
+                "tipo": 1,
+                "msg": "OK",
+                "data": [{"sku": sku, "stock": "0", "product_id": sku} for sku in requested_skus],
+                "meta": {"count": len(requested_skus)},
+            }
+
+        progress = []
+
+        async def on_progress(value):
+            progress.append(value)
+
+        with patch("app.services.integration_service._request_json", new=request_json):
+            rows = await _fetch_inventory(SimpleNamespace(), source, sku_map, {}, on_progress)
+
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(len(parse_qs(urlsplit(requests[0]).query)["skus"][0].split(",")), 100)
+        self.assertEqual(len(parse_qs(urlsplit(requests[1]).query)["skus"][0].split(",")), 1)
+        self.assertEqual(len(rows), 101)
+        self.assertEqual(rows[0]["stock"], "0")
+        self.assertEqual(progress[-1]["percent"], 40)
 
 
 class IntegrationProgressTests(unittest.IsolatedAsyncioTestCase):

@@ -254,8 +254,19 @@ def _extract_entity_rows(payload: Any, endpoint: dict[str, Any], entity: str, st
     data = _value(payload, endpoint.get("data_path"), payload)
     if isinstance(data, dict):
         data = data.get("items") or data.get("results") or data.get("data") or []
-        if not data and entity == "products" and any(
-            key in payload for key in ("product_id", "product_name", "name", "title", "variants")
+        if not data and entity in {"products", "inventory"} and any(
+            key in payload
+            for key in (
+                "product_id",
+                "product_name",
+                "name",
+                "title",
+                "variants",
+                "sku",
+                "stock",
+                "quantity",
+                "available",
+            )
         ):
             data = [payload]
     if not isinstance(data, list):
@@ -266,6 +277,31 @@ def _extract_entity_rows(payload: Any, endpoint: dict[str, Any], entity: str, st
 def _pagination_config(endpoint: dict[str, Any]) -> dict[str, Any]:
     pagination = endpoint.get("pagination") or {}
     return pagination if isinstance(pagination, dict) else {}
+
+
+def _inventory_batch_config(endpoint: dict[str, Any]) -> dict[str, Any]:
+    """Return a safe SKU-batch configuration for inventory endpoints.
+
+    Providers commonly cap the bulk inventory endpoint at 100 SKU values. The
+    cap is enforced here even if a source was configured manually with a larger
+    value, so a bad configuration can never produce an oversized request.
+    """
+
+    batch = endpoint.get("batch") or endpoint.get("sku_batch") or {}
+    if not isinstance(batch, dict) or batch.get("enabled") is not True:
+        return {}
+    query_param = str(batch.get("query_param") or batch.get("sku_query_param") or "skus").strip()
+    if not query_param:
+        raise IntegrationRequestError("El parámetro de lotes de inventario no puede estar vacío.")
+    try:
+        requested_size = int(batch.get("size") or batch.get("batch_size") or 100)
+    except (TypeError, ValueError) as exc:
+        raise IntegrationRequestError("El tamaño de lote de inventario debe ser un número entero.") from exc
+    return {
+        "enabled": True,
+        "query_param": query_param,
+        "size": min(100, max(1, requested_size)),
+    }
 
 
 def _field_map(source: IntegrationSource) -> dict[str, Any]:
@@ -903,6 +939,99 @@ async def _fetch_entity(
     return all_items
 
 
+async def _inventory_sku_values(
+    db: AsyncSession,
+    source: IntegrationSource,
+    external_products: dict[str, Product] | None = None,
+    external_variants: dict[str, ProductVariant] | None = None,
+) -> list[str]:
+    """Collect the external SKU values that the provider can resolve.
+
+    A catalog/full sync already has the links in memory. For an inventory-only
+    run, read the persisted integration links so the request remains bounded to
+    products previously imported from this source.
+    """
+
+    values: set[str] = set()
+    for lookup in (external_products or {}, external_variants or {}):
+        for key in lookup:
+            if key.startswith("sku:"):
+                sku = key.removeprefix("sku:").strip()
+                if sku:
+                    values.add(sku)
+    if values:
+        return sorted(values)
+
+    result = await db.execute(
+        select(IntegrationRecordLink.external_sku).where(
+            IntegrationRecordLink.source_id == source.id,
+            IntegrationRecordLink.entity_type.in_(["product", "variant"]),
+            IntegrationRecordLink.external_sku.is_not(None),
+        )
+    )
+    return sorted({str(sku).strip() for sku in result.scalars().all() if sku not in (None, "") and str(sku).strip()})
+
+
+async def _fetch_inventory(
+    db: AsyncSession,
+    source: IntegrationSource,
+    external_products: dict[str, Product] | None = None,
+    external_variants: dict[str, ProductVariant] | None = None,
+    progress_callback: ProgressCallback | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch inventory, optionally splitting SKU values into provider-sized batches."""
+
+    endpoint = _endpoint_config(source, "inventory")
+    batch = _inventory_batch_config(endpoint)
+    if not batch:
+        return await _fetch_entity(source, "inventory", progress_callback)
+
+    path = endpoint.get("path")
+    if not path:
+        return []
+    sku_values = await _inventory_sku_values(db, source, external_products, external_variants)
+    if not sku_values:
+        await _report_progress(
+            progress_callback,
+            stage="FETCHING",
+            message="No hay SKU importados para consultar el inventario.",
+            percent=40,
+            current=0,
+            total=0,
+            entity="inventory",
+            items_received=0,
+            items_total=0,
+        )
+        return []
+
+    url = _url_for(source, str(path))
+    headers = _build_headers(source)
+    batch_size = int(batch["size"])
+    sku_batches = [sku_values[index : index + batch_size] for index in range(0, len(sku_values), batch_size)]
+    all_items: list[dict[str, Any]] = []
+    total_batches = len(sku_batches)
+    for batch_index, sku_batch in enumerate(sku_batches, start=1):
+        batch_url = _url_with_query(url, {str(batch["query_param"]): ",".join(sku_batch)})
+        status_code, payload = await _request_json(batch_url, headers)
+        rows = _extract_entity_rows(payload, endpoint, "inventory", status_code)
+        all_items.extend(rows)
+        await _report_progress(
+            progress_callback,
+            stage="FETCHING",
+            message=f"Descargando inventario: lote {batch_index} de {total_batches} ({len(sku_batch)} SKU).",
+            percent=10 + int(30 * batch_index / total_batches),
+            current=batch_index,
+            total=total_batches,
+            entity="inventory",
+            page=batch_index,
+            pages_total=total_batches,
+            items_received=len(all_items),
+            items_total=len(sku_values),
+        )
+
+    return all_items
+
+
 async def test_source(source: IntegrationSource) -> dict[str, Any]:
     validate_source(source)
     endpoint = _endpoint_config(source, "products")
@@ -1405,7 +1534,13 @@ async def _sync_inventory(
 ) -> None:
     external_products = external_products or {}
     external_variants = external_variants or {}
-    items = await _fetch_entity(source, "inventory", progress_callback)
+    items = await _fetch_inventory(
+        db,
+        source,
+        external_products,
+        external_variants,
+        progress_callback,
+    )
     if embedded_inventory is None:
         embedded_inventory = []
         if not _endpoint_config(source, "inventory").get("path"):
@@ -1472,6 +1607,10 @@ async def _sync_inventory(
     async def upsert_inventory(
         product: Product, variant: ProductVariant | None, quantity: float
     ) -> None:
+        # Provider snapshots are physical stock, never a negative adjustment.
+        # Clamp malformed values before persisting them or exposing them to the
+        # storefront and checkout availability calculations.
+        quantity = max(0.0, float(quantity))
         cache_key = (source.company_id, product.id, branch.id, warehouse_id, variant.id if variant else None)
         cached_inventory = inventory_cache.get(cache_key)
         if cached_inventory:

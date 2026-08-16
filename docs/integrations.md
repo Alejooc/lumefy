@@ -47,7 +47,15 @@ Los encabezados personalizados también se cifran de forma recursiva. Por defect
           "max_pages": 1000
         }
       },
-      "inventory": { "path": "/inventory", "data_path": "items" }
+      "inventory": {
+        "path": "/api/external/inventory",
+        "data_path": "data",
+        "batch": {
+          "enabled": true,
+          "query_param": "skus",
+          "size": 100
+        }
+      }
     },
     "field_map": {
       "product.external_id": "id",
@@ -57,13 +65,15 @@ Los encabezados personalizados también se cifran de forma recursiva. Por defect
       "product.cost": "cost",
       "inventory.external_id": "product_id",
       "inventory.sku": "sku",
-      "inventory.quantity": "quantity"
+      "inventory.quantity": "stock"
     }
   }
 }
 ```
 
 Cuando `pagination.enabled` es `false`, Lumefy hace una sola solicitud. Cuando es `true`, reemplaza o agrega los parámetros de página en cada solicitud y continúa hasta encontrar una página vacía, una página menor al tamaño configurado, metadatos de páginas/total devueltos por el proveedor, `last_page`/`total` configurados o el límite `max_pages`.
+
+Para endpoints de inventario que reciben varios SKU (por ejemplo `GET /api/external/inventory?skus=THO12306,THO12362`), activa `batch.enabled`. Lumefy toma los SKU vinculados durante la sincronización de catálogo, los divide en lotes y reemplaza dinámicamente el parámetro `skus`; el tamaño se limita a 100 aunque la configuración indique un valor mayor. La respuesta esperada puede envolver los registros en `data`, con `sku` como identificador y `stock` como cantidad. Las cantidades negativas se normalizan a cero antes de guardarse.
 
 Cada elemento de `GET /api/v1/integrations/sources/{id}/runs` incluye el estado operativo en `details.progress`. Sus campos principales son `stage` (`STARTING`, `FETCHING`, `PROCESSING`, `COMPLETED` o `FAILED`), `percent`, `message`, `current`, `total`, `page`, `pages_total`, `items_received`, `items_total` e `items_failed`. El panel consulta este historial mientras la ejecución está en cola o en curso y conserva el último resultado al terminar.
 

@@ -24,6 +24,9 @@ interface IntegrationForm {
   products_data_path: string;
   inventory_path: string;
   inventory_data_path: string;
+  inventory_batch_enabled: boolean;
+  inventory_batch_query_param: string;
+  inventory_batch_size: number;
   pagination_enabled: boolean;
   page_param: string;
   per_page_param: string;
@@ -93,6 +96,9 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       products_data_path: '',
       inventory_path: '/inventory',
       inventory_data_path: '',
+      inventory_batch_enabled: false,
+      inventory_batch_query_param: 'skus',
+      inventory_batch_size: 100,
       pagination_enabled: false,
       page_param: 'page',
       per_page_param: 'per_page',
@@ -136,6 +142,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     const endpoints = this.objectValue(config['endpoints']);
     const products = this.objectValue(endpoints['products']);
     const inventory = this.objectValue(endpoints['inventory']);
+    const inventoryBatch = this.objectValue(inventory['batch'] || inventory['sku_batch']);
     const pagination = this.objectValue(products['pagination']);
     this.editingId = source.id;
     this.editingConfiguration = config;
@@ -149,6 +156,9 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       products_data_path: this.stringValue(products['data_path']),
       inventory_path: this.stringValue(inventory['path']),
       inventory_data_path: this.stringValue(inventory['data_path']),
+      inventory_batch_enabled: inventoryBatch['enabled'] === true,
+      inventory_batch_query_param: this.stringValue(inventoryBatch['query_param'], 'skus'),
+      inventory_batch_size: Number(inventoryBatch['size'] || 100),
       pagination_enabled: pagination['enabled'] === true,
       page_param: this.stringValue(pagination['page_param'], 'page'),
       per_page_param: this.stringValue(pagination['per_page_param'], 'per_page'),
@@ -225,7 +235,12 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       endpoints['inventory'] = {
         ...this.objectValue(existingEndpoints['inventory']),
         path: this.form.inventory_path.trim(),
-        data_path: this.form.inventory_data_path.trim()
+        data_path: this.form.inventory_data_path.trim(),
+        batch: {
+          enabled: this.form.inventory_batch_enabled,
+          query_param: this.form.inventory_batch_query_param.trim() || 'skus',
+          size: Math.min(100, Math.max(1, Number(this.form.inventory_batch_size) || 100))
+        }
       };
     }
     const credentials: JsonObject = {};
@@ -241,7 +256,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       'product.cost': 'cost',
       'inventory.external_id': 'product_id',
       'inventory.sku': 'sku',
-      'inventory.quantity': 'quantity'
+      'inventory.quantity': 'stock'
     };
     return {
       name: this.form.name.trim(),

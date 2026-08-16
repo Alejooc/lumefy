@@ -138,6 +138,18 @@
     line-height: 1.45;
   }
 
+  .batch-config-card {
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(19, 164, 116, 0.18);
+    border-radius: 0.65rem;
+    background: rgba(19, 164, 116, 0.045);
+
+    p {
+      max-width: 62rem;
+      line-height: 1.45;
+    }
+  }
+
   @keyframes form-panel-in {
     from {
       opacity: 0;
