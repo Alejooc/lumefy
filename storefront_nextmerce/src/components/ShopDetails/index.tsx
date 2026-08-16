@@ -48,13 +48,71 @@ function stripHtml(value: string | undefined): string {
   return (value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function normalizeFacetValue(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 function variantAttribute(variant: ProductVariant, keys: string[]): string {
   const attributes = variant.attributes || {};
+  const normalizedAttributes = Object.entries(attributes).reduce<Record<string, unknown>>((result, [key, value]) => {
+    result[normalizeFacetValue(key)] = value;
+    return result;
+  }, {});
   for (const key of keys) {
-    const value = attributes[key] ?? attributes[key.toLowerCase()];
+    const value = normalizedAttributes[normalizeFacetValue(key)];
     if (value !== undefined && String(value).trim()) return String(value).trim();
   }
   return "";
+}
+
+function looksLikeMeasure(value: string): boolean {
+  const normalized = normalizeFacetValue(value);
+  return Boolean(
+      /\b(?:xs|s|m|l|xl|xxl|xxxl|2xl|3xl|4xl|5xl)\b/.test(normalized) ||
+      /\b(?:doble|sencilla|queen|king|semidoble|individual|matrimonial|twin|full)\b/.test(normalized) ||
+      /^\d+(?:[.,]\d+)?$/.test(normalized) ||
+      /\d+(?:[.,]\d+)?\s*[x×]\s*\d+(?:[.,]\d+)?/.test(normalized),
+  );
+}
+
+function uniqueFacetValues(values: string[]): string[] {
+  const seen = new Set<string>();
+  return values
+    .map((value) => value.trim())
+    .filter((value) => {
+      const normalized = normalizeFacetValue(value);
+      if (!normalized || seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    });
+}
+
+function variantFacetOptions(
+  variants: ProductVariant[] | undefined,
+  providedValues: string[] | undefined,
+  keys: string[],
+  fallbackToMeasureName = false,
+): string[] {
+  const provided = uniqueFacetValues(providedValues || []);
+  if (provided.length) return provided;
+
+  const explicitValues = uniqueFacetValues(
+    (variants || [])
+      .map((variant) => variantAttribute(variant, keys))
+      .filter(Boolean),
+  );
+  if (explicitValues.length) return explicitValues;
+
+  if (!fallbackToMeasureName) return [];
+  return uniqueFacetValues(
+    (variants || [])
+      .map((variant) => variant.name?.trim() || "")
+      .filter((name) => name && looksLikeMeasure(name)),
+  );
 }
 
 function numericVariantId(value: string): number {
@@ -75,8 +133,16 @@ const ShopDetails = ({
   const { openPreviewModal } = usePreviewSlider();
   const [previewImg, setPreviewImg] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [activeColor, setActiveColor] = useState(product.availableColors?.[0] || "");
-  const [activeSize, setActiveSize] = useState(product.availableSizes?.[0] || "");
+  const sizeOptions = useMemo(
+    () => variantFacetOptions(product.variants, product.availableSizes, ["size", "talla", "medida"], true),
+    [product.availableSizes, product.variants],
+  );
+  const colorOptions = useMemo(
+    () => variantFacetOptions(product.variants, product.availableColors, ["color", "colour", "colored"]),
+    [product.availableColors, product.variants],
+  );
+  const [activeColor, setActiveColor] = useState(colorOptions[0] || "");
+  const [activeSize, setActiveSize] = useState(sizeOptions[0] || "");
   const [activeTab, setActiveTab] = useState("description");
 
   const selectedVariant = useMemo(() => {
@@ -85,7 +151,7 @@ const ShopDetails = ({
     const matches = (variant: ProductVariant, value: string, keys: string[]) => {
       if (!value) return true;
       const explicit = variantAttribute(variant, keys);
-      return (explicit || variant.name || "").toLowerCase().includes(value.toLowerCase());
+      return normalizeFacetValue(explicit || variant.name || "").includes(normalizeFacetValue(value));
     };
     const match = variants.find((variant) =>
       matches(variant, activeColor, ["color", "colour", "colored"]) &&
@@ -118,11 +184,11 @@ const ShopDetails = ({
     product.brandName ? { label: "Marca", value: product.brandName } : null,
     product.categoryName ? { label: "Categoria", value: product.categoryName } : null,
     product.productType ? { label: "Tipo", value: product.productType } : null,
-    product.availableSizes?.length
-      ? { label: "Tallas", value: product.availableSizes.join(", ") }
+    sizeOptions.length
+      ? { label: "Medidas", value: sizeOptions.join(", ") }
       : null,
-    product.availableColors?.length
-      ? { label: "Colores", value: product.availableColors.join(", ") }
+    colorOptions.length
+      ? { label: "Colores", value: colorOptions.join(", ") }
       : null,
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 
@@ -277,18 +343,19 @@ const ShopDetails = ({
                   {descriptionText ? <p className="mt-6 text-dark-3">{descriptionText}</p> : null}
 
                   <div className="flex flex-col gap-4.5 border-y border-gray-3 mt-7.5 mb-9 py-9">
-                    {product.availableColors?.length ? (
+                    {colorOptions.length ? (
                       <div className="flex items-center gap-4">
                         <div className="min-w-[65px]">
                           <h4 className="font-medium text-dark">Color:</h4>
                         </div>
 
                         <div className="flex items-center gap-2.5">
-                          {product.availableColors.map((color) => (
+                          {colorOptions.map((color) => (
                             <button
                               key={color}
                               type="button"
                               aria-label={color}
+                              aria-pressed={activeColor === color}
                               onClick={() => setActiveColor(color)}
                               className={`flex items-center justify-center w-5.5 h-5.5 rounded-full ${
                                 activeColor === color ? "border" : ""
@@ -302,20 +369,23 @@ const ShopDetails = ({
                       </div>
                     ) : null}
 
-                    {product.availableSizes?.length ? (
-                      <div className="flex items-center gap-4">
-                        <div className="min-w-[65px]">
-                          <h4 className="font-medium text-dark">Talla:</h4>
+                    {sizeOptions.length ? (
+                      <div className="flex items-start gap-4">
+                        <div className="min-w-[65px] pt-2">
+                          <h4 className="font-medium text-dark">Medida:</h4>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3">
-                          {product.availableSizes.map((size) => (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {sizeOptions.map((size) => (
                             <button
                               key={size}
                               type="button"
+                              aria-pressed={activeSize === size}
                               onClick={() => setActiveSize(size)}
-                              className={`rounded-md border px-3 py-1.5 text-sm ${
-                                activeSize === size ? "border-blue bg-blue text-white" : "border-gray-3 text-dark"
+                              className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                                activeSize === size
+                                  ? "border-blue bg-blue text-white shadow-1"
+                                  : "border-gray-3 bg-white text-dark hover:border-blue hover:text-blue"
                               }`}
                             >
                               {size}

@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from app.api.v1.endpoints.storefront import (
     _cancel_storefront_sale_and_release_reservation,
+    _extract_variant_facets,
     _reserve_storefront_sale,
     _format_payu_confirmation_amount,
     _has_valid_basic_auth,
@@ -33,6 +34,34 @@ from app.models.inventory_movement import InventoryMovement, MovementType
 
 
 class StorefrontValidationTests(unittest.TestCase):
+    def test_variant_facets_keep_measure_labels_together(self):
+        variants = [
+            SimpleNamespace(
+                name="Doble - 1.40 x 1.90",
+                attributes={"Medida": "Doble", "Color": "Rojo"},
+            ),
+            SimpleNamespace(
+                name="Sencilla - 1.00 x 1.90",
+                attributes={"medida": "Sencilla - 1.00 x 1.90", "color": "Azul"},
+            ),
+        ]
+
+        sizes, colors = _extract_variant_facets(variants)
+
+        self.assertEqual(sizes, ["Doble - 1.40 x 1.90", "Sencilla - 1.00 x 1.90"])
+        self.assertEqual(colors, ["Rojo", "Azul"])
+
+    def test_variant_facets_infer_size_and_color_from_slash_names(self):
+        variants = [
+            SimpleNamespace(name="Rojo / XL", attributes={}),
+            SimpleNamespace(name="Azul / M", attributes={}),
+        ]
+
+        sizes, colors = _extract_variant_facets(variants)
+
+        self.assertEqual(sizes, ["XL", "M"])
+        self.assertEqual(colors, ["Rojo", "Azul"])
+
     def test_public_shipping_config_serializes_orm_rows(self):
         destination = SimpleNamespace(
             id=uuid4(),

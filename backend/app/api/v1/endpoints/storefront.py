@@ -756,49 +756,107 @@ def _storefront_reset_link(storefront: Storefront, token: str) -> str:
 def _split_variant_tokens(value: str | None) -> list[str]:
     if not value:
         return []
-    normalized = (
-        value.replace("|", "/")
-        .replace("-", "/")
-        .replace(",", "/")
+    # Keep hyphens intact in dimension labels (for example,
+    # "Doble - 1.40 x 1.90"), while still supporting simple "Rojo - XL"
+    # names from integrations.
+    normalized = value.replace("|", "/").replace(",", "/")
+    tokens: list[str] = []
+    for part in normalized.split("/"):
+        compact = part.strip()
+        if not compact:
+            continue
+        if "-" in compact and not re.search(r"\d+(?:[.,]\d+)?\s*[x×]\s*\d+(?:[.,]\d+)?", compact):
+            hyphen_parts = [item.strip() for item in compact.split("-") if item.strip()]
+            if len(hyphen_parts) > 1:
+                tokens.extend(hyphen_parts)
+                continue
+        tokens.append(compact)
+    return tokens
+
+
+def _normalized_variant_attributes(variant: ProductVariant) -> dict[str, Any]:
+    attributes = variant.attributes if isinstance(variant.attributes, dict) else {}
+    return {str(key).strip().lower(): value for key, value in attributes.items()}
+
+
+def _is_measure_label(value: str) -> bool:
+    normalized = unicodedata.normalize("NFD", value.lower())
+    normalized = "".join(char for char in normalized if unicodedata.category(char) != "Mn")
+    return bool(
+        re.search(r"\b(?:xs|s|m|l|xl|xxl|xxxl|2xl|3xl|4xl|5xl)\b", normalized)
+        or re.search(
+            r"\b(?:doble|sencilla|queen|king|semidoble|individual|matrimonial|twin|full)\b",
+            normalized,
+        )
+        or re.fullmatch(r"\d+(?:[.,]\d+)?", normalized)
+        or re.search(r"\d+(?:[.,]\d+)?\s*[x×]\s*\d+(?:[.,]\d+)?", normalized)
     )
-    return [part.strip() for part in normalized.split("/") if part.strip()]
 
 
 def _extract_variant_facets(variants: list[ProductVariant] | None) -> tuple[list[str], list[str]]:
     if not variants:
         return [], []
 
-    known_sizes = {
-        "xs", "s", "m", "l", "xl", "xxl", "xxxl",
-        "2xl", "3xl", "4xl", "5xl",
-    }
     sizes: list[str] = []
     colors: list[str] = []
     seen_sizes: set[str] = set()
     seen_colors: set[str] = set()
 
     for variant in variants:
-        attributes = variant.attributes if isinstance(variant.attributes, dict) else {}
-        explicit_sizes = attributes.get("size") or attributes.get("talla") or attributes.get("medida")
-        explicit_colors = attributes.get("color") or attributes.get("colour") or attributes.get("colored")
-        tokens = []
-        if explicit_sizes:
-            tokens.extend([str(explicit_sizes)])
-        if explicit_colors:
-            tokens.extend([str(explicit_colors)])
-        tokens.extend(_split_variant_tokens(variant.name))
-        for token in tokens:
-            compact = token.strip()
-            normalized = compact.lower().replace(" ", "")
-            if normalized in known_sizes or normalized.isdigit():
-                if compact not in seen_sizes:
-                    seen_sizes.add(compact)
-                    sizes.append(compact)
-            else:
-                title = compact.title()
-                if title not in seen_colors:
-                    seen_colors.add(title)
-                    colors.append(title)
+        attributes = _normalized_variant_attributes(variant)
+        explicit_size = next(
+            (
+                str(attributes[key]).strip()
+                for key in ("size", "talla", "medida")
+                if attributes.get(key) not in (None, "")
+            ),
+            None,
+        )
+        explicit_color = next(
+            (
+                str(attributes[key]).strip()
+                for key in ("color", "colour", "colored")
+                if attributes.get(key) not in (None, "")
+            ),
+            None,
+        )
+
+        # Prefer explicit attributes. If an integration only sends a variant
+        # name, retain the complete measure instead of splitting its numbers
+        # into unrelated color facets.
+        name = str(variant.name or "").strip()
+        name_tokens = _split_variant_tokens(name)
+        measure_tokens = [token for token in name_tokens if _is_measure_label(token)]
+        if explicit_size:
+            # When the explicit value is only "Doble" but the variant name
+            # carries the useful dimensions, expose the complete label.
+            matching_name_measure = [
+                token
+                for token in measure_tokens
+                if explicit_size.lower() in token.lower()
+            ]
+            measure_tokens = matching_name_measure or [explicit_size]
+        elif not measure_tokens and _is_measure_label(name):
+            measure_tokens = [name]
+
+        for value in measure_tokens:
+            if value and value.lower() not in {item.lower() for item in seen_sizes}:
+                seen_sizes.add(value)
+                sizes.append(value)
+
+        color_tokens = [explicit_color] if explicit_color else []
+        if not explicit_color and not _is_measure_label(name):
+            color_tokens = name_tokens
+        elif not explicit_color:
+            color_tokens.extend(token for token in name_tokens if not _is_measure_label(token))
+        for token in color_tokens:
+            compact = (token or "").strip()
+            if not compact or _is_measure_label(compact):
+                continue
+            title = compact.title()
+            if title.lower() not in {item.lower() for item in seen_colors}:
+                seen_colors.add(title)
+                colors.append(title)
 
     return sizes, colors
 
