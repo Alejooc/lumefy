@@ -41,9 +41,10 @@ async def proxy_asset(
     """
     from app.services.integration_service import _asset_url_matches_source
 
-    sources = (await db.execute(
-        select(IntegrationSource).where(IntegrationSource.is_active.is_(True))
-    )).scalars().all()
+    # A paused/failed source may still own products already published in the
+    # storefront. Serving those existing assets must not require reactivating
+    # catalog or inventory synchronization.
+    sources = (await db.execute(select(IntegrationSource))).scalars().all()
     source = next((candidate for candidate in sources if _asset_url_matches_source(candidate, url)), None)
     if source is None:
         raise HTTPException(status_code=404, detail="Imagen no asociada a un origen activo")
