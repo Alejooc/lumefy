@@ -89,15 +89,36 @@ class Product(ProductBase):
         from_attributes = True
 
 
-class ProductListItem(ProductBase):
-    """Lightweight product representation used by the paginated catalog."""
+class ProductListItem(BaseModel):
+    """Minimal row used by the admin product table.
+
+    The editor endpoint remains the place for full descriptions, attributes,
+    images and variants. Keeping those large fields out of every paginated
+    table request prevents provider HTML from being transferred and parsed for
+    products that are not being opened.
+    """
 
     id: UUID
     company_id: Optional[UUID] = None
     is_active: bool = True
+    name: str
+    internal_reference: Optional[str] = None
+    sku: Optional[str] = None
+    barcode: Optional[str] = None
+    image_url: Optional[str] = None
+    product_type: str = "STORABLE"
+    price: float = 0.0
+    cost: float = 0.0
+    track_inventory: bool = True
+    visible_in_ecommerce: bool = False
+    category_id: Optional[UUID] = None
+    brand_id: Optional[UUID] = None
     category: Optional[CategorySchema] = None
     brand: Optional[BrandSchema] = None
     variant_count: int = 0
+
+    class Config:
+        from_attributes = True
 
     class Config:
         from_attributes = True

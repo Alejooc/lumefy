@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload, load_only, selectinload
 import json
 import re
 
@@ -378,6 +378,22 @@ async def read_products_page(
         select(Product, func.count(ProductVariant.id).label("variant_count"))
         .outerjoin(ProductVariant, ProductVariant.product_id == Product.id)
         .options(
+            load_only(
+                Product.id,
+                Product.company_id,
+                Product.is_active,
+                Product.name,
+                Product.internal_reference,
+                Product.sku,
+                Product.barcode,
+                Product.image_url,
+                Product.product_type,
+                Product.price,
+                Product.cost,
+                Product.track_inventory,
+                Product.category_id,
+                Product.brand_id,
+            ),
             # Keep these as select-in loads: joinedload would add category and
             # brand columns to the grouped count query and break PostgreSQL's
             # GROUP BY validation.
