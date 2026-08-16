@@ -538,17 +538,38 @@ async def export_products(
     return ExportService.to_excel_response(rows, columns, filename="productos")
 
 
-def _complete_relative_image_url(value: str | None, prefix: str) -> tuple[str | None, bool]:
-    """Return an absolute image URL, changing only relative values."""
+def _complete_relative_image_url(
+    value: str | None,
+    prefix: str,
+    *,
+    replace_existing: bool = False,
+) -> tuple[str | None, bool]:
+    """Return an image URL under ``prefix``.
+
+    Relative values are always completed.  Absolute values are deliberately
+    preserved unless ``replace_existing`` is enabled; in replacement mode the
+    last path component (the provider's filename) is retained while the old
+    host/base path is discarded.
+    """
     normalized = (value or "").strip()
     if not normalized:
         return value, False
 
     parsed = urlsplit(normalized)
-    if parsed.scheme in {"http", "https"} and parsed.netloc:
+    is_absolute = parsed.scheme in {"http", "https"} and parsed.netloc
+    if is_absolute and not replace_existing:
         return normalized, False
 
-    return urljoin(prefix.rstrip("/") + "/", normalized.lstrip("/")), True
+    if is_absolute:
+        filename = parsed.path.rstrip("/").rsplit("/", 1)[-1]
+        if not filename:
+            return normalized, False
+        path = filename
+    else:
+        path = normalized.lstrip("/")
+
+    completed = urljoin(prefix.rstrip("/") + "/", path)
+    return completed, completed != normalized
 
 
 @router.post("/bulk-complete-image-urls", response_model=schemas.ProductBulkImageUrlResponse)
@@ -558,7 +579,7 @@ async def bulk_complete_image_urls(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> schemas.ProductBulkImageUrlResponse:
-    """Prefix relative product/gallery image paths without touching valid URLs."""
+    """Complete image paths and optionally replace an incorrect old URL base."""
     prefix = product_in.prefix.strip()
     parsed_prefix = urlsplit(prefix)
     if parsed_prefix.scheme not in {"http", "https"} or not parsed_prefix.netloc:
@@ -584,7 +605,11 @@ async def bulk_complete_image_urls(
 
     for product in products:
         changed = False
-        product_url, product_changed = _complete_relative_image_url(product.image_url, prefix)
+        product_url, product_changed = _complete_relative_image_url(
+            product.image_url,
+            prefix,
+            replace_existing=product_in.replace_existing,
+        )
         if product_changed:
             product.image_url = product_url
             changed = True
@@ -593,7 +618,11 @@ async def bulk_complete_image_urls(
             skipped_valid += 1
 
         for image in product.images:
-            image_url, image_changed = _complete_relative_image_url(image.image_url, prefix)
+            image_url, image_changed = _complete_relative_image_url(
+                image.image_url,
+                prefix,
+                replace_existing=product_in.replace_existing,
+            )
             if image_changed:
                 image.image_url = image_url
                 changed = True

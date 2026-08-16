@@ -323,13 +323,13 @@ export class ProductListComponent implements OnInit {
             : `Se revisarán los ${this.totalProducts} productos del catálogo completo.`;
         const result = await this.swal.input({
             title: 'Completar URLs de imágenes',
-            text: `${scopeText} Las URLs que ya son completas no se modificarán.`,
+            text: `${scopeText} Las URLs relativas se completarán. Las URLs absolutas se conservarán por ahora y podrás reemplazarlas si quedaron con una base incorrecta.`,
             input: 'text',
             inputLabel: 'Prefijo de imágenes',
             inputPlaceholder: 'https://cdn.proveedor.com/imagenes/',
             inputAttributes: { autocapitalize: 'off', autocorrect: 'off' },
             showCancelButton: true,
-            confirmButtonText: 'Completar URLs',
+            confirmButtonText: 'Revisar URLs',
             cancelButtonText: 'Cancelar',
             inputValidator: (value) => {
                 const prefix = String(value || '').trim();
@@ -348,7 +348,7 @@ export class ProductListComponent implements OnInit {
             return;
         }
 
-        const body: { prefix: string; product_ids?: string[] } = {
+        const body: { prefix: string; product_ids?: string[]; replace_existing?: boolean } = {
             prefix: String(result.value).trim()
         };
         if (selectedIds.length) {
@@ -356,13 +356,40 @@ export class ProductListComponent implements OnInit {
         }
 
         this.isLoading = true;
+        this.updateImageUrls(body, false);
+    }
+
+    private updateImageUrls(
+        body: { prefix: string; product_ids?: string[]; replace_existing?: boolean },
+        replacingExisting: boolean
+    ): void {
         this.apiService.post<BulkImageUrlResponse>('/products/bulk-complete-image-urls', body).subscribe({
             next: (response) => {
+                if (!replacingExisting && response.skipped_valid > 0) {
+                    this.swal
+                        .confirm(
+                            'Hay URLs existentes',
+                            `${response.skipped_valid} imagen(es) ya tienen una URL absoluta. Si esa base es incorrecta, se reemplazarán conservando el nombre del archivo. ¿Continuar?`
+                        )
+                        .then((confirmation) => {
+                            if (confirmation.isConfirmed) {
+                                body.replace_existing = true;
+                                this.updateImageUrls(body, true);
+                                return;
+                            }
+                            this.clearSelection();
+                            this.isLoading = false;
+                            this.loadProducts();
+                        });
+                    return;
+                }
+
                 this.clearSelection();
                 this.isLoading = false;
+                const replacedText = replacingExisting ? ' Las bases anteriores fueron reemplazadas.' : '';
                 this.swal.success(
                     'URLs actualizadas',
-                    `${response.images_updated} imagen(es) completada(s). ${response.skipped_valid} URL(s) válida(s) se conservaron.`
+                    `${response.images_updated} imagen(es) actualizada(s). ${response.skipped_valid} URL(s) válida(s) se conservaron.${replacedText}`
                 );
                 this.loadProducts();
             },

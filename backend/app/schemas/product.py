@@ -143,10 +143,15 @@ class ProductBulkDeleteAllRequest(BaseModel):
 
 
 class ProductBulkImageUrlRequest(BaseModel):
-    """Complete relative product image paths with a trusted URL prefix."""
+    """Complete product image paths with a trusted URL prefix.
+
+    By default, already absolute URLs are kept untouched.  Callers can opt
+    into replacing them when a previous integration stored the wrong base URL.
+    """
 
     prefix: str = Field(min_length=1, max_length=2000)
     product_ids: Optional[List[UUID]] = Field(default=None, max_length=10000)
+    replace_existing: bool = False
 
 
 class ProductBulkImageUrlResponse(BaseModel):

@@ -5,6 +5,7 @@ from uuid import uuid4
 from app.api.v1.endpoints.products import (
     _PRODUCT_EXPORT_COLUMNS,
     _build_product_export_rows,
+    _complete_relative_image_url,
     _normalize_import_dataframe,
 )
 
@@ -78,3 +79,22 @@ class ProductExportTests(TestCase):
         self.assertEqual(
             list(dataframe.columns), ["product_id", "variant_id", "name", "variant_sku"]
         )
+
+    def test_image_url_completion_keeps_existing_absolute_urls_by_default(self):
+        value, changed = _complete_relative_image_url(
+            "https://old.example.test/static/catalog/THO12306.jpg",
+            "https://cdn.example.test/images/",
+        )
+
+        self.assertEqual(value, "https://old.example.test/static/catalog/THO12306.jpg")
+        self.assertFalse(changed)
+
+    def test_image_url_completion_can_replace_an_incorrect_absolute_base(self):
+        value, changed = _complete_relative_image_url(
+            "https://old.example.test/static/catalog/THO12306.jpg",
+            "https://cdn.example.test/images/",
+            replace_existing=True,
+        )
+
+        self.assertEqual(value, "https://cdn.example.test/images/THO12306.jpg")
+        self.assertTrue(changed)

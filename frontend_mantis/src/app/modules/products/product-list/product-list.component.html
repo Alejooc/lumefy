@@ -16,9 +16,9 @@
           </button>
           @if (totalProducts > 0) {
             <button class="btn btn-outline-warning" (click)="completeImageUrls()" [disabled]="isLoading"
-              title="Completar las rutas relativas de las imágenes con un prefijo HTTPS">
+              title="Completar rutas relativas o reemplazar una base de imágenes incorrecta">
               <i class="ti ti-photo-edit"></i>
-              {{ selectedCount > 0 ? 'Completar imágenes seleccionadas' : 'Completar URLs de imágenes' }}
+              {{ selectedCount > 0 ? 'Actualizar imágenes seleccionadas' : 'Actualizar URLs de imágenes' }}
             </button>
             <button class="btn btn-outline-primary" (click)="publishToEcommerce()" [disabled]="isLoading"
               title="Publicar los productos seleccionados o todo el catálogo activo">

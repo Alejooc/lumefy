@@ -1395,6 +1395,11 @@ async def _sync_products(
         ]:
             value = _mapped(item, mapping, key, *fallbacks)
             if value not in (None, ""):
+                if field == "image_url":
+                    # Apply the configured asset base to relative values from
+                    # providers.  Without this, the product's primary image
+                    # bypassed ``asset_base_url`` while gallery images used it.
+                    value = _asset_url(source, value)
                 setattr(product, field, str(value))
         for field, key, *fallbacks in [
             ("price", "product.price", "price", "sale_price"),
