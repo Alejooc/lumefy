@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, or_, select, text
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import load_only, selectinload
 from datetime import datetime, timedelta
 from alembic.config import Config
 from alembic.script import ScriptDirectory
@@ -147,14 +147,9 @@ async def get_dashboard_stats(
 
     # 2. Recent Orders (Sales) - filtered
     q_recent_orders = select(Sale).options(
-        selectinload(Sale.items).selectinload(SaleItem.product).options(
-            selectinload(Product.images),
-            selectinload(Product.variants),
-            selectinload(Product.brand),
-            selectinload(Product.unit_of_measure),
-            selectinload(Product.purchase_uom),
-            selectinload(Product.category)
-        )
+        selectinload(Sale.items)
+        .selectinload(SaleItem.product)
+        .options(load_only(Product.id, Product.name))
     ).where(
         Sale.company_id == current_user.company_id
     ).order_by(Sale.created_at.desc()).limit(5)
@@ -211,24 +206,28 @@ async def get_dashboard_stats(
         chart_start = today - timedelta(days=6)
         chart_end = today
 
-    q_weekly = select(Sale).where(
+    sale_day = func.date(Sale.created_at).label("sale_day")
+    q_weekly = select(
+        sale_day,
+        func.coalesce(func.sum(Sale.total), 0).label("day_total"),
+    ).where(
         Sale.company_id == current_user.company_id,
         Sale.created_at >= chart_start,
         Sale.created_at <= chart_end + timedelta(days=1),
         Sale.status.notin_([SaleStatus.DRAFT, SaleStatus.QUOTE, SaleStatus.CANCELLED])
-    )
+    ).group_by(sale_day)
     if branch_id:
         q_weekly = q_weekly.where(Sale.branch_id == branch_id)
     res_weekly = await db.execute(q_weekly)
-    weekly_sales_list = res_weekly.scalars().all()
+    weekly_sales_rows = res_weekly.all()
     
     num_days = (chart_end - chart_start).days + 1
     weekly_map = { (chart_start + timedelta(days=i)): 0.0 for i in range(num_days) }
     
-    for sale in weekly_sales_list:
-        d = sale.created_at.date()
+    for sale_day_value, day_total in weekly_sales_rows:
+        d = sale_day_value.date() if hasattr(sale_day_value, "date") else sale_day_value
         if d in weekly_map:
-            weekly_map[d] += sale.total
+            weekly_map[d] += float(day_total or 0)
             
     days_map = {
         "Mon": "Lun", "Tue": "Mar", "Wed": "Mie", "Thu": "Jue", "Fri": "Vie", "Sat": "Sab", "Sun": "Dom"
@@ -249,20 +248,23 @@ async def get_dashboard_stats(
     current_year = today.year
     start_year = datetime(current_year, 1, 1)
     
-    q_monthly = select(Sale).where(
+    sale_month = func.extract("month", Sale.created_at).label("sale_month")
+    q_monthly = select(
+        sale_month,
+        func.coalesce(func.sum(Sale.total), 0).label("month_total"),
+    ).where(
         Sale.company_id == current_user.company_id,
         Sale.created_at >= start_year,
         Sale.status.notin_([SaleStatus.DRAFT, SaleStatus.QUOTE, SaleStatus.CANCELLED])
-    )
+    ).group_by(sale_month)
     if branch_id:
         q_monthly = q_monthly.where(Sale.branch_id == branch_id)
     res_monthly = await db.execute(q_monthly)
-    monthly_sales_list = res_monthly.scalars().all()
+    monthly_sales_rows = res_monthly.all()
     
     monthly_map = { i: 0.0 for i in range(1, 13) }
-    for sale in monthly_sales_list:
-        m = sale.created_at.month
-        monthly_map[m] += sale.total
+    for sale_month_value, month_total in monthly_sales_rows:
+        monthly_map[int(sale_month_value)] += float(month_total or 0)
         
     monthly_values = [monthly_map[i] for i in range(1, 13)]
     monthly_labels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
