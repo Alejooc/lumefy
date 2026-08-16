@@ -104,3 +104,22 @@ class ProductBulkDeleteResponse(BaseModel):
     deleted_ids: List[UUID]
     blocked: List[ProductBulkDeleteBlocked]
     not_found: List[UUID]
+
+
+class ProductPage(BaseModel):
+    """A server-paginated product collection for catalog screens."""
+
+    items: List[Product]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class ProductBulkDeleteAllRequest(BaseModel):
+    """Optional filters for a guarded, whole-catalog deletion."""
+
+    search: Optional[str] = None
+    category_id: Optional[UUID] = None
+    brand_id: Optional[UUID] = None
+    product_type: Optional[str] = None
