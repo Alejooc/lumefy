@@ -37,6 +37,7 @@ export interface Product {
     visible_in_ecommerce?: boolean;
     images: ProductImage[];
     variants?: ProductVariant[]; // Added for variant support
+    variant_count?: number;
 }
 
 export interface ProductVariant {

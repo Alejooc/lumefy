@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from uuid import UUID
 from app.schemas.unit_of_measure import UnitOfMeasure as UnitOfMeasureSchema
 from app.schemas.brand import Brand as BrandSchema
+from app.schemas.category import Category as CategorySchema
 from app.schemas.product_variant import ProductVariant as ProductVariantSchema
 from app.schemas.product_image import ProductImage as ProductImageSchema
 
@@ -86,6 +87,20 @@ class Product(ProductBase):
         from_attributes = True
 
 
+class ProductListItem(ProductBase):
+    """Lightweight product representation used by the paginated catalog."""
+
+    id: UUID
+    company_id: Optional[UUID] = None
+    is_active: bool = True
+    category: Optional[CategorySchema] = None
+    brand: Optional[BrandSchema] = None
+    variant_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
 class ProductBulkDeleteRequest(BaseModel):
     """Products selected by the user for a guarded bulk deletion."""
 
@@ -109,7 +124,7 @@ class ProductBulkDeleteResponse(BaseModel):
 class ProductPage(BaseModel):
     """A server-paginated product collection for catalog screens."""
 
-    items: List[Product]
+    items: List[ProductListItem]
     total: int
     page: int
     page_size: int

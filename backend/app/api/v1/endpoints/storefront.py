@@ -19,6 +19,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.core import auth, security
 from app.core.audit import log_sale_event
@@ -30,10 +31,13 @@ from app.core.rate_limit import limiter
 from app.models.branch import Branch
 from app.models.warehouse import Warehouse
 from app.models.company import Company
+from app.models.brand import Brand
+from app.models.category import Category
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.sale import Payment, Sale, SaleItem, SaleStatus
 from app.models.product import Product
+from app.models.product_image import ProductImage
 from app.models.product_variant import ProductVariant
 from app.models.user import User
 from app.models.client import Client
@@ -3522,10 +3526,9 @@ async def read_public_products(
     collections = collections_result.scalars().all()
     collection_name_map = {item.slug: item.name for item in collections}
 
-    published_result = await db.execute(
+    published_query = (
         select(PublishedProduct)
         .options(
-            selectinload(PublishedProduct.product).selectinload(Product.images),
             selectinload(PublishedProduct.product).selectinload(Product.category),
             selectinload(PublishedProduct.product).selectinload(Product.brand),
             selectinload(PublishedProduct.product).selectinload(Product.variants),
@@ -3540,6 +3543,38 @@ async def read_public_products(
             Product.is_active == True,
         )
     )
+    # Apply the inexpensive, index-backed filters before loading variants and
+    # collections. The remaining facet filters (size, color and effective
+    # variant price) still run in Python because they depend on JSON variant
+    # attributes and storefront overrides.
+    if selected_categories:
+        published_query = published_query.where(Product.category_id.in_(selected_categories))
+    if selected_types:
+        published_query = published_query.where(Product.product_type.in_(selected_types))
+    if normalized_search:
+        search_filter = f"%{normalized_search}%"
+        normalized_column = lambda column: func.lumefy_unaccent(func.lower(column)).ilike(search_filter)
+        published_query = published_query.where(
+            or_(
+                normalized_column(Product.name),
+                normalized_column(Product.sku),
+                normalized_column(Product.description),
+                Product.brand.has(normalized_column(Brand.name)),
+                Product.category.has(normalized_column(Category.name)),
+                normalized_column(PublishedProduct.custom_title),
+                normalized_column(PublishedProduct.custom_description),
+                normalized_column(PublishedProduct.slug),
+                Product.variants.any(
+                    or_(
+                        normalized_column(ProductVariant.name),
+                        normalized_column(ProductVariant.sku),
+                        normalized_column(ProductVariant.barcode),
+                    )
+                ),
+            )
+        )
+
+    published_result = await db.execute(published_query)
     published_products = published_result.scalars().unique().all()
 
     product_collection_map: dict[uuid.UUID, list[str]] = {}
@@ -3657,6 +3692,28 @@ async def read_public_products(
     start_index = (current_page - 1) * safe_page_size
     end_index = start_index + safe_page_size
     paginated_products = filtered_products[start_index:end_index]
+
+    # Images are only needed by the visible page. Loading them as a nested
+    # select-in relationship for the complete catalog made every search pay
+    # for the image gallery of every published product.
+    if paginated_products:
+        visible_product_ids = [item.product_id for item in paginated_products]
+        images_result = await db.execute(
+            select(ProductImage)
+            .where(ProductImage.product_id.in_(visible_product_ids))
+            .order_by(ProductImage.product_id.asc(), ProductImage.order.asc(), ProductImage.created_at.asc())
+        )
+        images_by_product: dict[uuid.UUID, list[ProductImage]] = {}
+        for image in images_result.scalars().all():
+            images_by_product.setdefault(image.product_id, []).append(image)
+        for published_product in paginated_products:
+            if published_product.product:
+                set_committed_value(
+                    published_product.product,
+                    "images",
+                    images_by_product.get(published_product.product_id, []),
+                )
+
     stock_map = await _get_storefront_stock_map(
         db,
         storefront,

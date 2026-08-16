@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 import json
 import re
 
@@ -217,6 +217,46 @@ def _delete_blocker_detail(product: Product, reasons: list[str]) -> str:
     )
 
 
+def _product_filter_conditions(
+    *,
+    company_id: Any,
+    search: str | None = None,
+    category_id: str | None = None,
+    brand_id: str | None = None,
+    product_type: str | None = None,
+):
+    """Return reusable product predicates without eager-loading side effects."""
+    conditions = []
+    if company_id:
+        conditions.append(Product.company_id == company_id)
+
+    if search:
+        search_filter = f"%{search.strip()}%"
+        conditions.append(
+            or_(
+                Product.name.ilike(search_filter),
+                Product.sku.ilike(search_filter),
+                Product.barcode.ilike(search_filter),
+                Product.internal_reference.ilike(search_filter),
+                Product.variants.any(
+                    or_(
+                        ProductVariant.name.ilike(search_filter),
+                        ProductVariant.sku.ilike(search_filter),
+                        ProductVariant.barcode.ilike(search_filter),
+                    )
+                ),
+            )
+        )
+
+    if category_id:
+        conditions.append(Product.category_id == category_id)
+    if brand_id:
+        conditions.append(Product.brand_id == brand_id)
+    if product_type:
+        conditions.append(Product.product_type == product_type)
+    return conditions
+
+
 def _product_collection_query(
     *,
     company_id: Any,
@@ -227,34 +267,22 @@ def _product_collection_query(
 ):
     """Build the shared catalog query used by list and paginated endpoints."""
     query = select(Product).options(
-        selectinload(Product.brand),
+        joinedload(Product.brand),
+        joinedload(Product.category),
         selectinload(Product.unit_of_measure),
         selectinload(Product.purchase_uom),
         selectinload(Product.variants),
         selectinload(Product.images),
-        selectinload(Product.category),
     )
-
-    if company_id:
-        query = query.where(Product.company_id == company_id)
-
-    if search:
-        search_filter = f"%{search}%"
-        query = query.where(
-            or_(
-                Product.name.ilike(search_filter),
-                Product.sku.ilike(search_filter),
-                Product.barcode.ilike(search_filter),
-                Product.internal_reference.ilike(search_filter),
-            )
+    query = query.where(
+        *_product_filter_conditions(
+            company_id=company_id,
+            search=search,
+            category_id=category_id,
+            brand_id=brand_id,
+            product_type=product_type,
         )
-
-    if category_id:
-        query = query.where(Product.category_id == category_id)
-    if brand_id:
-        query = query.where(Product.brand_id == brand_id)
-    if product_type:
-        query = query.where(Product.product_type == product_type)
+    )
 
     # Stable ordering is important: records must not jump between pages while
     # the user navigates the catalog.
@@ -330,19 +358,49 @@ async def read_products_page(
         "brand_id": brand_id,
         "product_type": product_type,
     }
-    count_query = _product_collection_query(**filters).order_by(None).subquery()
-    total = int((await db.scalar(select(func.count()).select_from(count_query))) or 0)
+    # Count only the filtered product rows.  The previous implementation built
+    # the full eager-loaded collection query first, which made every search
+    # execute all relationship options before counting.
+    total = int(
+        (
+            await db.scalar(
+                select(func.count(Product.id)).where(
+                    *_product_filter_conditions(**filters)
+                )
+            )
+        )
+        or 0
+    )
     total_pages = (total + page_size - 1) // page_size if total else 0
     page = min(page, total_pages) if total_pages else 1
 
     result = await db.execute(
-        _product_collection_query(**filters)
+        select(Product, func.count(ProductVariant.id).label("variant_count"))
+        .outerjoin(ProductVariant, ProductVariant.product_id == Product.id)
+        .options(
+            # Keep these as select-in loads: joinedload would add category and
+            # brand columns to the grouped count query and break PostgreSQL's
+            # GROUP BY validation.
+            selectinload(Product.brand),
+            selectinload(Product.category),
+        )
+        .where(*_product_filter_conditions(**filters))
+        .group_by(Product.id)
+        .order_by(Product.created_at.desc(), Product.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
-    products = await _attach_published_state(db, result.scalars().all(), current_user.company_id)
+    rows = result.all()
+    products = await _attach_published_state(
+        db, [row[0] for row in rows], current_user.company_id
+    )
+    items = []
+    for product, row in zip(products, rows):
+        item = schemas.ProductListItem.model_validate(product)
+        item.variant_count = int(row.variant_count or 0)
+        items.append(item)
     return schemas.ProductPage(
-        items=products,
+        items=items,
         total=total,
         page=page,
         page_size=page_size,
@@ -811,12 +869,12 @@ async def read_product(
     """Get a single product with all relations."""
     result = await db.execute(
         select(Product).options(
-            selectinload(Product.brand),
-            selectinload(Product.unit_of_measure),
-            selectinload(Product.purchase_uom),
+            joinedload(Product.brand),
+            joinedload(Product.unit_of_measure),
+            joinedload(Product.purchase_uom),
+            joinedload(Product.category),
             selectinload(Product.variants),
             selectinload(Product.images),
-            selectinload(Product.category)
         ).where(
             Product.id == product_id,
             Product.company_id == current_user.company_id

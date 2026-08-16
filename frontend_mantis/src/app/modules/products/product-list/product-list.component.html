@@ -129,9 +129,9 @@
                               Ref: {{ product.internal_reference }}
                             </small>
                           }
-                          @if (product.variants?.length > 0) {
+                          @if ((product.variant_count ?? product.variants?.length ?? 0) > 0) {
                             <small class="text-muted">
-                              | {{ product.variants.length }} variante(s)
+                              | {{ product.variant_count ?? product.variants?.length }} variante(s)
                             </small>
                           }
                         </div>
