@@ -1,10 +1,12 @@
 from typing import Any, List
+from uuid import UUID
 from urllib.parse import urljoin, urlsplit
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
+import json
 import re
 
 from app.core.database import get_db
@@ -347,6 +349,90 @@ async def read_products_page(
         total_pages=total_pages,
     )
 
+_PRODUCT_EXPORT_COLUMNS = {
+    "product_id": "product_id",
+    "variant_id": "variant_id",
+    "name": "name",
+    "sku": "sku",
+    "barcode": "barcode",
+    "variant_name": "variant_name",
+    "variant_sku": "variant_sku",
+    "variant_barcode": "variant_barcode",
+    "price": "price",
+    "cost": "cost",
+    "price_extra": "price_extra",
+    "cost_extra": "cost_extra",
+    "variant_price": "variant_price",
+    "variant_cost": "variant_cost",
+    "variant_attributes_json": "variant_attributes_json",
+    "variant_weight": "variant_weight",
+    "product_type": "product_type",
+    "category_name": "category_name",
+    "brand_name": "brand_name",
+    "image_url": "image_url",
+    "tax_rate": "tax_rate",
+    "min_stock": "min_stock",
+    "track_inventory": "track_inventory",
+    "sale_ok": "sale_ok",
+    "purchase_ok": "purchase_ok",
+    "is_active": "is_active",
+    "variant_is_active": "variant_is_active",
+}
+
+
+def _product_export_row(product: Product, variant: ProductVariant | None = None) -> dict[str, Any]:
+    """Build one round-trip row for a product or one of its variants.
+
+    IDs are the only stable relation keys.  SKU values are deliberately kept as
+    editable business data and are never used to decide which record to update.
+    """
+    return {
+        "product_id": str(product.id),
+        "variant_id": str(variant.id) if variant else "",
+        "name": product.name or "",
+        "sku": product.sku or "",
+        "barcode": product.barcode or "",
+        "variant_name": variant.name if variant else "",
+        "variant_sku": variant.sku if variant else "",
+        "variant_barcode": variant.barcode if variant else "",
+        "price": float(product.price) if product.price is not None else 0,
+        "cost": float(product.cost) if product.cost is not None else 0,
+        "price_extra": float(variant.price_extra) if variant else 0,
+        "cost_extra": float(variant.cost_extra) if variant else 0,
+        "variant_price": float(variant.price) if variant and variant.price is not None else "",
+        "variant_cost": float(variant.cost) if variant and variant.cost is not None else "",
+        "variant_attributes_json": (
+            json.dumps(variant.attributes or {}, ensure_ascii=False, sort_keys=True)
+            if variant
+            else ""
+        ),
+        "variant_weight": float(variant.weight) if variant and variant.weight is not None else "",
+        "product_type": product.product_type or "",
+        "category_name": product.category.name if product.category else "",
+        "brand_name": product.brand.name if product.brand else "",
+        "image_url": product.image_url or "",
+        "tax_rate": float(product.tax_rate) if product.tax_rate is not None else 0,
+        "min_stock": float(product.min_stock) if product.min_stock is not None else 0,
+        "track_inventory": bool(product.track_inventory),
+        "sale_ok": bool(product.sale_ok),
+        "purchase_ok": bool(product.purchase_ok),
+        "is_active": bool(product.is_active),
+        "variant_is_active": bool(variant.is_active) if variant else "",
+    }
+
+
+def _build_product_export_rows(products: list[Product]) -> list[dict[str, Any]]:
+    """Return one row per variant, or one row for products without variants."""
+    rows: list[dict[str, Any]] = []
+    for product in products:
+        variants = list(product.variants or [])
+        if variants:
+            rows.extend(_product_export_row(product, variant) for variant in variants)
+        else:
+            rows.append(_product_export_row(product))
+    return rows
+
+
 @router.get("/export")
 async def export_products(
     db: AsyncSession = Depends(get_db),
@@ -363,13 +449,20 @@ async def export_products(
         selectinload(Product.brand),
         selectinload(Product.category),
         selectinload(Product.unit_of_measure),
+        selectinload(Product.variants),
     )
     if current_user.company_id:
         query = query.where(Product.company_id == current_user.company_id)
     if search:
         search_filter = f"%{search}%"
         query = query.where(
-            or_(Product.name.ilike(search_filter), Product.sku.ilike(search_filter))
+            or_(
+                Product.name.ilike(search_filter),
+                Product.sku.ilike(search_filter),
+                Product.variants.any(ProductVariant.name.ilike(search_filter)),
+                Product.variants.any(ProductVariant.sku.ilike(search_filter)),
+                Product.variants.any(ProductVariant.barcode.ilike(search_filter)),
+            )
         )
     if category_id:
         query = query.where(Product.category_id == category_id)
@@ -379,31 +472,8 @@ async def export_products(
     result = await db.execute(query)
     products = result.scalars().all()
 
-    columns = {
-        "sku": "SKU",
-        "name": "Nombre",
-        "product_type": "Tipo",
-        "category_name": "Categoría",
-        "brand_name": "Marca",
-        "sale_price": "Precio Venta",
-        "cost_price": "Precio Costo",
-        "uom_name": "Unidad",
-        "is_active": "Activo",
-    }
-
-    rows = []
-    for p in products:
-        rows.append({
-            "sku": p.sku or "",
-            "name": p.name,
-            "product_type": p.product_type or "",
-            "category_name": p.category.name if p.category else "",
-            "brand_name": p.brand.name if p.brand else "",
-            "sale_price": float(p.price) if p.price is not None else 0,
-            "cost_price": float(p.cost) if p.cost is not None else 0,
-            "uom_name": p.unit_of_measure.name if p.unit_of_measure else "",
-            "is_active": "Sí" if p.is_active else "No",
-        })
+    rows = _build_product_export_rows(products)
+    columns = _PRODUCT_EXPORT_COLUMNS
 
     if format == "csv":
         return ExportService.to_csv_response(rows, columns, filename="productos")
@@ -1061,73 +1131,387 @@ async def delete_variant(
 
 # --- Import ---
 
+_IMPORT_MISSING = object()
+
+
+def _normalize_import_column(value: Any) -> str:
+    """Normalize old Spanish export headers and the new machine headers."""
+    import unicodedata
+
+    text = unicodedata.normalize("NFKD", str(value))
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+
+
+_IMPORT_COLUMN_ALIASES = {
+    "id_producto": "product_id",
+    "producto_id": "product_id",
+    "product_id": "product_id",
+    "id_variante": "variant_id",
+    "variante_id": "variant_id",
+    "variant_id": "variant_id",
+    "nombre": "name",
+    "nombre_producto": "name",
+    "product_name": "name",
+    "name": "name",
+    "sku_producto": "sku",
+    "product_sku": "sku",
+    "sku": "sku",
+    "codigo_barras": "barcode",
+    "barcode": "barcode",
+    "nombre_variante": "variant_name",
+    "variant_name": "variant_name",
+    "sku_variante": "variant_sku",
+    "variant_sku": "variant_sku",
+    "codigo_barras_variante": "variant_barcode",
+    "variant_barcode": "variant_barcode",
+    "precio": "price",
+    "precio_venta": "price",
+    "sale_price": "price",
+    "price": "price",
+    "costo": "cost",
+    "precio_costo": "cost",
+    "cost_price": "cost",
+    "cost": "cost",
+    "precio_extra": "price_extra",
+    "price_extra": "price_extra",
+    "costo_extra": "cost_extra",
+    "cost_extra": "cost_extra",
+    "precio_variante": "variant_price",
+    "variant_price": "variant_price",
+    "costo_variante": "variant_cost",
+    "variant_cost": "variant_cost",
+    "atributos_variante_json": "variant_attributes_json",
+    "variant_attributes_json": "variant_attributes_json",
+    "peso_variante": "variant_weight",
+    "variant_weight": "variant_weight",
+    "tipo": "product_type",
+    "product_type": "product_type",
+    "categoria": "category_name",
+    "categoria_nombre": "category_name",
+    "category_name": "category_name",
+    "marca": "brand_name",
+    "marca_nombre": "brand_name",
+    "brand_name": "brand_name",
+    "imagen": "image_url",
+    "imagen_url": "image_url",
+    "image_url": "image_url",
+    "tasa_impuesto": "tax_rate",
+    "tax_rate": "tax_rate",
+    "stock_minimo": "min_stock",
+    "min_stock": "min_stock",
+    "control_inventario": "track_inventory",
+    "track_inventory": "track_inventory",
+    "venta": "sale_ok",
+    "sale_ok": "sale_ok",
+    "compra": "purchase_ok",
+    "purchase_ok": "purchase_ok",
+    "activo": "is_active",
+    "is_active": "is_active",
+    "variante_activa": "variant_is_active",
+    "variant_is_active": "variant_is_active",
+}
+
+
+def _normalize_import_dataframe(df: Any) -> Any:
+    rename_map = {}
+    for column in df.columns:
+        normalized = _normalize_import_column(column)
+        rename_map[column] = _IMPORT_COLUMN_ALIASES.get(normalized, normalized)
+    return df.rename(columns=rename_map)
+
+
+def _import_row_value(row: Any, key: str) -> Any:
+    if key not in row.index:
+        return _IMPORT_MISSING
+    value = row[key]
+    if value is None:
+        return None
+    try:
+        if bool(__import__("pandas").isna(value)):
+            return None
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value, str):
+        return value.strip() or None
+    return value
+
+
+def _import_text(value: Any, *, default: Any = _IMPORT_MISSING) -> Any:
+    if value is _IMPORT_MISSING:
+        return default
+    if value is None:
+        return None
+    return str(value).strip() or None
+
+
+def _import_float(value: Any, *, default: Any = _IMPORT_MISSING) -> Any:
+    if value is _IMPORT_MISSING or value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"'{value}' no es un número válido")
+
+
+def _import_bool(value: Any, *, default: Any = _IMPORT_MISSING) -> Any:
+    if value is _IMPORT_MISSING or value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "t", "yes", "si", "sí", "x"}:
+        return True
+    if normalized in {"0", "false", "f", "no", "n"}:
+        return False
+    raise ValueError(f"'{value}' no es un booleano válido")
+
+
+def _import_uuid(value: Any, field_name: str) -> UUID | None:
+    if value is _IMPORT_MISSING or value is None:
+        return None
+    try:
+        return UUID(str(value).strip())
+    except (ValueError, AttributeError):
+        raise ValueError(f"{field_name} debe ser un UUID válido")
+
+
+def _import_json(value: Any) -> dict[str, Any] | None:
+    if value is _IMPORT_MISSING or value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    try:
+        parsed = json.loads(str(value))
+    except (TypeError, json.JSONDecodeError):
+        raise ValueError("variant_attributes_json debe contener JSON válido")
+    if not isinstance(parsed, dict):
+        raise ValueError("variant_attributes_json debe ser un objeto JSON")
+    return parsed
+
+
+async def _get_import_category_id(
+    db: AsyncSession,
+    category_map: dict[str, UUID],
+    category_name: Any,
+    company_id: UUID | None,
+) -> UUID | None:
+    name = _import_text(category_name, default=None)
+    if not name:
+        return None
+    key = name.casefold()
+    if key in category_map:
+        return category_map[key]
+    from app.models.category import Category
+
+    new_category = Category(name=name, company_id=company_id)
+    db.add(new_category)
+    await db.flush()
+    category_map[key] = new_category.id
+    return new_category.id
+
+
+def _apply_product_import_values(product: Product, row: Any) -> None:
+    text_fields = {
+        "name": "name",
+        "sku": "sku",
+        "barcode": "barcode",
+        "product_type": "product_type",
+        "image_url": "image_url",
+    }
+    for column, attribute in text_fields.items():
+        value = _import_row_value(row, column)
+        if value is not _IMPORT_MISSING:
+            setattr(product, attribute, _import_text(value, default=None))
+
+    numeric_fields = {
+        "price": "price",
+        "cost": "cost",
+        "tax_rate": "tax_rate",
+        "min_stock": "min_stock",
+    }
+    for column, attribute in numeric_fields.items():
+        value = _import_float(_import_row_value(row, column), default=_IMPORT_MISSING)
+        if value is not _IMPORT_MISSING:
+            setattr(product, attribute, value)
+
+    for column, attribute in {
+        "track_inventory": "track_inventory",
+        "sale_ok": "sale_ok",
+        "purchase_ok": "purchase_ok",
+        "is_active": "is_active",
+    }.items():
+        value = _import_bool(_import_row_value(row, column), default=_IMPORT_MISSING)
+        if value is not _IMPORT_MISSING:
+            setattr(product, attribute, value)
+
+
+def _apply_variant_import_values(variant: ProductVariant, row: Any) -> None:
+    text_fields = {
+        "variant_name": "name",
+        "variant_sku": "sku",
+        "variant_barcode": "barcode",
+    }
+    for column, attribute in text_fields.items():
+        value = _import_row_value(row, column)
+        if value is not _IMPORT_MISSING:
+            setattr(variant, attribute, _import_text(value, default=None))
+
+    for column, attribute in {
+        "price_extra": "price_extra",
+        "cost_extra": "cost_extra",
+        "variant_price": "price",
+        "variant_cost": "cost",
+        "variant_weight": "weight",
+    }.items():
+        value = _import_float(_import_row_value(row, column), default=_IMPORT_MISSING)
+        if value is not _IMPORT_MISSING:
+            setattr(variant, attribute, value)
+
+    attributes = _import_json(_import_row_value(row, "variant_attributes_json"))
+    if attributes is not None:
+        variant.attributes = attributes
+    active = _import_bool(_import_row_value(row, "variant_is_active"), default=_IMPORT_MISSING)
+    if active is not _IMPORT_MISSING:
+        variant.is_active = active
+
+
 @router.post("/import", response_model=dict)
 async def import_products(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
-    """Import products from CSV or Excel file."""
-    import pandas as pd
+    """Create or update products/variants using IDs from the export."""
     import io
-    from app.models.category import Category
+    import pandas as pd
+
+    filename = (file.filename or "").lower()
+    if not filename.endswith((".csv", ".xls", ".xlsx")):
+        raise HTTPException(status_code=400, detail="Formato de archivo inválido. Use CSV o Excel.")
 
     try:
         content = await file.read()
-        if file.filename.endswith('.csv'):
-            df = pd.read_csv(io.BytesIO(content))
-        elif file.filename.endswith(('.xls', '.xlsx')):
-            df = pd.read_excel(io.BytesIO(content))
+        if filename.endswith(".csv"):
+            dataframe = pd.read_csv(io.BytesIO(content))
         else:
-            raise HTTPException(status_code=400, detail="Formato de archivo inválido. Use CSV o Excel.")
-            
-        success_count = 0
-        errors = []
-        
-        result = await db.execute(select(Category).where(Category.company_id == current_user.company_id))
-        categories = result.scalars().all()
-        category_map = {c.name.lower(): c.id for c in categories}
-        
-        for index, row in df.iterrows():
-            try:
-                if pd.isna(row.get('name')):
-                    continue
-                    
-                category_name = str(row.get('category_name', '')).strip()
-                category_id = None
-                
-                if category_name:
-                    cat_key = category_name.lower()
-                    if cat_key in category_map:
-                        category_id = category_map[cat_key]
-                    else:
-                        new_category = Category(name=category_name, company_id=current_user.company_id)
-                        db.add(new_category)
+            dataframe = pd.read_excel(io.BytesIO(content))
+        dataframe = _normalize_import_dataframe(dataframe)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"No se pudo leer el archivo: {exc}") from exc
+
+    from app.models.category import Category
+
+    result = await db.execute(select(Category).where(Category.company_id == current_user.company_id))
+    category_map = {category.name.casefold(): category.id for category in result.scalars().all()}
+
+    processed = 0
+    products_created = 0
+    products_updated: set[UUID] = set()
+    variants_created = 0
+    variants_updated: set[UUID] = set()
+    errors: list[str] = []
+
+    for index, row in dataframe.iterrows():
+        row_product_created = False
+        row_product_updated: UUID | None = None
+        row_variant_created = False
+        row_variant_updated: UUID | None = None
+        try:
+            async with db.begin_nested():
+                product_id = _import_uuid(_import_row_value(row, "product_id"), "product_id")
+                variant_id = _import_uuid(_import_row_value(row, "variant_id"), "variant_id")
+                if variant_id and not product_id:
+                    raise ValueError("variant_id requiere product_id")
+
+                if product_id:
+                    product_result = await db.execute(
+                        select(Product).where(
+                            Product.id == product_id,
+                            Product.company_id == current_user.company_id,
+                        )
+                    )
+                    product = product_result.scalars().first()
+                    if not product:
+                        raise ValueError("product_id no pertenece a esta empresa o no existe")
+                    row_product_updated = product.id
+                else:
+                    name = _import_text(_import_row_value(row, "name"), default=None)
+                    if not name:
+                        raise ValueError("name es obligatorio para crear un producto")
+                    product = Product(
+                        name=name,
+                        company_id=current_user.company_id,
+                        price=_import_float(_import_row_value(row, "price"), default=0.0),
+                        cost=_import_float(_import_row_value(row, "cost"), default=0.0),
+                        min_stock=_import_float(_import_row_value(row, "min_stock"), default=0.0),
+                        track_inventory=_import_bool(_import_row_value(row, "track_inventory"), default=True),
+                    )
+                    db.add(product)
+                    await db.flush()
+                    row_product_created = True
+
+                _apply_product_import_values(product, row)
+                category_name = _import_row_value(row, "category_name")
+                if category_name is not _IMPORT_MISSING and category_name is not None:
+                    product.category_id = await _get_import_category_id(
+                        db, category_map, category_name, current_user.company_id
+                    )
+
+                if variant_id:
+                    variant_result = await db.execute(
+                        select(ProductVariant).where(
+                            ProductVariant.id == variant_id,
+                            ProductVariant.product_id == product.id,
+                        )
+                    )
+                    variant = variant_result.scalars().first()
+                    if not variant:
+                        raise ValueError("variant_id no pertenece al product_id indicado o no existe")
+                    row_variant_updated = variant.id
+                    _apply_variant_import_values(variant, row)
+                else:
+                    variant_name = _import_text(_import_row_value(row, "variant_name"), default=None)
+                    variant_sku = _import_text(_import_row_value(row, "variant_sku"), default=None)
+                    if variant_name or variant_sku:
+                        if not variant_name:
+                            raise ValueError("variant_name es obligatorio para crear una variante")
+                        variant = ProductVariant(
+                            product_id=product.id,
+                            company_id=current_user.company_id,
+                            name=variant_name,
+                        )
+                        db.add(variant)
                         await db.flush()
-                        await db.refresh(new_category)
-                        category_map[cat_key] = new_category.id
-                        category_id = new_category.id
-                
-                product = Product(
-                    name=row['name'],
-                    sku=row.get('sku', None),
-                    barcode=row.get('barcode', None),
-                    price=float(row.get('price', 0)),
-                    cost=float(row.get('cost', 0)),
-                    min_stock=int(row.get('min_stock', 0)),
-                    track_inventory=bool(row.get('track_inventory', True)),
-                    category_id=category_id,
-                    company_id=current_user.company_id
-                )
-                db.add(product)
-                success_count += 1
-                
-            except Exception as e:
-                errors.append(f"Fila {index + 2}: {str(e)}")
-                
+                        _apply_variant_import_values(variant, row)
+                        row_variant_created = True
+
+            processed += 1
+            products_created += int(row_product_created)
+            if row_product_updated:
+                products_updated.add(row_product_updated)
+            variants_created += int(row_variant_created)
+            if row_variant_updated:
+                variants_updated.add(row_variant_updated)
+        except Exception as exc:
+            errors.append(f"Fila {index + 2}: {exc}")
+
+    try:
         await db.commit()
-        return {"success": True, "count": success_count, "errors": errors}
-        
-    except Exception as e:
+    except Exception as exc:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Importación falló: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Importación falló: {exc}") from exc
+
+    return {
+        "success": True,
+        "count": processed,
+        "products_created": products_created,
+        "products_updated": len(products_updated),
+        "variants_created": variants_created,
+        "variants_updated": len(variants_updated),
+        "errors": errors,
+    }

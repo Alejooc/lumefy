@@ -8,6 +8,10 @@ import { SharedModule } from '../../../theme/shared/shared.module';
 interface ProductImportResponse {
   success: boolean;
   count: number;
+  products_created?: number;
+  products_updated?: number;
+  variants_created?: number;
+  variants_updated?: number;
   errors?: string[];
 }
 
@@ -48,7 +52,12 @@ export class ProductImportComponent {
         this.isLoading = false;
         if (response.success) {
           this.importResult = response;
-          this.swal.success('Importacion completada', `Se importaron ${response.count} productos correctamente.`);
+          const products = (response.products_created || 0) + (response.products_updated || 0);
+          const variants = (response.variants_created || 0) + (response.variants_updated || 0);
+          this.swal.success(
+            'Importación completada',
+            `${response.count} fila(s) procesada(s): ${products} producto(s) y ${variants} variante(s).`
+          );
           if (response.errors && response.errors.length > 0) {
             this.swal.error('Advertencia', 'Algunas filas tuvieron errores. Revisa el reporte.');
           }
@@ -57,7 +66,8 @@ export class ProductImportComponent {
       error: (err: unknown) => {
         this.isLoading = false;
         console.error('Import error', err);
-        this.swal.error('Error', 'Fallo la importacion del archivo.');
+        const detail = (err as { error?: { detail?: unknown } })?.error?.detail;
+        this.swal.error('Error', typeof detail === 'string' ? detail : 'Falló la importación del archivo.');
       }
     });
   }

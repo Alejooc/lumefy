@@ -5,13 +5,13 @@
         <h5><i class="ti ti-info-circle"></i> Instrucciones</h5>
         <p>Sube un archivo Excel (.xlsx) o CSV con las siguientes columnas:</p>
         <ul>
-          <li><strong>name</strong> (Requerido): Nombre del producto</li>
-          <li><strong>sku</strong>: Código del producto</li>
-          <li><strong>price</strong>: Precio de venta</li>
-          <li><strong>cost</strong>: Costo</li>
-          <li><strong>stock</strong>: Stock inicial</li>
-          <li><strong>category_name</strong>: Nombre de la categoría (se creará si no existe)</li>
+          <li><strong>product_id</strong>: ID estable del producto. Si viene informado, se actualiza ese producto.</li>
+          <li><strong>variant_id</strong>: ID estable de la variante. Si viene informado, se actualiza esa variante.</li>
+          <li><strong>name</strong>: Nombre del producto (obligatorio al crear).</li>
+          <li><strong>sku</strong> y <strong>variant_sku</strong>: SKU del producto y de la variante; son datos editables, no la relación.</li>
+          <li><strong>price</strong>, <strong>cost</strong>, <strong>image_url</strong>, <strong>category_name</strong> y demás campos exportados.</li>
         </ul>
+        <p class="mb-0"><strong>Importante:</strong> no modifiques <code>product_id</code> ni <code>variant_id</code>. El Excel exportado genera una fila por variante; los productos sin variantes generan una sola fila.</p>
       </div>
 
       <div class="form-group mb-4">
@@ -38,8 +38,10 @@
             <div class="mt-4">
               @if (importResult.count > 0) {
                 <div class="alert alert-success">
-                  <i class="ti ti-circle-check"></i> {{ importResult.count }} productos importados
-                  correctamente.
+                  <i class="ti ti-circle-check"></i> {{ importResult.count }} filas procesadas correctamente.
+                  @if (importResult.products_updated || importResult.variants_updated) {
+                    <span> Los registros con <code>product_id</code>/<code>variant_id</code> fueron actualizados.</span>
+                  }
                 </div>
               }
               @if (importResult.errors && importResult.errors.length > 0) {
