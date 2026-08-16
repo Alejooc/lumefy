@@ -85,6 +85,7 @@
               <thead>
                 <tr>
                   <th>Producto</th>
+                  <th>Variante</th>
                   <th>SKU</th>
                   <th class="text-end">Stock Sistema</th>
                   <th class="text-center" style="width: 150px">Cantidad Contada</th>
@@ -100,6 +101,7 @@
                     <td>
                       <strong>{{item.product?.name || 'Producto'}}</strong>
                     </td>
+                    <td>{{ item.variant?.name || 'Producto base' }}</td>
                     <td class="text-muted">{{item.product?.sku || '-'}}</td>
                     <td class="text-end">{{item.system_qty | number:'1.0-2'}}</td>
                     <td class="text-center">
@@ -134,7 +136,7 @@
                 }
                 @if (filteredItems.length === 0) {
                   <tr>
-                    <td colspan="5" class="text-center text-muted py-4">
+                    <td colspan="6" class="text-center text-muted py-4">
                       {{searchTerm ? 'No se encontraron productos' : 'No hay productos en esta toma'}}
                     </td>
                   </tr>

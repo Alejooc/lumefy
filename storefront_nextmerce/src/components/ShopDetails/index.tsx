@@ -7,7 +7,7 @@ import { useDispatch } from "react-redux";
 import Breadcrumb from "../Common/Breadcrumb";
 import RecentlyViewdItems from "./RecentlyViewd";
 import { usePreviewSlider } from "@/app/context/PreviewSliderContext";
-import { Product } from "@/types/product";
+import { Product, ProductVariant } from "@/types/product";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
 import { AppDispatch } from "@/redux/store";
 import { addItemToCart } from "@/redux/features/cart-slice";
@@ -48,6 +48,21 @@ function stripHtml(value: string | undefined): string {
   return (value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function variantAttribute(variant: ProductVariant, keys: string[]): string {
+  const attributes = variant.attributes || {};
+  for (const key of keys) {
+    const value = attributes[key] ?? attributes[key.toLowerCase()];
+    if (value !== undefined && String(value).trim()) return String(value).trim();
+  }
+  return "";
+}
+
+function numericVariantId(value: string): number {
+  let hash = 0;
+  for (const char of value) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return Math.abs(hash) || 1;
+}
+
 const ShopDetails = ({
   product,
   relatedItems,
@@ -63,6 +78,27 @@ const ShopDetails = ({
   const [activeColor, setActiveColor] = useState(product.availableColors?.[0] || "");
   const [activeSize, setActiveSize] = useState(product.availableSizes?.[0] || "");
   const [activeTab, setActiveTab] = useState("description");
+
+  const selectedVariant = useMemo(() => {
+    const variants = product.variants || [];
+    if (!variants.length) return undefined;
+    const matches = (variant: ProductVariant, value: string, keys: string[]) => {
+      if (!value) return true;
+      const explicit = variantAttribute(variant, keys);
+      return (explicit || variant.name || "").toLowerCase().includes(value.toLowerCase());
+    };
+    const match = variants.find((variant) =>
+      matches(variant, activeColor, ["color", "colour", "colored"]) &&
+      matches(variant, activeSize, ["size", "talla", "medida"]),
+    );
+    return match || (!activeColor && !activeSize ? variants[0] : undefined);
+  }, [activeColor, activeSize, product.variants]);
+  const selectedVariantLabel = useMemo(() => {
+    if (!selectedVariant) return "";
+    const color = variantAttribute(selectedVariant, ["color", "colour", "colored"]);
+    const size = variantAttribute(selectedVariant, ["size", "talla", "medida"]);
+    return [color, size].filter(Boolean).join(" · ") || selectedVariant.name;
+  }, [selectedVariant]);
 
   const previewImages = useMemo(() => {
     if (product.imgs?.previews?.length) {
@@ -90,12 +126,15 @@ const ShopDetails = ({
       : null,
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 
-  const hasComparePrice = product.price > product.discountedPrice;
-  const isInStock = product.inStock !== false;
+  const displayedPrice = selectedVariant?.price ?? product.discountedPrice;
+  const displayedComparePrice = selectedVariant?.compareAtPrice ?? product.price;
+  const hasComparePrice = displayedComparePrice > displayedPrice;
+  const isInStock = selectedVariant ? selectedVariant.inStock : product.inStock !== false;
+  const stockQuantity = selectedVariant?.stockQuantity ?? product.stockQuantity;
   const stockLabel = !isInStock
     ? "Agotado"
-    : product.stockQuantity !== undefined
-      ? `${product.stockQuantity} disponibles`
+    : stockQuantity !== undefined
+      ? `${stockQuantity} disponibles`
       : "Disponible";
   const descriptionText = stripHtml(product.description);
 
@@ -106,10 +145,17 @@ const ShopDetails = ({
   ];
 
   const handleAddToCart = () => {
-    if (!isInStock) return;
+    if (!isInStock || (product.variants?.length && !selectedVariant)) return;
     dispatch(
       addItemToCart({
         ...product,
+        id: selectedVariant ? numericVariantId(`${product.id}:${selectedVariant.id}`) : product.id,
+        variantId: selectedVariant?.id,
+        variantName: selectedVariantLabel,
+        price: displayedComparePrice,
+        discountedPrice: displayedPrice,
+        inStock: isInStock,
+        stockQuantity,
         quantity,
       }),
     );
@@ -202,10 +248,10 @@ const ShopDetails = ({
 
                   <h3 className="font-medium text-custom-1 mb-4.5">
                     <span className="text-sm sm:text-base text-dark">
-                      Precio: {format(product.discountedPrice)}
+                      Precio: {format(displayedPrice)}
                     </span>
                     {hasComparePrice ? (
-                      <span className="line-through"> {format(product.price)} </span>
+                        <span className="line-through"> {format(displayedComparePrice)} </span>
                     ) : null}
                   </h3>
 
@@ -266,6 +312,13 @@ const ShopDetails = ({
                     ) : null}
                   </div>
 
+                  {selectedVariant ? (
+                    <div className="mb-5 rounded-md bg-blue/5 px-4 py-3 text-sm text-dark">
+                      Variante seleccionada: <strong>{selectedVariantLabel}</strong>
+                      {selectedVariant.sku ? ` · SKU ${selectedVariant.sku}` : ""}
+                    </div>
+                  ) : null}
+
                   <div className="flex flex-wrap items-center gap-4.5">
                     <div className="flex items-center rounded-md border border-gray-3">
                       <button
@@ -281,7 +334,7 @@ const ShopDetails = ({
                       </span>
                       <button
                         type="button"
-                        onClick={() => isInStock && (product.stockQuantity === undefined || quantity < product.stockQuantity) && setQuantity(quantity + 1)}
+                        onClick={() => isInStock && (stockQuantity === undefined || quantity < stockQuantity) && setQuantity(quantity + 1)}
                         aria-label="aumentar cantidad"
                         className="flex items-center justify-center w-12 h-12 ease-out duration-200 hover:text-blue"
                       >
@@ -292,7 +345,7 @@ const ShopDetails = ({
                     <button
                       type="button"
                       onClick={handleAddToCart}
-                      disabled={!isInStock}
+                      disabled={!isInStock || (Boolean(product.variants?.length) && !selectedVariant)}
                       className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:cursor-not-allowed disabled:bg-gray-4"
                     >
                       {isInStock ? "Agregar al carrito" : "Agotado"}

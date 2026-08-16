@@ -327,6 +327,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
         .filter((item) => item.publishedProductId)
         .map((item) => ({
           published_product_id: item.publishedProductId as string,
+          variant_id: item.variantId || null,
           quantity: item.quantity,
         })),
     [cartItems],
@@ -1012,12 +1013,13 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                     {(preview?.items || []).length > 0
                       ? preview?.items.map((item) => (
                           <div
-                            key={item.published_product_id}
+                            key={`${item.published_product_id}:${item.variant_id || "base"}`}
                             className="flex items-center justify-between py-5 border-b border-gray-3"
                           >
                             <div>
                               <p className="text-dark">
                                 {item.title} x {item.quantity}
+                                {item.variant_name ? ` · ${item.variant_name}` : ""}
                               </p>
                             </div>
                             <div>
@@ -1035,6 +1037,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                             <div>
                               <p className="text-dark">
                                 {item.title} x {item.quantity}
+                                {item.variantName ? ` · ${item.variantName}` : ""}
                               </p>
                             </div>
                             <div>

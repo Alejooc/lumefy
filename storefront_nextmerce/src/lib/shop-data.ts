@@ -108,6 +108,16 @@ function toTemplateProduct(product: PublicProduct): Product {
     productType: product.product_type || undefined,
     availableSizes: product.available_sizes || [],
     availableColors: product.available_colors || [],
+    variants: (product.variants || []).map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      sku: variant.sku,
+      attributes: variant.attributes || {},
+      price: Number(variant.price),
+      compareAtPrice: variant.compare_at_price == null ? undefined : Number(variant.compare_at_price),
+      inStock: variant.in_stock,
+      stockQuantity: variant.stock_quantity == null ? undefined : Number(variant.stock_quantity),
+    })),
     inStock: product.in_stock,
     stockQuantity: product.stock_quantity ?? undefined,
     imgs: {

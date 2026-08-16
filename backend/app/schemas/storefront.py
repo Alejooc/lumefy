@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -435,6 +435,17 @@ class PublicStorePaymentGateway(BaseModel):
     public_config: dict = Field(default_factory=dict)
 
 
+class PublicProductVariant(BaseModel):
+    id: UUID
+    name: str
+    sku: Optional[str] = None
+    attributes: dict[str, Any] = Field(default_factory=dict)
+    price: float
+    compare_at_price: Optional[float] = None
+    in_stock: bool = True
+    stock_quantity: Optional[float] = None
+
+
 class PublicProduct(BaseModel):
     id: UUID
     product_id: UUID
@@ -446,6 +457,7 @@ class PublicProduct(BaseModel):
     product_type: Optional[str] = None
     available_sizes: list[str] = Field(default_factory=list)
     available_colors: list[str] = Field(default_factory=list)
+    variants: list[PublicProductVariant] = Field(default_factory=list)
     image_url: Optional[str] = None
     gallery: list[str] = Field(default_factory=list)
     price: float
@@ -509,6 +521,7 @@ class PublicCatalogResponse(BaseModel):
 
 class PublicCheckoutItemInput(BaseModel):
     published_product_id: UUID
+    variant_id: Optional[UUID] = None
     quantity: float = 1
 
 
@@ -542,8 +555,10 @@ class PublicCheckoutPreviewRequest(BaseModel):
 class PublicCheckoutPreviewItem(BaseModel):
     published_product_id: UUID
     product_id: UUID
+    variant_id: Optional[UUID] = None
     slug: str
     title: str
+    variant_name: Optional[str] = None
     quantity: float
     unit_price: float
     line_subtotal: float

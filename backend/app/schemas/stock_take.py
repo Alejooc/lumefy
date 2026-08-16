@@ -6,6 +6,7 @@ from enum import Enum
 
 from app.schemas.branch import Branch
 from app.schemas.product import Product
+from app.schemas.product_variant import ProductVariant
 
 
 class StockTakeStatus(str, Enum):
@@ -17,6 +18,7 @@ class StockTakeStatus(str, Enum):
 # --- Item Schemas ---
 class StockTakeItemBase(BaseModel):
     product_id: UUID
+    variant_id: Optional[UUID] = None
     system_qty: float = 0.0
     counted_qty: Optional[float] = None
     difference: float = 0.0
@@ -24,6 +26,7 @@ class StockTakeItemBase(BaseModel):
 
 class StockTakeItemCreate(BaseModel):
     product_id: UUID
+    variant_id: Optional[UUID] = None
     system_qty: float = 0.0
 
 
@@ -36,6 +39,7 @@ class StockTakeItem(StockTakeItemBase):
     id: UUID
     stock_take_id: UUID
     product: Optional[Product] = None
+    variant: Optional[ProductVariant] = None
 
     class Config:
         from_attributes = True

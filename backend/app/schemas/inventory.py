@@ -29,6 +29,7 @@ class InventoryCreate(InventoryBase):
     pass
 
 from app.schemas.product import Product
+from app.schemas.product_variant import ProductVariant
 from app.schemas.branch import Branch
 
 class Inventory(InventoryBase):
@@ -42,6 +43,7 @@ class Inventory(InventoryBase):
 # --- Movement Schemas ---
 class MovementBase(BaseModel):
     product_id: UUID
+    variant_id: Optional[UUID] = None
     branch_id: UUID
     warehouse_id: Optional[UUID] = None
     type: MovementType
@@ -70,6 +72,7 @@ class Movement(MovementBase):
     # Nested objects for display
     user: Optional[User] = None
     product: Optional[Product] = None
+    variant: Optional[ProductVariant] = None
     branch: Optional[Branch] = None
     
     class Config:

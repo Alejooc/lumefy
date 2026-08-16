@@ -14,6 +14,7 @@ import { InventoryMovement, InventoryService } from '../inventory.service';
 
 interface InventoryMovementFormValue {
     product_id: string;
+    variant_id?: string | null;
     branch_id: string;
     type: InventoryMovement['type'];
     quantity: number;
@@ -48,6 +49,7 @@ export class InventoryMovementComponent implements OnInit {
     constructor() {
         this.movementForm = this.fb.group({
             product_id: ['', Validators.required],
+            variant_id: [null],
             branch_id: ['', Validators.required],
             type: ['IN', Validators.required],
             quantity: [1, [Validators.required, Validators.min(0.001)]],
@@ -84,6 +86,11 @@ export class InventoryMovementComponent implements OnInit {
         }
     }
 
+    get selectedProduct(): Product | undefined {
+        const productId = this.movementForm.get('product_id')?.value as string;
+        return this.products.find((product) => product.id === productId);
+    }
+
     loadProducts(search = '') {
         this.isLoading = true;
         let params = new HttpParams();
@@ -94,6 +101,10 @@ export class InventoryMovementComponent implements OnInit {
         this.api.get<Product[]>('/products', params).subscribe({
             next: (data) => {
                 this.products = data;
+                const currentProductId = this.movementForm.get('product_id')?.value as string;
+                if (currentProductId && !this.products.some((product) => product.id === currentProductId)) {
+                    this.movementForm.patchValue({ product_id: '', variant_id: null });
+                }
                 this.isLoading = false;
                 this.cdr.detectChanges();
             },
@@ -125,6 +136,9 @@ export class InventoryMovementComponent implements OnInit {
         this.movementForm.get('branch_id')?.valueChanges.subscribe((value: string) => {
             this.updateFilteredBranches(value);
         });
+        this.movementForm.get('product_id')?.valueChanges.subscribe(() => {
+            this.movementForm.patchValue({ variant_id: null }, { emitEvent: false });
+        });
     }
 
     updateFilteredBranches(sourceId: string) {
@@ -136,6 +150,10 @@ export class InventoryMovementComponent implements OnInit {
     }
 
     onSubmit() {
+        if (this.selectedProduct?.variants?.length && !this.movementForm.get('variant_id')?.value) {
+            this.swal.error('Variante requerida', 'Selecciona el color, talla o medida que vas a mover.');
+            return;
+        }
         if (!this.movementForm.valid) return;
 
         this.isSubmitting = true;

@@ -34,6 +34,9 @@ class StockTakeItem(BaseModel):
 
     stock_take_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("stock_takes.id"), index=True)
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"), index=True)
+    variant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("product_variants.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     
     system_qty: Mapped[float] = mapped_column(Float, default=0.0)
     counted_qty: Mapped[float] = mapped_column(Float, nullable=True)
@@ -42,3 +45,4 @@ class StockTakeItem(BaseModel):
     # Relationships
     stock_take = relationship("StockTake", back_populates="items")
     product = relationship(Product)
+    variant = relationship("ProductVariant")

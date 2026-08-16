@@ -30,6 +30,8 @@ class ProductVariantUpdate(BaseModel):
 class ProductVariant(ProductVariantBase):
     id: UUID
     product_id: UUID
+    stock_quantity: Optional[float] = None
+    available_stock: Optional[float] = None
 
     class Config:
         from_attributes = True

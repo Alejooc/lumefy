@@ -20,6 +20,20 @@
               </ng-select>
             </div>
 
+            @if (selectedProduct?.variants?.length) {
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Variante <span class="text-danger">*</span></label>
+                <ng-select [items]="selectedProduct?.variants || []" bindLabel="name" bindValue="id"
+                  formControlName="variant_id" placeholder="Seleccionar color / talla / medida"
+                  [required]="true" notFoundText="Este producto no tiene variantes">
+                  <ng-template ng-option-tmp let-item="item">
+                    <span class="fw-bold">{{ item.name }}</span>
+                    @if (item.sku) { <small class="text-muted ms-2">SKU: {{ item.sku }}</small> }
+                  </ng-template>
+                </ng-select>
+              </div>
+            }
+
             <div class="col-md-6 mb-3">
               <label class="form-label">Sucursal <span class="text-danger">*</span></label>
               <ng-select [items]="branches" bindLabel="name" bindValue="id" formControlName="branch_id"

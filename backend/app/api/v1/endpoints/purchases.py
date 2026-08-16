@@ -431,7 +431,10 @@ async def receive_purchase(
         PurchaseOrder.id == purchase_id,
         PurchaseOrder.company_id == current_user.company_id
     ).options(
-        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product)
+        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.product).options(
+            selectinload(Product.variants)
+        ),
+        selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.variant)
     )
     result = await db.execute(query)
     purchase = result.scalars().first()
@@ -462,6 +465,8 @@ async def receive_purchase(
         qty_to_receive = ri.qty_received
 
         tracking_type = (item.product.tracking_type if item.product else "NONE").upper()
+        if item.product and item.product.variants and not item.variant_id:
+            raise HTTPException(status_code=400, detail=f"Selecciona una variante para '{item.product.name}' antes de recibirla")
         if tracking_type == "LOT" and not (ri.lot_number or "").strip():
             raise HTTPException(status_code=400, detail=f"El producto '{item.product.name}' requiere número de lote")
         if tracking_type == "SERIAL":
@@ -479,7 +484,8 @@ async def receive_purchase(
         inv_result = await db.execute(
             select(Inventory).where(
                 Inventory.product_id == item.product_id,
-                Inventory.branch_id == purchase.branch_id
+                Inventory.branch_id == purchase.branch_id,
+                Inventory.variant_id == item.variant_id if item.variant_id else Inventory.variant_id.is_(None),
             )
         )
         inv = inv_result.scalars().first()
@@ -495,6 +501,7 @@ async def receive_purchase(
         else:
             inv = Inventory(
                 product_id=item.product_id,
+                variant_id=item.variant_id,
                 branch_id=purchase.branch_id,
                 quantity=new_stock,
                 average_cost=item.unit_cost,
@@ -505,6 +512,7 @@ async def receive_purchase(
         # Create IN movement
         movement = InventoryMovement(
             product_id=item.product_id,
+            variant_id=item.variant_id,
             branch_id=purchase.branch_id,
             user_id=current_user.id,
             type=MovementType.IN,

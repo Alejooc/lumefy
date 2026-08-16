@@ -4,6 +4,15 @@ from uuid import UUID
 from datetime import datetime
 from enum import Enum
 
+class POSProductVariant(BaseModel):
+    id: UUID
+    name: str
+    sku: Optional[str] = None
+    attributes: dict = {}
+    price: float
+    stock: float = 0.0
+
+
 class POSProduct(BaseModel):
     id: UUID
     name: str
@@ -14,9 +23,11 @@ class POSProduct(BaseModel):
     category_id: Optional[UUID] = None
     category_name: Optional[str] = None
     image_url: Optional[str] = None
+    variants: List[POSProductVariant] = []
 
 class POSCartItem(BaseModel):
     product_id: UUID
+    variant_id: Optional[UUID] = None
     quantity: float
     price: float
     discount: float = 0.0

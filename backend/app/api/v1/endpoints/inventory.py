@@ -28,12 +28,18 @@ async def _validate_company_product_and_branch(
     product_id: str,
     branch_id: str,
     company_id: str,
+    variant_id: str | None = None,
 ) -> None:
     product_result = await db.execute(
-        select(Product.id).where(Product.id == product_id, Product.company_id == company_id)
+        select(Product).options(selectinload(Product.variants)).where(Product.id == product_id, Product.company_id == company_id)
     )
-    if not product_result.scalar_one_or_none():
+    product = product_result.scalars().first()
+    if not product:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
+    if product.variants and not variant_id:
+        raise HTTPException(status_code=400, detail=f"Selecciona una variante para '{product.name}'")
+    if variant_id and not any(variant.id == variant_id for variant in product.variants):
+        raise HTTPException(status_code=400, detail="La variante no pertenece al producto")
 
     branch_result = await db.execute(
         select(Branch.id).where(Branch.id == branch_id, Branch.company_id == company_id)
@@ -90,6 +96,7 @@ async def read_inventory(
             selectinload(Product.purchase_uom),
             selectinload(Product.category)
         ),
+        selectinload(Inventory.variant),
         selectinload(Inventory.branch)
     ).join(Branch, Inventory.branch_id == Branch.id).where(
         Branch.company_id == current_user.company_id
@@ -287,6 +294,7 @@ async def create_movement(
         product_id=str(movement_in.product_id),
         branch_id=str(movement_in.branch_id),
         company_id=str(current_user.company_id),
+        variant_id=str(movement_in.variant_id) if movement_in.variant_id else None,
     )
     source_warehouse = await _resolve_warehouse(
         db,
@@ -315,6 +323,7 @@ async def create_movement(
             Inventory.product_id == movement_in.product_id,
             Inventory.branch_id == movement_in.branch_id,
             Inventory.warehouse_id == source_warehouse.id,
+            Inventory.variant_id == movement_in.variant_id if movement_in.variant_id else Inventory.variant_id.is_(None),
         )
     )
     inventory_item = result.scalars().first()
@@ -341,6 +350,7 @@ async def create_movement(
             product_id=str(movement_in.product_id),
             branch_id=str(movement_in.destination_branch_id),
             company_id=str(current_user.company_id),
+            variant_id=str(movement_in.variant_id) if movement_in.variant_id else None,
         )
         destination_warehouse = await _resolve_warehouse(
             db,
@@ -370,6 +380,7 @@ async def create_movement(
         
         movement_src = InventoryMovement(
             product_id=movement_in.product_id,
+            variant_id=movement_in.variant_id,
             branch_id=movement_in.branch_id,
             warehouse_id=source_warehouse.id,
             user_id=current_user.id,
@@ -391,6 +402,7 @@ async def create_movement(
                 Inventory.product_id == movement_in.product_id,
                 Inventory.branch_id == movement_in.destination_branch_id,
                 Inventory.warehouse_id == destination_warehouse.id,
+                Inventory.variant_id == movement_in.variant_id if movement_in.variant_id else Inventory.variant_id.is_(None),
             )
         )
         inv_dest = result_dest.scalars().first()
@@ -401,6 +413,7 @@ async def create_movement(
         else:
             inv_dest = Inventory(
                 product_id=movement_in.product_id,
+                variant_id=movement_in.variant_id,
                 branch_id=movement_in.destination_branch_id,
                 warehouse_id=destination_warehouse.id,
                 quantity=0.0,
@@ -422,6 +435,7 @@ async def create_movement(
         
         movement_dest = InventoryMovement(
             product_id=movement_in.product_id,
+            variant_id=movement_in.variant_id,
             branch_id=movement_in.destination_branch_id,
             warehouse_id=destination_warehouse.id,
             user_id=current_user.id,
@@ -468,6 +482,7 @@ async def create_movement(
         if not inventory_item:
             inventory_item = Inventory(
                 product_id=movement_in.product_id,
+                variant_id=movement_in.variant_id,
                 branch_id=movement_in.branch_id,
                 warehouse_id=source_warehouse.id,
                 quantity=0.0,
@@ -492,6 +507,7 @@ async def create_movement(
         # 4. Create Movement Record
         movement = InventoryMovement(
             product_id=movement_in.product_id,
+            variant_id=movement_in.variant_id,
             branch_id=movement_in.branch_id,
             warehouse_id=source_warehouse.id,
             user_id=current_user.id,
@@ -524,6 +540,7 @@ async def create_movement(
             selectinload(Product.purchase_uom),
             selectinload(Product.category)
         ),
+        selectinload(InventoryMovement.variant),
         selectinload(InventoryMovement.branch),
         selectinload(InventoryMovement.user)
     ).where(InventoryMovement.id == movement.id)
@@ -553,6 +570,7 @@ async def read_movements(
             selectinload(Product.purchase_uom),
             selectinload(Product.category)
         ),
+        selectinload(InventoryMovement.variant),
         selectinload(InventoryMovement.branch),
         selectinload(InventoryMovement.user)
 
