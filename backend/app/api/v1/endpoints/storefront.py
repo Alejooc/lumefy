@@ -902,9 +902,19 @@ def _serialize_public_product(
     published_product: PublishedProduct,
     product: Product,
     stock_map: dict[tuple[uuid.UUID, uuid.UUID | None], float] | None = None,
+    *,
+    compact: bool = False,
 ) -> schemas.PublicProduct:
     title = (published_product.custom_title or product.name or "").strip()
-    description = (published_product.custom_description or product.description or "").strip() or None
+    # Catalog cards do not render descriptions. Some provider descriptions
+    # contain complete HTML galleries, so sending them with every page makes
+    # the RSC payload unnecessarily large. Detail pages still receive the
+    # complete description through the default ``compact=False`` path.
+    description = (
+        (published_product.custom_description or product.description or "").strip() or None
+        if not compact
+        else None
+    )
     base_price = float(product.price or 0)
     stock_map = stock_map or {}
     variants: list[schemas.PublicProductVariant] = []
@@ -938,6 +948,10 @@ def _serialize_public_product(
     gallery = [img.image_url for img in sorted(product.images or [], key=lambda item: item.order)]
     if image_url and image_url not in gallery:
         gallery.insert(0, image_url)
+    if compact:
+        # Listing cards only use the primary and hover image. Keep detail
+        # responses unchanged while avoiding needless gallery URLs in pages.
+        gallery = gallery[:2]
     available_sizes, available_colors = _extract_variant_facets(product.variants or [])
     is_tracked = bool(product.track_inventory)
     if variants:
@@ -3561,6 +3575,34 @@ async def read_public_products(
     collections = collections_result.scalars().all()
     collection_name_map = {item.slug: item.name for item in collections}
 
+    published_product_columns = [
+        PublishedProduct.id,
+        PublishedProduct.product_id,
+        PublishedProduct.custom_title,
+        PublishedProduct.slug,
+        PublishedProduct.price_override,
+        PublishedProduct.compare_at_price,
+        PublishedProduct.is_featured,
+        PublishedProduct.sort_order,
+        PublishedProduct.created_at,
+    ]
+    product_columns = [
+        Product.id,
+        Product.name,
+        Product.image_url,
+        Product.product_type,
+        Product.price,
+        Product.track_inventory,
+        Product.category_id,
+        Product.brand_id,
+    ]
+    if normalized_search:
+        # Description fields are only needed to perform the in-memory search
+        # refinement. Avoid transferring provider HTML for the normal catalog
+        # request, where the card payload never uses it.
+        published_product_columns.append(PublishedProduct.custom_description)
+        product_columns.append(Product.description)
+
     published_query = (
         # Keep the catalog pass deliberately narrow. Relationship
         # select-in loading here used to fan out into dozens of 500-row
@@ -3568,29 +3610,8 @@ async def read_public_products(
         # collection links are loaded in one compact query each below.
         select(PublishedProduct, Product)
         .options(
-            load_only(
-                PublishedProduct.id,
-                PublishedProduct.product_id,
-                PublishedProduct.custom_title,
-                PublishedProduct.custom_description,
-                PublishedProduct.slug,
-                PublishedProduct.price_override,
-                PublishedProduct.compare_at_price,
-                PublishedProduct.is_featured,
-                PublishedProduct.sort_order,
-                PublishedProduct.created_at,
-            ),
-            load_only(
-                Product.id,
-                Product.name,
-                Product.description,
-                Product.image_url,
-                Product.product_type,
-                Product.price,
-                Product.track_inventory,
-                Product.category_id,
-                Product.brand_id,
-            ),
+            load_only(*published_product_columns),
+            load_only(*product_columns),
         )
         .join(Product, PublishedProduct.product_id == Product.id)
         .where(
@@ -3759,8 +3780,10 @@ async def read_public_products(
                 _normalize_catalog_text(product.name),
                 _normalize_catalog_text(published_product.custom_title),
                 _normalize_catalog_text(published_product.slug),
-                _normalize_catalog_text(product.description),
-                _normalize_catalog_text(published_product.custom_description),
+                _normalize_catalog_text(product.description if normalized_search else ""),
+                _normalize_catalog_text(
+                    published_product.custom_description if normalized_search else ""
+                ),
                 _normalize_catalog_text(brand_name),
                 _normalize_catalog_text(category_name),
             ),
@@ -3975,6 +3998,7 @@ async def read_public_products(
                 published_product,
                 published_product.product,
                 stock_map,
+                compact=True,
             )
             for published_product in paginated_products
             if published_product.product

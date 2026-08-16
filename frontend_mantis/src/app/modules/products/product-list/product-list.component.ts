@@ -61,7 +61,9 @@ export class ProductListComponent implements OnInit {
     searchQuery = '';
     selectedProductIds = new Set<string>();
     page = 1;
-    pageSize = 100;
+    // Fifty rows keeps the admin table responsive while preserving the
+    // existing pagination and the optional 100-row choice for bulk review.
+    pageSize = 50;
     totalProducts = 0;
     totalPages = 0;
 
