@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +18,7 @@ from app.services.integration_service import (
     IntegrationSyncConflict,
     enqueue_sync,
     preview_source,
+    request_asset,
     suggest_mapping_source,
     test_source,
     validate_source,
@@ -25,6 +26,37 @@ from app.services.integration_service import (
 
 
 router = APIRouter()
+
+
+@router.get("/assets")
+async def proxy_asset(
+    url: str = Query(..., min_length=1, max_length=2000),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Serve provider images with the source's server-side credentials.
+
+    Catalog payloads can contain images under an authenticated REST endpoint.
+    Browsers and Next's image optimizer cannot send the provider API key, so
+    the storefront uses this narrowly scoped proxy instead.
+    """
+    from app.services.integration_service import _asset_url_matches_source
+
+    sources = (await db.execute(
+        select(IntegrationSource).where(IntegrationSource.is_active.is_(True))
+    )).scalars().all()
+    source = next((candidate for candidate in sources if _asset_url_matches_source(candidate, url)), None)
+    if source is None:
+        raise HTTPException(status_code=404, detail="Imagen no asociada a un origen activo")
+    try:
+        content_type, body = await request_asset(source, url)
+    except IntegrationRequestError as exc:
+        status_code = exc.status_code if exc.status_code and 400 <= exc.status_code < 500 else 502
+        raise HTTPException(status_code=status_code, detail="No se pudo cargar la imagen del proveedor") from exc
+    return Response(
+        content=body,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400, stale-while-revalidate=604800"},
+    )
 
 
 def _serialize_source(source: IntegrationSource) -> dict[str, Any]:

@@ -4,7 +4,12 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from app.core.config import settings
-from app.services.integration_service import IntegrationRequestError, _url_for, validate_source
+from app.services.integration_service import (
+    IntegrationRequestError,
+    _asset_url_matches_source,
+    _url_for,
+    validate_source,
+)
 
 
 class IntegrationSecurityTests(unittest.TestCase):
@@ -43,6 +48,16 @@ class IntegrationSecurityTests(unittest.TestCase):
     def test_url_embedded_credentials_are_rejected(self):
         with self.assertRaises(IntegrationRequestError):
             validate_source(self.source("https://user:secret@supplier.example"))
+
+    def test_asset_proxy_requires_matching_origin_and_base_path(self):
+        source = SimpleNamespace(
+            base_url="https://panel.example/api/external",
+            configuration={"asset_base_url": "https://panel.example/api/external"},
+        )
+
+        self.assertTrue(_asset_url_matches_source(source, "https://panel.example/api/external/products/1/a.jpg"))
+        self.assertFalse(_asset_url_matches_source(source, "https://panel.example/other/products/1/a.jpg"))
+        self.assertFalse(_asset_url_matches_source(source, "https://other.example/api/external/products/1/a.jpg"))
 
 
 if __name__ == "__main__":

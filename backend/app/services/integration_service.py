@@ -215,6 +215,61 @@ async def _request_json(url: str, headers: dict[str, str]) -> tuple[int, Any]:
     return await asyncio.to_thread(_request_json_sync, url, headers)
 
 
+MAX_PROXY_ASSET_BYTES = 10 * 1024 * 1024
+
+
+def _asset_url_matches_source(source: IntegrationSource, url: str) -> bool:
+    """Check that an asset URL belongs to this source's configured path."""
+    try:
+        target = _validate_url_syntax(url)
+        configuration = source.configuration or {}
+        base_value = str(configuration.get("asset_base_url") or source.base_url or "").strip()
+        base = _validate_url_syntax(base_value)
+    except (IntegrationRequestError, TypeError, ValueError):
+        return False
+
+    if _origin(target) != _origin(base):
+        return False
+    base_path = base.path.rstrip("/")
+    if not base_path or base_path == "/":
+        return True
+    target_path = target.path.rstrip("/") or "/"
+    return target_path == base_path or target_path.startswith(f"{base_path}/")
+
+
+def _request_asset_sync(url: str, headers: dict[str, str]) -> tuple[str, bytes]:
+    """Fetch one provider image while retaining the integration auth headers."""
+    _validate_outbound_url(url)
+    request_headers = dict(headers)
+    request_headers["Accept"] = "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+    request = urlrequest.Request(url, headers=request_headers, method="GET")
+    try:
+        opener = urlrequest.build_opener(_SafeRedirectHandler(_origin(_validate_url_syntax(url))))
+        with opener.open(request, timeout=settings.INTEGRATION_REQUEST_TIMEOUT_SECONDS) as response:
+            content_type = (response.headers.get_content_type() or "").lower()
+            if not content_type.startswith("image/"):
+                raise IntegrationRequestError(
+                    "El proveedor no devolvió una imagen válida.", int(response.getcode())
+                )
+            content_length = response.headers.get("Content-Length")
+            if content_length and int(content_length) > MAX_PROXY_ASSET_BYTES:
+                raise IntegrationRequestError("La imagen del proveedor supera el tamaño permitido.", 413)
+            body = response.read(MAX_PROXY_ASSET_BYTES + 1)
+            if len(body) > MAX_PROXY_ASSET_BYTES:
+                raise IntegrationRequestError("La imagen del proveedor supera el tamaño permitido.", 413)
+            return content_type, body
+    except urlerror.HTTPError as exc:
+        raise IntegrationRequestError("El proveedor no pudo entregar la imagen.", exc.code) from exc
+    except (urlerror.URLError, TimeoutError) as exc:
+        raise IntegrationRequestError(f"No se pudo conectar con el proveedor de imágenes: {exc}") from exc
+    except ValueError as exc:
+        raise IntegrationRequestError("El proveedor devolvió un tamaño de imagen inválido.") from exc
+
+
+async def request_asset(source: IntegrationSource, url: str) -> tuple[str, bytes]:
+    return await asyncio.to_thread(_request_asset_sync, url, _build_headers(source))
+
+
 def _value(payload: Any, path: str | None, default: Any = None) -> Any:
     if path in (None, "", "."):
         return payload

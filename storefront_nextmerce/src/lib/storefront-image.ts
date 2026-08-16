@@ -17,6 +17,12 @@ export function storefrontImageUrl(value?: string | null): string | undefined {
     if (url.pathname.startsWith("/static/")) {
       return `/media${url.pathname}`;
     }
+    // Provider catalog images can live behind an authenticated REST endpoint.
+    // Keep the API key on the backend instead of exposing it to the browser or
+    // asking Next's optimizer to fetch the provider URL without credentials.
+    if (url.pathname.includes("/api/external/")) {
+      return `/external-image?url=${encodeURIComponent(normalized)}`;
+    }
   } catch {
     // Relative and template-local image paths stay unchanged.
   }
