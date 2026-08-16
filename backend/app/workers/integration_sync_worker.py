@@ -67,15 +67,19 @@ async def enqueue_due_inventory() -> int:
     return enqueued
 
 
-async def recover_stale_runs() -> int:
+async def recover_stale_runs(*, recover_all: bool = False) -> int:
     threshold = datetime.utcnow() - timedelta(minutes=STALE_MINUTES)
+    conditions = [
+        IntegrationSyncRun.status == "RUNNING",
+        IntegrationSyncRun.started_at.is_not(None),
+    ]
+    if not recover_all:
+        conditions.append(IntegrationSyncRun.started_at < threshold)
     async with SessionLocal() as db:
         runs = list((await db.execute(
             select(IntegrationSyncRun)
             .where(
-                IntegrationSyncRun.status == "RUNNING",
-                IntegrationSyncRun.started_at.is_not(None),
-                IntegrationSyncRun.started_at < threshold,
+                *conditions,
             )
             .with_for_update(skip_locked=True)
         )).scalars().all())
@@ -131,6 +135,15 @@ async def process_run(run_id: UUID) -> None:
 
 async def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+    # A container restart interrupts the Python process but does not change
+    # the durable run row. Recover those rows immediately so the UI can retry
+    # instead of remaining blocked for the normal stale-run timeout.
+    try:
+        recovered = await recover_stale_runs(recover_all=True)
+        if recovered:
+            LOGGER.warning("Recovered %s interrupted integration sync run(s) at startup", recovered)
+    except Exception:  # noqa: BLE001 - retry through the normal polling loop
+        LOGGER.exception("Initial integration sync recovery failed")
     while True:
         try:
             await recover_stale_runs()

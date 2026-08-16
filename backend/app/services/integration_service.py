@@ -1782,6 +1782,16 @@ async def execute_sync_run(db: AsyncSession, run: IntegrationSyncRun) -> Integra
             current=0,
             entity=run.sync_type.lower(),
         )
+
+        # Progress is persisted through a short-lived session so the UI can
+        # observe a long-running sync. Detach the run before processing starts:
+        # the catalog/inventory transaction flushes products and variants in
+        # batches, and keeping the run entity attached would lock its row until
+        # the whole sync commits. The progress session would then wait forever
+        # on that row while this transaction waits for the progress callback.
+        # The run is merged back into the main session once processing finishes.
+        db.expunge(run)
+
         if run.sync_type in {"CATALOG", "FULL"}:
             products, variants, embedded_inventory = await _sync_products(
                 db, source, run, persist_progress
@@ -1807,6 +1817,7 @@ async def execute_sync_run(db: AsyncSession, run: IntegrationSyncRun) -> Integra
                 "updated": run.products_updated or run.inventory_updated,
             },
         }
+        await db.merge(run)
         source.status = "CONNECTED"
         source.last_synced_at = run.finished_at
         if run.sync_type in {"CATALOG", "FULL"}:
