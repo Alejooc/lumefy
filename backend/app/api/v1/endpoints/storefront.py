@@ -3527,7 +3527,11 @@ async def read_public_products(
     collection_name_map = {item.slug: item.name for item in collections}
 
     published_query = (
-        select(PublishedProduct)
+        # Keep the catalog pass deliberately narrow. Relationship
+        # select-in loading here used to fan out into dozens of 500-row
+        # queries for a 3k-product catalog. Variants, brands, categories and
+        # collection links are loaded in one compact query each below.
+        select(PublishedProduct, Product)
         .options(
             load_only(
                 PublishedProduct.id,
@@ -3541,8 +3545,7 @@ async def read_public_products(
                 PublishedProduct.sort_order,
                 PublishedProduct.created_at,
             ),
-            selectinload(PublishedProduct.product)
-            .load_only(
+            load_only(
                 Product.id,
                 Product.name,
                 Product.description,
@@ -3552,38 +3555,6 @@ async def read_public_products(
                 Product.track_inventory,
                 Product.category_id,
                 Product.brand_id,
-            ),
-            selectinload(PublishedProduct.product)
-            .selectinload(Product.category)
-            .load_only(Category.id, Category.name),
-            selectinload(PublishedProduct.product)
-            .selectinload(Product.brand)
-            .load_only(Brand.id, Brand.name),
-            selectinload(PublishedProduct.product)
-            .selectinload(Product.variants)
-            .load_only(
-                ProductVariant.id,
-                ProductVariant.product_id,
-                ProductVariant.name,
-                ProductVariant.sku,
-                ProductVariant.barcode,
-                ProductVariant.price_extra,
-                ProductVariant.price,
-                ProductVariant.attributes,
-            ),
-            selectinload(PublishedProduct.collections)
-            .load_only(
-                StoreCollectionProduct.id,
-                StoreCollectionProduct.published_product_id,
-                StoreCollectionProduct.collection_id,
-            )
-            .selectinload(StoreCollectionProduct.collection)
-            .load_only(
-                StoreCollection.id,
-                StoreCollection.slug,
-                StoreCollection.name,
-                StoreCollection.is_active,
-                StoreCollection.is_visible,
             ),
         )
         .join(Product, PublishedProduct.product_id == Product.id)
@@ -3626,22 +3597,83 @@ async def read_public_products(
         )
 
     published_result = await db.execute(published_query)
-    published_products = published_result.scalars().unique().all()
+    published_rows = published_result.all()
+    published_products: list[PublishedProduct] = []
+    products_by_id: dict[uuid.UUID, Product] = {}
+    for published_product, product in published_rows:
+        # Attach the already selected product without marking the relationship
+        # dirty. This keeps the existing serializer API while avoiding lazy
+        # queries during facet calculation.
+        set_committed_value(published_product, "product", product)
+        published_products.append(published_product)
+        products_by_id[product.id] = product
+
+    product_ids = list(products_by_id)
+    variant_by_product: dict[uuid.UUID, list[ProductVariant]] = {}
+    if product_ids:
+        variants_result = await db.execute(
+            select(ProductVariant)
+            .options(
+                load_only(
+                    ProductVariant.id,
+                    ProductVariant.product_id,
+                    ProductVariant.name,
+                    ProductVariant.sku,
+                    ProductVariant.barcode,
+                    ProductVariant.price_extra,
+                    ProductVariant.price,
+                    ProductVariant.attributes,
+                )
+            )
+            .where(ProductVariant.product_id.in_(product_ids))
+        )
+        for variant in variants_result.scalars().all():
+            variant_by_product.setdefault(variant.product_id, []).append(variant)
+
+    category_ids = {product.category_id for product in products_by_id.values() if product.category_id}
+    categories_by_id: dict[uuid.UUID, Category] = {}
+    if category_ids:
+        categories_result = await db.execute(
+            select(Category)
+            .options(load_only(Category.id, Category.name))
+            .where(Category.id.in_(category_ids))
+        )
+        categories_by_id = {category.id: category for category in categories_result.scalars().all()}
+
+    brand_ids = {product.brand_id for product in products_by_id.values() if product.brand_id}
+    brands_by_id: dict[uuid.UUID, Brand] = {}
+    if brand_ids:
+        brands_result = await db.execute(
+            select(Brand)
+            .options(load_only(Brand.id, Brand.name))
+            .where(Brand.id.in_(brand_ids))
+        )
+        brands_by_id = {brand.id: brand for brand in brands_result.scalars().all()}
+
+    for product in products_by_id.values():
+        set_committed_value(product, "variants", variant_by_product.get(product.id, []))
+        set_committed_value(product, "category", categories_by_id.get(product.category_id))
+        set_committed_value(product, "brand", brands_by_id.get(product.brand_id))
 
     product_collection_map: dict[uuid.UUID, list[str]] = {}
+    published_ids = [item.id for item in published_products]
+    if published_ids:
+        collection_links_result = await db.execute(
+            select(StoreCollectionProduct.published_product_id, StoreCollection.slug)
+            .join(StoreCollection, StoreCollection.id == StoreCollectionProduct.collection_id)
+            .where(
+                StoreCollectionProduct.published_product_id.in_(published_ids),
+                StoreCollection.storefront_id == storefront_id,
+                StoreCollection.is_active == True,
+                StoreCollection.is_visible == True,
+            )
+        )
+        for published_product_id, collection_slug in collection_links_result.all():
+            slugs = product_collection_map.setdefault(published_product_id, [])
+            if collection_slug not in slugs:
+                slugs.append(collection_slug)
     for published_product in published_products:
-        slugs: list[str] = []
-        for link in published_product.collections or []:
-            collection_model = getattr(link, "collection", None)
-            if (
-                not collection_model
-                or not collection_model.is_active
-                or not collection_model.is_visible
-                or collection_model.slug in slugs
-            ):
-                continue
-            slugs.append(collection_model.slug)
-        product_collection_map[published_product.id] = slugs
+        product_collection_map.setdefault(published_product.id, [])
 
     # These values are reused by the result filter, price sorting and every
     # facet count. Computing them once avoids walking every variant repeatedly
