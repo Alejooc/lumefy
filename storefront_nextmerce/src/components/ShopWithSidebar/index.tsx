@@ -138,7 +138,7 @@ const ShopWithSidebar = ({
       params.set("page_size", String(PRODUCTS_PER_BATCH));
       params.set("include_facets", "false");
 
-      const response = await fetch(`/api/storefront/products?${params.toString()}`, {
+      const response = await fetch(`/storefront-api/products?${params.toString()}`, {
         headers: { Accept: "application/json" },
         cache: "no-store",
       });
