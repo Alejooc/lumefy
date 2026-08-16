@@ -1293,10 +1293,11 @@ async def _get_storefront_stock_map(
     db: AsyncSession,
     storefront: Storefront,
     product_ids: list[uuid.UUID],
+    warehouse: Warehouse | None = None,
 ) -> dict[tuple[uuid.UUID, uuid.UUID | None], float]:
     if not product_ids:
         return {}
-    warehouse = await _resolve_storefront_fulfillment_warehouse(db, storefront)
+    warehouse = warehouse or await _resolve_storefront_fulfillment_warehouse(db, storefront)
     result = await db.execute(
         select(Inventory.product_id, Inventory.variant_id, Inventory.quantity, Inventory.reserved_quantity).where(
             Inventory.warehouse_id == warehouse.id,
@@ -3533,6 +3534,11 @@ async def read_public_products(
     page_size: int = 12,
 ) -> Any:
     storefront = await _get_public_storefront_by_id(db, storefront_id)
+    # Resolve the warehouse once and let PostgreSQL discard tracked products
+    # with no available stock before loading variants, facets and collections.
+    # The previous in-memory pass loaded the complete catalog and made every
+    # page request pay for thousands of out-of-stock products.
+    fulfillment_warehouse = await _resolve_storefront_fulfillment_warehouse(db, storefront)
 
     selected_collections = _parse_multi_query_param(collection)
     selected_categories = _parse_multi_query_param(category)
@@ -3602,6 +3608,23 @@ async def read_public_products(
         published_query = published_query.where(Product.category_id.in_(selected_categories))
     if selected_types:
         published_query = published_query.where(Product.product_type.in_(selected_types))
+    available_inventory = (
+        select(Inventory.id)
+        .where(
+            Inventory.warehouse_id == fulfillment_warehouse.id,
+            Inventory.product_id == Product.id,
+            Inventory.quantity > Inventory.reserved_quantity,
+        )
+        .correlate(Product)
+        .exists()
+    )
+    published_query = published_query.where(
+        or_(
+            Product.track_inventory.is_(False),
+            Product.track_inventory.is_(None),
+            available_inventory,
+        )
+    )
     if normalized_search:
         search_filter = f"%{normalized_search}%"
         normalized_column = lambda column: func.lumefy_unaccent(func.lower(column)).ilike(search_filter)
@@ -3752,11 +3775,23 @@ async def read_public_products(
         db,
         storefront,
         [item.product_id for item in published_products],
+        warehouse=fulfillment_warehouse,
     )
+    available_stock_product_ids = {
+        product_id
+        for (product_id, _variant_id), quantity in catalog_stock_map.items()
+        if quantity > 0
+    }
     published_products = [
         item
         for item in published_products
-        if _public_product_has_available_stock(item.product, catalog_stock_map)
+        if (
+            item.product is not None
+            and (
+                not item.product.track_inventory
+                or item.product_id in available_stock_product_ids
+            )
+        )
     ]
     published_product_ids = {item.id for item in published_products}
     product_contexts = {
