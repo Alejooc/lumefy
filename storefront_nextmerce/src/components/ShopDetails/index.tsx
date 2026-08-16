@@ -340,8 +340,6 @@ const ShopDetails = ({
                     <li className="flex items-center gap-2.5">Compra segura y atencion personalizada</li>
                   </ul>
 
-                  {descriptionText ? <p className="mt-6 text-dark-3">{descriptionText}</p> : null}
-
                   <div className="flex flex-col gap-4.5 border-y border-gray-3 mt-7.5 mb-9 py-9">
                     {colorOptions.length ? (
                       <div className="flex items-center gap-4">
