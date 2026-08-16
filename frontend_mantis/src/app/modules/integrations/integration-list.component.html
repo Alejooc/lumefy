@@ -113,6 +113,11 @@
                 <label class="form-label">Ruta de datos de productos</label>
                 <input class="form-control" [(ngModel)]="form.products_data_path" placeholder="items (vacío si la respuesta es una lista)">
               </div>
+              <div class="col-md-8">
+                <label class="form-label">URL base de imágenes <span class="text-muted">(opcional)</span></label>
+                <input class="form-control" [(ngModel)]="form.asset_base_url" placeholder="https://cdn.proveedor.com/imagenes/">
+                <small class="text-muted">Se antepone a nombres relativos como <code>THO12306.jpg</code>. Déjala vacía si la API ya entrega URLs completas.</small>
+              </div>
 
               <div class="col-12"><h6 class="form-section-title">Paginación del catálogo</h6></div>
               <div class="col-12">

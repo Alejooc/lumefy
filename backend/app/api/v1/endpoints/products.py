@@ -1,4 +1,5 @@
 from typing import Any, List
+from urllib.parse import urljoin, urlsplit
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, or_, select
@@ -398,8 +399,8 @@ async def export_products(
             "product_type": p.product_type or "",
             "category_name": p.category.name if p.category else "",
             "brand_name": p.brand.name if p.brand else "",
-            "sale_price": float(p.sale_price) if p.sale_price else 0,
-            "cost_price": float(p.cost_price) if p.cost_price else 0,
+            "sale_price": float(p.price) if p.price is not None else 0,
+            "cost_price": float(p.cost) if p.cost is not None else 0,
             "uom_name": p.unit_of_measure.name if p.unit_of_measure else "",
             "is_active": "Sí" if p.is_active else "No",
         })
@@ -407,6 +408,82 @@ async def export_products(
     if format == "csv":
         return ExportService.to_csv_response(rows, columns, filename="productos")
     return ExportService.to_excel_response(rows, columns, filename="productos")
+
+
+def _complete_relative_image_url(value: str | None, prefix: str) -> tuple[str | None, bool]:
+    """Return an absolute image URL, changing only relative values."""
+    normalized = (value or "").strip()
+    if not normalized:
+        return value, False
+
+    parsed = urlsplit(normalized)
+    if parsed.scheme in {"http", "https"} and parsed.netloc:
+        return normalized, False
+
+    return urljoin(prefix.rstrip("/") + "/", normalized.lstrip("/")), True
+
+
+@router.post("/bulk-complete-image-urls", response_model=schemas.ProductBulkImageUrlResponse)
+async def bulk_complete_image_urls(
+    *,
+    product_in: schemas.ProductBulkImageUrlRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> schemas.ProductBulkImageUrlResponse:
+    """Prefix relative product/gallery image paths without touching valid URLs."""
+    prefix = product_in.prefix.strip()
+    parsed_prefix = urlsplit(prefix)
+    if parsed_prefix.scheme not in {"http", "https"} or not parsed_prefix.netloc:
+        raise HTTPException(
+            status_code=422,
+            detail="El prefijo debe ser una URL completa, por ejemplo https://cdn.proveedor.com/imagenes/.",
+        )
+
+    requested_ids = list(dict.fromkeys(product_in.product_ids or []))
+    query = select(Product).options(selectinload(Product.images)).where(
+        Product.company_id == current_user.company_id,
+    )
+    if requested_ids:
+        query = query.where(Product.id.in_(requested_ids))
+
+    result = await db.execute(query)
+    products = result.scalars().all()
+    found_ids = {product.id for product in products}
+    not_found = [product_id for product_id in requested_ids if product_id not in found_ids]
+    products_updated = 0
+    images_updated = 0
+    skipped_valid = 0
+
+    for product in products:
+        changed = False
+        product_url, product_changed = _complete_relative_image_url(product.image_url, prefix)
+        if product_changed:
+            product.image_url = product_url
+            changed = True
+            images_updated += 1
+        elif product.image_url:
+            skipped_valid += 1
+
+        for image in product.images:
+            image_url, image_changed = _complete_relative_image_url(image.image_url, prefix)
+            if image_changed:
+                image.image_url = image_url
+                changed = True
+                images_updated += 1
+            elif image.image_url:
+                skipped_valid += 1
+
+        if changed:
+            products_updated += 1
+
+    await db.commit()
+    return schemas.ProductBulkImageUrlResponse(
+        requested=len(requested_ids) if requested_ids else len(products),
+        products_updated=products_updated,
+        images_updated=images_updated,
+        skipped_valid=skipped_valid,
+        not_found=not_found,
+    )
 
 
 @router.post("/bulk-delete", response_model=schemas.ProductBulkDeleteResponse)

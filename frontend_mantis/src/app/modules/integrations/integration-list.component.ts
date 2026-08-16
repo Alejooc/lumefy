@@ -22,6 +22,7 @@ interface IntegrationForm {
   api_key_header: string;
   products_path: string;
   products_data_path: string;
+  asset_base_url: string;
   inventory_path: string;
   inventory_data_path: string;
   inventory_batch_enabled: boolean;
@@ -94,6 +95,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       api_key_header: 'X-API-Key',
       products_path: '/products',
       products_data_path: '',
+      asset_base_url: '',
       inventory_path: '/inventory',
       inventory_data_path: '',
       inventory_batch_enabled: false,
@@ -154,6 +156,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       api_key_header: this.stringValue(config['api_key_header'], 'X-API-Key'),
       products_path: this.stringValue(products['path']),
       products_data_path: this.stringValue(products['data_path']),
+      asset_base_url: this.stringValue(config['asset_base_url']),
       inventory_path: this.stringValue(inventory['path']),
       inventory_data_path: this.stringValue(inventory['data_path']),
       inventory_batch_enabled: inventoryBatch['enabled'] === true,
@@ -268,6 +271,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       configuration: {
         ...this.editingConfiguration,
         api_key_header: this.form.api_key_header.trim() || 'X-API-Key',
+        asset_base_url: this.form.asset_base_url.trim(),
         endpoints,
         field_map: fieldMap
       }

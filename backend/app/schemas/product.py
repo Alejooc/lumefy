@@ -123,3 +123,18 @@ class ProductBulkDeleteAllRequest(BaseModel):
     category_id: Optional[UUID] = None
     brand_id: Optional[UUID] = None
     product_type: Optional[str] = None
+
+
+class ProductBulkImageUrlRequest(BaseModel):
+    """Complete relative product image paths with a trusted URL prefix."""
+
+    prefix: str = Field(min_length=1, max_length=2000)
+    product_ids: Optional[List[UUID]] = Field(default=None, max_length=10000)
+
+
+class ProductBulkImageUrlResponse(BaseModel):
+    requested: int
+    products_updated: int
+    images_updated: int
+    skipped_valid: int
+    not_found: List[UUID]
