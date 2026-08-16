@@ -17,14 +17,10 @@ export function storefrontImageUrl(value?: string | null): string | undefined {
     if (url.pathname.startsWith("/static/")) {
       return `/media${url.pathname}`;
     }
-    // Provider catalog images can live behind an authenticated endpoint whose
-    // asset base is different from the catalog API base. Route both API-style
-    // paths and ordinary image filenames through the same-origin proxy. The
-    // proxy falls back to the original URL for public, non-Lumefy assets.
-    if (
-      url.pathname.includes("/api/external/") ||
-      /\.(avif|gif|jpe?g|png|svg|webp|bmp|ico)$/i.test(url.pathname)
-    ) {
+    // API-style provider paths can require credentials unavailable to the
+    // browser. Public CDN/image-base URLs stay direct so Next's optimizer can
+    // fetch them normally (the admin panel uses this same public URL).
+    if (url.pathname.includes("/api/external/")) {
       return `/external-image?url=${encodeURIComponent(normalized)}`;
     }
   } catch {
