@@ -1693,6 +1693,11 @@ async def _sync_products(
         # A later catalog sync is the explicit path for restoring an archived
         # product after a catalog purge.
         product.is_active = True
+        # Imported catalog products are sellable and purchasable by default.
+        # A provider value, when explicitly mapped, is applied below and can
+        # override these defaults.
+        product.sale_ok = True
+        product.purchase_ok = True
         if sku is not None:
             product.sku = sku
         for field, key, *fallbacks in [
