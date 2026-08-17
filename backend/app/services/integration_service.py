@@ -12,13 +12,14 @@ from urllib import error as urlerror
 from urllib import parse as urlparse
 from urllib import request as urlrequest
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.branch import Branch
+from app.models.brand import Brand
 from app.models.category import Category
 from app.models.integration import IntegrationRecordLink, IntegrationSource, IntegrationSyncRun
 from app.models.inventory import Inventory
@@ -27,6 +28,7 @@ from app.models.product_image import ProductImage
 from app.models.product_variant import ProductVariant
 from app.models.warehouse import Warehouse
 from app.models.supplier import Supplier
+from app.models.unit_of_measure import UnitOfMeasure
 
 
 class IntegrationRequestError(Exception):
@@ -297,6 +299,48 @@ def _as_float(value: Any, default: float | None = None) -> float | None:
         return default
 
 
+def _as_bool(value: Any, default: bool | None = None) -> bool | None:
+    """Parse the common boolean representations returned by providers."""
+
+    if value in (None, ""):
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    normalized = str(value).strip().casefold()
+    if normalized in {"1", "true", "yes", "y", "si", "sí", "on", "active", "activo"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off", "inactive", "inactivo"}:
+        return False
+    return default
+
+
+def _as_text(value: Any, *keys: str) -> str | None:
+    """Extract a usable label from scalar or object-shaped provider values."""
+
+    if value in (None, ""):
+        return None
+    if isinstance(value, dict):
+        for key in keys or ("name", "title", "label", "value", "code", "id"):
+            nested = value.get(key)
+            if nested not in (None, "") and not isinstance(nested, (dict, list)):
+                text = str(nested).strip()
+                if text:
+                    return text
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _as_choice(value: Any, choices: set[str]) -> str | None:
+    text = _as_text(value)
+    if not text:
+        return None
+    normalized = text.upper()
+    return normalized if normalized in choices else None
+
+
 def _endpoint_config(source: IntegrationSource, entity: str) -> dict[str, Any]:
     configuration = source.configuration or {}
     endpoints = configuration.get("endpoints") or {}
@@ -468,13 +512,39 @@ def _suggest_mapping_from_sample(sample: dict[str, Any]) -> dict[str, Any]:
     add("product.name", ("product_name", "name", "title"), required=True)
     add("product.description", ("description", "body", "body_html"))
     add("product.sku", ("product_sku", "sku", "reference", "code"))
+    add("product.internal_reference", ("internal_reference", "internal_code", "codigo_interno"))
     add("product.barcode", ("barcode", "ean", "upc", "gtin"))
     add("product.price", ("sale_price", "selling_price", "price"))
     add("product.cost", ("purchase_price", "cost"))
     add("product.category.external_id", ("category_id",))
-    add("product.category.name", ("category_name",))
+    add("product.category.name", ("category_name", "category", "categoria", "nombre_categoria"))
+    add(
+        "product.brand.external_id",
+        ("brand_id", "brand_external_id", "brand_code", "brand_uuid", "manufacturer_id", "marca_id"),
+    )
+    add(
+        "product.brand.name",
+        ("brand_name", "brand", "brand_title", "manufacturer", "manufacturer_name", "marca", "nombre_marca"),
+    )
     add("product.supplier.external_id", ("provider_id", "supplier_id", "vendor_id"))
     add("product.supplier.name", ("provider_name", "supplier_name", "vendor_name"))
+    add("product.weight", ("weight", "weight_kg", "product_weight", "peso", "peso_kg"))
+    add("product.volume", ("volume", "volume_l", "product_volume", "volumen", "volumen_l"))
+    add("product.tax_rate", ("tax_rate", "tax", "vat", "iva", "impuesto"))
+    add("product.min_stock", ("min_stock", "minimum_stock", "reorder_point", "stock_minimo"))
+    add("product.product_type", ("product_type", "product_kind", "kind", "tipo_producto"))
+    add("product.track_inventory", ("track_inventory", "manage_stock", "inventory_tracked", "control_inventario"))
+    add("product.tracking_type", ("tracking_type", "tracking", "tipo_seguimiento"))
+    add("product.sale_ok", ("sale_ok", "sellable", "can_sell", "allow_sale"))
+    add("product.purchase_ok", ("purchase_ok", "purchasable", "can_purchase", "allow_purchase"))
+    add(
+        "product.unit.name",
+        ("unit_name", "unit_of_measure", "uom", "unidad", "unidad_medida", "unit"),
+    )
+    add(
+        "product.purchase_unit.name",
+        ("purchase_unit_name", "purchase_uom", "unidad_compra", "unidad_compra_nombre"),
+    )
     add("product.attributes.material", ("material",))
 
     images_key = _list_key(sample, ("images", "pictures", "photos", "media"))
@@ -681,7 +751,7 @@ def _asset_url(source: IntegrationSource, value: Any) -> str | None:
 async def _sync_category(
     db: AsyncSession, source: IntegrationSource, name: str | None
 ) -> uuid.UUID | None:
-    normalized = (name or "").strip()
+    normalized = _as_text(name, "name", "title", "label") or ""
     if not normalized:
         return None
     result = await db.execute(
@@ -699,6 +769,87 @@ async def _sync_category(
     return category.id
 
 
+async def _sync_brand(
+    db: AsyncSession,
+    source: IntegrationSource,
+    external_id: Any = None,
+    name: Any = None,
+) -> Brand | None:
+    """Resolve a provider brand by tenant-scoped name and create it if absent.
+
+    Brands currently do not have a dedicated external-id column.  We still
+    retain the provider id in the product attributes, while the normalized
+    brand name is the stable local homologation key.  This also handles
+    providers that only return ``brand``/``marca`` as a scalar or nested
+    object.
+    """
+
+    normalized_external_id = _as_text(external_id, "id", "code", "value")
+    normalized_name = _as_text(name, "name", "title", "label", "value")
+    if not normalized_name and normalized_external_id:
+        normalized_name = f"Marca {normalized_external_id}"
+    if not normalized_name:
+        return None
+
+    result = await db.execute(
+        select(Brand).where(
+            Brand.company_id == source.company_id,
+            func.lower(func.trim(Brand.name)) == normalized_name.casefold(),
+        ).limit(1)
+    )
+    brand = result.scalars().first()
+    if brand:
+        # A previously archived brand should become usable again when the
+        # provider sends it in an authoritative catalog sync.
+        if not brand.is_active:
+            brand.is_active = True
+        return brand
+
+    brand = Brand(
+        id=uuid.uuid4(),
+        company_id=source.company_id,
+        name=normalized_name,
+    )
+    db.add(brand)
+    await db.flush()
+    return brand
+
+
+async def _sync_unit_of_measure(
+    db: AsyncSession,
+    source: IntegrationSource,
+    name: Any = None,
+) -> UnitOfMeasure | None:
+    """Resolve or create a tenant-scoped unit of measure by name/abbreviation."""
+
+    normalized = _as_text(name, "name", "title", "label", "value", "code")
+    if not normalized or normalized.isdigit():
+        return None
+    result = await db.execute(
+        select(UnitOfMeasure).where(
+            UnitOfMeasure.company_id == source.company_id,
+            UnitOfMeasure.is_active.is_(True),
+            or_(
+                func.lower(func.trim(UnitOfMeasure.name)) == normalized.casefold(),
+                func.lower(func.trim(UnitOfMeasure.abbreviation)) == normalized.casefold(),
+            ),
+        ).limit(1)
+    )
+    unit = result.scalars().first()
+    if unit:
+        return unit
+
+    unit = UnitOfMeasure(
+        id=uuid.uuid4(),
+        company_id=source.company_id,
+        name=normalized,
+        abbreviation=normalized[:10],
+    )
+    db.add(unit)
+    await db.flush()
+    return unit
+
+
 async def _sync_supplier(
     db: AsyncSession,
     source: IntegrationSource,
@@ -711,8 +862,8 @@ async def _sync_supplier(
     fallback for older sources that do not provide an ID. The lookup is scoped
     to the tenant so suppliers are never shared between companies.
     """
-    normalized_external_id = str(external_id).strip() if external_id not in (None, "") else None
-    normalized_name = str(name).strip() if name not in (None, "") else None
+    normalized_external_id = _as_text(external_id, "id", "code", "value")
+    normalized_name = _as_text(name, "name", "title", "label", "value")
     if not normalized_external_id and not normalized_name:
         return None
 
@@ -908,6 +1059,23 @@ def _preview_mapped_item(item: dict[str, Any], mapping: dict[str, Any], entity: 
             "sku": _mapped(item, mapping, "product.sku", "sku", "code", "reference"),
             "price": _as_float(_mapped(item, mapping, "product.price", "price", "sale_price")),
             "cost": _as_float(_mapped(item, mapping, "product.cost", "cost", "purchase_price")),
+            "brand": _as_text(
+                _mapped(
+                    item,
+                    mapping,
+                    "product.brand.name",
+                    "brand_name",
+                    "brand",
+                    "manufacturer",
+                    "manufacturer_name",
+                    "marca",
+                ),
+                "name",
+                "title",
+                "label",
+            ),
+            "weight": _as_float(_mapped(item, mapping, "product.weight", "weight", "weight_kg", "peso", "peso_kg")),
+            "volume": _as_float(_mapped(item, mapping, "product.volume", "volume", "volume_l", "volumen", "volumen_l")),
         }
     return {
         "external_id": _mapped(item, mapping, "inventory.external_id", "product_id", "id", "sku"),
@@ -1531,6 +1699,7 @@ async def _sync_products(
             ("description", "product.description", "description", "body_html"),
             ("image_url", "product.image_url", "image_url", "image"),
             ("barcode", "product.barcode", "barcode", "ean"),
+            ("internal_reference", "product.internal_reference", "internal_reference", "internal_code", "codigo_interno"),
         ]:
             value = _mapped(item, mapping, key, *fallbacks)
             if value not in (None, ""):
@@ -1543,28 +1712,125 @@ async def _sync_products(
         for field, key, *fallbacks in [
             ("price", "product.price", "price", "sale_price"),
             ("cost", "product.cost", "cost", "purchase_price"),
+            ("weight", "product.weight", "weight", "weight_kg", "product_weight", "peso", "peso_kg"),
+            ("volume", "product.volume", "volume", "volume_l", "product_volume", "volumen", "volumen_l"),
+            ("tax_rate", "product.tax_rate", "tax_rate", "tax", "vat", "iva", "impuesto"),
+            ("min_stock", "product.min_stock", "min_stock", "minimum_stock", "reorder_point", "stock_minimo"),
         ]:
             value = _as_float(_mapped(item, mapping, key, *fallbacks))
             if value is not None:
                 setattr(product, field, value)
 
+        for field, key, *fallbacks in [
+            ("track_inventory", "product.track_inventory", "track_inventory", "manage_stock", "inventory_tracked", "control_inventario"),
+            ("sale_ok", "product.sale_ok", "sale_ok", "sellable", "can_sell", "allow_sale"),
+            ("purchase_ok", "product.purchase_ok", "purchase_ok", "purchasable", "can_purchase", "allow_purchase"),
+        ]:
+            value = _as_bool(_mapped(item, mapping, key, *fallbacks))
+            if value is not None:
+                setattr(product, field, value)
+
+        product_type = _as_choice(
+            _mapped(item, mapping, "product.product_type", "product_type", "product_kind", "kind", "tipo_producto"),
+            {"STORABLE", "CONSUMABLE", "SERVICE"},
+        )
+        if product_type:
+            product.product_type = product_type
+        tracking_type = _as_choice(
+            _mapped(item, mapping, "product.tracking_type", "tracking_type", "tracking", "tipo_seguimiento"),
+            {"NONE", "LOT", "SERIAL"},
+        )
+        if tracking_type:
+            product.tracking_type = tracking_type
+
+        unit_name = _mapped(
+            item,
+            mapping,
+            "product.unit.name",
+            "unit_name",
+            "unit_of_measure",
+            "uom",
+            "unidad",
+            "unidad_medida",
+            "unit",
+        )
+        purchase_unit_name = _mapped(
+            item,
+            mapping,
+            "product.purchase_unit.name",
+            "purchase_unit_name",
+            "purchase_uom",
+            "unidad_compra",
+            "unidad_compra_nombre",
+        )
+        unit = await _sync_unit_of_measure(db, source, unit_name)
+        purchase_unit = await _sync_unit_of_measure(db, source, purchase_unit_name)
+        if unit:
+            product.unit_of_measure_id = unit.id
+        if purchase_unit:
+            product.purchase_uom_id = purchase_unit.id
+
         product_attributes = _collect_product_attributes(item, mapping)
-        category_external_id = _mapped(item, mapping, "product.category.external_id", "category_id")
-        category_name = _mapped(item, mapping, "product.category.name", "category_name")
+        category_external_id = _mapped(item, mapping, "product.category.external_id", "category_id", "category_external_id")
+        category_name = _mapped(
+            item,
+            mapping,
+            "product.category.name",
+            "category_name",
+            "category",
+            "categoria",
+            "nombre_categoria",
+        )
+        brand_external_id = _mapped(
+            item,
+            mapping,
+            "product.brand.external_id",
+            "brand_id",
+            "brand_external_id",
+            "brand_code",
+            "manufacturer_id",
+            "marca_id",
+        )
+        brand_name = _mapped(
+            item,
+            mapping,
+            "product.brand.name",
+            "brand_name",
+            "brand",
+            "brand_title",
+            "manufacturer",
+            "manufacturer_name",
+            "marca",
+            "nombre_marca",
+        )
         supplier_external_id = _mapped(item, mapping, "product.supplier.external_id", "provider_id", "supplier_id")
         supplier_name = _mapped(item, mapping, "product.supplier.name", "provider_name", "supplier_name")
+        brand = await _sync_brand(db, source, brand_external_id, brand_name)
+        if brand:
+            product.brand_id = brand.id
         supplier = await _sync_supplier(db, source, supplier_external_id, supplier_name)
         if supplier:
             product.supplier_id = supplier.id
-        if category_external_id not in (None, ""):
-            product_attributes["external_category_id"] = str(category_external_id)
+        category_external_text = _as_text(category_external_id, "id", "code", "value")
+        if category_external_text not in (None, ""):
+            product_attributes["external_category_id"] = category_external_text
         if category_name not in (None, ""):
-            product.category_id = await _sync_category(db, source, str(category_name))
-            product_attributes["category_name"] = str(category_name)
-        if supplier_external_id not in (None, ""):
-            product_attributes["external_supplier_id"] = str(supplier_external_id)
-        if supplier_name not in (None, ""):
-            product_attributes["supplier_name"] = str(supplier_name)
+            category_text = _as_text(category_name, "name", "title", "label")
+            product.category_id = await _sync_category(db, source, category_text)
+            if category_text:
+                product_attributes["category_name"] = category_text
+        brand_external_text = _as_text(brand_external_id, "id", "code", "value")
+        brand_name_text = _as_text(brand_name, "name", "title", "label", "value")
+        if brand_external_text not in (None, ""):
+            product_attributes["external_brand_id"] = brand_external_text
+        if brand_name_text not in (None, ""):
+            product_attributes["brand_name"] = brand_name_text
+        supplier_external_text = _as_text(supplier_external_id, "id", "code", "value")
+        supplier_name_text = _as_text(supplier_name, "name", "title", "label", "value")
+        if supplier_external_text not in (None, ""):
+            product_attributes["external_supplier_id"] = supplier_external_text
+        if supplier_name_text not in (None, ""):
+            product_attributes["supplier_name"] = supplier_name_text
         for field, fallback in [("linea_id", "line_id"), ("linea_name", "line_name")]:
             value = _mapped(item, mapping, f"product.attributes.{field}", field, fallback)
             if value not in (None, ""):

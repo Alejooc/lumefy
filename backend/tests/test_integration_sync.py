@@ -13,9 +13,12 @@ from app.services.integration_service import (
     _fetch_entity,
     _fetch_inventory,
     _mapped,
+    _suggest_mapping_from_sample,
+    _sync_brand,
     _sync_product_images,
     _sync_inventory,
     _sync_supplier,
+    _sync_unit_of_measure,
 )
 
 
@@ -61,6 +64,26 @@ class IntegrationProviderShapeTests(unittest.TestCase):
 
         self.assertEqual(external_id, "10536")
         self.assertEqual(name, "JUEGO DE SABANAS UNICOLOR")
+
+    def test_mapping_suggests_brand_and_product_physical_fields(self):
+        suggestion = _suggest_mapping_from_sample(
+            {
+                "product_id": "10536",
+                "product_name": "JUEGO DE SABANAS",
+                "marca": "Ovejero",
+                "peso": "0.8",
+                "volumen": "2.5",
+                "iva": "19",
+                "unidad": "Unidad",
+            }
+        )
+
+        mapping = suggestion["mapping"]
+        self.assertEqual(mapping["product.brand.name"], "marca")
+        self.assertEqual(mapping["product.weight"], "peso")
+        self.assertEqual(mapping["product.volume"], "volumen")
+        self.assertEqual(mapping["product.tax_rate"], "iva")
+        self.assertEqual(mapping["product.unit.name"], "unidad")
 
 
 class IntegrationImageSyncTests(unittest.IsolatedAsyncioTestCase):
@@ -120,6 +143,48 @@ class IntegrationSupplierHomologationTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(resolved.external_id, "105")
         self.assertEqual(resolved.name, "Proveedor nuevo")
+        db.add.assert_called_once_with(resolved)
+        db.flush.assert_awaited_once()
+
+    async def test_reuses_brand_by_normalized_name(self):
+        company_id = uuid.uuid4()
+        source = SimpleNamespace(company_id=company_id)
+        brand = SimpleNamespace(id=uuid.uuid4(), company_id=company_id, name="Ovejero", is_active=True)
+        result = Mock()
+        result.scalars.return_value.first.return_value = brand
+        db = SimpleNamespace(execute=AsyncMock(return_value=result), add=Mock(), flush=AsyncMock())
+
+        resolved = await _sync_brand(db, source, "105", "  ovejero ")
+
+        self.assertIs(resolved, brand)
+        db.add.assert_not_called()
+        db.flush.assert_not_awaited()
+
+    async def test_creates_brand_when_provider_brand_is_new(self):
+        company_id = uuid.uuid4()
+        source = SimpleNamespace(company_id=company_id)
+        result = Mock()
+        result.scalars.return_value.first.return_value = None
+        db = SimpleNamespace(execute=AsyncMock(return_value=result), add=Mock(), flush=AsyncMock())
+
+        resolved = await _sync_brand(db, source, {"id": "105"}, {"name": "Ovejero"})
+
+        self.assertEqual(resolved.name, "Ovejero")
+        self.assertEqual(resolved.company_id, company_id)
+        db.add.assert_called_once_with(resolved)
+        db.flush.assert_awaited_once()
+
+    async def test_creates_unit_when_provider_unit_is_new(self):
+        company_id = uuid.uuid4()
+        source = SimpleNamespace(company_id=company_id)
+        result = Mock()
+        result.scalars.return_value.first.return_value = None
+        db = SimpleNamespace(execute=AsyncMock(return_value=result), add=Mock(), flush=AsyncMock())
+
+        resolved = await _sync_unit_of_measure(db, source, {"name": "Unidad"})
+
+        self.assertEqual(resolved.name, "Unidad")
+        self.assertEqual(resolved.abbreviation, "Unidad")
         db.add.assert_called_once_with(resolved)
         db.flush.assert_awaited_once()
 

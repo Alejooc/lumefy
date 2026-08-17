@@ -61,6 +61,9 @@ Los encabezados personalizados también se cifran de forma recursiva. Por defect
       "product.external_id": "id",
       "product.name": "name",
       "product.sku": "sku",
+      "product.brand.name": "brand_name",
+      "product.weight": "weight",
+      "product.volume": "volume",
       "product.price": "price",
       "product.cost": "cost",
       "inventory.external_id": "product_id",
@@ -70,6 +73,17 @@ Los encabezados personalizados también se cifran de forma recursiva. Por defect
   }
 }
 ```
+
+En el catálogo, la marca se homologa por nombre dentro de la empresa: si ya
+existe se reutiliza y si no existe se crea automáticamente. El identificador
+externo de la marca, cuando el proveedor lo envía, queda guardado en los
+atributos del producto para trazabilidad. También se sincronizan los campos
+físicos y operativos disponibles (`weight` en kg, `volume` en litros,
+`tax_rate`, `min_stock`, `product_type`, `track_inventory`, `tracking_type`,
+`sale_ok`, `purchase_ok`, `unit_name` y `purchase_unit_name`), incluyendo
+alias habituales en español como `marca`, `peso`, `volumen`, `iva` y
+`stock_minimo`. Las unidades se homologan por nombre o abreviatura dentro de
+la empresa y se crean cuando el proveedor envía una unidad nueva.
 
 Cuando `pagination.enabled` es `false`, Lumefy hace una sola solicitud. Cuando es `true`, reemplaza o agrega los parámetros de página en cada solicitud y continúa hasta encontrar una página vacía, una página menor al tamaño configurado, metadatos de páginas/total devueltos por el proveedor, `last_page`/`total` configurados o el límite `max_pages`.
 
