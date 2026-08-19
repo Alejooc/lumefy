@@ -22,6 +22,10 @@ const RecentlyViewdItems = ({ items }: { items: Product[] }) => {
     sliderRef.current.swiper.slideNext();
   }, []);
 
+  if (!items.length) {
+    return null;
+  }
+
   return (
     <section className="overflow-hidden pt-17.5">
       <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0 pb-15 border-b border-gray-3">
@@ -36,15 +40,15 @@ const RecentlyViewdItems = ({ items }: { items: Product[] }) => {
                   height={17}
                   alt="icon"
                 />
-                Categories
+                Productos relacionados
               </span>
               <h2 className="font-semibold text-xl xl:text-heading-5 text-dark">
-                Browse by Category
+                Más productos de esta categoría
               </h2>
             </div>
 
             <div className="flex items-center gap-3">
-              <button onClick={handlePrev} className="swiper-button-prev">
+              <button onClick={handlePrev} aria-label="Productos anteriores" className="swiper-button-prev">
                 <svg
                   className="fill-current"
                   width="24"
@@ -62,7 +66,7 @@ const RecentlyViewdItems = ({ items }: { items: Product[] }) => {
                 </svg>
               </button>
 
-              <button onClick={handleNext} className="swiper-button-next">
+              <button onClick={handleNext} aria-label="Productos siguientes" className="swiper-button-next">
                 <svg
                   className="fill-current"
                   width="24"
@@ -84,8 +88,13 @@ const RecentlyViewdItems = ({ items }: { items: Product[] }) => {
 
           <Swiper
             ref={sliderRef}
-            slidesPerView={4}
-            spaceBetween={20}
+            slidesPerView={3}
+            spaceBetween={12}
+            breakpoints={{
+              0: { slidesPerView: 3, spaceBetween: 12 },
+              640: { slidesPerView: 3, spaceBetween: 16 },
+              1024: { slidesPerView: 4, spaceBetween: 20 },
+            }}
             className="justify-between"
           >
             {items.map((item, key) => (

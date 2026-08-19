@@ -120,7 +120,7 @@ const CartSidebarModal = () => {
                 href="/checkout"
                 className="flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-md bg-dark px-3 py-3 text-center text-sm font-medium leading-5 text-white ease-out duration-200 hover:bg-opacity-95 sm:px-6"
               >
-                Ir a checkout
+                Ir al pago
               </Link>
             </div>
           </div>

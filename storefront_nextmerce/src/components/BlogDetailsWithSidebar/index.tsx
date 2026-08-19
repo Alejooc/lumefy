@@ -73,7 +73,7 @@ const BlogDetailsWithSidebar = () => {
 
                 <div className="mt-7.5">
                   <h3 className="font-medium text-dark text-lg xl:text-[26px] xl:leading-[34px] mb-6">
-                    Digital marketplace for Ui/Ux designers.
+                    Un espacio digital para diseñadores de UI/UX.
                   </h3>
 
                   <ul className="list-disc pl-6">
@@ -278,7 +278,7 @@ const BlogDetailsWithSidebar = () => {
               <div className="shadow-1 bg-white rounded-xl mt-7.5">
                 <div className="px-4 sm:px-6 py-4.5 border-b border-gray-3">
                   <h2 className="font-medium text-lg text-dark">
-                    Popular Category
+                    Categoría popular
                   </h2>
                 </div>
 

@@ -10,8 +10,8 @@ import { usePreviewSlider } from "@/app/context/PreviewSliderContext";
 import { resetQuickView } from "@/redux/features/quickView-slice";
 import { updateproductDetails } from "@/redux/features/product-details";
 import { addItemToWishlist } from "@/redux/features/wishlist-slice";
-import Link from "next/link";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
+import { useStorefrontAuth } from "@/lib/storefront-auth";
 
 function stripHtml(value: string | undefined): string {
   return (value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -21,6 +21,7 @@ const QuickViewModal = () => {
   const { isModalOpen, closeModal } = useModalContext();
   const { openPreviewModal } = usePreviewSlider();
   const { format } = useStorefrontCurrency();
+  const { session, loading: authLoading } = useStorefrontAuth();
   const [quantity, setQuantity] = useState(1);
 
   const dispatch = useDispatch<AppDispatch>();
@@ -42,14 +43,14 @@ const QuickViewModal = () => {
     "Conoce más detalles de este producto en la vista rápida.";
   const hasComparePrice = product.price > product.discountedPrice;
   const metadata = [
-    product.brandName ? { label: "Brand", value: product.brandName } : null,
-    product.categoryName ? { label: "Category", value: product.categoryName } : null,
-    product.productType ? { label: "Type", value: product.productType } : null,
+    product.brandName ? { label: "Marca", value: product.brandName } : null,
+    product.categoryName ? { label: "Categoría", value: product.categoryName } : null,
+    product.productType ? { label: "Tipo", value: product.productType } : null,
     product.availableSizes?.length
-      ? { label: "Sizes", value: product.availableSizes.join(", ") }
+      ? { label: "Medidas", value: product.availableSizes.join(", ") }
       : null,
     product.availableColors?.length
-      ? { label: "Colors", value: product.availableColors.join(", ") }
+      ? { label: "Colores", value: product.availableColors.join(", ") }
       : null,
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 
@@ -73,6 +74,7 @@ const QuickViewModal = () => {
   };
 
   const handleAddToWishlist = () => {
+    if (!session) return;
     dispatch(
       addItemToWishlist({
         ...product,
@@ -123,7 +125,7 @@ const QuickViewModal = () => {
         <div className="w-full max-w-[1100px] rounded-xl shadow-3 bg-white p-7.5 relative modal-content">
           <button
             onClick={() => closeModal()}
-            aria-label="button for close modal"
+            aria-label="Cerrar vista previa"
             className="absolute top-0 right-0 sm:top-6 sm:right-6 flex items-center justify-center w-10 h-10 rounded-full ease-in duration-150 bg-meta text-body hover:text-dark"
           >
             <svg
@@ -156,7 +158,7 @@ const QuickViewModal = () => {
                     >
                       <Image
                         src={img || ""}
-                        alt="thumbnail"
+                        alt={`Miniatura ${key + 1} de ${product.title}`}
                         width={80}
                         height={80}
                         className="block h-full w-full object-cover"
@@ -170,7 +172,8 @@ const QuickViewModal = () => {
                   <div className="h-full w-full">
                     <button
                       onClick={handlePreviewSlider}
-                      aria-label="button for zoom"
+                      aria-label="Ver todas las imágenes"
+                      title="Ver todas las imágenes"
                       className="gallery__Image w-10 h-10 rounded-[5px] bg-white shadow-1 flex items-center justify-center ease-out duration-200 text-dark hover:text-blue absolute top-4 lg:top-8 right-4 lg:right-8 z-50"
                     >
                       <svg
@@ -193,11 +196,11 @@ const QuickViewModal = () => {
                     {previewImages[activePreview] && (
                       <Image
                         src={previewImages[activePreview]}
-                        alt="products-details"
+                        alt={`Imagen ${activePreview + 1} de ${product.title}`}
                         width={508}
                         height={508}
                         sizes="(min-width: 640px) 508px, 100vw"
-                        className="block h-full w-full object-cover"
+                        className="block h-full w-full object-contain"
                       />
                     )}
                   </div>
@@ -287,7 +290,7 @@ const QuickViewModal = () => {
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => quantity > 1 && setQuantity(quantity - 1)}
-                      aria-label="button for remove product"
+                      aria-label="Disminuir cantidad"
                       className="flex items-center justify-center w-10 h-10 rounded-[5px] bg-gray-2 text-dark ease-out duration-200 hover:text-blue"
                       disabled={quantity < 0 && true}
                     >
@@ -317,7 +320,7 @@ const QuickViewModal = () => {
 
                     <button
                       onClick={() => setQuantity(quantity + 1)}
-                      aria-label="button for add product"
+                      aria-label="Aumentar cantidad"
                       className="flex items-center justify-center w-10 h-10 rounded-[5px] bg-gray-2 text-dark ease-out duration-200 hover:text-blue"
                     >
                       <svg
@@ -357,7 +360,11 @@ const QuickViewModal = () => {
                 </button>
 
                 <button
-                  className={`inline-flex items-center gap-2 font-medium text-white bg-dark py-3 px-6 rounded-md ease-out duration-200 hover:bg-opacity-95 `}
+                  type="button"
+                  disabled={!session || authLoading}
+                  title={session ? "Guardar en favoritos" : "Inicia sesión para guardar favoritos"}
+                  aria-label={session ? "Guardar en favoritos" : "Inicia sesión para guardar favoritos"}
+                  className={`inline-flex items-center gap-2 font-medium text-white bg-dark py-3 px-6 rounded-md ease-out duration-200 hover:bg-opacity-95 disabled:cursor-not-allowed disabled:opacity-50`}
                   onClick={handleAddToWishlist}
                 >
                   <svg
@@ -377,14 +384,6 @@ const QuickViewModal = () => {
                   </svg>
                   Guardar en favoritos
                 </button>
-
-                <Link
-                  href={product.href || "/products"}
-                  onClick={() => closeModal()}
-                  className="inline-flex items-center gap-2 font-medium text-dark bg-gray-1 border border-gray-3 py-3 px-6 rounded-md ease-out duration-200 hover:text-blue"
-                >
-                  Ver detalle
-                </Link>
               </div>
             </div>
           </div>

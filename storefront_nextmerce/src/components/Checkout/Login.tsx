@@ -11,9 +11,9 @@ const Login = () => {
           dropdown && "border-b border-gray-3"
         }`}
       >
-        Returning customer?
+        ¿Ya tienes una cuenta?
         <span className="flex items-center gap-2.5 pl-1 font-medium text-dark">
-          Click here to login
+          Haz clic aquí para iniciar sesión
           <svg
             className={`${
               dropdown && "rotate-180"
@@ -41,12 +41,12 @@ const Login = () => {
         } pt-7.5 pb-8.5 px-4 sm:px-8.5`}
       >
         <p className="text-custom-sm mb-6">
-          If you didn&apos;t Logged in, Please Log in first.
+          Si aún no has iniciado sesión, ingresa primero.
         </p>
 
         <div className="mb-5">
           <label htmlFor="name" className="block mb-2.5">
-            Username or Email
+            Usuario o correo electrónico
           </label>
 
           <input
@@ -59,7 +59,7 @@ const Login = () => {
 
         <div className="mb-5">
           <label htmlFor="password" className="block mb-2.5">
-            Password
+            Contraseña
           </label>
 
           <input
@@ -75,7 +75,7 @@ const Login = () => {
           type="submit"
           className="inline-flex font-medium text-white bg-blue py-3 px-10.5 rounded-md ease-out duration-200 hover:bg-blue-dark"
         >
-          Login
+          Ingresar
         </button>
       </div>
     </div>

@@ -61,7 +61,7 @@ const BlogDetails = () => {
 
             <div className="mt-7.5">
               <h3 className="font-medium text-dark text-lg xl:text-[26px] xl:leading-[34px] mb-6">
-                Digital marketplace for Ui/Ux designers.
+                Un espacio digital para diseñadores de UI/UX.
               </h3>
 
               <ul className="list-disc pl-6">

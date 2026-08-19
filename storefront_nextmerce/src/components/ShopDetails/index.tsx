@@ -12,6 +12,8 @@ import { useStorefrontCurrency } from "@/lib/storefront-currency";
 import { AppDispatch } from "@/redux/store";
 import { addItemToCart } from "@/redux/features/cart-slice";
 import { addItemToWishlist } from "@/redux/features/wishlist-slice";
+import { updateproductDetails } from "@/redux/features/product-details";
+import { useStorefrontAuth } from "@/lib/storefront-auth";
 
 function toSwatchColor(value: string): string {
   const normalized = value.trim().toLowerCase();
@@ -131,6 +133,7 @@ const ShopDetails = ({
   const dispatch = useDispatch<AppDispatch>();
   const { format } = useStorefrontCurrency();
   const { openPreviewModal } = usePreviewSlider();
+  const { session, loading: authLoading } = useStorefrontAuth();
   const [previewImg, setPreviewImg] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const sizeOptions = useMemo(
@@ -182,7 +185,7 @@ const ShopDetails = ({
 
   const metadata = [
     product.brandName ? { label: "Marca", value: product.brandName } : null,
-    product.categoryName ? { label: "Categoria", value: product.categoryName } : null,
+    product.categoryName ? { label: "Categoría", value: product.categoryName } : null,
     product.productType ? { label: "Tipo", value: product.productType } : null,
     sizeOptions.length
       ? { label: "Medidas", value: sizeOptions.join(", ") }
@@ -205,9 +208,9 @@ const ShopDetails = ({
   const descriptionText = stripHtml(product.description);
 
   const tabs = [
-    { id: "description", title: "Descripcion" },
-    { id: "details", title: "Informacion adicional" },
-    { id: "reviews", title: "Resenas" },
+    { id: "description", title: "Descripción" },
+    { id: "details", title: "Información adicional" },
+    { id: "reviews", title: "Reseñas" },
   ];
 
   const handleAddToCart = () => {
@@ -228,6 +231,7 @@ const ShopDetails = ({
   };
 
   const handleAddToWishlist = () => {
+    if (!session) return;
     dispatch(
       addItemToWishlist({
         ...product,
@@ -235,6 +239,11 @@ const ShopDetails = ({
         quantity: 1,
       }),
     );
+  };
+
+  const handleOpenGallery = () => {
+    dispatch(updateproductDetails(product));
+    openPreviewModal();
   };
 
   return (
@@ -251,8 +260,9 @@ const ShopDetails = ({
                 <div className="lg:max-w-[570px] w-full">
                   <div className="relative aspect-square w-full overflow-hidden rounded-lg shadow-1 bg-gray-2">
                     <button
-                      onClick={() => openPreviewModal()}
-                      aria-label="ampliar imagen"
+                      onClick={handleOpenGallery}
+                      aria-label="Ver todas las imágenes"
+                      title="Ver todas las imágenes"
                       className="gallery__Image w-11 h-11 rounded-[5px] bg-gray-1 shadow-1 flex items-center justify-center ease-out duration-200 text-dark hover:text-blue absolute top-4 lg:top-6 right-4 lg:right-6 z-50"
                     >
                       <svg className="fill-current" width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -271,7 +281,7 @@ const ShopDetails = ({
                       width={570}
                       height={570}
                       sizes="(min-width: 1024px) 570px, 100vw"
-                      className="block h-full w-full object-cover"
+                      className="block h-full w-full object-contain"
                     />
                   </div>
 
@@ -312,7 +322,7 @@ const ShopDetails = ({
 
                   <div className="flex flex-wrap items-center gap-5.5 mb-4.5">
                     <div className="flex items-center gap-2.5">
-                      <span>{product.reviews ? `(${product.reviews} resenas)` : "Resenas proximamente"}</span>
+                      <span>{product.reviews ? `(${product.reviews} reseñas)` : "Reseñas próximamente"}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -336,8 +346,8 @@ const ShopDetails = ({
                   </h3>
 
                   <ul className="flex flex-col gap-2">
-                    <li className="flex items-center gap-2.5">Entrega disponible segun cobertura</li>
-                    <li className="flex items-center gap-2.5">Compra segura y atencion personalizada</li>
+                    <li className="flex items-center gap-2.5">Entrega disponible según cobertura</li>
+                    <li className="flex items-center gap-2.5">Compra segura y atención personalizada</li>
                   </ul>
 
                   <div className="flex flex-col gap-4.5 border-y border-gray-3 mt-7.5 mb-9 py-9">
@@ -436,8 +446,10 @@ const ShopDetails = ({
                     <button
                       type="button"
                       onClick={handleAddToWishlist}
-                      className="inline-flex items-center justify-center w-12 h-12 rounded-md border border-gray-3 ease-out duration-200 hover:text-white hover:bg-dark hover:border-transparent"
-                      aria-label="Guardar en favoritos"
+                      disabled={!session || authLoading}
+                      title={session ? "Guardar en favoritos" : "Inicia sesión para guardar favoritos"}
+                      className="inline-flex items-center justify-center w-12 h-12 rounded-md border border-gray-3 ease-out duration-200 hover:text-white hover:bg-dark hover:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={session ? "Guardar en favoritos" : "Inicia sesión para guardar favoritos"}
                     >
                       <svg className="fill-current" width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <path
@@ -473,7 +485,7 @@ const ShopDetails = ({
 
               <div className={activeTab === "description" ? "mt-12.5" : "hidden"}>
                 <div className="rounded-xl bg-white shadow-1 p-4 sm:p-8">
-                  <p className="text-dark">{descriptionText || "Este producto aun no tiene descripcion detallada."}</p>
+                  <p className="text-dark">{descriptionText || "Este producto aún no tiene descripción detallada."}</p>
                 </div>
               </div>
 
@@ -500,8 +512,8 @@ const ShopDetails = ({
 
               <div className={activeTab === "reviews" ? "mt-12.5" : "hidden"}>
                 <div className="rounded-xl bg-white shadow-1 p-6 sm:p-8 text-center">
-                  <h2 className="font-medium text-2xl text-dark mb-3">Resenas proximamente</h2>
-                  <p className="mb-6 text-dark-3">Aun no hay resenas publicadas para este producto.</p>
+                  <h2 className="font-medium text-2xl text-dark mb-3">Reseñas próximamente</h2>
+                  <p className="mb-6 text-dark-3">Aún no hay reseñas publicadas para este producto.</p>
                   <button
                     type="button"
                     className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark"

@@ -661,7 +661,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
         payment_provider: order.payment_provider,
         payment_status: order.payment_status,
         payment_message: paymentIntent.checkout_url
-          ? `Tu enlace de pago esta listo: ${paymentIntent.checkout_url}`
+          ? `Tu enlace de pago está listo: ${paymentIntent.checkout_url}`
           : paymentIntent.instructions ||
             "Tu pedido fue creado y confirmaremos el pago por correo.",
       });
@@ -1293,7 +1293,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                 {requiresAccount && !authLoading && !authenticatedForStorefront ? (
                   <div className="mt-7.5 rounded-md border border-blue/20 bg-blue/5 p-4 text-sm text-dark">
                     <p className="font-medium">Necesitas una cuenta para comprar</p>
-                    <p className="mt-1 text-dark-5">Inicia sesión o regístrate para continuar con este checkout.</p>
+                    <p className="mt-1 text-dark-5">Inicia sesión o regístrate para continuar con tu compra.</p>
                     <Link href="/login" className="mt-3 inline-flex font-medium text-blue hover:text-blue-dark">
                       Iniciar sesión
                     </Link>

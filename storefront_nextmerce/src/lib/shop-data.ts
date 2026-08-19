@@ -67,7 +67,7 @@ export type ShopDetailsViewModel = {
 
 function normalizeTypeLabel(value?: string | null): string {
   if (!value) {
-    return "Other";
+    return "Otro";
   }
   return value
     .toLowerCase()
@@ -202,11 +202,20 @@ export async function loadShopDetailsViewModel(slug: string): Promise<ShopDetail
   const product = await getPublicProductBySlug(storefront.id, slug);
   const catalog = await getPublicProducts(storefront.id, {
     page: 1,
-    page_size: 9,
+    page_size: 50,
     sort: "latest",
   });
-  const relatedItems = catalog.items
-    .filter((item) => item.slug !== slug)
+  const normalize = (value?: string | null) => value?.trim().toLocaleLowerCase() || "";
+  const category = normalize(product.category_name);
+  const brand = normalize(product.brand_name);
+  const candidates = catalog.items.filter((item) => item.slug !== slug);
+  const sameCategory = category
+    ? candidates.filter((item) => normalize(item.category_name) === category)
+    : [];
+  const sameBrand = brand
+    ? candidates.filter((item) => normalize(item.brand_name) === brand)
+    : [];
+  const relatedItems = (category ? sameCategory : sameBrand)
     .slice(0, 8)
     .map(toTemplateProduct);
 

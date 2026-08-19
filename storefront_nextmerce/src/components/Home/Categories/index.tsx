@@ -61,7 +61,7 @@ const Categories = ({ items, section }: { items: Category[]; section: HomeSectio
                     </clipPath>
                   </defs>
                 </svg>
-                {section.eyebrow || "Categories"}
+                {section.eyebrow || "Categorías"}
               </span>
               <h2 className="font-semibold text-xl xl:text-heading-5 text-dark">{section.title}</h2>
             </div>
@@ -101,7 +101,7 @@ const Categories = ({ items, section }: { items: Category[]; section: HomeSectio
             slidesPerView={6}
             spaceBetween={24}
             breakpoints={{
-              0: { slidesPerView: 2 },
+              0: { slidesPerView: 3 },
               1000: { slidesPerView: 4 },
               1200: { slidesPerView: 6 },
             }}

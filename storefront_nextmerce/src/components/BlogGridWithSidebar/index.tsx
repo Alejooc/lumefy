@@ -181,7 +181,7 @@ const BlogGridWithSidebar = () => {
               {/* <!-- Latest Products box --> */}
               <LatestProducts products={shopData} />
 
-              {/* <!-- Popular Category box --> */}
+                  {/* <!-- Categoría popular --> */}
               <Categories categories={categories} />
 
               {/* <!-- Tags box --> */}

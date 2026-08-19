@@ -42,7 +42,7 @@ const ResetPassword = () => {
       if (err instanceof StorefrontApiError) {
         setError(err.message);
       } else {
-        setError("Unable to start password recovery.");
+        setError("No se pudo iniciar la recuperación de contraseña.");
       }
     } finally {
       setSubmitting(false);
@@ -57,7 +57,7 @@ const ResetPassword = () => {
 
     if (password !== confirmPassword) {
       setSubmitting(false);
-      setError("Passwords do not match.");
+      setError("Las contraseñas no coinciden.");
       return;
     }
 
@@ -74,7 +74,7 @@ const ResetPassword = () => {
       if (err instanceof StorefrontApiError) {
         setError(err.message);
       } else {
-        setError("Unable to reset the password.");
+        setError("No se pudo restablecer la contraseña.");
       }
     } finally {
       setSubmitting(false);
@@ -83,18 +83,18 @@ const ResetPassword = () => {
 
   return (
     <>
-      <Breadcrumb title={"Reset Password"} pages={["Reset Password"]} />
+      <Breadcrumb title={"Restablecer contraseña"} pages={["Restablecer contraseña"]} />
       <section className="overflow-hidden py-20 bg-gray-2">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
           <div className="max-w-[570px] w-full mx-auto rounded-xl bg-white shadow-1 p-4 sm:p-7.5 xl:p-11">
             <div className="text-center mb-11">
               <h2 className="font-semibold text-xl sm:text-2xl xl:text-heading-5 text-dark mb-1.5">
-                {hasToken ? "Choose a new password" : "Recover your password"}
+                {hasToken ? "Elige una nueva contraseña" : "Recupera tu contraseña"}
               </h2>
               <p>
                 {hasToken
-                  ? "Enter your new password below."
-                  : "We will send you a recovery link if the email exists."}
+                  ? "Ingresa tu nueva contraseña a continuación."
+                  : "Te enviaremos un enlace de recuperación si el correo está registrado."}
               </p>
             </div>
 
@@ -102,14 +102,14 @@ const ResetPassword = () => {
               {!hasToken ? (
                 <div className="mb-5">
                   <label htmlFor="email" className="block mb-2.5">
-                    Email
+                    Correo electrónico
                   </label>
                   <input
                     type="email"
                     id="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
-                    placeholder="Enter your email"
+                    placeholder="Ingresa tu correo electrónico"
                     className="rounded-lg border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
                   />
                 </div>
@@ -117,7 +117,7 @@ const ResetPassword = () => {
                 <>
                   <div className="mb-5">
                     <label htmlFor="password" className="block mb-2.5">
-                      New Password
+                      Nueva contraseña
                     </label>
                     <input
                       type="password"
@@ -125,13 +125,13 @@ const ResetPassword = () => {
                       autoComplete="new-password"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
-                      placeholder="Enter your new password"
+                      placeholder="Ingresa tu nueva contraseña"
                       className="rounded-lg border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
                     />
                   </div>
                   <div className="mb-5">
                     <label htmlFor="confirm-password" className="block mb-2.5">
-                      Confirm Password
+                      Confirmar contraseña
                     </label>
                     <input
                       type="password"
@@ -139,7 +139,7 @@ const ResetPassword = () => {
                       autoComplete="new-password"
                       value={confirmPassword}
                       onChange={(event) => setConfirmPassword(event.target.value)}
-                      placeholder="Confirm your new password"
+                      placeholder="Confirma tu nueva contraseña"
                       className="rounded-lg border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
                     />
                   </div>
@@ -155,15 +155,15 @@ const ResetPassword = () => {
                 className="w-full flex justify-center font-medium text-white bg-dark py-3 px-6 rounded-lg ease-out duration-200 hover:bg-blue disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {submitting
-                  ? "Submitting..."
+                  ? "Enviando..."
                   : hasToken
-                    ? "Reset Password"
-                    : "Send Recovery Link"}
+                  ? "Restablecer contraseña"
+                    : "Enviar enlace de recuperación"}
               </button>
 
               <p className="text-center mt-6">
                 <Link href="/login" className="text-dark ease-out duration-200 hover:text-blue">
-                  Back to sign in
+                  Volver a iniciar sesión
                 </Link>
               </p>
             </form>

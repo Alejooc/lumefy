@@ -23,11 +23,11 @@ const ShopWithoutSidebar = ({
   const [productStyle, setProductStyle] = useState("grid");
 
   const options = [
-    { label: "Latest Products", value: "latest" },
-    { label: "Best Selling", value: "best-selling" },
-    { label: "Price: Low to High", value: "price-low" },
-    { label: "Price: High to Low", value: "price-high" },
-    { label: "Old Products", value: "oldest" },
+    { label: "Más recientes", value: "latest" },
+    { label: "Más vendidos", value: "best-selling" },
+    { label: "Precio: menor a mayor", value: "price-low" },
+    { label: "Precio: mayor a menor", value: "price-high" },
+    { label: "Más antiguos", value: "oldest" },
   ];
 
   const updateSort = (value: string) => {
@@ -39,8 +39,8 @@ const ShopWithoutSidebar = ({
   return (
     <>
       <Breadcrumb
-        title={searchTerm?.trim() ? `Search: ${searchTerm}` : "Explore All Products"}
-        pages={["shop", "/", "shop without sidebar"]}
+        title={searchTerm?.trim() ? `Búsqueda: ${searchTerm}` : "Explorar todos los productos"}
+        pages={["Tienda", "/", "Tienda sin barra lateral"]}
       />
       <section className="overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6]">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
@@ -58,8 +58,8 @@ const ShopWithoutSidebar = ({
                     />
 
                     <p>
-                      Showing <span className="text-dark">{items.length} of {items.length}</span>{" "}
-                      Products
+                      Mostrando <span className="text-dark">{items.length} de {items.length}</span>{" "}
+                      productos
                     </p>
                   </div>
 

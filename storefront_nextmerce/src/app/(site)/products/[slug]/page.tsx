@@ -50,7 +50,7 @@ export async function generateMetadata({
     }
     return buildStorefrontPageMetadata({
       title: "Producto",
-      description: "Product details",
+      description: "Detalle del producto",
       path: `/products/${slug}`,
       index: false,
     });

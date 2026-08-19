@@ -10,11 +10,13 @@ import { updateproductDetails } from "@/redux/features/product-details";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
+import { useStorefrontAuth } from "@/lib/storefront-auth";
 import Link from "next/link";
 
 const ProductItem = ({ item }: { item: Product }) => {
   const { openModal } = useModalContext();
   const { format } = useStorefrontCurrency();
+  const { session, loading: authLoading } = useStorefrontAuth();
 
   const dispatch = useDispatch<AppDispatch>();
 
@@ -34,6 +36,7 @@ const ProductItem = ({ item }: { item: Product }) => {
   };
 
   const handleItemToWishList = () => {
+    if (!session) return;
     dispatch(
       addItemToWishlist({
         ...item,
@@ -49,7 +52,7 @@ const ProductItem = ({ item }: { item: Product }) => {
 
   return (
     <div className="group">
-      <div className="relative overflow-hidden flex items-center justify-center rounded-lg bg-[#F6F7FB] min-h-[270px] mb-4">
+      <div className="relative overflow-hidden flex items-center justify-center rounded-lg bg-[#F6F7FB] min-h-[170px] sm:min-h-[220px] lg:min-h-[270px] mb-4">
         <Link
           href={item.href || "/products"}
           className="flex h-full w-full items-center justify-center"
@@ -71,7 +74,7 @@ const ProductItem = ({ item }: { item: Product }) => {
               openModal();
             }}
             id="newOne"
-            aria-label="button for quick view"
+            aria-label="Vista rápida"
             className="flex items-center justify-center w-9 h-9 rounded-[5px] shadow-1 ease-out duration-200 text-dark bg-white hover:text-blue"
           >
             <svg
@@ -101,14 +104,17 @@ const ProductItem = ({ item }: { item: Product }) => {
             onClick={() => handleAddToCart()}
             className="inline-flex font-medium text-custom-sm py-[7px] px-5 rounded-[5px] bg-blue text-white ease-out duration-200 hover:bg-blue-dark"
           >
-            Add to cart
+            Agregar al carrito
           </button>
 
           <button
+            type="button"
             onClick={() => handleItemToWishList()}
-            aria-label="button for favorite select"
+            aria-label={session ? "Agregar a favoritos" : "Inicia sesión para guardar favoritos"}
+            title={session ? "Agregar a favoritos" : "Inicia sesión para guardar favoritos"}
+            disabled={!session || authLoading}
             id="favOne"
-            className="flex items-center justify-center w-9 h-9 rounded-[5px] shadow-1 ease-out duration-200 text-dark bg-white hover:text-blue"
+            className="flex items-center justify-center w-9 h-9 rounded-[5px] shadow-1 ease-out duration-200 text-dark bg-white hover:text-blue disabled:cursor-not-allowed disabled:opacity-50"
           >
             <svg
               className="fill-current"

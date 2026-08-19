@@ -221,7 +221,7 @@ const Header = () => {
               <p className="mb-1 text-xs font-medium uppercase tracking-[0.18em] text-dark-4">
                 Navegacion
               </p>
-              <h2 className="text-lg font-semibold text-dark">Menu</h2>
+              <h2 className="text-lg font-semibold text-dark">Menú</h2>
             </div>
 
             <button
@@ -571,7 +571,7 @@ const Header = () => {
                   <button
                     type="submit"
                     id="search-btn"
-                    aria-label="Search"
+                    aria-label="Buscar"
                     className="flex items-center justify-center absolute right-3 top-1/2 -translate-y-1/2 ease-in duration-200 hover:text-blue"
                   >
                     <svg

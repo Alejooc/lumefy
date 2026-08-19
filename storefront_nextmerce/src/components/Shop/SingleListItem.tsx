@@ -11,10 +11,12 @@ import { AppDispatch } from "@/redux/store";
 import Link from "next/link";
 import Image from "next/image";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
+import { useStorefrontAuth } from "@/lib/storefront-auth";
 
 const SingleListItem = ({ item }: { item: Product }) => {
   const { openModal } = useModalContext();
   const { format } = useStorefrontCurrency();
+  const { session, loading: authLoading } = useStorefrontAuth();
   const dispatch = useDispatch<AppDispatch>();
 
   // update the QuickView state
@@ -33,6 +35,7 @@ const SingleListItem = ({ item }: { item: Product }) => {
   };
 
   const handleItemToWishList = () => {
+    if (!session) return;
     dispatch(
       addItemToWishlist({
         ...item,
@@ -65,7 +68,7 @@ const SingleListItem = ({ item }: { item: Product }) => {
                 handleQuickViewUpdate();
                 openModal();
               }}
-              aria-label="button for quick view"
+              aria-label="Vista rápida"
               className="flex items-center justify-center w-9 h-9 rounded-[5px] shadow-1 ease-out duration-200 text-dark bg-white hover:text-blue"
             >
               <svg
@@ -95,13 +98,16 @@ const SingleListItem = ({ item }: { item: Product }) => {
               onClick={() => handleAddToCart()}
               className="inline-flex font-medium text-custom-sm py-[7px] px-5 rounded-[5px] bg-blue text-white ease-out duration-200 hover:bg-blue-dark"
             >
-              Add to cart
+              Agregar al carrito
             </button>
 
             <button
+              type="button"
               onClick={() => handleItemToWishList()}
-              aria-label="button for favorite select"
-              className="flex items-center justify-center w-9 h-9 rounded-[5px] shadow-1 ease-out duration-200 text-dark bg-white hover:text-blue"
+              aria-label={session ? "Agregar a favoritos" : "Inicia sesión para guardar favoritos"}
+              title={session ? "Agregar a favoritos" : "Inicia sesión para guardar favoritos"}
+              disabled={!session || authLoading}
+              className="flex items-center justify-center w-9 h-9 rounded-[5px] shadow-1 ease-out duration-200 text-dark bg-white hover:text-blue disabled:cursor-not-allowed disabled:opacity-50"
             >
               <svg
                 className="fill-current"

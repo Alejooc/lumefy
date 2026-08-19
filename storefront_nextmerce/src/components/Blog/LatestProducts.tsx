@@ -6,7 +6,7 @@ const LatestProducts = ({ products }) => {
   return (
     <div className="shadow-1 bg-white rounded-xl mt-7.5">
       <div className="px-4 sm:px-6 py-4.5 border-b border-gray-3">
-        <h2 className="font-medium text-lg text-dark">Latest Products</h2>
+        <h2 className="font-medium text-lg text-dark">Productos recientes</h2>
       </div>
 
       <div className="p-4 sm:p-6">
@@ -22,7 +22,7 @@ const LatestProducts = ({ products }) => {
                 <h3 className="font-medium text-dark mb-1 ease-out duration-200 hover:text-blue">
                   <Link href="/products"> {product.title} </Link>
                 </h3>
-                <p className="text-custom-sm">Price: ${product.price}</p>
+                <p className="text-custom-sm">Precio: ${product.price}</p>
               </div>
             </div>
           ))}
