@@ -8,6 +8,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import re
 import socket
 import tempfile
 import uuid
@@ -319,6 +320,86 @@ async def _cache_provider_asset(source: IntegrationSource, provider_url: str) ->
 
 def _is_local_integration_asset(value: str | None) -> bool:
     return bool(value and value.startswith(f"{LOCAL_INTEGRATION_ASSET_PREFIX}/"))
+
+
+_LOCAL_ASSET_FILENAME = re.compile(r"^[0-9a-f]{64}\.(?:jpg|png|webp|gif)$")
+
+
+def _local_integration_asset_path(value: str | None) -> Path | None:
+    """Resolve one generated local asset URL without allowing path traversal."""
+    if not _is_local_integration_asset(value):
+        return None
+
+    relative = value[len(f"{LOCAL_INTEGRATION_ASSET_PREFIX}/") :]
+    parts = relative.split("/")
+    if len(parts) != 2 or not parts[0] or not _LOCAL_ASSET_FILENAME.fullmatch(parts[1]):
+        return None
+    try:
+        uuid.UUID(parts[0])
+    except ValueError:
+        return None
+
+    root = _integration_asset_directory().resolve()
+    candidate = (root / parts[0] / parts[1]).resolve()
+    if root not in candidate.parents:
+        return None
+    return candidate
+
+
+async def remove_unreferenced_local_assets(
+    db: AsyncSession,
+    asset_urls: set[str],
+) -> int:
+    """Remove cached provider files no longer referenced by any product."""
+    normalized_urls = {
+        str(value).strip()
+        for value in asset_urls
+        if _local_integration_asset_path(value) is not None
+    }
+    if not normalized_urls:
+        return 0
+
+    product_refs = await db.execute(
+        select(Product.image_url).where(Product.image_url.in_(normalized_urls))
+    )
+    image_refs = await db.execute(
+        select(ProductImage.image_url).where(ProductImage.image_url.in_(normalized_urls))
+    )
+    referenced = {
+        str(value).strip()
+        for value in [*product_refs.scalars().all(), *image_refs.scalars().all()]
+        if value
+    }
+    removable = normalized_urls - referenced
+    if not removable:
+        return 0
+
+    def unlink_files() -> int:
+        removed = 0
+        for value in removable:
+            path = _local_integration_asset_path(value)
+            if path is None:
+                continue
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                continue
+            except OSError:
+                LOGGER.warning("No se pudo eliminar la imagen local %s", path)
+                continue
+            removed += 1
+        return removed
+
+    removed = await asyncio.to_thread(unlink_files)
+    for value in removable:
+        path = _local_integration_asset_path(value)
+        if path is None:
+            continue
+        try:
+            path.parent.rmdir()
+        except OSError:
+            pass
+    return removed
 
 
 def _asset_url_matches_source(source: IntegrationSource, url: str) -> bool:

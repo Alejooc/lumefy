@@ -30,6 +30,7 @@ from app.models.user import User
 from app.core.permissions import PermissionChecker
 from app.core.plan_limits import PlanLimitChecker
 from app.core.audit import log_activity
+from app.services.integration_service import remove_unreferenced_local_assets
 
 router = APIRouter()
 
@@ -776,7 +777,7 @@ async def bulk_delete_products(
     product_ids = list(dict.fromkeys(product_in.product_ids))
     result = await db.execute(
         select(Product)
-        .options(selectinload(Product.variants))
+        .options(selectinload(Product.variants), selectinload(Product.images))
         .where(
             Product.company_id == current_user.company_id,
             Product.id.in_(product_ids),
@@ -810,6 +811,7 @@ async def _delete_products_guarded(
     deleted_ids = []
     archived_ids = []
     blocked = []
+    local_asset_urls_to_cleanup: set[str] = set()
     if archive_blocked:
         blocked_product_ids = [product_id for product_id, reasons in blockers.items() if reasons]
         if blocked_product_ids:
@@ -864,6 +866,14 @@ async def _delete_products_guarded(
             # A savepoint makes an unexpected database-level relation safe: one
             # problematic row is reported as blocked without rolling back other
             # products that were eligible for deletion.
+            local_asset_urls_to_cleanup.update(
+                str(value).strip()
+                for value in [
+                    product.image_url,
+                    *(image.image_url for image in product.images),
+                ]
+                if value
+            )
             try:
                 async with db.begin_nested():
                     for variant in product.variants:
@@ -892,6 +902,7 @@ async def _delete_products_guarded(
             )
 
         await db.commit()
+        await remove_unreferenced_local_assets(db, local_asset_urls_to_cleanup)
     except Exception:
         await db.rollback()
         raise
@@ -918,7 +929,7 @@ async def bulk_delete_all_products(
     product_in = product_in or schemas.ProductBulkDeleteAllRequest()
     query = (
         select(Product)
-        .options(selectinload(Product.variants))
+        .options(selectinload(Product.variants), selectinload(Product.images))
         .where(Product.company_id == current_user.company_id, Product.is_active.is_(True))
     )
     if product_in.search:
@@ -1172,7 +1183,8 @@ async def delete_product(
     """Delete a product and its variants."""
     result = await db.execute(
         select(Product).options(
-            selectinload(Product.variants)
+            selectinload(Product.variants),
+            selectinload(Product.images),
         ).where(
             Product.id == product_id,
             Product.company_id == current_user.company_id
@@ -1189,12 +1201,22 @@ async def delete_product(
             detail=_delete_blocker_detail(product, blockers[product.id]),
         )
     
+    local_asset_urls_to_cleanup = {
+        str(value).strip()
+        for value in [
+            product.image_url,
+            *(image.image_url for image in product.images),
+        ]
+        if value
+    }
+
     # Delete variants first
     for variant in product.variants:
         await db.delete(variant)
     
     await db.delete(product)
     await db.commit()
+    await remove_unreferenced_local_assets(db, local_asset_urls_to_cleanup)
     
     await log_activity(db, action="DELETE", entity_type="Product", entity_id=product_id,
                        user_id=current_user.id, company_id=current_user.company_id)
