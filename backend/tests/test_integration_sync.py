@@ -1,15 +1,21 @@
 import unittest
+import os
+import tempfile
 import uuid
+from io import BytesIO
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 from urllib.parse import parse_qs, urlsplit
 
 from pydantic import ValidationError
+from PIL import Image
 
 from app.schemas.integration import IntegrationInventoryScheduleUpdate, IntegrationSyncRunOut
 from app.services.integration_service import (
     _asset_url,
+    _cache_provider_asset,
     _fetch_entity,
     _fetch_inventory,
     _mapped,
@@ -87,6 +93,26 @@ class IntegrationProviderShapeTests(unittest.TestCase):
 
 
 class IntegrationImageSyncTests(unittest.IsolatedAsyncioTestCase):
+    async def test_provider_image_is_cached_on_vps_and_reused(self):
+        source = SimpleNamespace(id=uuid.uuid4())
+        image_buffer = BytesIO()
+        Image.new("RGBA", (1, 1), (255, 255, 255, 255)).save(image_buffer, format="PNG")
+        image_body = image_buffer.getvalue()
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            os.environ, {"INTEGRATION_ASSET_DIR": directory}
+        ), patch(
+            "app.services.integration_service.request_asset",
+            new=AsyncMock(return_value=("image/png", image_body)),
+        ) as request_asset_mock:
+            first_url = await _cache_provider_asset(source, "https://provider.example/products/1/a.png")
+            second_url = await _cache_provider_asset(source, "https://provider.example/products/1/a.png")
+
+            self.assertEqual(first_url, second_url)
+            self.assertTrue(first_url.startswith("/static/uploads/integrations/"))
+            request_asset_mock.assert_awaited_once()
+            cached_files = list((Path(directory) / str(source.id)).glob("*.png"))
+            self.assertEqual(len(cached_files), 1)
+
     async def test_catalog_images_reconcile_duplicates_and_stale_rows(self):
         product_id = uuid.uuid4()
         source = SimpleNamespace(
@@ -100,13 +126,17 @@ class IntegrationImageSyncTests(unittest.IsolatedAsyncioTestCase):
         result.scalars.return_value.all.return_value = [current, stale]
         db = SimpleNamespace(execute=AsyncMock(return_value=result), add=Mock(), delete=AsyncMock())
 
-        await _sync_product_images(
-            db,
-            source,
-            product,
-            {"images": ["products/1/a.jpg", "products/1/b.jpg", "products/1/b.jpg"]},
-            {"product.images": "images[]"},
-        )
+        with patch(
+            "app.services.integration_service._cache_provider_asset",
+            new=AsyncMock(side_effect=lambda _source, url: url),
+        ):
+            await _sync_product_images(
+                db,
+                source,
+                product,
+                {"images": ["products/1/a.jpg", "products/1/b.jpg", "products/1/b.jpg"]},
+                {"product.images": "images[]"},
+            )
 
         self.assertEqual(product.image_url, "https://cdn.example/media/products/1/a.jpg")
         self.assertEqual(current.image_url, "https://cdn.example/media/products/1/a.jpg")

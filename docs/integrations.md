@@ -85,6 +85,13 @@ alias habituales en español como `marca`, `peso`, `volumen`, `iva` y
 `stock_minimo`. Las unidades se homologan por nombre o abreviatura dentro de
 la empresa y se crean cuando el proveedor envía una unidad nueva.
 
+Las imágenes del catálogo se descargan al volumen persistente local del VPS y
+se sirven desde Lumefy. El nombre del archivo se calcula a partir del origen y
+la URL externa, por lo que repetir el catálogo reutiliza la copia existente.
+Una descarga fallida no reemplaza una copia local válida; la URL externa queda
+guardada en `product.attributes.external_image_urls` para poder reintentarla en
+la siguiente sincronización.
+
 Cuando `pagination.enabled` es `false`, Lumefy hace una sola solicitud. Cuando es `true`, reemplaza o agrega los parámetros de página en cada solicitud y continúa hasta encontrar una página vacía, una página menor al tamaño configurado, metadatos de páginas/total devueltos por el proveedor, `last_page`/`total` configurados o el límite `max_pages`.
 
 Para endpoints de inventario que reciben varios SKU (por ejemplo `GET /api/external/inventory?skus=THO12306,THO12362`), activa `batch.enabled`. Lumefy toma los SKU vinculados durante la sincronización de catálogo, los divide en lotes y reemplaza dinámicamente el parámetro `skus`; el tamaño se limita a 100 aunque la configuración indique un valor mayor. La respuesta esperada puede envolver los registros en `data`, con `sku` como identificador y `stock` como cantidad. Las cantidades negativas se normalizan a cero antes de guardarse.

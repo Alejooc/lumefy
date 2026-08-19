@@ -120,6 +120,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    volumes:
+      - backend_static:/app/static
 
   frontend:
     build: ./frontend_mantis

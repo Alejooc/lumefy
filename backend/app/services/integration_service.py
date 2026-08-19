@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from io import BytesIO
 import ipaddress
 import json
+import logging
+import os
+from pathlib import Path
 import socket
+import tempfile
 import uuid
 from datetime import datetime
 from typing import Any, Awaitable, Callable
@@ -15,6 +20,7 @@ from urllib import request as urlrequest
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from PIL import Image, UnidentifiedImageError
 
 from app.core.config import settings
 from app.core.database import SessionLocal
@@ -39,6 +45,9 @@ class IntegrationRequestError(Exception):
 
 class IntegrationSyncConflict(Exception):
     """Raised when an equivalent sync is already queued or running."""
+
+
+LOGGER = logging.getLogger("lumefy.integration")
 
 
 ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
@@ -218,6 +227,98 @@ async def _request_json(url: str, headers: dict[str, str]) -> tuple[int, Any]:
 
 
 MAX_PROXY_ASSET_BYTES = 10 * 1024 * 1024
+LOCAL_INTEGRATION_ASSET_PREFIX = "/static/uploads/integrations"
+LOCAL_IMAGE_EXTENSIONS = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+
+
+def _integration_asset_directory() -> Path:
+    configured_directory = os.getenv("INTEGRATION_ASSET_DIR")
+    if configured_directory:
+        return Path(configured_directory)
+    # This resolves to /app/static/uploads/integrations in the production
+    # worker and backend containers, which share the backend_static volume.
+    return Path(__file__).resolve().parents[2] / "static" / "uploads" / "integrations"
+
+
+def _local_asset_key(source: IntegrationSource, provider_url: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(f"{source.id}:{provider_url}".encode("utf-8")).hexdigest()
+
+
+def _local_asset_url(source: IntegrationSource, provider_url: str, extension: str) -> str:
+    return f"{LOCAL_INTEGRATION_ASSET_PREFIX}/{source.id}/{_local_asset_key(source, provider_url)}{extension}"
+
+
+def _local_asset_file_candidates(source: IntegrationSource, provider_url: str) -> list[tuple[str, Path]]:
+    directory = _integration_asset_directory() / str(source.id)
+    key = _local_asset_key(source, provider_url)
+    return [
+        (
+            _local_asset_url(source, provider_url, extension),
+            directory / f"{key}{extension}",
+        )
+        for extension in LOCAL_IMAGE_EXTENSIONS.values()
+    ]
+
+
+async def _cache_provider_asset(source: IntegrationSource, provider_url: str) -> str | None:
+    """Download one provider image to the shared VPS volume.
+
+    The URL hash makes downloads idempotent. Existing local files are served
+    without contacting the provider again. A failed refresh returns ``None``
+    so the caller can retain the previous local image instead of replacing it
+    with a broken URL.
+    """
+
+    normalized_url = (provider_url or "").strip()
+    if not normalized_url:
+        return None
+
+    for local_url, target_path in _local_asset_file_candidates(source, normalized_url):
+        if target_path.is_file() and target_path.stat().st_size > 0:
+            return local_url
+
+    try:
+        content_type, body = await request_asset(source, normalized_url)
+        extension = LOCAL_IMAGE_EXTENSIONS.get(content_type.lower())
+        if not extension:
+            raise IntegrationRequestError("Formato de imagen no permitido para almacenamiento local.", 415)
+        try:
+            with Image.open(BytesIO(body)) as image:
+                image.verify()
+        except (Image.DecompressionBombError, UnidentifiedImageError, OSError, SyntaxError, ValueError) as exc:
+            raise IntegrationRequestError("El proveedor devolvió una imagen corrupta.", 422) from exc
+
+        directory = _integration_asset_directory() / str(source.id)
+        directory.mkdir(parents=True, exist_ok=True)
+        target_path = directory / f"{_local_asset_key(source, normalized_url)}{extension}"
+        if not target_path.is_file() or target_path.stat().st_size == 0:
+            descriptor, temporary_path = tempfile.mkstemp(prefix=".asset-", dir=directory)
+            try:
+                with os.fdopen(descriptor, "wb") as output:
+                    output.write(body)
+                    output.flush()
+                    os.fsync(output.fileno())
+                os.replace(temporary_path, target_path)
+            except Exception:
+                if os.path.exists(temporary_path):
+                    os.unlink(temporary_path)
+                raise
+        return _local_asset_url(source, normalized_url, extension)
+    except (IntegrationRequestError, OSError) as exc:
+        LOGGER.warning("No se pudo guardar la imagen externa %s: %s", normalized_url, exc)
+        return None
+
+
+def _is_local_integration_asset(value: str | None) -> bool:
+    return bool(value and value.startswith(f"{LOCAL_INTEGRATION_ASSET_PREFIX}/"))
 
 
 def _asset_url_matches_source(source: IntegrationSource, url: str) -> bool:
@@ -916,9 +1017,10 @@ async def _sync_product_images(
 
     # The provider response is authoritative when it contains an image list.
     # Older versions only appended missing rows, so a URL-base correction or a
-    # changed provider payload left stale/broken images attached forever.  Build
-    # a de-duplicated snapshot first and reconcile the rows below in one pass.
-    incoming: list[tuple[int, int, str]] = []
+    # changed provider payload left stale/broken images attached forever. Build
+    # the provider snapshot first, then replace each URL with its local VPS
+    # copy before reconciling rows below.
+    provider_incoming: list[tuple[int, int, str]] = []
     seen_urls: set[str] = set()
     for index, image in enumerate(image_items):
         if isinstance(image, str):
@@ -949,12 +1051,12 @@ async def _sync_product_images(
         if not normalized_url or url_key in seen_urls:
             continue
         seen_urls.add(url_key)
-        incoming.append((order, index, normalized_url))
+        provider_incoming.append((order, index, normalized_url))
 
-    if not incoming:
+    if not provider_incoming:
         return
 
-    incoming.sort(key=lambda value: (value[0], value[1]))
+    provider_incoming.sort(key=lambda value: (value[0], value[1]))
     existing_rows = (
         await db.execute(
             select(ProductImage)
@@ -962,6 +1064,33 @@ async def _sync_product_images(
             .order_by(ProductImage.order, ProductImage.id)
         )
     ).scalars().all()
+    incoming: list[tuple[int, int, str]] = []
+    for order, index, provider_url in provider_incoming:
+        local_url = await _cache_provider_asset(source, provider_url)
+        if not local_url:
+            # Never replace a previously good local copy with a broken
+            # provider URL. A later catalog run can retry the failed download.
+            fallback = next(
+                (
+                    row
+                    for row in existing_rows
+                    if (row.order or 0) == order and _is_local_integration_asset(row.image_url)
+                ),
+                None,
+            )
+            local_url = fallback.image_url if fallback else None
+        if local_url:
+            incoming.append((order, index, local_url))
+
+    # Keep the provider references for traceability and for future refreshes,
+    # while product.image_url and ProductImage.image_url point to local files.
+    product.attributes = {
+        **(getattr(product, "attributes", None) or {}),
+        "external_image_urls": [provider_url for _order, _index, provider_url in provider_incoming],
+    }
+    if not incoming:
+        return
+
     existing_by_url = {
         str(row.image_url).strip().casefold(): row
         for row in existing_rows

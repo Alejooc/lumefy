@@ -9,5 +9,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const target = `${origin}/${path.map(encodeURIComponent).join("/")}`;
   const response = await fetch(target, { cache: "no-store" });
   if (!response.ok) return new Response(null, { status: response.status });
-  return new Response(response.body, { headers: { "Content-Type": response.headers.get("content-type") || "application/octet-stream", "Cache-Control": "public, max-age=3600" } });
+  return new Response(response.body, { headers: { "Content-Type": response.headers.get("content-type") || "application/octet-stream", "Cache-Control": "public, max-age=31536000, immutable" } });
 }
