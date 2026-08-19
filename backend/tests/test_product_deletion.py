@@ -8,7 +8,10 @@ from unittest.mock import AsyncMock, Mock
 
 from app.api.v1.endpoints.products import _PRODUCT_DELETE_RELATIONS, _find_product_delete_blockers
 from app.schemas.product import ProductBulkDeleteRequest
-from app.services.integration_service import remove_unreferenced_local_assets
+from app.services.integration_service import (
+    prune_orphaned_local_assets,
+    remove_unreferenced_local_assets,
+)
 
 
 class _ScalarResult:
@@ -116,6 +119,32 @@ class LocalIntegrationAssetCleanupTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(removed, 0)
         self.assertTrue(exists_after_shared)
+
+    async def test_orphaned_provider_assets_are_pruned(self):
+        source_id = uuid.uuid4()
+        filename = f"{'c' * 64}.webp"
+        with tempfile.TemporaryDirectory() as directory:
+            asset_path = Path(directory) / str(source_id) / filename
+            asset_path.parent.mkdir(parents=True)
+            asset_path.write_bytes(b"image")
+            previous_directory = os.environ.get("INTEGRATION_ASSET_DIR")
+            os.environ["INTEGRATION_ASSET_DIR"] = directory
+            try:
+                db = SimpleNamespace(
+                    execute=AsyncMock(
+                        side_effect=[_ScalarResult([]), _ScalarResult([])]
+                    )
+                )
+                removed = await prune_orphaned_local_assets(db)
+                exists_after_cleanup = asset_path.exists()
+            finally:
+                if previous_directory is None:
+                    os.environ.pop("INTEGRATION_ASSET_DIR", None)
+                else:
+                    os.environ["INTEGRATION_ASSET_DIR"] = previous_directory
+
+        self.assertEqual(removed, 1)
+        self.assertFalse(exists_after_cleanup)
 
 
 if __name__ == "__main__":

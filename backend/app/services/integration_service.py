@@ -402,6 +402,62 @@ async def remove_unreferenced_local_assets(
     return removed
 
 
+async def prune_orphaned_local_assets(db: AsyncSession) -> int:
+    """Remove old generated files that no longer have a database reference."""
+    root = _integration_asset_directory()
+    if not root.is_dir():
+        return 0
+
+    files = [path for path in root.glob("*/*") if path.is_file()]
+    if not files:
+        return 0
+
+    product_refs = await db.execute(
+        select(Product.image_url).where(Product.image_url.like(f"{LOCAL_INTEGRATION_ASSET_PREFIX}/%"))
+    )
+    image_refs = await db.execute(
+        select(ProductImage.image_url).where(ProductImage.image_url.like(f"{LOCAL_INTEGRATION_ASSET_PREFIX}/%"))
+    )
+    referenced = {
+        str(value).strip()
+        for value in [*product_refs.scalars().all(), *image_refs.scalars().all()]
+        if value
+    }
+
+    orphaned = []
+    for path in files:
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
+            continue
+        if len(relative.parts) != 2:
+            continue
+        value = f"{LOCAL_INTEGRATION_ASSET_PREFIX}/{relative.parts[0]}/{relative.parts[1]}"
+        if _local_integration_asset_path(value) is not None and value not in referenced:
+            orphaned.append(path)
+
+    def unlink_files() -> int:
+        removed = 0
+        for path in orphaned:
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                continue
+            except OSError:
+                LOGGER.warning("No se pudo eliminar la imagen local huérfana %s", path)
+                continue
+            removed += 1
+        return removed
+
+    removed = await asyncio.to_thread(unlink_files)
+    for path in {item.parent for item in orphaned}:
+        try:
+            path.rmdir()
+        except OSError:
+            pass
+    return removed
+
+
 def _asset_url_matches_source(source: IntegrationSource, url: str) -> bool:
     """Check that an asset URL belongs to this source's configured path."""
     try:

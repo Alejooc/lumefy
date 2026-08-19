@@ -30,7 +30,10 @@ from app.models.user import User
 from app.core.permissions import PermissionChecker
 from app.core.plan_limits import PlanLimitChecker
 from app.core.audit import log_activity
-from app.services.integration_service import remove_unreferenced_local_assets
+from app.services.integration_service import (
+    prune_orphaned_local_assets,
+    remove_unreferenced_local_assets,
+)
 
 router = APIRouter()
 
@@ -903,6 +906,7 @@ async def _delete_products_guarded(
 
         await db.commit()
         await remove_unreferenced_local_assets(db, local_asset_urls_to_cleanup)
+        await prune_orphaned_local_assets(db)
     except Exception:
         await db.rollback()
         raise
@@ -1217,6 +1221,7 @@ async def delete_product(
     await db.delete(product)
     await db.commit()
     await remove_unreferenced_local_assets(db, local_asset_urls_to_cleanup)
+    await prune_orphaned_local_assets(db)
     
     await log_activity(db, action="DELETE", entity_type="Product", entity_id=product_id,
                        user_id=current_user.id, company_id=current_user.company_id)
