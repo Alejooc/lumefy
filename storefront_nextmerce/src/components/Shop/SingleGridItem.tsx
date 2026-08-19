@@ -8,6 +8,7 @@ import { addItemToWishlist } from "@/redux/features/wishlist-slice";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
@@ -16,6 +17,7 @@ const SingleGridItem = ({ item }: { item: Product }) => {
   const { openModal } = useModalContext();
   const { format } = useStorefrontCurrency();
   const { session, loading: authLoading } = useStorefrontAuth();
+  const router = useRouter();
 
   const dispatch = useDispatch<AppDispatch>();
 
@@ -26,6 +28,10 @@ const SingleGridItem = ({ item }: { item: Product }) => {
 
   // add to cart
   const handleAddToCart = () => {
+    if (item.variants?.length) {
+      router.push(item.href || "/products");
+      return;
+    }
     dispatch(
       addItemToCart({
         ...item,
@@ -98,7 +104,7 @@ const SingleGridItem = ({ item }: { item: Product }) => {
             onClick={() => handleAddToCart()}
             className="inline-flex font-medium text-custom-sm py-[7px] px-5 rounded-[5px] bg-blue text-white ease-out duration-200 hover:bg-blue-dark"
           >
-            Agregar al carrito
+              {item.variants?.length ? "Seleccionar opciones" : "Agregar al carrito"}
           </button>
 
           <button

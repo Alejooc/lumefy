@@ -47,6 +47,14 @@ export const cart = createSlice({
     addItemToCart: (state, action: PayloadAction<CartItem>) => {
       const { id, publishedProductId, variantId, variantName, title, price, quantity, discountedPrice, imgs, href, slug, inStock, stockQuantity } =
         action.payload;
+      // Variant products must be added from the product detail, where the
+      // customer explicitly chooses the option. This also protects the cart
+      // if a card or a third-party caller tries to bypass that flow.
+      if (Array.isArray((action.payload as CartItem & { variants?: unknown[] }).variants)
+        && (action.payload as CartItem & { variants?: unknown[] }).variants!.length > 0
+        && !variantId) {
+        return;
+      }
       const requestedQuantity = Math.max(1, quantity);
       if (inStock === false || stockQuantity === 0) {
         return;

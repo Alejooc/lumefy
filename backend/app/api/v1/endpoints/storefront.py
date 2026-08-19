@@ -1428,7 +1428,15 @@ async def _load_checkout_products(
             if not variant:
                 raise HTTPException(status_code=400, detail=f"La variante seleccionada no pertenece a '{product.name}'")
         elif product.variants:
-            raise HTTPException(status_code=400, detail=f"Selecciona una variante para '{product.name}'")
+            # A product with exactly one variant is unambiguous. Older carts
+            # may not have persisted its variant id, so resolve that legacy
+            # entry instead of blocking checkout. Products with multiple
+            # options still require an explicit customer selection.
+            if len(product.variants) == 1:
+                variant = product.variants[0]
+                variant_id = variant.id
+            else:
+                raise HTTPException(status_code=400, detail=f"Selecciona una variante para '{product.name}'")
         raw_price = (
             float(variant.price) if variant and variant.price is not None
             else _safe_float(product.price) + float(variant.price_extra or 0) if variant else _safe_float(product.price)

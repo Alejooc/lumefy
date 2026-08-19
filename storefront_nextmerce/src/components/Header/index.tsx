@@ -437,21 +437,21 @@ const Header = () => {
         >
           {/* <!-- header top left --> */}
           <div className="w-full flex flex-col gap-4 lg:grid lg:grid-cols-[auto_minmax(420px,560px)] lg:items-center lg:gap-8 xl:grid-cols-[auto_minmax(500px,620px)]">
-            <div className="flex w-full items-center justify-between gap-3 lg:w-auto lg:justify-start lg:min-w-[182px]">
+            <div className="flex w-full items-center justify-between gap-2 lg:w-auto lg:justify-start lg:min-w-[182px] sm:gap-3">
               <Link className="flex-shrink-0" href="/">
                 <Image
                   src={logoUrl || "/images/logo/logo.svg"}
                   alt="Lumefy"
                   width={182}
                   height={30}
-                  className="h-auto w-[150px] sm:w-[170px] lg:w-[182px]"
+                  className="h-auto w-[132px] sm:w-[170px] lg:w-[182px]"
                 />
               </Link>
 
-              <div className="flex items-center gap-3 lg:hidden">
+              <div className="flex shrink-0 items-center gap-2 lg:hidden sm:gap-3">
                 <Link
                   href={session ? "/account" : "/login"}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-blue/20 bg-blue/5 text-blue transition hover:border-blue hover:bg-blue hover:text-white"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-blue/20 bg-blue/5 text-blue transition hover:border-blue hover:bg-blue hover:text-white sm:h-10 sm:w-10"
                   aria-label="Mi cuenta"
                 >
                   <svg
@@ -479,12 +479,12 @@ const Header = () => {
                 <button
                   key={lastAddedAt || "mobile-cart"}
                   onClick={handleOpenCartModal}
-                  className={`relative flex h-10 w-10 items-center justify-center rounded-full border border-blue/20 bg-blue/5 text-blue transition hover:border-blue hover:bg-blue hover:text-white ${lastAddedAt ? "cart-icon-pulse" : ""}`}
+                  className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-blue/20 bg-blue/5 text-blue transition hover:border-blue hover:bg-blue hover:text-white sm:h-10 sm:w-10 ${lastAddedAt ? "cart-icon-pulse" : ""}`}
                   aria-label="Carrito"
                 >
                   <svg
-                    width="22"
-                    height="22"
+                    width="20"
+                    height="20"
                     viewBox="0 0 24 24"
                     fill="none"
                     xmlns="http://www.w3.org/2000/svg"
@@ -511,7 +511,7 @@ const Header = () => {
                   aria-label="Toggler"
                   aria-controls="mobile-navigation"
                   aria-expanded={navigationOpen}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-3 text-dark transition hover:border-blue hover:text-blue"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-3 text-dark transition hover:border-blue hover:text-blue sm:h-10 sm:w-10"
                   onClick={() => {
                     setNavigationOpen((current) => !current);
                     setMobileOpenSubmenu(null);

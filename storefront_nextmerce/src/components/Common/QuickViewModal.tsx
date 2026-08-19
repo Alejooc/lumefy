@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { useModalContext } from "@/app/context/QuickViewModalContext";
 import { AppDispatch, useAppSelector } from "@/redux/store";
@@ -22,6 +23,7 @@ const QuickViewModal = () => {
   const { openPreviewModal } = usePreviewSlider();
   const { format } = useStorefrontCurrency();
   const { session, loading: authLoading } = useStorefrontAuth();
+  const router = useRouter();
   const [quantity, setQuantity] = useState(1);
 
   const dispatch = useDispatch<AppDispatch>();
@@ -63,6 +65,11 @@ const QuickViewModal = () => {
 
   // add to cart
   const handleAddToCart = () => {
+    if (product.variants?.length) {
+      closeModal();
+      router.push(product.href || "/products");
+      return;
+    }
     dispatch(
       addItemToCart({
         ...product,
@@ -356,7 +363,7 @@ const QuickViewModal = () => {
                   className={`inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark
                   `}
                 >
-                  Agregar al carrito
+                  {product.variants?.length ? "Seleccionar opciones" : "Agregar al carrito"}
                 </button>
 
                 <button
