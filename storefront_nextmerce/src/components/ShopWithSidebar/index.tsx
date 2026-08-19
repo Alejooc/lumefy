@@ -596,7 +596,7 @@ const ShopWithSidebar = ({
               <div
                 className={`${
                   productStyle === "grid"
-                    ? "grid grid-cols-3 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-9 lg:grid-cols-3 lg:gap-x-7.5"
+                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-7.5 gap-y-9"
                     : "flex flex-col gap-7.5"
                 }`}
               >
@@ -614,7 +614,7 @@ const ShopWithSidebar = ({
                 <div
                   className={`mt-9 ${
                     productStyle === "grid"
-                      ? "grid grid-cols-3 gap-x-3 gap-y-7 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-9 lg:grid-cols-3 lg:gap-x-7.5"
+                      ? "grid grid-cols-1 gap-x-7.5 gap-y-9 sm:grid-cols-2 lg:grid-cols-3"
                       : "flex flex-col gap-7.5"
                   }`}
                   aria-label="Cargando más productos"

@@ -101,7 +101,7 @@ const Categories = ({ items, section }: { items: Category[]; section: HomeSectio
             slidesPerView={6}
             spaceBetween={24}
             breakpoints={{
-              0: { slidesPerView: 3 },
+              0: { slidesPerView: 2 },
               1000: { slidesPerView: 4 },
               1200: { slidesPerView: 6 },
             }}
