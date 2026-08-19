@@ -88,10 +88,10 @@ const RecentlyViewdItems = ({ items }: { items: Product[] }) => {
 
           <Swiper
             ref={sliderRef}
-            slidesPerView={3}
+            slidesPerView={2}
             spaceBetween={12}
             breakpoints={{
-              0: { slidesPerView: 3, spaceBetween: 12 },
+              0: { slidesPerView: 2, spaceBetween: 12 },
               640: { slidesPerView: 3, spaceBetween: 16 },
               1024: { slidesPerView: 4, spaceBetween: 20 },
             }}
