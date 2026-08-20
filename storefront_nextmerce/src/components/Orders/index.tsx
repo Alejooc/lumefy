@@ -9,6 +9,7 @@ import {
   resolveStorefront,
   StorefrontApiError,
 } from "@/lib/storefront-api";
+import { formatMoney } from "@/lib/money";
 
 type OrderRow = {
   orderId: string;
@@ -54,10 +55,7 @@ const Orders = () => {
               day: "numeric",
             }),
             status: order.status,
-            total: new Intl.NumberFormat("es-CO", {
-              style: "currency",
-              currency: order.currency,
-            }).format(order.total),
+            total: formatMoney(order.total, order.currency, false),
             title: order.title,
             shippingAddress: [
               order.shipping_line1,

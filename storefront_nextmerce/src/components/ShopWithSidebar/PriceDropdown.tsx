@@ -18,7 +18,7 @@ const PriceDropdown = ({
 }) => {
   const [toggleDropdown, setToggleDropdown] = useState(true);
   const [range, setRange] = useState<[number, number]>([selectedMin, selectedMax || max]);
-  const { currency } = useStorefrontCurrency();
+  const { format } = useStorefrontCurrency();
 
   useEffect(() => {
     setRange([selectedMin, selectedMax || max]);
@@ -60,14 +60,12 @@ const PriceDropdown = ({
           />
 
           <div className="price-amount flex items-center justify-between pt-4">
-            <div className="text-custom-xs text-dark-4 flex rounded border border-gray-3/80">
-              <span className="block border-r border-gray-3/80 px-2.5 py-1.5">{currency}</span>
-              <span className="block px-3 py-1.5">{range[0]}</span>
+            <div className="text-custom-xs text-dark-4 rounded border border-gray-3/80 px-3 py-1.5">
+              {format(range[0])}
             </div>
 
-            <div className="text-custom-xs text-dark-4 flex rounded border border-gray-3/80">
-              <span className="block border-r border-gray-3/80 px-2.5 py-1.5">{currency}</span>
-              <span className="block px-3 py-1.5">{range[1]}</span>
+            <div className="text-custom-xs text-dark-4 rounded border border-gray-3/80 px-3 py-1.5">
+              {format(range[1])}
             </div>
           </div>
 

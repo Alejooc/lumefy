@@ -5,6 +5,7 @@ import { Testimonial } from "@/types/testimonial";
 import { PublicCollection, PublicProduct } from "@/types/storefront";
 import { getStorefrontBranding } from "./storefront-branding";
 import { storefrontImageUrl } from "./storefront-image";
+import { formatMoney } from "./money";
 
 import {
   getPublicCollectionBySlug,
@@ -24,11 +25,7 @@ function moneyLabel(currency: string, value: number | null | undefined): string 
   if (value == null) {
     return "";
   }
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
+  return formatMoney(value, currency, false);
 }
 
 function fallbackImage(seed: string): string {

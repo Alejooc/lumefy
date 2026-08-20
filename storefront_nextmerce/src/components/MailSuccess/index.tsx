@@ -1,6 +1,7 @@
 import React from "react";
 import Breadcrumb from "../Common/Breadcrumb";
 import Link from "next/link";
+import { formatMoney } from "@/lib/money";
 
 const MailSuccess = ({
   orderCode,
@@ -73,7 +74,8 @@ const MailSuccess = ({
                   ) : null}
                   {total && currency ? (
                     <p className="mb-2 text-dark">
-                      <span className="font-medium">Total:</span> {total} {currency}
+                      <span className="font-medium">Total:</span>{" "}
+                      {formatMoney(Number(total), currency, false)}
                     </p>
                   ) : null}
                   {paymentProvider ? (

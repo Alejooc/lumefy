@@ -23,6 +23,7 @@ import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
 import { storefrontImageUrl } from "@/lib/storefront-image";
+import { formatMoney } from "@/lib/money";
 
 type Props = {
   storefrontId: string;
@@ -130,10 +131,7 @@ function createCheckoutIdempotencyKey(): string {
 }
 
 function moneyLabel(currency: string, value: number): string {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency,
-  }).format(value);
+  return formatMoney(value, currency, false);
 }
 
 function numberSetting(value: unknown, fallback = 0): number {
