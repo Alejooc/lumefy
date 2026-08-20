@@ -53,17 +53,18 @@ const SingleGridItem = ({ item }: { item: Product }) => {
 
   return (
     <div className="group">
-      <div className="relative overflow-hidden flex items-center justify-center rounded-lg bg-white shadow-1 min-h-[270px] mb-4">
+      <div className="relative mb-4 aspect-[4/5] overflow-hidden rounded-lg bg-gray-2 shadow-1">
         <Link
           href={item.href || "/products"}
-          className="flex h-full w-full items-center justify-center"
+          className="absolute inset-0"
           aria-label={`Ver ${item.title}`}
         >
           <Image
             src={item.imgs?.previews?.[0] || "/images/products/product-1-bg-1.png"}
             alt={item.title}
-            width={250}
-            height={250}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 300px"
+            className="object-cover object-center transition duration-500 group-hover:scale-[1.03]"
           />
         </Link>
 
