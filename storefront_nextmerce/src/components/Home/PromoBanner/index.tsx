@@ -1,108 +1,71 @@
-import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { HomePromoBanner } from "@/types/home";
-
-const fallbackPromos = ["/images/promo/promo-01.png", "/images/promo/promo-02.png", "/images/promo/promo-03.png"];
+import type { HomePromoBanner } from "@/types/home";
 
 const PromoBanner = ({ items }: { items: HomePromoBanner[] }) => {
-  const [primary, ...secondary] = items.slice(0, 3);
-
-  if (!primary) {
-    return null;
-  }
+  if (!items.length) return null;
 
   return (
-    <section className="overflow-hidden py-20">
-      <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
-        <div
-          className="relative z-1 overflow-hidden rounded-lg py-12.5 lg:py-17.5 xl:py-22.5 px-4 sm:px-7.5 lg:px-14 xl:px-19 mb-7.5"
-          style={{ backgroundColor: primary.backgroundColor || "#F5F5F7" }}
-        >
-          <div className="max-w-[550px] w-full">
-            {primary.subtitle ? (
-              <span className="block font-medium text-xl text-dark mb-3">
-                {primary.subtitle}
-              </span>
-            ) : null}
-
-            <h2 className="font-bold text-xl lg:text-heading-4 xl:text-heading-3 text-dark mb-5">
-              {primary.title}
-            </h2>
-
-            {primary.description ? <p>{primary.description}</p> : null}
-
-            <Link
-              href={primary.ctaHref}
-              className="inline-flex font-medium text-custom-sm text-white bg-blue py-[11px] px-9.5 rounded-md ease-out duration-200 hover:bg-blue-dark mt-7.5"
-            >
-              {primary.ctaLabel}
-            </Link>
-          </div>
-
-          <Image
-            src={primary.image || fallbackPromos[0]}
-            alt={primary.title}
-            className="absolute bottom-0 right-4 hidden sm:block lg:right-26 -z-1"
-            width={274}
-            height={350}
-          />
+    <section className="overflow-hidden bg-white py-16 sm:py-20 lg:py-24">
+      <div className="mx-auto w-full max-w-[1240px] px-4 sm:px-8 xl:px-0">
+        <div className="mb-8 max-w-[680px]">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#b65332]">Ideas para inspirarte</p>
+          <h2 className="text-[30px] font-semibold leading-tight tracking-[-0.025em] text-[#17233f] sm:text-[42px]">
+            Pequeños cambios, una casa completamente nueva
+          </h2>
         </div>
 
-        <div className="grid gap-7.5 grid-cols-1 lg:grid-cols-2">
-          {secondary.map((promo, index) => {
-            const isLeft = index === 0;
-            const buttonClass = isLeft ? "bg-teal hover:bg-teal-dark" : "bg-orange hover:bg-orange-dark";
-            const imageClass = isLeft
-              ? "absolute top-1/2 -translate-y-1/2 left-3 sm:left-10 -z-1"
-              : "absolute top-1/2 -translate-y-1/2 right-3 sm:right-8.5 -z-1";
-            const wrapperClass = isLeft ? "text-right" : "";
-
-            return (
-              <div
-                key={promo.id}
-                className="relative z-1 overflow-hidden rounded-lg py-10 xl:py-16 px-4 sm:px-7.5 xl:px-10"
-                style={{ backgroundColor: promo.backgroundColor || (isLeft ? "#DBF4F3" : "#FFECE1") }}
-              >
-                <Image
-                  src={promo.image || fallbackPromos[index + 1] || fallbackPromos[0]}
-                  alt={promo.title}
-                  className={`${imageClass} max-w-[42%] h-auto`}
-                  width={isLeft ? 241 : 200}
-                  height={isLeft ? 241 : 200}
-                />
-
-                <div className={wrapperClass}>
-                  {promo.subtitle ? (
-                    <span className="block text-lg text-dark mb-1.5">
-                      {promo.subtitle}
-                    </span>
-                  ) : null}
-
-                  <h2 className="font-bold text-xl lg:text-heading-4 text-dark mb-2.5">
-                    {promo.title}
-                  </h2>
-
-                  {promo.description ? (
-                    <p
-                      className={isLeft ? "font-semibold text-custom-1" : "max-w-[285px] text-custom-sm"}
-                      style={promo.accentColor ? { color: promo.accentColor } : undefined}
-                    >
-                      {promo.description}
-                    </p>
-                  ) : null}
-
-                  <Link
-                    href={promo.ctaHref}
-                    className={`inline-flex font-medium text-custom-sm text-white py-2.5 px-8.5 rounded-md ease-out duration-200 mt-7.5 ${buttonClass}`}
-                  >
-                    {promo.ctaLabel}
-                  </Link>
-                </div>
+        <div className={`grid gap-4 sm:gap-5 ${items.length > 1 ? "lg:grid-cols-[1.35fr_0.85fr]" : ""}`}>
+          {items.slice(0, 1).map((promo) => (
+            <article key={promo.id} className="group relative min-h-[500px] overflow-hidden rounded-[26px] bg-[#17233f] sm:min-h-[600px]">
+              <Image
+                src={promo.image || "/images/home/home-hero-editorial.webp"}
+                alt={promo.title}
+                fill
+                sizes="(max-width: 1024px) 100vw, 760px"
+                className="object-cover transition duration-700 group-hover:scale-[1.035]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#111827]/90 via-[#111827]/20 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 max-w-[620px] p-6 text-white sm:p-10 lg:p-12">
+                {promo.subtitle ? <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/75">{promo.subtitle}</p> : null}
+                <h3 className="text-[32px] font-semibold leading-[1.08] tracking-[-0.025em] sm:text-[46px]">{promo.title}</h3>
+                {promo.description ? <p className="mt-4 max-w-[520px] text-sm leading-7 text-white/85 sm:text-base">{promo.description}</p> : null}
+                <Link href={promo.ctaHref} className="mt-6 inline-flex items-center gap-3 rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#17233f] transition hover:bg-[#b65332] hover:text-white">
+                  {promo.ctaLabel}<span aria-hidden="true">→</span>
+                </Link>
               </div>
-            );
-          })}
+            </article>
+          ))}
+
+          {items.length > 1 ? (
+            <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-1">
+              {items.slice(1, 3).map((promo, index) => (
+                <Link
+                  key={promo.id}
+                  href={promo.ctaHref}
+                  className="group relative min-h-[310px] overflow-hidden rounded-[24px] bg-[#dde6de] p-6 sm:p-8"
+                  style={{ backgroundColor: promo.backgroundColor || (index === 0 ? "#dde6de" : "#eaded2") }}
+                >
+                  {promo.image ? (
+                    <Image
+                      src={promo.image}
+                      alt={promo.title}
+                      fill
+                      sizes="(max-width: 1024px) 50vw, 420px"
+                      className="object-cover transition duration-700 group-hover:scale-[1.04]"
+                    />
+                  ) : null}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#111827]/85 via-[#111827]/10 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
+                    {promo.subtitle ? <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/75">{promo.subtitle}</p> : null}
+                    <h3 className="text-2xl font-semibold leading-tight">{promo.title}</h3>
+                    <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold">{promo.ctaLabel}<span className="transition group-hover:translate-x-1">→</span></span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

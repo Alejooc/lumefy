@@ -179,6 +179,21 @@ input[type='search']::-webkit-search-results-decoration {
   @apply xl:!bottom-5;
 }
 
+.home-hero-carousel .swiper-pagination {
+  @apply !bottom-5 flex !w-auto items-center gap-1.5 rounded-full bg-white/70 px-3 py-2 backdrop-blur-md;
+  left: auto !important;
+  right: 1.25rem !important;
+}
+
+.home-hero-carousel .swiper-pagination-bullet {
+  @apply m-0 h-1.5 w-1.5 bg-[#17233f] transition-all;
+  opacity: 0.35;
+}
+
+.home-hero-carousel .swiper-pagination-bullet-active {
+  @apply w-6 rounded-full opacity-100;
+}
+
 .common-carousel .swiper-button-next:after,
 .common-carousel .swiper-button-prev:after {
   @apply hidden;

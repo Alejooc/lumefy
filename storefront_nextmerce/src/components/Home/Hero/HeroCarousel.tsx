@@ -1,76 +1,77 @@
 "use client";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Autoplay, Pagination } from "swiper/modules";
+
+import Image from "next/image";
 import Link from "next/link";
+import { Autoplay, Pagination } from "swiper/modules";
+import { Swiper, SwiperSlide } from "swiper/react";
 
-import { HeroSlide } from "@/types/home";
-
-import "swiper/css/pagination";
+import type { HeroSlide } from "@/types/home";
 import "swiper/css";
+import "swiper/css/pagination";
 
-const HeroCarousal = ({ slides }: { slides: HeroSlide[] }) => {
-  if (!slides.length) {
-    return null;
-  }
+const HeroCarousel = ({ slides }: { slides: HeroSlide[] }) => {
+  if (!slides.length) return null;
 
   return (
     <Swiper
-      spaceBetween={30}
-      centeredSlides={true}
-      autoplay={{
-        delay: 2500,
-        disableOnInteraction: false,
-      }}
-      pagination={{
-        clickable: true,
-      }}
+      autoplay={{ delay: 5200, disableOnInteraction: false, pauseOnMouseEnter: true }}
+      loop={slides.length > 1}
+      pagination={{ clickable: true }}
       modules={[Autoplay, Pagination]}
-      className="hero-carousel"
+      className="home-hero-carousel h-full"
     >
-      {slides.map((slide) => (
-        <SwiperSlide key={slide.id}>
-          {(() => {
-            const textColor = slide.textColor || "#1C274C";
-            const buttonColor = slide.buttonColor || "#1C274C";
+      {slides.map((slide, index) => {
+        const textColor = slide.textColor || "#17233f";
+        return (
+          <SwiperSlide key={slide.id}>
+            <article className="relative min-h-[500px] overflow-hidden sm:min-h-[590px] lg:min-h-[630px]">
+              <Image
+                src={slide.image}
+                alt={slide.title}
+                fill
+                priority={index === 0}
+                sizes="(max-width: 1024px) 100vw, 820px"
+                className="object-cover"
+                style={{ objectPosition: slide.imagePosition || "center" }}
+              />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    textColor.toLowerCase() === "#ffffff"
+                      ? "linear-gradient(90deg, rgba(12,19,31,.78) 0%, rgba(12,19,31,.38) 48%, rgba(12,19,31,.05) 78%)"
+                      : `linear-gradient(90deg, rgba(248,244,237,${Math.max(slide.overlayOpacity || 0.12, 0.72)}) 0%, rgba(248,244,237,.54) 43%, rgba(248,244,237,.02) 76%)`,
+                }}
+              />
 
-            return (
-          <div
-            className="relative overflow-hidden"
-            style={{
-              backgroundImage: `url(${slide.image})`,
-              backgroundSize: "cover",
-              backgroundPosition: slide.imagePosition || "center",
-            }}
-          >
-            <div
-              className="absolute inset-0"
-              style={{ backgroundColor: `rgba(255,255,255,${typeof slide.overlayOpacity === "number" ? Math.min(Math.max(slide.overlayOpacity, 0), 1) : 0.72})` }}
-            />
-            <div
-              className={`relative z-10 py-10 px-4 sm:px-7.5 sm:py-15 lg:px-12.5 lg:py-24.5 ${slide.contentAlignment === "center" ? "mx-auto max-w-[620px] text-center" : "max-w-[394px]"}`}
-              style={{ color: textColor }}
-            >
-              <h1 className="mb-3 text-xl font-semibold sm:text-3xl" style={{ color: textColor }}>
-                <Link href={slide.ctaHref}>{slide.title}</Link>
-              </h1>
-
-              <p>{slide.description}</p>
-
-              <Link
-                href={slide.ctaHref}
-                className="inline-flex font-medium text-white text-custom-sm rounded-md bg-dark py-3 px-9 ease-out duration-200 hover:bg-blue mt-10"
-                style={{ backgroundColor: buttonColor }}
+              <div
+                className={`relative z-10 flex min-h-[500px] flex-col justify-end px-6 pb-16 pt-20 sm:min-h-[590px] sm:px-10 sm:pb-20 lg:min-h-[630px] lg:px-14 ${
+                  slide.contentAlignment === "center" ? "mx-auto max-w-[680px] items-center text-center" : "max-w-[570px] items-start"
+                }`}
+                style={{ color: textColor }}
               >
-                {slide.buttonLabel || "Shop Now"}
-              </Link>
-            </div>
-          </div>
-            );
-          })()}
-        </SwiperSlide>
-      ))}
+                <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] opacity-75">Vive bonito todos los días</p>
+                <h1 className="max-w-[540px] text-[38px] font-semibold leading-[1.03] tracking-[-0.035em] sm:text-[54px] lg:text-[62px]">
+                  {slide.title}
+                </h1>
+                <p className="mt-5 max-w-[480px] text-sm leading-7 opacity-85 sm:text-base">{slide.description}</p>
+                <Link
+                  href={slide.ctaHref}
+                  className="mt-7 inline-flex items-center gap-3 rounded-full px-6 py-3.5 text-sm font-semibold text-white shadow-[0_10px_28px_rgba(15,23,42,.18)] transition hover:-translate-y-0.5"
+                  style={{ backgroundColor: slide.buttonColor || "#17233f" }}
+                >
+                  {slide.buttonLabel || "Ver productos"}
+                  <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true">
+                    <path d="M3 8.5h10M9.5 5l3.5 3.5L9.5 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
+              </div>
+            </article>
+          </SwiperSlide>
+        );
+      })}
     </Swiper>
   );
 };
 
-export default HeroCarousal;
+export default HeroCarousel;

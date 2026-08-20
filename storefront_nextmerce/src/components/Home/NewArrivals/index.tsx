@@ -1,39 +1,39 @@
-import React from "react";
 import Link from "next/link";
+
 import ProductItem from "@/components/Common/ProductItem";
-import { Product } from "@/types/product";
-import { HomeSection } from "@/types/home";
+import type { HomeSection } from "@/types/home";
+import type { Product } from "@/types/product";
 
 const NewArrival = ({ items, section }: { items: Product[]; section: HomeSection }) => {
-  if (!items.length) {
-    return null;
-  }
+  if (!items.length) return null;
 
   return (
-    <section className="overflow-hidden pt-15">
-      <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
-        <div className="mb-7 flex items-center justify-between">
+    <section className="overflow-hidden bg-[#f7f4ef] py-16 sm:py-20 lg:py-24">
+      <div className="mx-auto w-full max-w-[1240px] px-4 sm:px-8 xl:px-0">
+        <div className="mb-8 flex items-end justify-between gap-5 sm:mb-10">
           <div>
-            <span className="flex items-center gap-2.5 font-medium text-dark mb-1.5">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M3.11826 15.4622C4.11794 16.6668 5.97853 16.6668 9.69971 16.6668H10.3007C14.0219 16.6668 15.8825 16.6668 16.8821 15.4622M3.11826 15.4622C2.11857 14.2577 2.46146 12.429 3.14723 8.77153C3.63491 6.17055 3.87875 4.87006 4.8045 4.10175M16.8821 15.4622C17.8818 14.2577 17.5389 12.429 16.8532 8.77153C16.3655 6.17055 16.1216 4.87006 15.1959 4.10175M15.1959 4.10175C14.2701 3.33345 12.947 3.33345 10.3007 3.33345H9.69971C7.0534 3.33345 5.73025 3.33345 4.8045 4.10175Z" stroke="#3C50E0" strokeWidth="1.5" />
-                <path d="M7.64258 6.66678C7.98578 7.63778 8.91181 8.33345 10.0003 8.33345C11.0888 8.33345 12.0149 7.63778 12.3581 6.66678" stroke="#3C50E0" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              {section.eyebrow || "This Week's"}
-            </span>
-            <h2 className="font-semibold text-xl xl:text-heading-5 text-dark">{section.title}</h2>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#b65332]">{section.eyebrow || "Recién llegados"}</p>
+            <h2 className="text-[30px] font-semibold leading-tight tracking-[-0.025em] text-[#17233f] sm:text-[42px]">{section.title}</h2>
           </div>
-
-          <Link href={section.ctaHref || "/products"} className="inline-flex font-medium text-custom-sm py-2.5 px-7 rounded-md border-gray-3 border bg-gray-1 text-dark ease-out duration-200 hover:bg-dark hover:text-white hover:border-transparent">
-            {section.ctaLabel || "View All"}
+          <Link
+            href={section.ctaHref || "/products"}
+            className="hidden items-center gap-2 border-b border-[#17233f] pb-1 text-sm font-semibold text-[#17233f] transition hover:border-[#b65332] hover:text-[#b65332] sm:inline-flex"
+          >
+            {section.ctaLabel || "Ver todos"}
+            <span aria-hidden="true">→</span>
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-7.5 gap-y-9">
-          {items.map((item) => (
-            <ProductItem item={item} key={item.id} />
-          ))}
+        <div className="grid grid-cols-2 gap-x-3.5 gap-y-8 sm:gap-x-5 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-11">
+          {items.slice(0, 8).map((item) => <ProductItem item={item} key={item.id} />)}
         </div>
+
+        <Link
+          href={section.ctaHref || "/products"}
+          className="mt-9 flex w-full items-center justify-center rounded-full border border-[#17233f] px-5 py-3 text-sm font-semibold text-[#17233f] sm:hidden"
+        >
+          {section.ctaLabel || "Ver todos"}
+        </Link>
       </div>
     </section>
   );

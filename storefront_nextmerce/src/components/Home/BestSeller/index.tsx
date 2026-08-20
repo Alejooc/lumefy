@@ -1,39 +1,34 @@
-import React from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { Product } from "@/types/product";
-import { HomeSection } from "@/types/home";
 
-import SingleItem from "./SingleItem";
+import ProductItem from "@/components/Common/ProductItem";
+import type { HomeSection } from "@/types/home";
+import type { Product } from "@/types/product";
 
 const BestSeller = ({ items, section }: { items: Product[]; section: HomeSection }) => {
-  if (!items.length) {
-    return null;
-  }
+  if (!items.length) return null;
 
   return (
-    <section className="overflow-hidden">
-      <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
-        <div className="mb-10 flex items-center justify-between">
+    <section className="overflow-hidden bg-white py-16 sm:py-20 lg:py-24">
+      <div className="mx-auto w-full max-w-[1240px] px-4 sm:px-8 xl:px-0">
+        <div className="mb-8 grid gap-4 sm:mb-10 sm:grid-cols-[1fr_auto] sm:items-end">
           <div>
-            <span className="flex items-center gap-2.5 font-medium text-dark mb-1.5">
-              <Image src="/images/icons/icon-07.svg" alt="icon" width={17} height={17} />
-              {section.eyebrow || "This Month"}
-            </span>
-            <h2 className="font-semibold text-xl xl:text-heading-5 text-dark">{section.title}</h2>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6d7d68]">{section.eyebrow || "Lo más elegido"}</p>
+            <h2 className="text-[30px] font-semibold leading-tight tracking-[-0.025em] text-[#17233f] sm:text-[42px]">{section.title}</h2>
+            <p className="mt-3 max-w-[560px] text-sm leading-6 text-[#6f7480] sm:text-base">
+              Favoritos para renovar el dormitorio, el baño y esos pequeños rincones que hacen hogar.
+            </p>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7.5">
-          {items.map((item) => (
-            <SingleItem item={item} key={item.id} />
-          ))}
-        </div>
-
-        <div className="text-center mt-12.5">
-          <Link href={section.ctaHref || "/products"} className="inline-flex font-medium text-custom-sm py-3 px-7 sm:px-12.5 rounded-md border-gray-3 border bg-gray-1 text-dark ease-out duration-200 hover:bg-dark hover:text-white hover:border-transparent">
-            {section.ctaLabel || "View All"}
+          <Link
+            href={section.ctaHref || "/products"}
+            className="inline-flex w-fit items-center gap-3 rounded-full bg-[#17233f] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#b65332]"
+          >
+            {section.ctaLabel || "Ver todos"}
+            <span aria-hidden="true">→</span>
           </Link>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-3.5 gap-y-8 sm:gap-x-5 lg:grid-cols-3 lg:gap-x-6 lg:gap-y-11">
+          {items.slice(0, 6).map((item) => <ProductItem item={item} key={item.id} />)}
         </div>
       </div>
     </section>

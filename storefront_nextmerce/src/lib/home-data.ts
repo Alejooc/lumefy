@@ -8,8 +8,8 @@ import { storefrontImageUrl } from "./storefront-image";
 import { formatMoney } from "./money";
 
 import {
-  getPublicCollectionBySlug,
   getPublicCollections,
+  getPublicProducts,
   resolveStorefront,
 } from "./storefront-api";
 
@@ -28,8 +28,8 @@ function moneyLabel(currency: string, value: number | null | undefined): string 
   return formatMoney(value, currency, false);
 }
 
-function fallbackImage(seed: string): string {
-  return `/images/products/product-${(numericId(seed) % 8) + 1}-bg-1.png`;
+function fallbackImage(_seed: string): string {
+  return "/images/home/home-hero-editorial.webp";
 }
 
 function toTemplateProduct(product: PublicProduct): Product {
@@ -42,7 +42,22 @@ function toTemplateProduct(product: PublicProduct): Product {
     publishedProductId: product.id,
     title: product.title,
     description: product.description || "",
-    reviews: product.is_featured ? 24 : 12,
+    categoryName: product.category_name || undefined,
+    brandName: product.brand_name || undefined,
+    productType: product.product_type || undefined,
+    availableSizes: product.available_sizes || [],
+    availableColors: product.available_colors || [],
+    variants: (product.variants || []).map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      sku: variant.sku,
+      attributes: variant.attributes || {},
+      price: Number(variant.price),
+      compareAtPrice: variant.compare_at_price == null ? undefined : Number(variant.compare_at_price),
+      inStock: variant.in_stock,
+      stockQuantity: variant.stock_quantity ?? undefined,
+    })),
+    reviews: 0,
     price: Number(compare || product.price),
     discountedPrice: Number(product.price),
     href: `/products/${encodeURIComponent(product.slug)}`,
@@ -135,23 +150,34 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
   const storefront = await resolveStorefront();
   const branding = getStorefrontBranding(storefront);
   const home = homeSettings(storefront);
-  const collections = await getPublicCollections(storefront.id);
+  const [collections, catalog] = await Promise.all([
+    getPublicCollections(storefront.id),
+    getPublicProducts(storefront.id, { page: 1, page_size: 24, sort: "latest" }),
+  ]);
   const categoryFallbackItems = collections.map(toTemplateCategory);
-
-  const detailedCollections = await Promise.all(
-    collections.slice(0, 6).map(async (collection) => {
-      try {
-        return await getPublicCollectionBySlug(storefront.id, collection.slug);
-      } catch {
-        return collection;
-      }
-    }),
-  );
-
-  const collectionProducts = detailedCollections.flatMap((collection) => collection.products || []);
-  const uniqueProducts = Array.from(new Map(collectionProducts.map((product) => [product.id, product])).values());
+  const uniqueProducts = Array.from(new Map(catalog.items.map((product) => [product.id, product])).values());
   const featuredProducts = uniqueProducts.filter((product) => product.is_featured);
   const sortedProducts = (featuredProducts.length ? featuredProducts : uniqueProducts).slice();
+  const productCategoryFallbackItems = Array.from(
+    new Map(
+      uniqueProducts
+        .filter((product) => product.category_name)
+        .map((product) => [product.category_name, product]),
+    ).values(),
+  ).slice(0, 6).map((product) => ({
+    id: numericId(`category-${product.category_name}`),
+    title: product.category_name || "Descubre más",
+    img:
+      storefrontImageUrl(product.image_url) ||
+      storefrontImageUrl(product.gallery[0]) ||
+      "/images/home/home-hero-editorial.webp",
+    href: product.category_name
+      ? `/products?category=${encodeURIComponent(product.category_name)}`
+      : "/products",
+    backgroundColor: "#EEEAE4",
+    overlayOpacity: 0.08,
+    imagePosition: "center",
+  }));
   const configuredHeroSlides = arrayOfObjects(home["hero_slides"]);
   const configuredHeroPromos = arrayOfObjects(home["hero_promos"]);
   const categorySection = objectOrEmpty(home["category_section"]);
@@ -163,29 +189,46 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
   const newsletter = objectOrEmpty(home["newsletter"]);
   const testimonials = objectOrEmpty(home["testimonials"]);
 
-  const fallbackHeroSlides = sortedProducts.slice(0, 2).map((product, index) => {
+  const productHeroSlides = sortedProducts.slice(0, 1).map((product) => {
     return {
       id: product.id,
       title: product.title,
       description: product.description || `Conoce ${product.title} en la tienda online de ${storefront.name}.`,
       ctaHref: `/products/${encodeURIComponent(product.slug)}`,
       image: storefrontImageUrl(product.image_url) || storefrontImageUrl(product.gallery[0]) || fallbackImage(product.slug),
-      overlayOpacity: 0.72,
+      overlayOpacity: 0.3,
       imagePosition: "center",
       contentAlignment: "left" as const,
-      textColor: "#1C274C",
+      textColor: "#FFFFFF",
       buttonLabel: "Ver producto",
-      buttonColor: "#1C274C",
+      buttonColor: "#B65332",
     };
   });
 
-  const fallbackHeroPromos = detailedCollections.slice(0, 2).map((collection, index) => {
-    const sourceProduct = collection.products?.[0] || sortedProducts[index];
+  const fallbackHeroSlides = [
+    {
+      id: "home-editorial",
+      title: "Haz de tu casa tu lugar favorito",
+      description: "Textiles, colores y detalles que transforman lo cotidiano en un espacio que se siente realmente tuyo.",
+      ctaHref: "/products",
+      image: "/images/home/home-hero-editorial.webp",
+      overlayOpacity: 0.12,
+      imagePosition: "center",
+      contentAlignment: "left" as const,
+      textColor: "#17233F",
+      buttonLabel: "Descubrir la colección",
+      buttonColor: "#17233F",
+    },
+    ...productHeroSlides,
+  ];
+
+  const fallbackHeroPromos = collections.slice(0, 2).map((collection, index) => {
+    const sourceProduct = sortedProducts[index];
     const compare = sourceProduct?.compare_at_price ?? sourceProduct?.base_price ?? null;
     return {
       id: collection.id,
       title: collection.name,
-      offerLabel: "Oferta especial",
+      offerLabel: "Colección destacada",
       href: `/collections/${encodeURIComponent(collection.slug)}`,
       priceLabel: sourceProduct ? moneyLabel(storefront.currency, sourceProduct.price) : "Nuevo",
       comparePriceLabel: compare && sourceProduct && compare > sourceProduct.price ? moneyLabel(storefront.currency, compare) : undefined,
@@ -194,10 +237,43 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         storefrontImageUrl(sourceProduct?.image_url) ||
         storefrontImageUrl(sourceProduct?.gallery?.[0]) ||
         fallbackImage(collection.slug),
-      backgroundColor: "#FFFFFF",
+      backgroundColor: index === 0 ? "#DDE6DE" : "#E9DDD2",
       backgroundImageUrl: undefined,
     };
   });
+
+  sortedProducts.slice(fallbackHeroPromos.length, 2).forEach((product) => {
+    const index = fallbackHeroPromos.length;
+    fallbackHeroPromos.push({
+      id: `product-promo-${product.id}`,
+      title: product.category_name || product.title,
+      offerLabel: "Selección para tu hogar",
+      href: `/products/${encodeURIComponent(product.slug)}`,
+      priceLabel: moneyLabel(storefront.currency, product.price),
+      comparePriceLabel: undefined,
+      image:
+        storefrontImageUrl(product.image_url) ||
+        storefrontImageUrl(product.gallery[0]) ||
+        "/images/home/home-hero-editorial.webp",
+      backgroundColor: index === 0 ? "#DDE6DE" : "#E9DDD2",
+      backgroundImageUrl: undefined,
+    });
+  });
+
+  while (fallbackHeroPromos.length < 2) {
+    const index = fallbackHeroPromos.length;
+    fallbackHeroPromos.push({
+      id: `home-promo-${index + 1}`,
+      title: index === 0 ? "Esenciales para descansar mejor" : "Detalles que renuevan tu espacio",
+      offerLabel: "Inspiración para tu hogar",
+      href: "/products",
+      priceLabel: "Descubrir",
+      comparePriceLabel: undefined,
+      image: "/images/home/home-hero-editorial.webp",
+      backgroundColor: index === 0 ? "#DDE6DE" : "#E9DDD2",
+      backgroundImageUrl: undefined,
+    });
+  }
 
   const heroSlides = configuredHeroSlides.length
     ? configuredHeroSlides
@@ -217,8 +293,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         .filter((slide) => slide.title)
     : fallbackHeroSlides;
 
-  const heroPromos = configuredHeroPromos.length
-    ? configuredHeroPromos
+  const configuredHeroPromoItems = configuredHeroPromos
         .map((promo, index) => ({
           id: String(promo["id"] || `hero-promo-${index + 1}`),
           title: stringOrUndefined(promo["title"]) || "",
@@ -230,8 +305,10 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
           backgroundColor: stringOrUndefined(promo["background_color"]) || "#FFFFFF",
           backgroundImageUrl: storefrontImageUrl(stringOrUndefined(promo["background_image_url"])),
         }))
-        .filter((promo) => promo.title)
-    : fallbackHeroPromos;
+        .filter((promo) => promo.title);
+  const heroPromos = [...configuredHeroPromoItems, ...fallbackHeroPromos]
+    .filter((promo, index, all) => all.findIndex((item) => item.id === promo.id) === index)
+    .slice(0, 2);
 
   const configuredPromoBanners = arrayOfObjects(home["promo_banners"]);
   const features = configuredFeatures.length
@@ -279,7 +356,38 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         backgroundColor: banner.background_color?.trim() || undefined,
         accentColor: banner.accent_color?.trim() || undefined,
       }))
-    : [];
+    : (collections.length ? collections.slice(0, 3).map((collection, index) => {
+        const sourceProduct = sortedProducts[index];
+        return {
+          id: `collection-promo-${collection.id}`,
+          title: collection.name,
+          subtitle: index === 0 ? "Ideas para renovar tus espacios" : "Hecho para disfrutar en casa",
+          description:
+            collection.description ||
+            (index === 0
+              ? "Encuentra texturas, colores y esenciales para darle una nueva sensación a cada rincón."
+              : "Una selección pensada para combinar comodidad, funcionalidad y estilo."),
+          ctaLabel: "Explorar colección",
+          ctaHref: `/collections/${encodeURIComponent(collection.slug)}`,
+          image:
+            storefrontImageUrl(collection.image_url) ||
+            storefrontImageUrl(sourceProduct?.image_url) ||
+            storefrontImageUrl(sourceProduct?.gallery?.[0]) ||
+            "/images/home/home-hero-editorial.webp",
+          backgroundColor: index === 0 ? "#17233F" : index === 1 ? "#DDE6DE" : "#E9DDD2",
+          accentColor: index === 0 ? "#F5EDE3" : "#17233F",
+        };
+      }) : [{
+        id: "home-inspiration",
+        title: "Renueva tu casa con detalles que se sienten",
+        subtitle: "Ideas para transformar tus espacios",
+        description: "Descubre una selección de textiles y esenciales pensados para disfrutar más cada rincón.",
+        ctaLabel: "Ver todos los productos",
+        ctaHref: "/products",
+        image: "/images/home/home-hero-editorial.webp",
+        backgroundColor: "#17233F",
+        accentColor: "#F5EDE3",
+      }]);
 
   return {
       storeName: storefront.name,
@@ -304,7 +412,9 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
               imagePosition: stringOrUndefined(card["image_position"]) || "center",
             }))
             .filter((card) => card.title)
-        : categoryFallbackItems,
+        : categoryFallbackItems.length
+          ? categoryFallbackItems
+          : productCategoryFallbackItems,
       newArrivalsSection: {
         eyebrow: stringOrUndefined(newArrivalsSection["eyebrow"]) || "Recién llegados",
         title: stringOrUndefined(newArrivalsSection["title"]) || "Novedades",
@@ -329,7 +439,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         deadline: stringOrUndefined(countdown["deadline"]) || "2026-12-31T23:59:59",
         backgroundColor: stringOrUndefined(countdown["background_color"]) || "#D0E9F3",
         backgroundImageUrl: storefrontImageUrl(stringOrUndefined(countdown["background_image_url"])) || "/images/countdown/countdown-bg.png",
-        productImageUrl: storefrontImageUrl(stringOrUndefined(countdown["product_image_url"])) || "/images/countdown/countdown-01.png",
+        productImageUrl: storefrontImageUrl(stringOrUndefined(countdown["product_image_url"])) || "/images/home/home-hero-editorial.webp",
       },
       newsletter: {
         enabled: booleanOrDefault(newsletter["enabled"], false),

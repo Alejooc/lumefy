@@ -1,63 +1,23 @@
-import React from "react";
-import { Testimonial } from "@/types/testimonial";
 import Image from "next/image";
 
-const SingleItem = ({ testimonial }: { testimonial: Testimonial }) => {
-  return (
-    <div className="shadow-testimonial bg-white rounded-[10px] py-7.5 px-4 sm:px-8.5 m-1">
-      <div className="flex items-center gap-1 mb-5">
-        <Image
-          src="/images/icons/icon-star.svg"
-          alt="star icon"
-          width={15}
-          height={15}
-        />
-        <Image
-          src="/images/icons/icon-star.svg"
-          alt="star icon"
-          width={15}
-          height={15}
-        />
-        <Image
-          src="/images/icons/icon-star.svg"
-          alt="star icon"
-          width={15}
-          height={15}
-        />
-        <Image
-          src="/images/icons/icon-star.svg"
-          alt="star icon"
-          width={15}
-          height={15}
-        />
-        <Image
-          src="/images/icons/icon-star.svg"
-          alt="star icon"
-          width={15}
-          height={15}
-        />
-      </div>
+import type { Testimonial } from "@/types/testimonial";
 
-      <p className="text-dark mb-6">{testimonial.review}</p>
-
-      <a href="#" className="flex items-center gap-4">
-        <div className="w-12.5 h-12.5 rounded-full overflow-hidden">
-          <Image
-            src={testimonial.authorImg}
-            alt="author"
-            className="w-12.5 h-12.5 rounded-full overflow-hidden"
-            width={50}
-            height={50}
-          />
-        </div>
-
-        <div>
-          <h3 className="font-medium text-dark">{testimonial.authorName}</h3>
-          <p className="text-custom-sm">{testimonial.authorRole}</p>
-        </div>
-      </a>
+const SingleItem = ({ testimonial }: { testimonial: Testimonial }) => (
+  <article className="min-h-[270px] rounded-[22px] border border-white/10 bg-white/[0.07] p-6 backdrop-blur-sm sm:p-7">
+    <div className="mb-6 flex items-center gap-1 text-[#e6b18f]" aria-label="5 de 5 estrellas">
+      {Array.from({ length: 5 }).map((_, index) => <span key={index} aria-hidden="true">★</span>)}
     </div>
-  );
-};
+    <blockquote className="text-base leading-7 text-white/90">“{testimonial.review}”</blockquote>
+    <div className="mt-7 flex items-center gap-3.5">
+      <div className="relative h-11 w-11 overflow-hidden rounded-full bg-white/10">
+        <Image src={testimonial.authorImg} alt={testimonial.authorName} fill sizes="44px" className="object-cover" />
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-white">{testimonial.authorName}</h3>
+        <p className="mt-0.5 text-xs text-white/55">{testimonial.authorRole}</p>
+      </div>
+    </div>
+  </article>
+);
 
 export default SingleItem;
