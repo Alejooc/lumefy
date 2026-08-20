@@ -216,13 +216,8 @@ const Header = () => {
           }`}
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="flex items-center justify-between border-b border-gray-3 px-5 py-5">
-            <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-[0.18em] text-dark-4">
-                Navegacion
-              </p>
-              <h2 className="text-lg font-semibold text-dark">Menú</h2>
-            </div>
+          <div className="flex items-center justify-between border-b border-gray-3 px-5 py-3.5">
+            <h2 className="text-lg font-semibold text-dark">Menú</h2>
 
             <button
               type="button"
@@ -231,7 +226,7 @@ const Header = () => {
                 setMobileOpenSubmenu(null);
               }}
               aria-label="Cerrar menu"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-3 text-dark transition hover:border-blue hover:text-blue"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-3 text-dark transition hover:border-blue hover:text-blue"
             >
               <svg className="fill-current" width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <path d="M4.78 3.72 9 7.94l4.22-4.22 1.06 1.06L10.06 9l4.22 4.22-1.06 1.06L9 10.06l-4.22 4.22-1.06-1.06L7.94 9 3.72 4.78l1.06-1.06Z" />
@@ -239,25 +234,29 @@ const Header = () => {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-5">
-            <div className="mb-5 rounded-2xl bg-gray-1 p-4">
-              <p className="mb-1 text-xs font-medium uppercase tracking-[0.18em] text-dark-4">
-                {accountHeading}
-              </p>
-              <p className="mb-3 text-base font-semibold text-dark">
-                {session ? session.user.full_name || "Mi cuenta" : guestAccountLabel}
-              </p>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-gray-1 px-3.5 py-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-dark-4">
+                  {accountHeading}
+                </p>
+                {session ? (
+                  <p className="mt-0.5 truncate text-sm font-semibold text-dark">
+                    {session.user.full_name || "Mi cuenta"}
+                  </p>
+                ) : null}
+              </div>
 
-              <div className="flex gap-2.5">
+              <div className="flex shrink-0 gap-2">
                 <Link
                   href={session ? "/account" : "/login"}
                   onClick={() => {
                     setNavigationOpen(false);
                     setMobileOpenSubmenu(null);
                   }}
-                  className="inline-flex flex-1 items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-medium text-dark transition hover:text-blue"
+                  className="inline-flex items-center justify-center rounded-lg bg-white px-3.5 py-2 text-sm font-medium text-dark shadow-sm transition hover:text-blue"
                 >
-                  {session ? "Ver cuenta" : "Ingresar"}
+                  {session ? "Ver cuenta" : guestAccountLabel}
                 </Link>
 
                 {session ? (
@@ -268,7 +267,7 @@ const Header = () => {
                       setNavigationOpen(false);
                       setMobileOpenSubmenu(null);
                     }}
-                    className="inline-flex flex-1 items-center justify-center rounded-xl border border-gray-3 px-4 py-3 text-sm font-medium text-dark transition hover:border-blue hover:text-blue"
+                    className="inline-flex items-center justify-center rounded-lg border border-gray-3 px-3.5 py-2 text-sm font-medium text-dark transition hover:border-blue hover:text-blue"
                   >
                     {signOutLabel}
                   </button>
