@@ -71,6 +71,7 @@ export type HomeTestimonials = {
 };
 
 export type HomeViewModel = {
+  storefrontId: string;
   storeName: string;
   currency: string;
   heroSlides: HeroSlide[];

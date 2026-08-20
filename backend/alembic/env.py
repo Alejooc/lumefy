@@ -53,6 +53,7 @@ from app.models.storefront import (
     StorefrontOrder,
 )
 from app.models.integration import IntegrationSource, IntegrationSyncRun, IntegrationRecordLink
+from app.models.storefront_newsletter import StorefrontNewsletterSubscription
 
 from app.core.config import settings
 

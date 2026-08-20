@@ -59,5 +59,6 @@ from .storefront import (
 )
 from .email_delivery import EmailDelivery
 from .storefront_customer import StorefrontCustomerAccount
+from .storefront_newsletter import StorefrontNewsletterSubscription
 from .integration import IntegrationSource, IntegrationSyncRun, IntegrationRecordLink
 

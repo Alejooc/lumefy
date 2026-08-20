@@ -143,7 +143,26 @@ function defaultHomeFeatures() {
 }
 
 function defaultTestimonials(): Testimonial[] {
-  return [];
+  return [
+    {
+      review: "Aquí podrás mostrar una opinión real sobre la calidad, la entrega o la experiencia de compra.",
+      authorName: "Cliente de ejemplo",
+      authorRole: "Contenido demostrativo · editable en el panel",
+      authorImg: "/images/users/user-01.jpg",
+    },
+    {
+      review: "Usa este espacio para destacar lo que tus clientes más valoran de tus productos y tu servicio.",
+      authorName: "Cliente de ejemplo",
+      authorRole: "Contenido demostrativo · editable en el panel",
+      authorImg: "/images/users/user-02.jpg",
+    },
+    {
+      review: "Cuando agregues testimonios desde la configuración, estas tarjetas de muestra se reemplazarán.",
+      authorName: "Cliente de ejemplo",
+      authorRole: "Contenido demostrativo · editable en el panel",
+      authorImg: "/images/users/user-03.jpg",
+    },
+  ];
 }
 
 export async function loadHomeViewModel(): Promise<HomeViewModel> {
@@ -188,6 +207,9 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
   const countdown = objectOrEmpty(home["countdown"]);
   const newsletter = objectOrEmpty(home["newsletter"]);
   const testimonials = objectOrEmpty(home["testimonials"]);
+  // Home v2 makes the previously hidden blocks visible once. After the
+  // merchant saves the new configuration version, each switch is respected.
+  const respectsVisibilitySettings = Number(home["content_version"] || 0) >= 2;
 
   const productHeroSlides = sortedProducts.slice(0, 1).map((product) => {
     return {
@@ -390,6 +412,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
       }]);
 
   return {
+      storefrontId: storefront.id,
       storeName: storefront.name,
       currency: storefront.currency,
       heroSlides,
@@ -430,7 +453,9 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
       },
       bestSellers: (featuredProducts.length ? featuredProducts : uniqueProducts).slice(0, 6).map(toTemplateProduct),
       countdown: {
-        enabled: booleanOrDefault(countdown["enabled"], false),
+        enabled: respectsVisibilitySettings
+          ? booleanOrDefault(countdown["enabled"], true)
+          : true,
         eyebrow: stringOrUndefined(countdown["eyebrow"]) || "Oferta especial",
         title: stringOrUndefined(countdown["title"]) || "No te pierdas esta oportunidad",
         description: stringOrUndefined(countdown["description"]) || "Descubre productos seleccionados para ti.",
@@ -442,7 +467,9 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         productImageUrl: storefrontImageUrl(stringOrUndefined(countdown["product_image_url"])) || "/images/home/home-hero-editorial.webp",
       },
       newsletter: {
-        enabled: booleanOrDefault(newsletter["enabled"], false),
+        enabled: respectsVisibilitySettings
+          ? booleanOrDefault(newsletter["enabled"], true)
+          : true,
         title: stringOrUndefined(newsletter["title"]) || "Recibe novedades y ofertas",
         description:
           stringOrUndefined(newsletter["description"]) ||
@@ -453,9 +480,17 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
           storefrontImageUrl(stringOrUndefined(newsletter["background_image_url"])) || "/images/shapes/newsletter-bg.jpg",
       },
       testimonialsSection: {
-        enabled: booleanOrDefault(testimonials["enabled"], false),
-        eyebrow: stringOrUndefined(testimonials["eyebrow"]) || "Testimonios",
-        title: stringOrUndefined(testimonials["title"]) || "Lo que dicen nuestros clientes",
+        enabled: respectsVisibilitySettings
+          ? booleanOrDefault(testimonials["enabled"], true)
+          : true,
+        eyebrow:
+          stringOrUndefined(testimonials["eyebrow"]) ||
+          (configuredTestimonials.length ? "Testimonios" : "Contenido de demostración"),
+        title:
+          stringOrUndefined(testimonials["title"]) ||
+          (configuredTestimonials.length
+            ? "Lo que dicen nuestros clientes"
+            : "Así se verán las historias de tus clientes"),
       },
       testimonials: testimonialItems,
   };

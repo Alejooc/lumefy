@@ -110,6 +110,7 @@ export interface StorefrontHomeTestimonialsSettings {
 }
 
 export interface StorefrontHomeSettings {
+  content_version?: number;
   hero_slides?: StorefrontHomeHeroSlide[];
   hero_promos?: StorefrontHomeHeroPromo[];
   category_section?: StorefrontHomeSectionCopy;

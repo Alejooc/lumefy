@@ -340,6 +340,16 @@ export async function sendStorefrontContactMessage(
   });
 }
 
+export async function subscribeStorefrontNewsletter(
+  storefrontId: string,
+  email: string,
+): Promise<{ msg: string }> {
+  return request<{ msg: string }>(`/storefront/public/${storefrontId}/newsletter`, {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
 export const resolveStorefront = cache(async (): Promise<PublicStorefront> => {
   const baseDomain = process.env.NEXT_PUBLIC_PLATFORM_STOREFRONT_DOMAIN;
   let host = "";

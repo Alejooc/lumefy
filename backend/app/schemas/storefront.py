@@ -9,6 +9,10 @@ class Msg(BaseModel):
     msg: str
 
 
+class PublicNewsletterSubscriptionRequest(BaseModel):
+    email: EmailStr = Field(max_length=320)
+
+
 class StorefrontBase(BaseModel):
     name: str
     slug: str

@@ -42,6 +42,7 @@ from app.models.product_variant import ProductVariant
 from app.models.user import User
 from app.models.client import Client
 from app.models.storefront_customer import StorefrontCustomerAccount
+from app.models.storefront_newsletter import StorefrontNewsletterSubscription
 from app.services.email import EmailService
 from app.services.outbox import enqueue_outbox_event
 from app.models.storefront import (
@@ -3384,6 +3385,49 @@ async def send_public_storefront_contact_message(
     """
     await EmailService.send_email(destination, subject, html_content)
     return schemas.Msg(msg="Your message has been sent successfully")
+
+
+@router.post("/public/{storefront_id}/newsletter", response_model=schemas.Msg)
+@limiter.limit("5/minute")
+async def subscribe_public_storefront_newsletter(
+    request: Request,
+    storefront_id: uuid.UUID,
+    payload: schemas.PublicNewsletterSubscriptionRequest,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    storefront = await _get_public_storefront_by_id(db, storefront_id)
+    email = str(payload.email).strip().lower()
+    subscription = await db.scalar(
+        select(StorefrontNewsletterSubscription).where(
+            StorefrontNewsletterSubscription.storefront_id == storefront.id,
+            StorefrontNewsletterSubscription.email == email,
+        )
+    )
+
+    if subscription:
+        if not subscription.is_active:
+            subscription.is_active = True
+            subscription.subscribed_at = datetime.utcnow()
+            subscription.company_id = storefront.company_id
+            db.add(subscription)
+            await db.commit()
+        return schemas.Msg(msg="Ya estabas registrado. Te mantendremos al tanto.")
+
+    db.add(
+        StorefrontNewsletterSubscription(
+            storefront_id=storefront.id,
+            company_id=storefront.company_id,
+            email=email,
+            source="home",
+        )
+    )
+    try:
+        await db.commit()
+    except IntegrityError:
+        # A repeated click or concurrent request is still a successful opt-in.
+        await db.rollback()
+
+    return schemas.Msg(msg="¡Listo! Te registramos para recibir novedades y ofertas.")
 
 
 @router.get("/public/{storefront_id}/navigation", response_model=List[schemas.PublicStoreNavigationItem])

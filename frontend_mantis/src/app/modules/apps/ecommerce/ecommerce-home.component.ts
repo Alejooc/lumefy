@@ -223,6 +223,7 @@ export class EcommerceHomeComponent implements OnInit {
 
   private createForm(): StorefrontHomeSettings {
     return {
+      content_version: 2,
       hero_slides: [],
       hero_promos: [],
       category_section: this.createSectionCopy('Explora', 'Compra por categoría'),
@@ -232,7 +233,7 @@ export class EcommerceHomeComponent implements OnInit {
       features: this.createDefaultFeatures(),
       promo_banners: [],
       countdown: {
-        enabled: false,
+        enabled: true,
         eyebrow: 'Oferta especial',
         title: 'No te pierdas esta oportunidad',
         description: 'Descubre productos seleccionados para ti.',
@@ -244,7 +245,7 @@ export class EcommerceHomeComponent implements OnInit {
         product_image_url: ''
       },
       newsletter: {
-        enabled: false,
+        enabled: true,
         title: 'Recibe novedades y ofertas',
         description: 'Regístrate para recibir lanzamientos, descuentos y contenido de la tienda.',
         placeholder: 'Tu correo electrónico',
@@ -271,8 +272,10 @@ export class EcommerceHomeComponent implements OnInit {
 
   private normalizeForm(input: unknown): StorefrontHomeSettings {
     const home = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
+    const activateShowcaseBlocks = Number(home['content_version'] || 0) < 2;
 
     return {
+      content_version: 2,
       hero_slides: Array.isArray(home['hero_slides'])
         ? home['hero_slides']
             .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
@@ -301,9 +304,9 @@ export class EcommerceHomeComponent implements OnInit {
             .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
             .map((item, index) => this.normalizePromoBanner(item, index))
         : [],
-      countdown: this.normalizeCountdown(home['countdown']),
-      newsletter: this.normalizeNewsletter(home['newsletter']),
-      testimonials: this.normalizeTestimonials(home['testimonials'])
+      countdown: this.normalizeCountdown(home['countdown'], activateShowcaseBlocks),
+      newsletter: this.normalizeNewsletter(home['newsletter'], activateShowcaseBlocks),
+      testimonials: this.normalizeTestimonials(home['testimonials'], activateShowcaseBlocks)
     };
   }
 
@@ -388,10 +391,10 @@ export class EcommerceHomeComponent implements OnInit {
     };
   }
 
-  private normalizeCountdown(input: unknown): StorefrontHomeCountdownSettings {
+  private normalizeCountdown(input: unknown, forceEnabled = false): StorefrontHomeCountdownSettings {
     const value = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
     return {
-      enabled: value['enabled'] === true,
+      enabled: forceEnabled || value['enabled'] !== false,
       eyebrow: String(value['eyebrow'] || 'Oferta especial'),
       title: String(value['title'] || 'No te pierdas esta oportunidad'),
       description: String(value['description'] || 'Descubre productos seleccionados para ti.'),
@@ -404,10 +407,10 @@ export class EcommerceHomeComponent implements OnInit {
     };
   }
 
-  private normalizeNewsletter(input: unknown): StorefrontHomeNewsletterSettings {
+  private normalizeNewsletter(input: unknown, forceEnabled = false): StorefrontHomeNewsletterSettings {
     const value = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
     return {
-      enabled: value['enabled'] === true,
+      enabled: forceEnabled || value['enabled'] !== false,
       title: String(value['title'] || 'Recibe novedades y ofertas'),
       description: String(value['description'] || 'Regístrate para recibir lanzamientos, descuentos y contenido de la tienda.'),
       placeholder: String(value['placeholder'] || 'Tu correo electrónico'),
@@ -416,7 +419,7 @@ export class EcommerceHomeComponent implements OnInit {
     };
   }
 
-  private normalizeTestimonials(input: unknown): StorefrontHomeTestimonialsSettings {
+  private normalizeTestimonials(input: unknown, forceEnabled = false): StorefrontHomeTestimonialsSettings {
     const value = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
     const items = Array.isArray(value['items'])
       ? value['items']
@@ -431,7 +434,7 @@ export class EcommerceHomeComponent implements OnInit {
       : [];
 
     return {
-      enabled: value['enabled'] === true,
+      enabled: forceEnabled || value['enabled'] !== false,
       eyebrow: String(value['eyebrow'] || 'Testimonios'),
       title: String(value['title'] || 'Lo que dicen nuestros clientes'),
       items
@@ -440,6 +443,7 @@ export class EcommerceHomeComponent implements OnInit {
 
   private normalizePayload(): StorefrontHomeSettings {
     return {
+      content_version: 2,
       hero_slides: (this.form.hero_slides || []).filter((item) => this.nonEmpty(item.title)),
       hero_promos: (this.form.hero_promos || []).filter((item) => this.nonEmpty(item.title)),
       category_section: this.form.category_section,
@@ -492,7 +496,7 @@ export class EcommerceHomeComponent implements OnInit {
 
   private createTestimonials(): StorefrontHomeTestimonialsSettings {
     return {
-      enabled: false,
+      enabled: true,
       eyebrow: 'Testimonios',
       title: 'Lo que dicen nuestros clientes',
       items: []

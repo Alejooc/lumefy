@@ -7,6 +7,7 @@ import BestSeller from "./BestSeller";
 import CounDown from "./Countdown";
 import Testimonials from "./Testimonials";
 import ClosingCta from "./ClosingCta";
+import Newsletter from "../Common/Newsletter";
 
 import { HomeViewModel } from "@/types/home";
 
@@ -20,6 +21,7 @@ const Home = ({ data }: { data: HomeViewModel }) => {
       <BestSeller items={data.bestSellers} section={data.bestSellersSection} />
       <CounDown content={data.countdown} />
       <Testimonials section={data.testimonialsSection} items={data.testimonials} />
+      <Newsletter storefrontId={data.storefrontId} content={data.newsletter} />
       <ClosingCta storeName={data.storeName} />
     </main>
   );
