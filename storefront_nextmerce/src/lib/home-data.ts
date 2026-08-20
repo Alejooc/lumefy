@@ -165,6 +165,16 @@ function defaultTestimonials(): Testimonial[] {
   ];
 }
 
+function isLegacyTemplateTestimonial(item: Record<string, unknown>): boolean {
+  const review = String(item["review"] || "").toLowerCase();
+  const role = String(item["author_role"] || "").toLowerCase();
+  return (
+    review.includes("lorem ipsum") ||
+    role === "serial entrepreneur" ||
+    role === "backend developer"
+  );
+}
+
 export async function loadHomeViewModel(): Promise<HomeViewModel> {
   const storefront = await resolveStorefront();
   const branding = getStorefrontBranding(storefront);
@@ -343,7 +353,9 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         }))
         .filter((feature) => feature.title)
     : defaultHomeFeatures();
-  const configuredTestimonials = arrayOfObjects(testimonials["items"]);
+  const configuredTestimonials = arrayOfObjects(testimonials["items"]).filter(
+    (item) => !isLegacyTemplateTestimonial(item),
+  );
   const testimonialItems = configuredTestimonials.length
     ? configuredTestimonials
         .map((item) => ({

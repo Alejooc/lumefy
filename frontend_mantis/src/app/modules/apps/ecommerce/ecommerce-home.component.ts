@@ -14,6 +14,7 @@ import {
   StorefrontHomeNewsletterSettings,
   StorefrontHomeSectionCopy,
   StorefrontHomeSettings,
+  StorefrontHomeTestimonialItem,
   StorefrontHomeTestimonialsSettings,
   StorefrontPromoBanner
 } from 'src/app/core/services/storefront-admin.service';
@@ -431,13 +432,14 @@ export class EcommerceHomeComponent implements OnInit {
             author_role: String(item['author_role'] || ''),
             author_image: String(item['author_image'] || '')
           }))
+          .filter((item) => !this.isLegacyTemplateTestimonial(item.review, item.author_role))
       : [];
 
     return {
       enabled: forceEnabled || value['enabled'] !== false,
       eyebrow: String(value['eyebrow'] || 'Testimonios'),
       title: String(value['title'] || 'Lo que dicen nuestros clientes'),
-      items
+      items: items.length ? items : this.createDefaultTestimonialItems()
     };
   }
 
@@ -497,9 +499,41 @@ export class EcommerceHomeComponent implements OnInit {
   private createTestimonials(): StorefrontHomeTestimonialsSettings {
     return {
       enabled: true,
-      eyebrow: 'Testimonios',
-      title: 'Lo que dicen nuestros clientes',
-      items: []
+      eyebrow: 'Contenido de demostración',
+      title: 'Así se verán las historias de tus clientes',
+      items: this.createDefaultTestimonialItems()
     };
+  }
+
+  private createDefaultTestimonialItems(): StorefrontHomeTestimonialItem[] {
+    return [
+      {
+        id: 'testimonial-demo-1',
+        review: 'Aquí podrás mostrar una opinión real sobre la calidad, la entrega o la experiencia de compra.',
+        author_name: 'Cliente de ejemplo',
+        author_role: 'Contenido demostrativo · editable en el panel',
+        author_image: '/images/users/user-01.jpg'
+      },
+      {
+        id: 'testimonial-demo-2',
+        review: 'Usa este espacio para destacar lo que tus clientes más valoran de tus productos y tu servicio.',
+        author_name: 'Cliente de ejemplo',
+        author_role: 'Contenido demostrativo · editable en el panel',
+        author_image: '/images/users/user-02.jpg'
+      },
+      {
+        id: 'testimonial-demo-3',
+        review: 'Cuando agregues testimonios reales, estas tarjetas de muestra se reemplazarán.',
+        author_name: 'Cliente de ejemplo',
+        author_role: 'Contenido demostrativo · editable en el panel',
+        author_image: '/images/users/user-03.jpg'
+      }
+    ];
+  }
+
+  private isLegacyTemplateTestimonial(review: string, role?: string | null): boolean {
+    const normalizedReview = String(review || '').toLowerCase();
+    const normalizedRole = String(role || '').toLowerCase();
+    return normalizedReview.includes('lorem ipsum') || normalizedRole === 'serial entrepreneur' || normalizedRole === 'backend developer';
   }
 }
