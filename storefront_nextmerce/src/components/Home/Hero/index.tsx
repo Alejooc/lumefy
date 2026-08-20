@@ -7,15 +7,15 @@ import HeroFeature from "./HeroFeature";
 
 const Hero = ({ slides, promos, features }: { slides: HeroSlide[]; promos: HeroPromo[]; features: HomeFeature[] }) => {
   return (
-    <section className="overflow-hidden bg-[#f4f0e9] pb-8 pt-[154px] sm:pt-40 lg:pb-11 lg:pt-28 xl:pt-48">
+    <section className="overflow-hidden bg-gray-1 pb-8 pt-[154px] sm:pt-40 lg:pb-11 lg:pt-28 xl:pt-48">
       <div className="mx-auto w-full max-w-[1240px] px-4 sm:px-8 xl:px-0">
-        <div className="mb-5 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#765b49]">
-          <span className="h-px w-9 bg-[#b65332]" />
+        <div className="mb-5 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-dark-3">
+          <span className="h-px w-9 bg-blue" />
           Una casa con intención
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.9fr)_minmax(300px,0.85fr)] lg:gap-5">
-          <div className="min-w-0 overflow-hidden rounded-[26px] bg-[#e9dfd1] shadow-[0_24px_70px_rgba(33,30,24,0.10)]">
+          <div className="min-w-0 overflow-hidden rounded-[26px] bg-gray-2 shadow-[0_24px_70px_rgba(28,39,76,0.10)]">
             <HeroCarousel slides={slides} />
           </div>
 
@@ -24,8 +24,8 @@ const Hero = ({ slides, promos, features }: { slides: HeroSlide[]; promos: HeroP
               <Link
                 key={promo.id}
                 href={promo.href}
-                className="group relative min-h-[220px] overflow-hidden rounded-[22px] bg-[#dfe6dd] sm:min-h-[280px] lg:min-h-0"
-                style={{ backgroundColor: promo.backgroundColor || (index === 0 ? "#dfe6dd" : "#eaded2") }}
+                className="group relative min-h-[220px] overflow-hidden rounded-[22px] bg-blue-light-5 sm:min-h-[280px] lg:min-h-0"
+                style={{ backgroundColor: promo.backgroundColor || (index === 0 ? "#E1E8FF" : "#F3F4F6") }}
               >
                 <Image
                   src={promo.backgroundImageUrl || promo.image}
