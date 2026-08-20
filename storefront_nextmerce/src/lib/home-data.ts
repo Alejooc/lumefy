@@ -495,14 +495,12 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         enabled: respectsVisibilitySettings
           ? booleanOrDefault(testimonials["enabled"], true)
           : true,
-        eyebrow:
-          stringOrUndefined(testimonials["eyebrow"]) ||
-          (configuredTestimonials.length ? "Testimonios" : "Contenido de demostración"),
-        title:
-          stringOrUndefined(testimonials["title"]) ||
-          (configuredTestimonials.length
-            ? "Lo que dicen nuestros clientes"
-            : "Así se verán las historias de tus clientes"),
+        eyebrow: configuredTestimonials.length
+          ? stringOrUndefined(testimonials["eyebrow"]) || "Testimonios"
+          : "Contenido de demostración",
+        title: configuredTestimonials.length
+          ? stringOrUndefined(testimonials["title"]) || "Lo que dicen nuestros clientes"
+          : "Así se verán las historias de tus clientes",
       },
       testimonials: testimonialItems,
   };

@@ -437,8 +437,8 @@ export class EcommerceHomeComponent implements OnInit {
 
     return {
       enabled: forceEnabled || value['enabled'] !== false,
-      eyebrow: String(value['eyebrow'] || 'Testimonios'),
-      title: String(value['title'] || 'Lo que dicen nuestros clientes'),
+      eyebrow: items.length ? String(value['eyebrow'] || 'Testimonios') : 'Contenido de demostración',
+      title: items.length ? String(value['title'] || 'Lo que dicen nuestros clientes') : 'Así se verán las historias de tus clientes',
       items: items.length ? items : this.createDefaultTestimonialItems()
     };
   }
