@@ -94,6 +94,65 @@
                 <label class="form-label">Header de API key</label>
                 <input class="form-control" [(ngModel)]="form.api_key_header" placeholder="X-API-Key">
               </div>
+              <div class="col-12">
+                <div class="border rounded p-3 mt-2">
+                  <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="webhookEnabled" [(ngModel)]="form.webhook_enabled">
+                    <label class="form-check-label fw-semibold" for="webhookEnabled">Recibir eventos del proveedor por webhook</label>
+                  </div>
+                  <small class="text-muted d-block mb-3">El webhook solo encola una sincronización verificada; no escribe existencias directamente y el polling queda como respaldo.</small>
+                  @if (form.webhook_enabled) {
+                    <div class="row g-3">
+                      <div class="col-md-6">
+                        <label class="form-label">Secreto de firma</label>
+                        <input class="form-control" type="password" [(ngModel)]="form.webhook_secret" placeholder="Se guarda cifrado; vacío conserva el actual">
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Tipo por defecto</label>
+                        <select class="form-select" [(ngModel)]="form.webhook_default_sync_type">
+                          <option value="INVENTORY">Sincronizar inventario</option>
+                          <option value="CATALOG">Sincronizar catálogo</option>
+                          <option value="FULL">Sincronizar todo</option>
+                        </select>
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label">Header de firma</label>
+                        <input class="form-control" [(ngModel)]="form.webhook_signature_header" placeholder="X-Webhook-Signature">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label">Codificación de firma</label>
+                        <select class="form-select" [(ngModel)]="form.webhook_signature_encoding">
+                          <option value="hex">Hexadecimal</option>
+                          <option value="base64">Base64</option>
+                        </select>
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label">Header timestamp <span class="text-muted">(opcional)</span></label>
+                        <input class="form-control" [(ngModel)]="form.webhook_timestamp_header" placeholder="X-Webhook-Timestamp (opcional)">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label">Tolerancia (segundos)</label>
+                        <input class="form-control" type="number" min="0" max="86400" [(ngModel)]="form.webhook_timestamp_tolerance_seconds">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label">Ruta del ID del evento</label>
+                        <input class="form-control" [(ngModel)]="form.webhook_event_id_path" placeholder="id">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label">Ruta del tipo de evento</label>
+                        <input class="form-control" [(ngModel)]="form.webhook_event_type_path" placeholder="type">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label">Eventos que actualizan catálogo</label>
+                        <input class="form-control" [(ngModel)]="form.webhook_catalog_events" placeholder="product.updated, price.updated">
+                      </div>
+                      <div class="col-12">
+                        <small class="text-muted">URL para registrar en el proveedor: <code>/api/v1/integrations/sources/{{ editingId || 'ID_DEL_ORIGEN' }}/webhook</code></small>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
             </div>
           </div>
         } @else if (activeFormTab === 'catalog') {

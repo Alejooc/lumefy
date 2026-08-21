@@ -4,13 +4,14 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.permissions import PermissionChecker
-from app.models.integration import IntegrationSource, IntegrationSyncRun
+from app.models.integration import IntegrationSource, IntegrationSyncRun, IntegrationWebhookEvent
 from app.models.user import User
 from app.schemas import integration as schemas
 from app.services.integration_service import (
@@ -23,6 +24,7 @@ from app.services.integration_service import (
     suggest_mapping_source,
     test_source,
     validate_source,
+    verify_webhook_event,
 )
 
 
@@ -393,6 +395,104 @@ async def run_sync(
     """Compatibility endpoint. New clients should queue catalog and inventory separately."""
     source = await _get_source(db, source_id, current_user.company_id)
     return await _enqueue_manual_sync(db, source, current_user, "FULL")
+
+
+@router.post(
+    "/sources/{source_id}/webhook",
+    response_model=schemas.IntegrationWebhookOut,
+    status_code=202,
+)
+async def receive_source_webhook(
+    source_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Accept one signed provider event and queue the smallest sync needed."""
+
+    source = await db.get(IntegrationSource, source_id)
+    if not source or not source.is_active:
+        raise HTTPException(status_code=404, detail="Webhook no encontrado")
+    content_length = request.headers.get("content-length")
+    try:
+        if content_length and int(content_length) > 1024 * 1024:
+            raise HTTPException(status_code=413, detail="El webhook supera el tamaño máximo permitido")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="El tamaño del webhook no es válido") from exc
+    body = await request.body()
+    try:
+        details = verify_webhook_event(source, body, request.headers)
+    except IntegrationRequestError as exc:
+        raise HTTPException(status_code=exc.status_code or 400, detail=str(exc)) from exc
+
+    event = IntegrationWebhookEvent(
+        company_id=source.company_id,
+        source_id=source.id,
+        event_key=details["event_key"],
+        event_type=details["event_type"],
+        sync_type=details["sync_type"],
+        status="RECEIVED",
+        payload_hash=details["payload_hash"],
+    )
+    # Keeping the object construction explicit makes it clear that the raw
+    # webhook body is never persisted. BaseModel supplies the UUID.
+    db.add(event)
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        existing = (await db.execute(
+            select(IntegrationWebhookEvent).where(
+                IntegrationWebhookEvent.source_id == source.id,
+                IntegrationWebhookEvent.event_key == details["event_key"],
+            ).limit(1)
+        )).scalars().first()
+        if not existing:
+            raise HTTPException(status_code=409, detail="No se pudo registrar el evento webhook")
+        return {
+            "accepted": True,
+            "duplicate": True,
+            "status": existing.status,
+            "event_id": details.get("event_id"),
+            "event_type": existing.event_type,
+            "sync_type": existing.sync_type,
+            "sync_run_id": existing.sync_run_id,
+        }
+
+    try:
+        run = await enqueue_sync(
+            db,
+            source,
+            None,
+            sync_type=details["sync_type"],
+            trigger_type="WEBHOOK",
+        )
+        event.sync_run_id = run.id
+        event.status = "QUEUED"
+        await db.commit()
+        return {
+            "accepted": True,
+            "duplicate": False,
+            "status": event.status,
+            "event_id": details.get("event_id"),
+            "event_type": event.event_type,
+            "sync_type": event.sync_type,
+            "sync_run_id": event.sync_run_id,
+        }
+    except IntegrationSyncConflict:
+        # A polling/manual run already covers this event. Keep the event as a
+        # durable audit record without creating a second concurrent run.
+        event.status = "COALESCED"
+        event.error_message = "La sincronización equivalente ya estaba en cola o en ejecución."
+        await db.commit()
+        return {
+            "accepted": True,
+            "duplicate": False,
+            "status": event.status,
+            "event_id": details.get("event_id"),
+            "event_type": event.event_type,
+            "sync_type": event.sync_type,
+            "sync_run_id": None,
+        }
 
 
 @router.get("/sources/{source_id}/runs", response_model=list[schemas.IntegrationSyncRunOut])

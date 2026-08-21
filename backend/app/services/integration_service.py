@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import base64
 from io import BytesIO
+import hashlib
+import hmac
 import ipaddress
 import json
 import logging
@@ -14,7 +16,7 @@ import tempfile
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Mapping
 from urllib import error as urlerror
 from urllib import parse as urlparse
 from urllib import request as urlrequest
@@ -29,7 +31,11 @@ from app.core.database import SessionLocal
 from app.models.branch import Branch
 from app.models.brand import Brand
 from app.models.category import Category
-from app.models.integration import IntegrationRecordLink, IntegrationSource, IntegrationSyncRun
+from app.models.integration import (
+    IntegrationRecordLink,
+    IntegrationSource,
+    IntegrationSyncRun,
+)
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.product import Product
@@ -52,6 +58,7 @@ class IntegrationSyncConflict(Exception):
 
 LOGGER = logging.getLogger("lumefy.integration")
 MAX_SYNC_ERROR_SAMPLES = 100
+MAX_WEBHOOK_BODY_BYTES = 1024 * 1024
 
 
 ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
@@ -131,6 +138,158 @@ def validate_source(source: IntegrationSource) -> None:
     if source.source_type.upper() != "REST":
         raise IntegrationRequestError("El primer conector soportado es REST.")
     _validate_outbound_url(source.base_url)
+    webhook = _webhook_config(source)
+    if webhook.get("enabled"):
+        _webhook_secret(source)
+
+
+def _webhook_config(source: IntegrationSource) -> dict[str, Any]:
+    """Normalize the optional inbound webhook configuration."""
+
+    raw = (getattr(source, "configuration", None) or {}).get("webhook") or {}
+    if not isinstance(raw, dict) or raw.get("enabled") is not True:
+        return {"enabled": False}
+
+    def text_value(key: str, fallback: str, limit: int = 120) -> str:
+        value = str(raw.get(key) or fallback).strip()
+        return value[:limit]
+
+    try:
+        tolerance = int(raw.get("timestamp_tolerance_seconds") or 300)
+    except (TypeError, ValueError) as exc:
+        raise IntegrationRequestError(
+            "La tolerancia de timestamp del webhook debe ser un número entero.",
+            status_code=422,
+        ) from exc
+    sync_type = str(raw.get("default_sync_type") or "INVENTORY").strip().upper()
+    if sync_type not in {"CATALOG", "INVENTORY", "FULL"}:
+        raise IntegrationRequestError(
+            "El tipo de sincronización del webhook debe ser CATALOG, INVENTORY o FULL.",
+            status_code=422,
+        )
+    encoding = str(raw.get("signature_encoding") or "hex").strip().lower()
+    if encoding not in {"hex", "base64"}:
+        raise IntegrationRequestError(
+            "La codificación de firma del webhook debe ser hex o base64.",
+            status_code=422,
+        )
+    event_map = raw.get("sync_by_event") or {}
+    if not isinstance(event_map, dict):
+        raise IntegrationRequestError("sync_by_event debe ser un objeto de eventos.", status_code=422)
+    normalized_event_map: dict[str, str] = {}
+    for event_name, mapped_type in event_map.items():
+        mapped_sync_type = str(mapped_type or "").strip().upper()
+        if mapped_sync_type not in {"CATALOG", "INVENTORY", "FULL"}:
+            raise IntegrationRequestError(
+                f"El evento {event_name} tiene un tipo de sincronización inválido.",
+                status_code=422,
+            )
+        normalized_event_map[str(event_name).strip()[:120]] = mapped_sync_type
+    return {
+        "enabled": True,
+        "signature_header": text_value("signature_header", "X-Webhook-Signature"),
+        "signature_encoding": encoding,
+        "timestamp_header": text_value("timestamp_header", ""),
+        "timestamp_tolerance_seconds": min(86400, max(0, tolerance)),
+        "event_id_header": text_value("event_id_header", "X-Event-Id"),
+        "event_id_path": text_value("event_id_path", "id"),
+        "event_type_header": text_value("event_type_header", "X-Event-Type"),
+        "event_type_path": text_value("event_type_path", "type"),
+        "default_sync_type": sync_type,
+        "sync_by_event": normalized_event_map,
+    }
+
+
+def _webhook_secret(source: IntegrationSource) -> str:
+    credentials = getattr(source, "credentials", None) or {}
+    for key in ("webhook_secret", "events_secret", "signing_secret", "secret"):
+        value = str(credentials.get(key) or "").strip()
+        if value:
+            return value
+    raise IntegrationRequestError(
+        "Configura un secreto webhook antes de recibir eventos.",
+        status_code=503,
+    )
+
+
+def _header_value(headers: Mapping[str, str], name: str) -> str | None:
+    wanted = name.lower()
+    for key, value in headers.items():
+        if str(key).lower() == wanted:
+            text = str(value).strip()
+            return text or None
+    return None
+
+
+def verify_webhook_event(
+    source: IntegrationSource,
+    body: bytes,
+    headers: Mapping[str, str],
+) -> dict[str, Any]:
+    """Verify and classify one provider webhook without touching the database."""
+
+    if len(body) > MAX_WEBHOOK_BODY_BYTES:
+        raise IntegrationRequestError("El webhook supera el tamaño máximo permitido.", status_code=413)
+    config = _webhook_config(source)
+    if not config.get("enabled"):
+        raise IntegrationRequestError("El webhook no está habilitado para este origen.", status_code=404)
+
+    signature = _header_value(headers, config["signature_header"])
+    if not signature:
+        raise IntegrationRequestError("Falta la firma del webhook.", status_code=401)
+    timestamp = _header_value(headers, config["timestamp_header"]) if config["timestamp_header"] else None
+    if config["timestamp_header"] and not timestamp:
+        raise IntegrationRequestError("Falta el timestamp del webhook.", status_code=401)
+    if timestamp:
+        try:
+            timestamp_seconds = float(timestamp)
+        except (TypeError, ValueError) as exc:
+            raise IntegrationRequestError("El timestamp del webhook no es válido.", status_code=401) from exc
+        if abs(time.time() - timestamp_seconds) > config["timestamp_tolerance_seconds"]:
+            raise IntegrationRequestError("El timestamp del webhook está fuera de tolerancia.", status_code=401)
+
+    digest = hmac.new(_webhook_secret(source).encode("utf-8"), body, hashlib.sha256).digest()
+    expected = (
+        base64.b64encode(digest).decode("ascii")
+        if config["signature_encoding"] == "base64"
+        else digest.hex()
+    )
+    supplied = signature.split("=", 1)[1] if "=" in signature and signature.split("=", 1)[0].lower() in {"sha256", "v1"} else signature
+    if not hmac.compare_digest(supplied.lower(), expected.lower()):
+        raise IntegrationRequestError("La firma del webhook no es válida.", status_code=401)
+
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise IntegrationRequestError("El webhook debe contener un JSON válido.", status_code=400) from exc
+    if not isinstance(payload, dict):
+        raise IntegrationRequestError("El webhook debe contener un objeto JSON.", status_code=400)
+
+    event_id = _header_value(headers, config["event_id_header"])
+    if not event_id:
+        payload_event_id = _value(payload, config["event_id_path"])
+        event_id = str(payload_event_id).strip() if payload_event_id not in (None, "") else None
+    if event_id:
+        event_id = event_id[:255]
+    payload_hash = hashlib.sha256(body).hexdigest()
+    if event_id:
+        event_key = event_id if len(event_id) <= 240 else hashlib.sha256(event_id.encode("utf-8")).hexdigest()
+    else:
+        event_key = f"sha256:{payload_hash}:{timestamp or ''}"[:255]
+
+    event_type = _header_value(headers, config["event_type_header"])
+    if not event_type:
+        payload_event_type = _value(payload, config["event_type_path"])
+        event_type = str(payload_event_type).strip() if payload_event_type not in (None, "") else "unknown"
+    event_type = event_type[:120]
+    sync_type = config["sync_by_event"].get(event_type, config["default_sync_type"])
+    return {
+        "event_key": event_key,
+        "event_id": event_id,
+        "event_type": event_type,
+        "sync_type": sync_type,
+        "payload_hash": payload_hash,
+    }
 
 
 def _validate_url_syntax(url: str) -> urlparse.SplitResult:
@@ -1732,6 +1891,26 @@ async def preflight_source(db: AsyncSession, source: IntegrationSource) -> dict[
         except (IntegrationRequestError, TypeError, ValueError) as exc:
             add_check(code, False, str(exc))
 
+    try:
+        webhook = _webhook_config(source)
+        if webhook.get("enabled"):
+            _webhook_secret(source)
+            add_check(
+                "webhook_config",
+                True,
+                "Webhook habilitado: los eventos verificados encolarán sincronizaciones.",
+                severity="info",
+            )
+        else:
+            add_check(
+                "webhook_config",
+                True,
+                "Webhook deshabilitado; el polling programado seguirá disponible.",
+                severity="info",
+            )
+    except IntegrationRequestError as exc:
+        add_check("webhook_config", False, str(exc))
+
     preview: dict[str, Any]
     try:
         preview = await preview_source(source)
@@ -2220,13 +2399,20 @@ async def test_source(source: IntegrationSource) -> dict[str, Any]:
     test_url = _url_for(source, str(path))
     pagination = _pagination_config(endpoint)
     if pagination.get("enabled", False):
-        test_url = _url_with_query(
-            test_url,
-            {
-                str(pagination.get("page_param") or "page"): max(1, int(pagination.get("start_page") or 1)),
-                str(pagination.get("per_page_param") or "per_page"): max(1, int(pagination.get("per_page") or 50)),
-            },
-        )
+        if str(pagination.get("type", "page")).lower() == "cursor":
+            cursor_config = _cursor_config(pagination)
+            test_url = _url_with_query(
+                test_url,
+                {cursor_config["per_page_param"]: cursor_config["per_page"]},
+            )
+        else:
+            test_url = _url_with_query(
+                test_url,
+                {
+                    str(pagination.get("page_param") or "page"): max(1, int(pagination.get("start_page") or 1)),
+                    str(pagination.get("per_page_param") or "per_page"): max(1, int(pagination.get("per_page") or 50)),
+                },
+            )
     status_code, payload = await _request_json(test_url, _build_headers(source))
     sample_count = len(_extract_entity_rows(payload, endpoint, "products", status_code))
     return {
@@ -3113,7 +3299,7 @@ async def enqueue_sync(
     normalized_trigger_type = trigger_type.upper()
     if normalized_sync_type not in {"CATALOG", "INVENTORY", "FULL"}:
         raise ValueError("Tipo de sincronización no soportado")
-    if normalized_trigger_type not in {"MANUAL", "SCHEDULED"}:
+    if normalized_trigger_type not in {"MANUAL", "SCHEDULED", "WEBHOOK"}:
         raise ValueError("Tipo de ejecución no soportado")
     active_run = (await db.execute(
         select(IntegrationSyncRun).where(

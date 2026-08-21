@@ -165,3 +165,13 @@ class IntegrationSyncRunOut(BaseModel):
     details: dict[str, Any] = Field(default_factory=dict)
     error_message: str | None
     created_at: datetime
+
+
+class IntegrationWebhookOut(BaseModel):
+    accepted: bool
+    duplicate: bool = False
+    status: str
+    event_id: str | None = None
+    event_type: str
+    sync_type: str | None = None
+    sync_run_id: UUID | None = None

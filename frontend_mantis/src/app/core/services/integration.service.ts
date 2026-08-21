@@ -126,7 +126,7 @@ export interface IntegrationSyncRun {
   id: string;
   source_id: string;
   sync_type: 'CATALOG' | 'INVENTORY' | 'FULL';
-  trigger_type: 'MANUAL' | 'SCHEDULED';
+  trigger_type: 'MANUAL' | 'SCHEDULED' | 'WEBHOOK';
   status: string;
   queued_at: string;
   started_at: string | null;

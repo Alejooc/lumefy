@@ -42,6 +42,16 @@ interface IntegrationForm {
   incremental_query_param: string;
   incremental_lookback_minutes: number;
   incremental_format: 'iso8601' | 'date' | 'unix_seconds' | 'unix_milliseconds';
+  webhook_enabled: boolean;
+  webhook_secret: string;
+  webhook_signature_header: string;
+  webhook_signature_encoding: 'hex' | 'base64';
+  webhook_timestamp_header: string;
+  webhook_timestamp_tolerance_seconds: number;
+  webhook_event_id_path: string;
+  webhook_event_type_path: string;
+  webhook_catalog_events: string;
+  webhook_default_sync_type: 'CATALOG' | 'INVENTORY' | 'FULL';
 }
 
 interface InventoryScheduleDraft {
@@ -124,7 +134,17 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       incremental_enabled: false,
       incremental_query_param: 'updated_since',
       incremental_lookback_minutes: 5,
-      incremental_format: 'iso8601'
+      incremental_format: 'iso8601',
+      webhook_enabled: false,
+      webhook_secret: '',
+      webhook_signature_header: 'X-Webhook-Signature',
+      webhook_signature_encoding: 'hex',
+      webhook_timestamp_header: '',
+      webhook_timestamp_tolerance_seconds: 300,
+      webhook_event_id_path: 'id',
+      webhook_event_type_path: 'type',
+      webhook_catalog_events: '',
+      webhook_default_sync_type: 'INVENTORY'
     };
   }
 
@@ -165,6 +185,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     const inventoryBatch = this.objectValue(inventory['batch'] || inventory['sku_batch']);
     const pagination = this.objectValue(products['pagination']);
     const incremental = this.objectValue(products['incremental']);
+    const webhook = this.objectValue(config['webhook']);
     this.editingId = source.id;
     this.editingConfiguration = config;
     this.form = {
@@ -196,7 +217,20 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       incremental_enabled: incremental['enabled'] === true,
       incremental_query_param: this.stringValue(incremental['query_param'], 'updated_since'),
       incremental_lookback_minutes: Number(incremental['lookback_minutes'] || 5),
-      incremental_format: this.incrementalFormatValue(incremental['format'])
+      incremental_format: this.incrementalFormatValue(incremental['format']),
+      webhook_enabled: webhook['enabled'] === true,
+      webhook_secret: '',
+      webhook_signature_header: this.stringValue(webhook['signature_header'], 'X-Webhook-Signature'),
+      webhook_signature_encoding: webhook['signature_encoding'] === 'base64' ? 'base64' : 'hex',
+      webhook_timestamp_header: this.stringValue(webhook['timestamp_header']),
+      webhook_timestamp_tolerance_seconds: Number(webhook['timestamp_tolerance_seconds'] || 300),
+      webhook_event_id_path: this.stringValue(webhook['event_id_path'], 'id'),
+      webhook_event_type_path: this.stringValue(webhook['event_type_path'], 'type'),
+      webhook_catalog_events: Object.entries(this.objectValue(webhook['sync_by_event']))
+        .filter(([, value]) => value === 'CATALOG')
+        .map(([key]) => key)
+        .join(', '),
+      webhook_default_sync_type: this.webhookSyncTypeValue(webhook['default_sync_type'])
     };
     this.activeFormTab = 'connection';
     this.showForm = true;
@@ -262,6 +296,30 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       lookback_minutes: Math.min(1440, Math.max(0, Number(this.form.incremental_lookback_minutes) || 5)),
       format: this.form.incremental_format
     };
+    const webhook = {
+      ...this.objectValue(this.editingConfiguration['webhook']),
+      enabled: this.form.webhook_enabled,
+      signature_header: this.form.webhook_signature_header.trim() || 'X-Webhook-Signature',
+      signature_encoding: this.form.webhook_signature_encoding,
+      timestamp_header: this.form.webhook_timestamp_header.trim(),
+      timestamp_tolerance_seconds: Math.min(
+        86400,
+        Math.max(0, Number(this.form.webhook_timestamp_tolerance_seconds) || 300)
+      ),
+      event_id_path: this.form.webhook_event_id_path.trim() || 'id',
+      event_type_path: this.form.webhook_event_type_path.trim() || 'type',
+      default_sync_type: this.form.webhook_default_sync_type,
+      sync_by_event: {
+        ...this.objectValue(this.objectValue(this.editingConfiguration['webhook'])['sync_by_event']),
+        ...Object.fromEntries(
+          this.form.webhook_catalog_events
+            .split(',')
+            .map((event) => event.trim())
+            .filter(Boolean)
+            .map((event) => [event, 'CATALOG'])
+        )
+      }
+    };
     const existingEndpoints = this.objectValue(this.editingConfiguration['endpoints']);
     const endpoints: JsonObject = {
       products: {
@@ -299,6 +357,9 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       'inventory.sku': 'sku',
       'inventory.quantity': 'stock'
     };
+    if (this.form.webhook_secret.trim()) {
+      credentials['webhook_secret'] = this.form.webhook_secret.trim();
+    }
     return {
       name: this.form.name.trim(),
       provider_key: 'custom_rest',
@@ -311,7 +372,8 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
         api_key_header: this.form.api_key_header.trim() || 'X-API-Key',
         asset_base_url: this.form.asset_base_url.trim(),
         endpoints,
-        field_map: fieldMap
+        field_map: fieldMap,
+        webhook
       }
     };
   }
@@ -636,6 +698,11 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     if (value === 'unix_seconds') return 'unix_seconds';
     if (value === 'unix_milliseconds') return 'unix_milliseconds';
     return 'iso8601';
+  }
+
+  private webhookSyncTypeValue(value: unknown): IntegrationForm['webhook_default_sync_type'] {
+    if (value === 'CATALOG' || value === 'FULL') return value;
+    return 'INVENTORY';
   }
 
   private stringOrNull(value: unknown): string | null {

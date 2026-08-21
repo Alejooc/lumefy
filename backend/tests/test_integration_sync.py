@@ -1,4 +1,6 @@
 import unittest
+import hashlib
+import hmac
 import os
 import tempfile
 import uuid
@@ -28,6 +30,7 @@ from app.services.integration_service import (
     _sync_inventory,
     _sync_supplier,
     _sync_unit_of_measure,
+    verify_webhook_event,
 )
 
 
@@ -49,6 +52,64 @@ class IntegrationScheduleSchemaTests(unittest.TestCase):
 
 
 class IntegrationProviderShapeTests(unittest.TestCase):
+    def test_webhook_verification_classifies_event_and_sync_type(self):
+        body = b'{"id":"evt-123","type":"product.updated"}'
+        secret = "provider-webhook-secret"
+        signature = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        source = SimpleNamespace(
+            credentials={"webhook_secret": secret},
+            configuration={
+                "webhook": {
+                    "enabled": True,
+                    "sync_by_event": {"product.updated": "CATALOG"},
+                }
+            },
+        )
+
+        details = verify_webhook_event(
+            source,
+            body,
+            {"X-Webhook-Signature": f"sha256={signature}"},
+        )
+
+        self.assertEqual(details["event_key"], "evt-123")
+        self.assertEqual(details["event_type"], "product.updated")
+        self.assertEqual(details["sync_type"], "CATALOG")
+
+    def test_webhook_rejects_invalid_signature_and_stale_timestamp(self):
+        body = b'{"id":"evt-123","type":"inventory.updated"}'
+        source = SimpleNamespace(
+            credentials={"webhook_secret": "provider-webhook-secret"},
+            configuration={
+                "webhook": {
+                    "enabled": True,
+                    "timestamp_header": "X-Webhook-Timestamp",
+                    "timestamp_tolerance_seconds": 60,
+                }
+            },
+        )
+
+        with self.assertRaises(IntegrationRequestError):
+            verify_webhook_event(
+                source,
+                body,
+                {"X-Webhook-Signature": "sha256=invalid", "X-Webhook-Timestamp": "1"},
+            )
+
+    def test_webhook_without_event_id_uses_payload_hash_key(self):
+        body = b'{"type":"inventory.updated","stock":2}'
+        secret = "provider-webhook-secret"
+        signature = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        source = SimpleNamespace(
+            credentials={"webhook_secret": secret},
+            configuration={"webhook": {"enabled": True}},
+        )
+
+        details = verify_webhook_event(source, body, {"X-Webhook-Signature": signature})
+
+        self.assertTrue(details["event_key"].startswith("sha256:"))
+        self.assertEqual(details["sync_type"], "INVENTORY")
+
     def test_asset_base_url_keeps_the_provider_relative_path(self):
         source = SimpleNamespace(
             base_url="https://api.proveedor.test/api/external",

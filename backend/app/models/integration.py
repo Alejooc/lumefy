@@ -113,3 +113,30 @@ class IntegrationRecordLink(BaseModel):
     raw_payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     source = relationship("IntegrationSource", back_populates="record_links")
+
+
+class IntegrationWebhookEvent(BaseModel):
+    """A verified provider event kept for idempotent webhook handling."""
+
+    __tablename__ = "integration_webhook_events"
+    __table_args__ = (
+        UniqueConstraint("source_id", "event_key", name="uq_integration_webhook_source_event"),
+        Index("ix_integration_webhook_events_received_at", "received_at"),
+    )
+
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("integration_sources.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sync_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("integration_sync_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    event_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(120), nullable=False, default="unknown")
+    sync_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="QUEUED")
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    source = relationship("IntegrationSource")
+    sync_run = relationship("IntegrationSyncRun")
