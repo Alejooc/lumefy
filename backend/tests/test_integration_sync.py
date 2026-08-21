@@ -277,12 +277,53 @@ class IntegrationInventoryIdempotencyTests(unittest.IsolatedAsyncioTestCase):
                 ],
             )
 
-        self.assertEqual(db.add.call_count, 1)
+        # One inventory row plus an auditable adjustment for each snapshot
+        # that changed the physical quantity.
+        self.assertEqual(db.add.call_count, 3)
         db.flush.assert_awaited_once()
-        created_inventory = db.add.call_args.args[0]
+        created_inventory = next(
+            call.args[0]
+            for call in db.add.call_args_list
+            if call.args[0].__class__.__name__ == "Inventory"
+        )
         self.assertEqual(created_inventory.quantity, 0)
         self.assertEqual(run.inventory_processed, 2)
         self.assertEqual(run.inventory_updated, 2)
+
+    async def test_provider_snapshot_cannot_drop_below_reserved_stock(self):
+        company_id = uuid.uuid4()
+        product = SimpleNamespace(id=uuid.uuid4(), company_id=company_id)
+        branch = SimpleNamespace(id=uuid.uuid4())
+        warehouse = SimpleNamespace(id=uuid.uuid4())
+        existing_inventory = SimpleNamespace(quantity=2, reserved_quantity=5)
+        source = SimpleNamespace(id=uuid.uuid4(), company_id=company_id, configuration={})
+        run = SimpleNamespace(inventory_processed=0, inventory_updated=0, items_failed=0, details={})
+        query_result = Mock()
+        query_result.scalars.return_value.first.return_value = existing_inventory
+        db = SimpleNamespace(
+            execute=AsyncMock(return_value=query_result),
+            add=Mock(),
+            flush=AsyncMock(),
+        )
+
+        with (
+            patch("app.services.integration_service._fetch_entity", new=AsyncMock(return_value=[])),
+            patch(
+                "app.services.integration_service._resolve_inventory_location",
+                new=AsyncMock(return_value=(branch, warehouse)),
+            ),
+        ):
+            await _sync_inventory(
+                db,
+                source,
+                run,
+                embedded_inventory=[{"product": product, "variant": None, "quantity": 2}],
+            )
+
+        self.assertEqual(run.items_failed, 1)
+        self.assertEqual(run.inventory_updated, 0)
+        self.assertEqual(run.details["error_counts"]["stock_below_reserved"], 1)
+        self.assertEqual(existing_inventory.quantity, 2)
 
 
 class IntegrationInventoryBatchTests(unittest.IsolatedAsyncioTestCase):

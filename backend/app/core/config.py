@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     PLATFORM_STOREFRONT_DOMAIN: Optional[str] = None
     INTEGRATION_ALLOW_PRIVATE_NETWORKS: bool = False
     INTEGRATION_REQUEST_TIMEOUT_SECONDS: int = Field(default=30, ge=1, le=120)
+    # External providers are outside of our control. Keep transient failures
+    # bounded and avoid loading an unexpectedly large response into memory.
+    INTEGRATION_RETRY_ATTEMPTS: int = Field(default=2, ge=0, le=5)
+    INTEGRATION_RETRY_BASE_SECONDS: float = Field(default=0.5, ge=0, le=10)
+    INTEGRATION_RETRY_MAX_SECONDS: float = Field(default=8, ge=0, le=60)
+    INTEGRATION_MAX_RESPONSE_BYTES: int = Field(default=20 * 1024 * 1024, ge=1024, le=100 * 1024 * 1024)
     
     FIRST_SUPERUSER: str
     FIRST_SUPERUSER_PASSWORD: str

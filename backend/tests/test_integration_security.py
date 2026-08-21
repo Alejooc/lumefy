@@ -1,12 +1,15 @@
 import socket
 import unittest
+from io import BytesIO
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+from urllib import error as urlerror
 
 from app.core.config import settings
 from app.services.integration_service import (
     IntegrationRequestError,
     _asset_url_matches_source,
+    _request_json_sync,
     _url_for,
     validate_source,
 )
@@ -58,6 +61,70 @@ class IntegrationSecurityTests(unittest.TestCase):
         self.assertTrue(_asset_url_matches_source(source, "https://panel.example/api/external/products/1/a.jpg"))
         self.assertFalse(_asset_url_matches_source(source, "https://panel.example/other/products/1/a.jpg"))
         self.assertFalse(_asset_url_matches_source(source, "https://other.example/api/external/products/1/a.jpg"))
+
+    @patch("app.services.integration_service.time.sleep")
+    @patch("app.services.integration_service.urlrequest.build_opener")
+    @patch("app.services.integration_service._validate_outbound_url")
+    def test_json_request_retries_transient_provider_errors(self, validate_url, build_opener, sleep):
+        class Response:
+            headers = {"Content-Length": "12"}
+
+            def getcode(self):
+                return 200
+
+            def read(self, limit=None):
+                return b'{"data": []}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+        response = Response()
+        transient = urlerror.HTTPError(
+            "https://supplier.example/products",
+            503,
+            "unavailable",
+            {"Retry-After": "0"},
+            BytesIO(b"temporary"),
+        )
+        opener = SimpleNamespace(open=Mock(side_effect=[transient, response]))
+        build_opener.return_value = opener
+
+        with patch.object(settings, "INTEGRATION_RETRY_ATTEMPTS", 1):
+            status, payload = _request_json_sync("https://supplier.example/products", {})
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, {"data": []})
+        self.assertEqual(opener.open.call_count, 2)
+        sleep.assert_called_once_with(0.0)
+
+    @patch("app.services.integration_service.urlrequest.build_opener")
+    @patch("app.services.integration_service._validate_outbound_url")
+    def test_json_request_rejects_oversized_payload(self, validate_url, build_opener):
+        class Response:
+            headers = {"Content-Length": "5"}
+
+            def getcode(self):
+                return 200
+
+            def read(self, limit=None):
+                return b"large"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+        response = Response()
+        build_opener.return_value = SimpleNamespace(open=Mock(return_value=response))
+
+        with patch.object(settings, "INTEGRATION_MAX_RESPONSE_BYTES", 4), self.assertRaises(IntegrationRequestError) as error:
+            _request_json_sync("https://supplier.example/products", {})
+
+        self.assertEqual(error.exception.status_code, 413)
 
 
 if __name__ == "__main__":

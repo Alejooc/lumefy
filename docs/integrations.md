@@ -16,6 +16,9 @@ La primera versión soporta:
 - Relación estable entre el ID externo y el producto de Lumefy.
 - Historial de ejecuciones y errores.
 - Progreso persistido por ejecución: etapa, porcentaje, página actual, registros recibidos/procesados y fallos.
+- Diagnóstico por registro: conteo de causas y hasta 100 ejemplos seguros en `details.error_counts` y `details.error_samples`.
+- Reintentos limitados con backoff para `429`, `5xx`, timeouts y errores de conexión; las respuestas JSON tienen un límite de tamaño configurable.
+- Cada cambio real de inventario crea un movimiento `ADJ` con existencia anterior, nueva, diferencia y referencia de la ejecución.
 - Cola duradera en PostgreSQL y recuperación de ejecuciones interrumpidas.
 - Una sola ejecución concurrente por origen y una sola solicitud activa por tipo.
 
@@ -98,6 +101,20 @@ Para endpoints de inventario que reciben varios SKU (por ejemplo `GET /api/exter
 
 Cada elemento de `GET /api/v1/integrations/sources/{id}/runs` incluye el estado operativo en `details.progress`. Sus campos principales son `stage` (`STARTING`, `FETCHING`, `PROCESSING`, `COMPLETED` o `FAILED`), `percent`, `message`, `current`, `total`, `page`, `pages_total`, `items_received`, `items_total` e `items_failed`. El panel consulta este historial mientras la ejecución está en cola o en curso y conserva el último resultado al terminar.
 
+Cuando una ejecución termina con alertas, `details.error_counts` agrupa causas como
+`product_not_found`, `quantity_invalid`, `stock_below_reserved` o
+`company_mismatch`. `details.error_samples` contiene solo identificadores
+acotados (por ejemplo, SKU o ID externo), nunca el payload completo ni las
+credenciales. Esto permite corregir el mapeo o el catálogo sin revisar miles de
+registros manualmente.
+
+Las peticiones al proveedor reintentan automáticamente los errores transitorios
+con backoff y respetan `Retry-After` cuando está disponible. Los valores por
+defecto son dos reintentos, 0,5 segundos iniciales, máximo 8 segundos y 20 MB
+por respuesta JSON. Se pueden ajustar con `INTEGRATION_RETRY_ATTEMPTS`,
+`INTEGRATION_RETRY_BASE_SECONDS`, `INTEGRATION_RETRY_MAX_SECONDS` e
+`INTEGRATION_MAX_RESPONSE_BYTES`.
+
 ## Catálogo, inventario y programación
 
 Las ejecuciones manuales se agregan a la cola y responden inmediatamente con HTTP `202`:
@@ -120,6 +137,12 @@ Content-Type: application/json
 ```
 
 El intervalo permitido está entre 5 y 1440 minutos. En modo `MANUAL`, `interval_minutes` se guarda como `null`. El servicio `integration-sync-worker` encola los orígenes vencidos y procesa catálogo e inventario sin bloquear las peticiones web. El inventario usa una identidad única por empresa, producto, variante, sucursal y almacén, por lo que repetir un payload actualiza la existencia en vez de duplicarla.
+
+La sincronización de inventario trata la respuesta del proveedor como una
+fotografía de existencia física: normaliza valores negativos a cero y no reduce
+una existencia por debajo de `reserved_quantity`. Cuando la fotografía es
+válida y cambia el valor, se registra un ajuste auditable; las ventas y compras
+continúan generando sus propios movimientos `OUT`/`IN`.
 
 ## Vista previa / debug
 

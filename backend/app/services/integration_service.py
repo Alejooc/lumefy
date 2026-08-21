@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import socket
 import tempfile
+import time
 import uuid
 from datetime import datetime
 from typing import Any, Awaitable, Callable
@@ -30,6 +31,7 @@ from app.models.brand import Brand
 from app.models.category import Category
 from app.models.integration import IntegrationRecordLink, IntegrationSource, IntegrationSyncRun
 from app.models.inventory import Inventory
+from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.product import Product
 from app.models.product_image import ProductImage
 from app.models.product_variant import ProductVariant
@@ -49,6 +51,7 @@ class IntegrationSyncConflict(Exception):
 
 
 LOGGER = logging.getLogger("lumefy.integration")
+MAX_SYNC_ERROR_SAMPLES = 100
 
 
 ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
@@ -93,6 +96,35 @@ async def _report_progress(
         if value is not None:
             progress[key] = value
     await progress_callback(progress)
+
+
+def _record_sync_item_error(
+    run: IntegrationSyncRun,
+    reason: str,
+    **context: Any,
+) -> None:
+    """Keep bounded, actionable diagnostics for records skipped by a sync.
+
+    The provider payload is intentionally not stored here: it can be very
+    large and may contain credentials or customer data. Only a small set of
+    scalar identifiers is retained for the operator to locate the bad row.
+    """
+    details = dict(run.details or {})
+    counts = dict(details.get("error_counts") or {})
+    counts[reason] = int(counts.get(reason, 0)) + 1
+    samples = list(details.get("error_samples") or [])
+    if len(samples) < MAX_SYNC_ERROR_SAMPLES:
+        sample: dict[str, str] = {"reason": reason}
+        for key, value in context.items():
+            if value in (None, "") or isinstance(value, (dict, list, tuple, set)):
+                continue
+            text = str(value).strip()
+            if text:
+                sample[str(key)] = text[:200]
+        samples.append(sample)
+    details["error_counts"] = counts
+    details["error_samples"] = samples
+    run.details = details
 
 
 def validate_source(source: IntegrationSource) -> None:
@@ -201,26 +233,85 @@ class _SafeRedirectHandler(urlrequest.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def _retry_delay(attempt: int, retry_after: Any = None) -> float:
+    """Return a bounded delay for one transient provider failure."""
+    try:
+        requested = float(str(retry_after).strip()) if retry_after not in (None, "") else None
+    except (TypeError, ValueError):
+        requested = None
+    if requested is None:
+        requested = settings.INTEGRATION_RETRY_BASE_SECONDS * (2**attempt)
+    return max(0.0, min(float(requested), settings.INTEGRATION_RETRY_MAX_SECONDS))
+
+
+def _read_limited(response: Any, *, limit: int, too_large_message: str) -> bytes:
+    content_length = response.headers.get("Content-Length") if getattr(response, "headers", None) else None
+    try:
+        if content_length and int(content_length) > limit:
+            raise IntegrationRequestError(too_large_message, 413)
+    except ValueError as exc:
+        raise IntegrationRequestError("El proveedor devolvió un tamaño de respuesta inválido.") from exc
+    body = response.read(limit + 1)
+    if len(body) > limit:
+        raise IntegrationRequestError(too_large_message, 413)
+    return body
+
+
 def _request_json_sync(url: str, headers: dict[str, str]) -> tuple[int, Any]:
     _validate_outbound_url(url)
     request = urlrequest.Request(url, headers=headers, method="GET")
-    try:
-        opener = urlrequest.build_opener(_SafeRedirectHandler(_origin(_validate_url_syntax(url))))
-        with opener.open(request, timeout=settings.INTEGRATION_REQUEST_TIMEOUT_SECONDS) as response:
-            status_code = int(response.getcode())
-            body = response.read().decode("utf-8")
-            try:
-                return status_code, json.loads(body) if body else {}
-            except json.JSONDecodeError as exc:
-                raise IntegrationRequestError("La respuesta de la API no es JSON válido.", status_code) from exc
-    except urlerror.HTTPError as exc:
+    opener = urlrequest.build_opener(_SafeRedirectHandler(_origin(_validate_url_syntax(url))))
+    last_error: IntegrationRequestError | None = None
+    retry_attempts = settings.INTEGRATION_RETRY_ATTEMPTS
+    for attempt in range(retry_attempts + 1):
         try:
-            detail = exc.read().decode("utf-8")[:500]
-        except Exception:
-            detail = ""
-        raise IntegrationRequestError(f"La API respondió HTTP {exc.code}. {detail}".strip(), exc.code) from exc
-    except (urlerror.URLError, TimeoutError) as exc:
-        raise IntegrationRequestError(f"No se pudo conectar con la API: {exc}") from exc
+            with opener.open(request, timeout=settings.INTEGRATION_REQUEST_TIMEOUT_SECONDS) as response:
+                status_code = int(response.getcode())
+                if status_code == 429 or 500 <= status_code <= 599:
+                    try:
+                        detail = _read_limited(
+                            response,
+                            limit=1024,
+                            too_large_message="La respuesta de error del proveedor supera el tamaño permitido.",
+                        ).decode("utf-8", errors="replace")[:500]
+                    except IntegrationRequestError:
+                        detail = ""
+                    last_error = IntegrationRequestError(
+                        f"La API respondió HTTP {status_code}. {detail}".strip(), status_code
+                    )
+                    if attempt < retry_attempts:
+                        time.sleep(_retry_delay(attempt, response.headers.get("Retry-After")))
+                        continue
+                    raise last_error
+                body = _read_limited(
+                    response,
+                    limit=settings.INTEGRATION_MAX_RESPONSE_BYTES,
+                    too_large_message="La respuesta de la API supera el tamaño permitido.",
+                ).decode("utf-8")
+                try:
+                    return status_code, json.loads(body) if body else {}
+                except json.JSONDecodeError as exc:
+                    raise IntegrationRequestError("La respuesta de la API no es JSON válido.", status_code) from exc
+        except urlerror.HTTPError as exc:
+            retryable = exc.code == 429 or 500 <= exc.code <= 599
+            try:
+                detail = exc.read(1024).decode("utf-8", errors="replace")[:500]
+            except Exception:
+                detail = ""
+            last_error = IntegrationRequestError(
+                f"La API respondió HTTP {exc.code}. {detail}".strip(), exc.code
+            )
+            if retryable and attempt < retry_attempts:
+                time.sleep(_retry_delay(attempt, exc.headers.get("Retry-After")))
+                continue
+            raise last_error from exc
+        except (urlerror.URLError, TimeoutError, OSError) as exc:
+            last_error = IntegrationRequestError(f"No se pudo conectar con la API: {exc}")
+            if attempt < retry_attempts:
+                time.sleep(_retry_delay(attempt))
+                continue
+            raise last_error from exc
+    raise last_error or IntegrationRequestError("No se pudo completar la petición al proveedor.")
 
 
 async def _request_json(url: str, headers: dict[str, str]) -> tuple[int, Any]:
@@ -483,27 +574,40 @@ def _request_asset_sync(url: str, headers: dict[str, str]) -> tuple[str, bytes]:
     request_headers = dict(headers)
     request_headers["Accept"] = "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
     request = urlrequest.Request(url, headers=request_headers, method="GET")
-    try:
-        opener = urlrequest.build_opener(_SafeRedirectHandler(_origin(_validate_url_syntax(url))))
-        with opener.open(request, timeout=settings.INTEGRATION_REQUEST_TIMEOUT_SECONDS) as response:
-            content_type = (response.headers.get_content_type() or "").lower()
-            if not content_type.startswith("image/"):
-                raise IntegrationRequestError(
-                    "El proveedor no devolvió una imagen válida.", int(response.getcode())
+    opener = urlrequest.build_opener(_SafeRedirectHandler(_origin(_validate_url_syntax(url))))
+    retry_attempts = settings.INTEGRATION_RETRY_ATTEMPTS
+    for attempt in range(retry_attempts + 1):
+        try:
+            with opener.open(request, timeout=settings.INTEGRATION_REQUEST_TIMEOUT_SECONDS) as response:
+                content_type = (response.headers.get_content_type() or "").lower()
+                status_code = int(response.getcode())
+                if status_code == 429 or 500 <= status_code <= 599:
+                    if attempt < retry_attempts:
+                        time.sleep(_retry_delay(attempt, response.headers.get("Retry-After")))
+                        continue
+                    raise IntegrationRequestError("El proveedor no pudo entregar la imagen.", status_code)
+                if not content_type.startswith("image/"):
+                    raise IntegrationRequestError("El proveedor no devolvió una imagen válida.", status_code)
+                body = _read_limited(
+                    response,
+                    limit=MAX_PROXY_ASSET_BYTES,
+                    too_large_message="La imagen del proveedor supera el tamaño permitido.",
                 )
-            content_length = response.headers.get("Content-Length")
-            if content_length and int(content_length) > MAX_PROXY_ASSET_BYTES:
-                raise IntegrationRequestError("La imagen del proveedor supera el tamaño permitido.", 413)
-            body = response.read(MAX_PROXY_ASSET_BYTES + 1)
-            if len(body) > MAX_PROXY_ASSET_BYTES:
-                raise IntegrationRequestError("La imagen del proveedor supera el tamaño permitido.", 413)
-            return content_type, body
-    except urlerror.HTTPError as exc:
-        raise IntegrationRequestError("El proveedor no pudo entregar la imagen.", exc.code) from exc
-    except (urlerror.URLError, TimeoutError) as exc:
-        raise IntegrationRequestError(f"No se pudo conectar con el proveedor de imágenes: {exc}") from exc
-    except ValueError as exc:
-        raise IntegrationRequestError("El proveedor devolvió un tamaño de imagen inválido.") from exc
+                return content_type, body
+        except urlerror.HTTPError as exc:
+            retryable = exc.code == 429 or 500 <= exc.code <= 599
+            if retryable and attempt < retry_attempts:
+                time.sleep(_retry_delay(attempt, exc.headers.get("Retry-After")))
+                continue
+            raise IntegrationRequestError("El proveedor no pudo entregar la imagen.", exc.code) from exc
+        except (urlerror.URLError, TimeoutError, OSError) as exc:
+            if attempt < retry_attempts:
+                time.sleep(_retry_delay(attempt))
+                continue
+            raise IntegrationRequestError(f"No se pudo conectar con el proveedor de imágenes: {exc}") from exc
+        except ValueError as exc:
+            raise IntegrationRequestError("El proveedor devolvió un tamaño de imagen inválido.") from exc
+    raise IntegrationRequestError("No se pudo completar la descarga de la imagen.")
 
 
 async def request_asset(source: IntegrationSource, url: str) -> tuple[str, bytes]:
@@ -1932,6 +2036,13 @@ async def _sync_products(
         name = str(_mapped(item, mapping, "product.name", "name", "title", "product_name") or "").strip()
         if not external_id or not name:
             run.items_failed += 1
+            _record_sync_item_error(
+                run,
+                "catalog_missing_identity",
+                external_id=external_id,
+                name=name,
+                sku=_mapped(item, mapping, "product.sku", "sku", "code", "reference"),
+            )
             await report_processed(index)
             continue
 
@@ -2150,6 +2261,14 @@ async def _sync_products(
             ) or "").strip()
             if not variant_external_id:
                 run.items_failed += 1
+                _record_sync_item_error(
+                    run,
+                    "variant_missing_identity",
+                    product_external_id=external_id,
+                    variant_sku=_mapped_context(
+                        variant_item, mapping, "variant.sku", variants_prefix, "sku", "code", "reference"
+                    ),
+                )
                 continue
             variant_sku_value = _mapped_context(
                 variant_item, mapping, "variant.sku", variants_prefix, "sku", "code", "reference"
@@ -2322,6 +2441,11 @@ async def _sync_inventory(
     if not branch:
         run.items_failed += len(items) + len(embedded_inventory)
         run.details = {**(run.details or {}), "inventory_error": "La empresa no tiene una sucursal activa."}
+        _record_sync_item_error(
+            run,
+            "branch_not_configured",
+            records=len(items) + len(embedded_inventory),
+        )
         return
 
     mapping = _field_map(source)
@@ -2363,7 +2487,7 @@ async def _sync_inventory(
 
     async def upsert_inventory(
         product: Product, variant: ProductVariant | None, quantity: float
-    ) -> None:
+    ) -> bool:
         # Provider snapshots are physical stock, never a negative adjustment.
         # Clamp malformed values before persisting them or exposing them to the
         # storefront and checkout availability calculations.
@@ -2371,9 +2495,28 @@ async def _sync_inventory(
         cache_key = (source.company_id, product.id, branch.id, warehouse_id, variant.id if variant else None)
         cached_inventory = inventory_cache.get(cache_key)
         if cached_inventory:
+            previous_stock = float(cached_inventory.quantity or 0)
+            reserved_quantity = float(cached_inventory.reserved_quantity or 0)
+            if quantity < reserved_quantity:
+                return False
             cached_inventory.quantity = quantity
+            if abs(quantity - previous_stock) > 1e-9:
+                db.add(InventoryMovement(
+                    id=uuid.uuid4(),
+                    company_id=source.company_id,
+                    product_id=product.id,
+                    variant_id=variant.id if variant else None,
+                    branch_id=branch.id,
+                    warehouse_id=warehouse_id,
+                    type=MovementType.ADJ,
+                    quantity=quantity - previous_stock,
+                    previous_stock=previous_stock,
+                    new_stock=quantity,
+                    reference_id=str(getattr(run, "id", "")) or None,
+                    reason="Sincronización de inventario externa",
+                ))
             run.inventory_updated += 1
-            return
+            return True
         variant_filter = Inventory.variant_id == variant.id if variant else Inventory.variant_id.is_(None)
         inventory = (await db.execute(
             select(Inventory).where(
@@ -2398,11 +2541,39 @@ async def _sync_inventory(
             # another payload record can look it up and create a duplicate.
             await db.flush()
         inventory_cache[cache_key] = inventory
+        previous_stock = float(inventory.quantity or 0)
+        reserved_quantity = float(inventory.reserved_quantity or 0)
+        if quantity < reserved_quantity:
+            return False
         inventory.quantity = quantity
+        if abs(quantity - previous_stock) > 1e-9:
+            db.add(InventoryMovement(
+                id=uuid.uuid4(),
+                company_id=source.company_id,
+                product_id=product.id,
+                variant_id=variant.id if variant else None,
+                branch_id=branch.id,
+                warehouse_id=warehouse_id,
+                type=MovementType.ADJ,
+                quantity=quantity - previous_stock,
+                previous_stock=previous_stock,
+                new_stock=quantity,
+                reference_id=str(getattr(run, "id", "")) or None,
+                reason="Sincronización de inventario externa",
+            ))
         run.inventory_updated += 1
+        return True
 
     for embedded in embedded_inventory:
-        await upsert_inventory(embedded["product"], embedded.get("variant"), embedded["quantity"])
+        updated = await upsert_inventory(embedded["product"], embedded.get("variant"), embedded["quantity"])
+        if not updated:
+            run.items_failed += 1
+            _record_sync_item_error(
+                run,
+                "stock_below_reserved",
+                sku=embedded.get("sku"),
+                quantity=embedded.get("quantity"),
+            )
         inventory_current += 1
         await report_inventory_processed()
 
@@ -2431,12 +2602,49 @@ async def _sync_inventory(
         if not product:
             product = await _linked_product(db, source, external_id, sku)
         quantity = _as_float(_mapped(item, mapping, "inventory.quantity", "quantity", "stock", "available"))
-        if not product or product.company_id != source.company_id or quantity is None:
+        if not product:
             run.items_failed += 1
+            _record_sync_item_error(
+                run,
+                "product_not_found",
+                external_id=external_id,
+                sku=sku,
+                variant_sku=variant_sku,
+            )
             inventory_current += 1
             await report_inventory_processed()
             continue
-        await upsert_inventory(product, variant, quantity)
+        if product.company_id != source.company_id:
+            run.items_failed += 1
+            _record_sync_item_error(
+                run,
+                "company_mismatch",
+                external_id=external_id,
+                sku=sku,
+            )
+            inventory_current += 1
+            await report_inventory_processed()
+            continue
+        if quantity is None:
+            run.items_failed += 1
+            _record_sync_item_error(
+                run,
+                "quantity_invalid",
+                external_id=external_id,
+                sku=sku,
+            )
+            inventory_current += 1
+            await report_inventory_processed()
+            continue
+        if not await upsert_inventory(product, variant, quantity):
+            run.items_failed += 1
+            _record_sync_item_error(
+                run,
+                "stock_below_reserved",
+                external_id=external_id,
+                sku=sku,
+                quantity=quantity,
+            )
         inventory_current += 1
         await report_inventory_processed()
 
