@@ -19,6 +19,7 @@ from app.services.integration_service import (
     _fetch_entity,
     _fetch_inventory,
     _mapped,
+    preflight_source,
     _suggest_mapping_from_sample,
     _sync_brand,
     _sync_product_images,
@@ -324,6 +325,64 @@ class IntegrationInventoryIdempotencyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(run.inventory_updated, 0)
         self.assertEqual(run.details["error_counts"]["stock_below_reserved"], 1)
         self.assertEqual(existing_inventory.quantity, 2)
+
+
+class IntegrationPreflightTests(unittest.IsolatedAsyncioTestCase):
+    async def test_preflight_reports_catalog_and_batch_inventory_readiness(self):
+        source = SimpleNamespace(
+            id=uuid.uuid4(),
+            company_id=uuid.uuid4(),
+            source_type="REST",
+            base_url="https://provider.example.com",
+            auth_type="none",
+            credentials={},
+            configuration={
+                "endpoints": {
+                    "products": {"path": "/products", "data_path": "data"},
+                    "inventory": {
+                        "path": "/inventory",
+                        "data_path": "data",
+                        "batch": {"enabled": True, "query_param": "skus", "size": 100},
+                    },
+                }
+            },
+        )
+        branch = SimpleNamespace(name="Principal")
+        warehouse = SimpleNamespace(id=uuid.uuid4())
+        linked_rows = Mock()
+        linked_rows.scalars.return_value.all.return_value = ["product-1"]
+        sku_rows = Mock()
+        sku_rows.scalars.return_value.first.return_value = "SKU-1"
+        db = SimpleNamespace(execute=AsyncMock(side_effect=[linked_rows, sku_rows]))
+        preview = {
+            "products": {
+                "available": True,
+                "received_count": 1,
+                "mapped": [{"external_id": "product-1", "name": "Producto", "sku": "SKU-1"}],
+            },
+            "inventory": {
+                "available": True,
+                "received_count": 1,
+                "mapped": [{"external_id": "product-1", "sku": "SKU-1", "quantity": 4}],
+            },
+            "errors": [],
+        }
+
+        with (
+            patch("app.services.integration_service.validate_source"),
+            patch("app.services.integration_service.preview_source", new=AsyncMock(return_value=preview)),
+            patch(
+                "app.services.integration_service._resolve_inventory_location",
+                new=AsyncMock(return_value=(branch, warehouse)),
+            ),
+        ):
+            result = await preflight_source(db, source)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["catalog"]["mapped_count"], 1)
+        self.assertEqual(result["catalog"]["linked_count"], 1)
+        self.assertEqual(result["inventory"]["mapped_count"], 1)
+        self.assertTrue(any(check["code"] == "inventory_batch" and check["ok"] for check in result["checks"]))
 
 
 class IntegrationInventoryBatchTests(unittest.IsolatedAsyncioTestCase):

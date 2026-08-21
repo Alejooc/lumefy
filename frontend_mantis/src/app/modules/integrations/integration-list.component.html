@@ -363,6 +363,42 @@
     </div>
   }
 
+  @if (preflightResult) {
+    <div class="card preview-card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center gap-2">
+        <div>
+          <h5 class="mb-1">Validación del origen: {{ preflightSourceName }}</h5>
+          <small class="text-muted">{{ preflightResult.message }} No modifica productos ni inventario.</small>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" (click)="preflightResult = null">Cerrar</button>
+      </div>
+      <div class="card-body">
+        @if (preflightResult.errors.length) {
+          <div class="alert alert-danger py-2 small">
+            @for (error of preflightResult.errors; track error) { <div>{{ error }}</div> }
+          </div>
+        }
+        @if (preflightResult.warnings.length) {
+          <div class="alert alert-warning py-2 small">
+            @for (warning of preflightResult.warnings; track warning) { <div>{{ warning }}</div> }
+          </div>
+        }
+        <div class="row g-2 mb-3">
+          <div class="col-md-6"><div class="border rounded p-2 small">Catálogo: {{ preflightResult.catalog.sample_count }} muestras · {{ preflightResult.catalog.mapped_count }} utilizables · {{ preflightResult.catalog.linked_count }} vinculadas</div></div>
+          <div class="col-md-6"><div class="border rounded p-2 small">Inventario: {{ preflightResult.inventory.endpoint_configured ? (preflightResult.inventory.sample_count + ' muestras') : 'sin endpoint configurado' }} · {{ preflightResult.inventory.mapped_count }} utilizables</div></div>
+        </div>
+        <div class="list-group list-group-flush">
+          @for (check of preflightResult.checks; track check.code) {
+            <div class="list-group-item px-0 d-flex gap-2 align-items-start small">
+              <i class="ti" [class.ti-circle-check]="check.ok" [class.ti-alert-triangle]="!check.ok" [class.text-success]="check.ok" [class.text-danger]="!check.ok"></i>
+              <div><strong>{{ check.code }}</strong><div class="text-muted">{{ check.message }}</div></div>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
   @if (loading) {
     <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
   } @else if (sources.length === 0) {
@@ -398,6 +434,9 @@
                 </button>
                 <button class="btn btn-sm btn-outline-dark" (click)="preview(source)" [disabled]="previewingId === source.id">
                   {{ previewingId === source.id ? 'Cargando muestra...' : 'Ver previa / debug' }}
+                </button>
+                <button class="btn btn-sm btn-outline-warning" (click)="preflight(source)" [disabled]="preflightId === source.id">
+                  {{ preflightId === source.id ? 'Validando...' : 'Validar compatibilidad' }}
                 </button>
                 <button class="btn btn-sm btn-outline-secondary" (click)="openEdit(source)">Editar</button>
                 <button class="btn btn-sm btn-outline-danger" (click)="disable(source)" [disabled]="!source.is_active">Desactivar</button>

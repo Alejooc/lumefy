@@ -17,6 +17,7 @@ from app.services.integration_service import (
     IntegrationRequestError,
     IntegrationSyncConflict,
     enqueue_sync,
+    preflight_source,
     preview_source,
     request_asset,
     suggest_mapping_source,
@@ -31,6 +32,7 @@ router = APIRouter()
 @router.get("/assets")
 async def proxy_asset(
     url: str = Query(..., min_length=1, max_length=2000),
+    source_id: UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     """Serve provider images with the source's server-side credentials.
@@ -44,8 +46,23 @@ async def proxy_asset(
     # A paused/failed source may still own products already published in the
     # storefront. Serving those existing assets must not require reactivating
     # catalog or inventory synchronization.
-    sources = (await db.execute(select(IntegrationSource))).scalars().all()
-    source = next((candidate for candidate in sources if _asset_url_matches_source(candidate, url)), None)
+    if source_id:
+        source = await db.get(IntegrationSource, source_id)
+        if source is not None and not _asset_url_matches_source(source, url):
+            source = None
+    else:
+        sources = (await db.execute(select(IntegrationSource))).scalars().all()
+        matching_sources = [candidate for candidate in sources if _asset_url_matches_source(candidate, url)]
+        if len(matching_sources) > 1:
+            # Never select the first company's credentials for an ambiguous
+            # provider URL. Catalogs synced after this endpoint was hardened
+            # can pass source_id explicitly; local cached images do not need
+            # the proxy at all.
+            raise HTTPException(
+                status_code=409,
+                detail="La imagen coincide con más de un origen; vuelve a sincronizar el catálogo.",
+            )
+        source = matching_sources[0] if matching_sources else None
     if source is None:
         raise HTTPException(status_code=404, detail="Imagen no asociada a un origen activo")
     try:
@@ -234,6 +251,17 @@ async def preview_connection(
         return await preview_source(source)
     except IntegrationRequestError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/sources/{source_id}/preflight", response_model=schemas.IntegrationPreflightOut)
+async def preflight_connection(
+    source_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> dict[str, Any]:
+    """Validate an origin without creating a run or modifying business data."""
+    source = await _get_source(db, source_id, current_user.company_id)
+    return await preflight_source(db, source)
 
 
 @router.post("/sources/{source_id}/mapping-suggestion", response_model=schemas.IntegrationMappingOut)

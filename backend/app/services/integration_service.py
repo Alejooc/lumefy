@@ -1543,6 +1543,218 @@ async def preview_source(source: IntegrationSource) -> dict[str, Any]:
     }
 
 
+def _preflight_auth(source: IntegrationSource) -> tuple[bool, str]:
+    """Validate only the local credential shape; no secret is returned."""
+    auth_type = (source.auth_type or "none").strip().lower()
+    credentials = source.credentials or {}
+    if auth_type in {"none", ""}:
+        return True, "Sin autenticación configurada."
+    if auth_type == "bearer":
+        return (
+            bool(credentials.get("token") or credentials.get("access_token")),
+            "Token Bearer configurado." if credentials.get("token") or credentials.get("access_token") else "Falta el token Bearer.",
+        )
+    if auth_type in {"api_key", "apikey"}:
+        configured = bool(credentials.get("api_key") or credentials.get("token"))
+        return configured, "API key configurada." if configured else "Falta la API key."
+    if auth_type == "basic":
+        configured = bool(credentials.get("username") and credentials.get("password"))
+        return configured, "Credenciales Basic configuradas." if configured else "Faltan usuario o contraseña Basic."
+    if auth_type == "custom_headers":
+        headers = credentials.get("headers")
+        configured = bool(isinstance(headers, dict) and headers)
+        return configured, "Encabezados personalizados configurados." if configured else "Faltan los encabezados personalizados."
+    return False, f"Tipo de autenticación no soportado: {auth_type}."
+
+
+async def preflight_source(db: AsyncSession, source: IntegrationSource) -> dict[str, Any]:
+    """Run a bounded, read-only compatibility check before queuing a sync."""
+    checks: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    errors: list[str] = []
+
+    def add_check(code: str, ok: bool, message: str, *, severity: str = "error", **details: Any) -> None:
+        checks.append({"code": code, "ok": ok, "severity": severity, "message": message, **details})
+        if ok:
+            return
+        if severity == "warning":
+            warnings.append(message)
+        else:
+            errors.append(message)
+
+    try:
+        validate_source(source)
+        add_check("base_url", True, "La URL base es válida y apunta a un origen permitido.", severity="info")
+    except IntegrationRequestError as exc:
+        add_check("base_url", False, str(exc))
+
+    auth_ok, auth_message = _preflight_auth(source)
+    add_check("credentials", auth_ok, auth_message if not auth_ok else "Las credenciales están configuradas.")
+
+    products_endpoint = _endpoint_config(source, "products")
+    inventory_endpoint = _endpoint_config(source, "inventory")
+    products_path = products_endpoint.get("path")
+    inventory_path = inventory_endpoint.get("path")
+    add_check(
+        "catalog_endpoint",
+        bool(products_path),
+        "Configura el endpoint de productos antes de sincronizar." if not products_path else "Endpoint de catálogo configurado.",
+    )
+
+    preview: dict[str, Any]
+    try:
+        preview = await preview_source(source)
+    except (IntegrationRequestError, TypeError, ValueError) as exc:
+        preview = {"products": {}, "inventory": None, "errors": [str(exc)]}
+    product_preview = preview.get("products") or {}
+    product_samples = product_preview.get("mapped") or []
+    valid_product_samples = [
+        item for item in product_samples
+        if item.get("external_id") not in (None, "") and item.get("name") not in (None, "")
+    ]
+    if product_preview.get("available") and product_preview.get("received_count", 0) > 0:
+        add_check(
+            "catalog_response",
+            True,
+            f"El catálogo respondió con {product_preview['received_count']} registro(s) de muestra.",
+            severity="info",
+            sample_count=product_preview.get("received_count", 0),
+        )
+        add_check(
+            "catalog_mapping",
+            bool(valid_product_samples),
+            "La muestra no contiene ID externo y nombre utilizables." if not valid_product_samples
+            else f"El mapeo identifica {len(valid_product_samples)} registro(s) de muestra.",
+            sample_count=len(valid_product_samples),
+        )
+    else:
+        add_check(
+            "catalog_response",
+            False,
+            "El endpoint de catálogo no devolvió registros utilizables.",
+        )
+
+    catalog_external_ids = {
+        str(item.get("external_id")).strip()
+        for item in valid_product_samples
+        if item.get("external_id") not in (None, "")
+    }
+    linked_sample_ids: set[str] = set()
+    if catalog_external_ids:
+        linked_rows = (await db.execute(
+            select(IntegrationRecordLink.external_id).where(
+                IntegrationRecordLink.source_id == source.id,
+                IntegrationRecordLink.entity_type == "product",
+                IntegrationRecordLink.external_id.in_(catalog_external_ids),
+            )
+        )).scalars().all()
+        linked_sample_ids = {str(value) for value in linked_rows}
+    add_check(
+        "catalog_links",
+        True,
+        "La muestra corresponde a un catálogo nuevo; se crearán los vínculos al importar." if not linked_sample_ids
+        else f"{len(linked_sample_ids)} registro(s) de la muestra ya tienen vínculo local.",
+        severity="info",
+        linked_count=len(linked_sample_ids),
+    )
+
+    catalog_summary = {
+        "endpoint_configured": bool(products_path),
+        "sample_count": product_preview.get("received_count", 0),
+        "mapped_count": len(valid_product_samples),
+        "linked_count": len(linked_sample_ids),
+    }
+
+    inventory_summary = {
+        "endpoint_configured": bool(inventory_path),
+        "batch_enabled": bool(_inventory_batch_config(inventory_endpoint)),
+        "sample_count": 0,
+        "mapped_count": 0,
+    }
+    if inventory_path:
+        branch, warehouse = await _resolve_inventory_location(db, source)
+        add_check(
+            "inventory_location",
+            bool(branch),
+            "La empresa no tiene una sucursal activa para guardar existencias." if not branch
+            else f"Sucursal de inventario lista: {branch.name}.",
+            warehouse_configured=bool(warehouse),
+        )
+        batch_config = _inventory_batch_config(inventory_endpoint)
+        if batch_config:
+            sku_result = await db.execute(
+                select(IntegrationRecordLink.external_sku).where(
+                    IntegrationRecordLink.source_id == source.id,
+                    IntegrationRecordLink.entity_type.in_(["product", "variant"]),
+                    IntegrationRecordLink.external_sku.is_not(None),
+                ).limit(1)
+            )
+            has_linked_sku = sku_result.scalars().first() is not None
+            if not has_linked_sku:
+                add_check(
+                    "inventory_catalog_dependency",
+                    False,
+                    "El inventario por lotes necesita primero una sincronización de catálogo con SKU vinculados.",
+                    severity="warning",
+                )
+            else:
+                add_check(
+                    "inventory_batch",
+                    True,
+                    f"Inventario por lotes configurado (máximo {batch_config['size']} SKU por petición).",
+                    severity="info",
+                )
+        inventory_preview = preview.get("inventory") or {}
+        inventory_samples = inventory_preview.get("mapped") or []
+        valid_inventory_samples = [
+            item for item in inventory_samples
+            if (item.get("external_id") not in (None, "") or item.get("sku") not in (None, ""))
+            and item.get("quantity") is not None
+        ]
+        inventory_summary.update({
+            "sample_count": inventory_preview.get("received_count", 0),
+            "mapped_count": len(valid_inventory_samples),
+        })
+        if batch_config and not inventory_preview.get("available") and not inventory_preview.get("received_count"):
+            # A batch endpoint cannot be previewed until there are local SKUs;
+            # this is a warning above, not a false provider failure.
+            pass
+        elif inventory_preview.get("available"):
+            add_check(
+                "inventory_mapping",
+                bool(valid_inventory_samples),
+                "La muestra de inventario no contiene identificador y cantidad válidos." if not valid_inventory_samples
+                else f"El mapeo identifica {len(valid_inventory_samples)} registro(s) de inventario.",
+                sample_count=len(valid_inventory_samples),
+            )
+        elif inventory_preview.get("error"):
+            add_check("inventory_response", False, str(inventory_preview["error"]))
+    else:
+        add_check(
+            "inventory_endpoint",
+            True,
+            "No hay endpoint de inventario; el origen solo sincronizará catálogo.",
+            severity="warning",
+        )
+
+    # Network/configuration errors already have a useful provider message in
+    # the preview. Keep the response compact and avoid returning raw payloads.
+    for preview_error in preview.get("errors") or []:
+        if preview_error not in errors and "No hay SKU" not in preview_error:
+            errors.append(str(preview_error))
+
+    return {
+        "source_id": source.id,
+        "success": not errors,
+        "message": "Origen compatible para sincronizar." if not errors else "El origen requiere correcciones antes de sincronizar.",
+        "checks": checks,
+        "warnings": warnings,
+        "errors": errors,
+        "catalog": catalog_summary,
+        "inventory": inventory_summary,
+    }
+
+
 async def _fetch_entity(
     source: IntegrationSource,
     entity: str,

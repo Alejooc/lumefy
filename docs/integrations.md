@@ -150,6 +150,20 @@ El botón **Ver previa / debug** ejecuta una consulta de solo lectura al endpoin
 
 El botón **Mapeo pendiente** analiza una muestra y propone rutas como `product_id`, `variants[].sku`, `images[]` y `variants[].properties[]`. El usuario puede editar las rutas y confirmar el perfil. Los campos principales se guardan en las entidades normalizadas; especificaciones y propiedades se conservan en atributos JSON y en el payload original. Cuando llegan `provider_id`/`supplier_id` o `provider_name`/`supplier_name`, el catálogo homologa el proveedor existente o lo crea automáticamente y guarda la relación en el producto.
 
+Antes de encolar una sincronización, el panel puede ejecutar el preflight de solo
+lectura:
+
+```http
+POST /api/v1/integrations/sources/{id}/preflight
+```
+
+El informe valida URL, credenciales, endpoints, respuesta y mapeo de catálogo,
+dependencia de SKU para inventario por lotes y sucursal activa. Devuelve
+`checks`, `warnings`, `errors` y los conteos de muestra, sin crear ejecuciones,
+productos, existencias ni vínculos. Un origen con inventario por lotes puede
+mostrar una advertencia hasta que se ejecute el primer catálogo; esto evita
+marcar como inválido un proveedor que todavía no tiene SKU locales vinculados.
+
 ## Próxima evolución
 
 La tabla de vínculos ya es genérica por `entity_type`, por lo que se pueden añadir conectores para categorías, clientes, pedidos y proveedores sin cambiar el núcleo de productos. Las siguientes mejoras recomendadas son cursor pagination, sincronización incremental, webhooks y conectores específicos dentro del marketplace de apps.

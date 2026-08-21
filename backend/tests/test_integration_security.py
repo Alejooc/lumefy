@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.services.integration_service import (
     IntegrationRequestError,
     _asset_url_matches_source,
+    _preflight_auth,
     _request_json_sync,
     _url_for,
     validate_source,
@@ -25,7 +26,7 @@ class IntegrationSecurityTests(unittest.TestCase):
 
     @staticmethod
     def source(base_url: str = "https://supplier.example") -> SimpleNamespace:
-        return SimpleNamespace(source_type="REST", base_url=base_url)
+        return SimpleNamespace(source_type="REST", base_url=base_url, auth_type="none", credentials={})
 
     @patch("app.services.integration_service.socket.getaddrinfo")
     def test_public_source_is_accepted(self, getaddrinfo):
@@ -51,6 +52,22 @@ class IntegrationSecurityTests(unittest.TestCase):
     def test_url_embedded_credentials_are_rejected(self):
         with self.assertRaises(IntegrationRequestError):
             validate_source(self.source("https://user:secret@supplier.example"))
+
+    def test_preflight_checks_auth_shape_without_exposing_secrets(self):
+        missing = self.source()
+        missing.auth_type = "bearer"
+        missing.credentials = {}
+        self.assertEqual(_preflight_auth(missing), (False, "Falta el token Bearer."))
+
+        configured = self.source()
+        configured.auth_type = "bearer"
+        configured.credentials = {"token": "secret"}
+        self.assertEqual(_preflight_auth(configured), (True, "Token Bearer configurado."))
+
+        custom = self.source()
+        custom.auth_type = "custom_headers"
+        custom.credentials = {"headers": {"X-Provider": "configured"}}
+        self.assertEqual(_preflight_auth(custom), (True, "Encabezados personalizados configurados."))
 
     def test_asset_proxy_requires_matching_origin_and_base_path(self):
         source = SimpleNamespace(

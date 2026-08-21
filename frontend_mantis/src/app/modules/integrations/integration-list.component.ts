@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription, map, switchMap, takeWhile, timer } from 'rxjs';
 import {
   IntegrationMapping,
+  IntegrationPreflight,
   IntegrationPreview,
   IntegrationService,
   IntegrationSource,
@@ -62,6 +63,9 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
   previewingId: string | null = null;
   previewResult: IntegrationPreview | null = null;
   previewSourceName: string | null = null;
+  preflightId: string | null = null;
+  preflightResult: IntegrationPreflight | null = null;
+  preflightSourceName: string | null = null;
   mappingDraft: IntegrationMapping | null = null;
   mappingSourceName: string | null = null;
   mappingValues: JsonObject = {};
@@ -309,6 +313,22 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       error: (error) => {
         this.previewingId = null;
         this.swal.error('Error', error?.error?.detail || 'No se pudo obtener la vista previa.');
+      }
+    });
+  }
+
+  preflight(source: IntegrationSource): void {
+    this.preflightId = source.id;
+    this.preflightSourceName = source.name;
+    this.preflightResult = null;
+    this.integrationService.preflightSource(source.id).subscribe({
+      next: (result) => {
+        this.preflightId = null;
+        this.preflightResult = result;
+      },
+      error: (error) => {
+        this.preflightId = null;
+        this.swal.error('Error', error?.error?.detail || 'No se pudo validar la compatibilidad del origen.');
       }
     });
   }

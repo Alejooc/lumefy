@@ -75,6 +75,27 @@ export interface IntegrationPreview {
   errors: string[];
 }
 
+export interface IntegrationPreflightCheck {
+  code: string;
+  ok: boolean;
+  severity: string;
+  message: string;
+  sample_count?: number;
+  linked_count?: number;
+  warehouse_configured?: boolean;
+}
+
+export interface IntegrationPreflight {
+  source_id: string;
+  success: boolean;
+  message: string;
+  checks: IntegrationPreflightCheck[];
+  warnings: string[];
+  errors: string[];
+  catalog: { endpoint_configured: boolean; sample_count: number; mapped_count: number; linked_count: number };
+  inventory: { endpoint_configured: boolean; batch_enabled: boolean; sample_count: number; mapped_count: number };
+}
+
 export interface IntegrationMappingSuggestion {
   canonical: string;
   source_path: string | null;
@@ -162,6 +183,10 @@ export class IntegrationService {
 
   previewSource(id: string): Observable<IntegrationPreview> {
     return this.api.post<IntegrationPreview>(`/integrations/sources/${id}/preview`, {});
+  }
+
+  preflightSource(id: string): Observable<IntegrationPreflight> {
+    return this.api.post<IntegrationPreflight>(`/integrations/sources/${id}/preflight`, {});
   }
 
   suggestMapping(id: string): Observable<IntegrationMapping> {

@@ -87,6 +87,19 @@ class IntegrationPreviewOut(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
+class IntegrationPreflightOut(BaseModel):
+    """Read-only compatibility report shown before an expensive sync."""
+
+    source_id: UUID
+    success: bool
+    message: str
+    checks: list[dict[str, Any]] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    catalog: dict[str, Any] = Field(default_factory=dict)
+    inventory: dict[str, Any] = Field(default_factory=dict)
+
+
 class IntegrationMappingSuggestionOut(BaseModel):
     canonical: str
     source_path: str | None = None
