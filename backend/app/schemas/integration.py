@@ -67,6 +67,7 @@ class IntegrationPreviewEntityOut(BaseModel):
     request_url: str | None = None
     status_code: int | None = None
     pagination_enabled: bool = False
+    pagination_type: str | None = None
     page: int | None = None
     page_size: int | None = None
     received_count: int = 0

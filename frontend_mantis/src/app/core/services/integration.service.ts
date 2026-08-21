@@ -55,6 +55,7 @@ export interface IntegrationPreviewEntity {
   request_url: string | null;
   status_code: number | null;
   pagination_enabled: boolean;
+  pagination_type: string | null;
   page: number | null;
   page_size: number | null;
   received_count: number;

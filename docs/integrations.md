@@ -16,6 +16,7 @@ La primera versión soporta:
 - Relación estable entre el ID externo y el producto de Lumefy.
 - Historial de ejecuciones y errores.
 - Progreso persistido por ejecución: etapa, porcentaje, página actual, registros recibidos/procesados y fallos.
+- Paginación por página o cursor con límite de solicitudes y sincronización incremental opcional para catálogos.
 - Diagnóstico por registro: conteo de causas y hasta 100 ejemplos seguros en `details.error_counts` y `details.error_samples`.
 - Reintentos limitados con backoff para `429`, `5xx`, timeouts y errores de conexión; las respuestas JSON tienen un límite de tamaño configurable.
 - Cada cambio real de inventario crea un movimiento `ADJ` con existencia anterior, nueva, diferencia y referencia de la ejecución.
@@ -48,6 +49,12 @@ Los encabezados personalizados también se cifran de forma recursiva. Por defect
           "per_page": 50,
           "start_page": 1,
           "max_pages": 1000
+        },
+        "incremental": {
+          "enabled": true,
+          "query_param": "updated_since",
+          "lookback_minutes": 5,
+          "format": "iso8601"
         }
       },
       "inventory": {
@@ -95,7 +102,9 @@ Una descarga fallida no reemplaza una copia local válida; la URL externa queda
 guardada en `product.attributes.external_image_urls` para poder reintentarla en
 la siguiente sincronización.
 
-Cuando `pagination.enabled` es `false`, Lumefy hace una sola solicitud. Cuando es `true`, reemplaza o agrega los parámetros de página en cada solicitud y continúa hasta encontrar una página vacía, una página menor al tamaño configurado, metadatos de páginas/total devueltos por el proveedor, `last_page`/`total` configurados o el límite `max_pages`.
+Cuando `pagination.enabled` es `false`, Lumefy hace una sola solicitud. Con `type: "page"`, reemplaza o agrega los parámetros de página en cada solicitud y continúa hasta encontrar una página vacía, una página menor al tamaño configurado, metadatos de páginas/total devueltos por el proveedor, `last_page`/`total` configurados o el límite `max_pages`. Con `type: "cursor"`, envía el token en `cursor_param` y lee el siguiente token desde `next_cursor_path` (por defecto `meta.next_cursor`); si el proveedor devuelve una URL absoluta, solo se acepta si mantiene el mismo origen configurado. Los cursores repetidos y los recorridos que superan `max_pages` se detienen con error para evitar bucles.
+
+La sincronización incremental es opcional y se recomienda para catálogos grandes. En el primer catálogo se hace una carga completa; después de una ejecución exitosa, Lumefy envía la marca `last_catalog_synced_at` menos `lookback_minutes` al parámetro configurado. El margen de seguridad evita perder cambios que lleguen con retraso. Los formatos permitidos son `iso8601`, `date`, `unix_seconds` y `unix_milliseconds`. Si el proveedor ignora el parámetro, la respuesta completa sigue siendo válida y se procesa de forma idempotente.
 
 Para endpoints de inventario que reciben varios SKU (por ejemplo `GET /api/external/inventory?skus=THO12306,THO12362`), activa `batch.enabled`. Lumefy toma los SKU vinculados durante la sincronización de catálogo, los divide en lotes y reemplaza dinámicamente el parámetro `skus`; el tamaño se limita a 100 aunque la configuración indique un valor mayor. La respuesta esperada puede envolver los registros en `data`, con `sku` como identificador y `stock` como cantidad. Las cantidades negativas se normalizan a cero antes de guardarse.
 
@@ -166,4 +175,4 @@ marcar como inválido un proveedor que todavía no tiene SKU locales vinculados.
 
 ## Próxima evolución
 
-La tabla de vínculos ya es genérica por `entity_type`, por lo que se pueden añadir conectores para categorías, clientes, pedidos y proveedores sin cambiar el núcleo de productos. Las siguientes mejoras recomendadas son cursor pagination, sincronización incremental, webhooks y conectores específicos dentro del marketplace de apps.
+La tabla de vínculos ya es genérica por `entity_type`, por lo que se pueden añadir conectores para categorías, clientes, pedidos y proveedores sin cambiar el núcleo de productos. Las siguientes mejoras recomendadas son webhooks y conectores específicos dentro del marketplace de apps.

@@ -128,27 +128,85 @@
                 <small class="text-muted">Actívalo para APIs que usan parámetros como <code>?page=1&amp;per_page=50</code>. Se recorrerán todas las páginas hasta terminar.</small>
               </div>
               @if (form.pagination_enabled) {
-                <div class="col-md-3">
-                  <label class="form-label">Parámetro de página</label>
-                  <input class="form-control" [(ngModel)]="form.page_param" placeholder="page">
+                <div class="col-md-4">
+                  <label class="form-label">Tipo de paginación</label>
+                  <select class="form-select" [(ngModel)]="form.pagination_type">
+                    <option value="page">Por página</option>
+                    <option value="cursor">Por cursor</option>
+                  </select>
                 </div>
-                <div class="col-md-3">
-                  <label class="form-label">Parámetro de tamaño</label>
-                  <input class="form-control" [(ngModel)]="form.per_page_param" placeholder="per_page">
-                </div>
-                <div class="col-md-3">
-                  <label class="form-label">Registros por página</label>
-                  <input class="form-control" type="number" min="1" [(ngModel)]="form.per_page">
-                </div>
-                <div class="col-md-3">
-                  <label class="form-label">Página inicial</label>
-                  <input class="form-control" type="number" min="1" [(ngModel)]="form.start_page">
-                </div>
-                <div class="col-md-3">
-                  <label class="form-label">Máximo de páginas</label>
-                  <input class="form-control" type="number" min="1" [(ngModel)]="form.max_pages">
-                </div>
+                @if (form.pagination_type === 'page') {
+                  <div class="col-md-4">
+                    <label class="form-label">Parámetro de página</label>
+                    <input class="form-control" [(ngModel)]="form.page_param" placeholder="page">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Parámetro de tamaño</label>
+                    <input class="form-control" [(ngModel)]="form.per_page_param" placeholder="per_page">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Registros por página</label>
+                    <input class="form-control" type="number" min="1" [(ngModel)]="form.per_page">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Página inicial</label>
+                    <input class="form-control" type="number" min="1" [(ngModel)]="form.start_page">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Máximo de páginas</label>
+                    <input class="form-control" type="number" min="1" [(ngModel)]="form.max_pages">
+                  </div>
+                } @else {
+                  <div class="col-md-4">
+                    <label class="form-label">Parámetro del cursor</label>
+                    <input class="form-control" [(ngModel)]="form.cursor_param" placeholder="cursor">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Ruta del siguiente cursor</label>
+                    <input class="form-control" [(ngModel)]="form.next_cursor_path" placeholder="meta.next_cursor">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Registros por solicitud</label>
+                    <input class="form-control" type="number" min="1" [(ngModel)]="form.per_page">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Máximo de solicitudes</label>
+                    <input class="form-control" type="number" min="1" [(ngModel)]="form.max_pages">
+                  </div>
+                  <div class="col-12"><small class="text-muted">La ruta suele ser <code>meta.next_cursor</code>, <code>next_cursor</code> o <code>links.next</code>. Lumefy rechaza cursores que apunten a otro dominio.</small></div>
+                }
               }
+
+              <div class="col-12">
+                <div class="border rounded p-3 mt-2">
+                  <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="incrementalEnabled" [(ngModel)]="form.incremental_enabled">
+                    <label class="form-check-label fw-semibold" for="incrementalEnabled">Sincronización incremental del catálogo</label>
+                  </div>
+                  <small class="text-muted d-block mb-3">En el primer catálogo se carga todo. Luego se envía la fecha de la última sincronización exitosa con un margen de seguridad.</small>
+                  @if (form.incremental_enabled) {
+                    <div class="row g-3">
+                      <div class="col-md-4">
+                        <label class="form-label">Parámetro de cambios</label>
+                        <input class="form-control" [(ngModel)]="form.incremental_query_param" placeholder="updated_since">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label">Margen de seguridad (minutos)</label>
+                        <input class="form-control" type="number" min="0" max="1440" [(ngModel)]="form.incremental_lookback_minutes">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label">Formato de fecha</label>
+                        <select class="form-select" [(ngModel)]="form.incremental_format">
+                          <option value="iso8601">ISO 8601</option>
+                          <option value="date">Solo fecha</option>
+                          <option value="unix_seconds">Unix (segundos)</option>
+                          <option value="unix_milliseconds">Unix (milisegundos)</option>
+                        </select>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
 
             </div>
           </div>
@@ -283,7 +341,8 @@
             <span class="small text-muted">
               {{ previewResult.products.received_count }} recibidos
               @if (previewResult.products.status_code) { · HTTP {{ previewResult.products.status_code }} }
-              @if (previewResult.products.pagination_enabled) { · Página {{ previewResult.products.page }} · {{ previewResult.products.page_size }} por página }
+              @if (previewResult.products.pagination_enabled && previewResult.products.pagination_type === 'cursor') { · Cursor inicial · {{ previewResult.products.page_size }} por solicitud }
+              @if (previewResult.products.pagination_enabled && previewResult.products.pagination_type !== 'cursor') { · Página {{ previewResult.products.page }} · {{ previewResult.products.page_size }} por página }
               @if (previewResult.products.variants_count) { · {{ previewResult.products.variants_count }} variantes }
               @if (previewResult.products.images_count) { · {{ previewResult.products.images_count }} imágenes }
               @if (previewResult.products.attributes_count) { · {{ previewResult.products.attributes_count }} atributos }
@@ -327,7 +386,8 @@
               <span class="small text-muted">
                 {{ previewResult.inventory.received_count }} recibidos
                 @if (previewResult.inventory.status_code) { · HTTP {{ previewResult.inventory.status_code }} }
-                @if (previewResult.inventory.pagination_enabled) { · Página {{ previewResult.inventory.page }} · {{ previewResult.inventory.page_size }} por página }
+                @if (previewResult.inventory.pagination_enabled && previewResult.inventory.pagination_type === 'cursor') { · Cursor inicial · {{ previewResult.inventory.page_size }} por solicitud }
+                @if (previewResult.inventory.pagination_enabled && previewResult.inventory.pagination_type !== 'cursor') { · Página {{ previewResult.inventory.page }} · {{ previewResult.inventory.page_size }} por página }
               </span>
             </div>
             @if (previewResult.inventory.request_url) {

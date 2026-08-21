@@ -13,7 +13,7 @@ import socket
 import tempfile
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable
 from urllib import error as urlerror
 from urllib import parse as urlparse
@@ -721,6 +721,102 @@ def _pagination_config(endpoint: dict[str, Any]) -> dict[str, Any]:
     return pagination if isinstance(pagination, dict) else {}
 
 
+def _incremental_config(endpoint: dict[str, Any]) -> dict[str, Any]:
+    """Return a bounded optional watermark configuration for an endpoint.
+
+    Incremental sync is deliberately opt-in.  Existing origins therefore keep
+    their current full-catalog behavior until the provider's updated-record
+    query parameter has been configured and a successful catalog run has
+    established the first watermark.
+    """
+
+    incremental = endpoint.get("incremental") or {}
+    if not isinstance(incremental, dict) or incremental.get("enabled") is not True:
+        return {}
+    query_param = str(incremental.get("query_param") or incremental.get("updated_since_param") or "updated_since").strip()
+    if not query_param:
+        raise IntegrationRequestError("El parámetro de sincronización incremental no puede estar vacío.")
+    try:
+        lookback_minutes = int(incremental.get("lookback_minutes") or 5)
+    except (TypeError, ValueError) as exc:
+        raise IntegrationRequestError("El margen de seguridad incremental debe ser un número entero.") from exc
+    value_format = str(incremental.get("format") or "iso8601").strip().lower()
+    if value_format not in {"iso8601", "date", "unix_seconds", "unix_milliseconds"}:
+        raise IntegrationRequestError(
+            "El formato incremental debe ser iso8601, date, unix_seconds o unix_milliseconds."
+        )
+    return {
+        "enabled": True,
+        "query_param": query_param,
+        "lookback_minutes": min(1440, max(0, lookback_minutes)),
+        "format": value_format,
+    }
+
+
+def _incremental_request_url(
+    source: IntegrationSource,
+    entity: str,
+    endpoint: dict[str, Any],
+    url: str,
+) -> tuple[str, str | None]:
+    """Add the previous successful catalog watermark when configured."""
+
+    if entity != "products":
+        return url, None
+    incremental = _incremental_config(endpoint)
+    watermark = getattr(source, "last_catalog_synced_at", None)
+    if not incremental or watermark is None:
+        return url, None
+    if not isinstance(watermark, datetime):
+        raise IntegrationRequestError("La marca de tiempo de catálogo guardada no es válida.")
+    if watermark.tzinfo is not None:
+        watermark = watermark.astimezone(timezone.utc).replace(tzinfo=None)
+    watermark = watermark - timedelta(minutes=incremental["lookback_minutes"])
+    value_format = incremental["format"]
+    if value_format == "date":
+        value = watermark.date().isoformat()
+    elif value_format == "unix_seconds":
+        value = str(int(watermark.timestamp()))
+    elif value_format == "unix_milliseconds":
+        value = str(int(watermark.timestamp() * 1000))
+    else:
+        value = f"{watermark.isoformat(timespec='seconds')}Z"
+    return _url_with_query(url, {incremental["query_param"]: value}), value
+
+
+def _cursor_config(pagination: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a cursor pagination config without allowing unbounded loops."""
+
+    cursor_param = str(pagination.get("cursor_param") or "cursor").strip()
+    next_cursor_path = str(
+        pagination.get("next_cursor_path") or pagination.get("next_path") or "meta.next_cursor"
+    ).strip()
+    if not cursor_param or not next_cursor_path:
+        raise IntegrationRequestError("La paginación por cursor requiere cursor_param y next_cursor_path.")
+    try:
+        per_page = max(1, int(pagination.get("per_page") or 50))
+        max_pages = max(1, int(pagination.get("max_pages") or 1000))
+    except (TypeError, ValueError) as exc:
+        raise IntegrationRequestError("La configuración de paginación debe usar números válidos.") from exc
+    return {
+        "cursor_param": cursor_param,
+        "next_cursor_path": next_cursor_path,
+        "per_page_param": str(pagination.get("per_page_param") or "per_page"),
+        "per_page": per_page,
+        "max_pages": max_pages,
+        "start_cursor": pagination.get("start_cursor"),
+    }
+
+
+def _cursor_value(payload: Any, path: str) -> Any:
+    value = _value(payload, path)
+    if isinstance(value, dict):
+        for key in ("cursor", "token", "value", "next"):
+            if value.get(key) not in (None, ""):
+                return value[key]
+    return value
+
+
 def _inventory_batch_config(endpoint: dict[str, Any]) -> dict[str, Any]:
     """Return a safe SKU-batch configuration for inventory endpoints.
 
@@ -1404,8 +1500,16 @@ def _preview_request_details(
     pagination = _pagination_config(endpoint)
     if not pagination.get("enabled", False):
         return endpoint, url, False, None, None
-    if str(pagination.get("type", "page")).lower() != "page":
-        raise IntegrationRequestError("La paginación configurada debe usar el tipo 'page'.")
+    pagination_type = str(pagination.get("type", "page")).lower()
+    if pagination_type == "cursor":
+        cursor_config = _cursor_config(pagination)
+        request_url = _url_with_query(
+            url,
+            {cursor_config["per_page_param"]: cursor_config["per_page"]},
+        )
+        return endpoint, request_url, True, 1, cursor_config["per_page"]
+    if pagination_type != "page":
+        raise IntegrationRequestError("La paginación configurada debe usar el tipo 'page' o 'cursor'.")
     try:
         page = max(1, int(pagination.get("start_page") or 1))
         per_page = max(1, int(pagination.get("per_page") or 50))
@@ -1484,6 +1588,7 @@ async def _preview_entity(source: IntegrationSource, entity: str, sample_limit: 
         "request_url": _safe_preview_url(request_url),
         "status_code": status_code,
         "pagination_enabled": pagination_enabled,
+        "pagination_type": str(_pagination_config(endpoint).get("type", "page")) if pagination_enabled else None,
         "page": page,
         "page_size": page_size,
         "received_count": len(rows),
@@ -1496,6 +1601,7 @@ async def _preview_entity(source: IntegrationSource, entity: str, sample_limit: 
 
 
 def _preview_error(source: IntegrationSource, entity: str, exc: Exception) -> dict[str, Any]:
+    endpoint = _endpoint_config(source, entity)
     try:
         _, request_url, pagination_enabled, page, page_size = _preview_request_details(source, entity)
     except IntegrationRequestError:
@@ -1505,6 +1611,7 @@ def _preview_error(source: IntegrationSource, entity: str, exc: Exception) -> di
         "request_url": _safe_preview_url(request_url) if request_url else None,
         "status_code": getattr(exc, "status_code", None),
         "pagination_enabled": pagination_enabled,
+        "pagination_type": str(_pagination_config(endpoint).get("type", "page")) if request_url else None,
         "page": page,
         "page_size": page_size,
         "received_count": 0,
@@ -1600,6 +1707,30 @@ async def preflight_source(db: AsyncSession, source: IntegrationSource) -> dict[
         bool(products_path),
         "Configura el endpoint de productos antes de sincronizar." if not products_path else "Endpoint de catálogo configurado.",
     )
+    for code, endpoint, entity, path in (
+        ("catalog_fetch_config", products_endpoint, "products", products_path),
+        ("inventory_fetch_config", inventory_endpoint, "inventory", inventory_path),
+    ):
+        if not path:
+            continue
+        try:
+            pagination = _pagination_config(endpoint)
+            if pagination.get("enabled", False):
+                pagination_type = str(pagination.get("type", "page")).lower()
+                if pagination_type == "cursor":
+                    _cursor_config(pagination)
+                elif pagination_type == "page":
+                    int(pagination.get("per_page") or 50)
+                    int(pagination.get("max_pages") or 1000)
+                else:
+                    raise IntegrationRequestError(
+                        "La paginación configurada debe usar el tipo 'page' o 'cursor'."
+                    )
+            if entity == "products":
+                _incremental_config(endpoint)
+            add_check(code, True, f"Configuración de descarga de {entity} válida.", severity="info")
+        except (IntegrationRequestError, TypeError, ValueError) as exc:
+            add_check(code, False, str(exc))
 
     preview: dict[str, Any]
     try:
@@ -1755,6 +1886,99 @@ async def preflight_source(db: AsyncSession, source: IntegrationSource) -> dict[
     }
 
 
+async def _fetch_cursor_entity(
+    source: IntegrationSource,
+    entity: str,
+    endpoint: dict[str, Any],
+    url: str,
+    headers: dict[str, str],
+    pagination: dict[str, Any],
+    progress_callback: ProgressCallback | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch a cursor-paginated endpoint with a hard request limit."""
+
+    cursor = pagination.get("start_cursor")
+    cursor_config = _cursor_config(pagination)
+    all_items: list[dict[str, Any]] = []
+    seen_cursors: set[str] = set()
+    page = 1
+    pages_total: int | None = None
+    total_items: int | None = None
+    entity_label = "catálogo" if entity == "products" else "inventario"
+
+    for _ in range(cursor_config["max_pages"]):
+        if cursor in (None, ""):
+            request_url = _url_with_query(
+                url,
+                {cursor_config["per_page_param"]: cursor_config["per_page"]},
+            )
+        elif isinstance(cursor, str) and (cursor.startswith("http://") or cursor.startswith("https://")):
+            next_url = _validate_url_syntax(cursor)
+            base_url = _validate_url_syntax(url)
+            if _origin(next_url) != _origin(base_url):
+                raise IntegrationRequestError("El cursor del proveedor apunta a un host distinto al configurado.")
+            request_url = cursor
+        else:
+            request_url = _url_with_query(
+                url,
+                {
+                    cursor_config["cursor_param"]: cursor,
+                    cursor_config["per_page_param"]: cursor_config["per_page"],
+                },
+            )
+
+        status_code, payload = await _request_json(request_url, headers)
+        page_items = _extract_entity_rows(payload, endpoint, entity, status_code)
+        all_items.extend(page_items)
+        metadata = payload.get("meta") if isinstance(payload, dict) else None
+        if isinstance(metadata, dict):
+            pages_total = int(_as_float(metadata.get("pages") or metadata.get("last_page")) or 0) or None
+            total_items = int(_as_float(metadata.get("total") or metadata.get("count")) or 0) or None
+        progress_total = pages_total or cursor_config["max_pages"]
+        await _report_progress(
+            progress_callback,
+            stage="FETCHING",
+            message=f"Descargando {entity_label}: lote {page}{f' de {pages_total}' if pages_total else ''}.",
+            percent=10 + int(30 * min(page, progress_total) / progress_total),
+            current=page,
+            total=pages_total,
+            entity=entity,
+            page=page,
+            pages_total=pages_total,
+            items_received=len(all_items),
+            items_total=total_items,
+        )
+
+        next_cursor = _cursor_value(payload, cursor_config["next_cursor_path"])
+        if not page_items or next_cursor in (None, ""):
+            break
+        cursor_key = str(next_cursor)
+        if cursor_key in seen_cursors:
+            raise IntegrationRequestError("El proveedor devolvió un cursor repetido; se detuvo la sincronización.")
+        seen_cursors.add(cursor_key)
+        cursor = next_cursor
+        page += 1
+    else:
+        raise IntegrationRequestError(
+            f"La sincronización de {entity} superó el máximo de {cursor_config['max_pages']} páginas configurado."
+        )
+
+    await _report_progress(
+        progress_callback,
+        stage="FETCHING",
+        message=f"Datos de {entity_label} recibidos: {len(all_items)} registros.",
+        percent=40,
+        current=page,
+        total=pages_total,
+        entity=entity,
+        page=page,
+        pages_total=pages_total,
+        items_received=len(all_items),
+        items_total=total_items,
+    )
+    return all_items
+
+
 async def _fetch_entity(
     source: IntegrationSource,
     entity: str,
@@ -1765,6 +1989,7 @@ async def _fetch_entity(
     if not path:
         return []
     url = _url_for(source, str(path))
+    url, incremental_value = _incremental_request_url(source, entity, endpoint, url)
     headers = _build_headers(source)
     pagination = _pagination_config(endpoint)
     entity_label = "catálogo" if entity == "products" else "inventario"
@@ -1772,7 +1997,11 @@ async def _fetch_entity(
         await _report_progress(
             progress_callback,
             stage="FETCHING",
-            message=f"Consultando {entity_label}...",
+            message=(
+                f"Consultando {entity_label} desde {incremental_value}..."
+                if incremental_value
+                else f"Consultando {entity_label}..."
+            ),
             percent=10,
             current=0,
             total=1,
@@ -1796,8 +2025,19 @@ async def _fetch_entity(
         )
         return rows
 
-    if str(pagination.get("type", "page")).lower() != "page":
-        raise IntegrationRequestError("La paginación configurada debe usar el tipo 'page'.")
+    pagination_type = str(pagination.get("type", "page")).lower()
+    if pagination_type == "cursor":
+        return await _fetch_cursor_entity(
+            source,
+            entity,
+            endpoint,
+            url,
+            headers,
+            pagination,
+            progress_callback,
+        )
+    if pagination_type != "page":
+        raise IntegrationRequestError("La paginación configurada debe usar el tipo 'page' o 'cursor'.")
 
     page_param = str(pagination.get("page_param") or "page")
     per_page_param = str(pagination.get("per_page_param") or "per_page")

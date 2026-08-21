@@ -30,11 +30,18 @@ interface IntegrationForm {
   inventory_batch_query_param: string;
   inventory_batch_size: number;
   pagination_enabled: boolean;
+  pagination_type: 'page' | 'cursor';
   page_param: string;
   per_page_param: string;
   per_page: number;
   start_page: number;
   max_pages: number;
+  cursor_param: string;
+  next_cursor_path: string;
+  incremental_enabled: boolean;
+  incremental_query_param: string;
+  incremental_lookback_minutes: number;
+  incremental_format: 'iso8601' | 'date' | 'unix_seconds' | 'unix_milliseconds';
 }
 
 interface InventoryScheduleDraft {
@@ -106,11 +113,18 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       inventory_batch_query_param: 'skus',
       inventory_batch_size: 100,
       pagination_enabled: false,
+      pagination_type: 'page',
       page_param: 'page',
       per_page_param: 'per_page',
       per_page: 50,
       start_page: 1,
-      max_pages: 1000
+      max_pages: 1000,
+      cursor_param: 'cursor',
+      next_cursor_path: 'meta.next_cursor',
+      incremental_enabled: false,
+      incremental_query_param: 'updated_since',
+      incremental_lookback_minutes: 5,
+      incremental_format: 'iso8601'
     };
   }
 
@@ -150,6 +164,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     const inventory = this.objectValue(endpoints['inventory']);
     const inventoryBatch = this.objectValue(inventory['batch'] || inventory['sku_batch']);
     const pagination = this.objectValue(products['pagination']);
+    const incremental = this.objectValue(products['incremental']);
     this.editingId = source.id;
     this.editingConfiguration = config;
     this.form = {
@@ -167,11 +182,21 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       inventory_batch_query_param: this.stringValue(inventoryBatch['query_param'], 'skus'),
       inventory_batch_size: Number(inventoryBatch['size'] || 100),
       pagination_enabled: pagination['enabled'] === true,
+      pagination_type: pagination['type'] === 'cursor' ? 'cursor' : 'page',
       page_param: this.stringValue(pagination['page_param'], 'page'),
       per_page_param: this.stringValue(pagination['per_page_param'], 'per_page'),
       per_page: Number(pagination['per_page'] || 50),
       start_page: Number(pagination['start_page'] || 1),
-      max_pages: Number(pagination['max_pages'] || 1000)
+      max_pages: Number(pagination['max_pages'] || 1000),
+      cursor_param: this.stringValue(pagination['cursor_param'], 'cursor'),
+      next_cursor_path: this.stringValue(
+        pagination['next_cursor_path'] || pagination['next_path'],
+        'meta.next_cursor'
+      ),
+      incremental_enabled: incremental['enabled'] === true,
+      incremental_query_param: this.stringValue(incremental['query_param'], 'updated_since'),
+      incremental_lookback_minutes: Number(incremental['lookback_minutes'] || 5),
+      incremental_format: this.incrementalFormatValue(incremental['format'])
     };
     this.activeFormTab = 'connection';
     this.showForm = true;
@@ -222,12 +247,20 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
   private buildPayload(): IntegrationSourcePayload {
     const pagination = {
       enabled: this.form.pagination_enabled,
-      type: 'page',
+      type: this.form.pagination_type,
       page_param: this.form.page_param.trim() || 'page',
       per_page_param: this.form.per_page_param.trim() || 'per_page',
       per_page: Math.max(1, Number(this.form.per_page) || 50),
       start_page: Math.max(1, Number(this.form.start_page) || 1),
-      max_pages: Math.max(1, Number(this.form.max_pages) || 1000)
+      max_pages: Math.max(1, Number(this.form.max_pages) || 1000),
+      cursor_param: this.form.cursor_param.trim() || 'cursor',
+      next_cursor_path: this.form.next_cursor_path.trim() || 'meta.next_cursor'
+    };
+    const incremental = {
+      enabled: this.form.incremental_enabled,
+      query_param: this.form.incremental_query_param.trim() || 'updated_since',
+      lookback_minutes: Math.min(1440, Math.max(0, Number(this.form.incremental_lookback_minutes) || 5)),
+      format: this.form.incremental_format
     };
     const existingEndpoints = this.objectValue(this.editingConfiguration['endpoints']);
     const endpoints: JsonObject = {
@@ -235,7 +268,8 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
         ...this.objectValue(existingEndpoints['products']),
         path: this.form.products_path.trim(),
         data_path: this.form.products_data_path.trim(),
-        pagination
+        pagination,
+        incremental
       }
     };
     if (this.form.inventory_path.trim()) {
@@ -595,6 +629,13 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
 
   private stringValue(value: unknown, fallback = ''): string {
     return typeof value === 'string' ? value : fallback;
+  }
+
+  private incrementalFormatValue(value: unknown): IntegrationForm['incremental_format'] {
+    if (value === 'date') return 'date';
+    if (value === 'unix_seconds') return 'unix_seconds';
+    if (value === 'unix_milliseconds') return 'unix_milliseconds';
+    return 'iso8601';
   }
 
   private stringOrNull(value: unknown): string | null {

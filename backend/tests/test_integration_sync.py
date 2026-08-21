@@ -18,6 +18,8 @@ from app.services.integration_service import (
     _cache_provider_asset,
     _fetch_entity,
     _fetch_inventory,
+    _incremental_request_url,
+    IntegrationRequestError,
     _mapped,
     preflight_source,
     _suggest_mapping_from_sample,
@@ -476,6 +478,133 @@ class IntegrationProgressTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(progress[-1]["items_received"], 4)
         self.assertEqual(progress[-1]["pages_total"], 2)
         self.assertEqual(progress[-1]["percent"], 40)
+
+    async def test_cursor_pagination_uses_provider_token_and_stops_at_end(self):
+        source = SimpleNamespace(
+            base_url="https://provider.example.com/api",
+            auth_type="none",
+            credentials={},
+            last_catalog_synced_at=None,
+            configuration={
+                "endpoints": {
+                    "products": {
+                        "path": "/products",
+                        "pagination": {
+                            "enabled": True,
+                            "type": "cursor",
+                            "cursor_param": "next",
+                            "next_cursor_path": "meta.next_cursor",
+                            "per_page_param": "limit",
+                            "per_page": 2,
+                            "max_pages": 10,
+                        },
+                    }
+                }
+            },
+        )
+        requests = []
+
+        async def request_json(url, headers):
+            requests.append(url)
+            query = parse_qs(urlsplit(url).query)
+            if query.get("next") == ["abc"]:
+                return 200, {"data": [{"id": "3"}], "meta": {"next_cursor": None}}
+            return 200, {
+                "data": [{"id": "1"}, {"id": "2"}],
+                "meta": {"next_cursor": "abc", "total": 3},
+            }
+
+        with patch("app.services.integration_service._request_json", new=request_json):
+            rows = await _fetch_entity(source, "products")
+
+        self.assertEqual([row["id"] for row in rows], ["1", "2", "3"])
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(parse_qs(urlsplit(requests[0]).query)["limit"], ["2"])
+        self.assertEqual(parse_qs(urlsplit(requests[1]).query)["next"], ["abc"])
+
+    async def test_incremental_catalog_adds_watermark_with_configured_lookback(self):
+        watermark = datetime(2026, 8, 21, 12, 0, 0)
+        source = SimpleNamespace(
+            base_url="https://provider.example.com/api",
+            auth_type="none",
+            credentials={},
+            last_catalog_synced_at=watermark,
+            configuration={
+                "endpoints": {
+                    "products": {
+                        "path": "/products?tenant=lumefy",
+                        "incremental": {
+                            "enabled": True,
+                            "query_param": "updated_after",
+                            "lookback_minutes": 5,
+                            "format": "iso8601",
+                        },
+                    }
+                }
+            },
+        )
+        requests = []
+
+        async def request_json(url, headers):
+            requests.append(url)
+            return 200, {"data": []}
+
+        with patch("app.services.integration_service._request_json", new=request_json):
+            await _fetch_entity(source, "products")
+
+        query = parse_qs(urlsplit(requests[0]).query)
+        self.assertEqual(query["tenant"], ["lumefy"])
+        self.assertEqual(query["updated_after"], ["2026-08-21T11:55:00Z"])
+
+    async def test_cursor_rejects_next_url_on_another_origin(self):
+        source = SimpleNamespace(
+            base_url="https://provider.example.com/api",
+            auth_type="none",
+            credentials={},
+            last_catalog_synced_at=None,
+            configuration={
+                "endpoints": {
+                    "products": {
+                        "path": "/products",
+                        "pagination": {
+                            "enabled": True,
+                            "type": "cursor",
+                            "next_cursor_path": "links.next",
+                            "max_pages": 5,
+                        },
+                    }
+                }
+            },
+        )
+
+        async def request_json(url, headers):
+            return 200, {"data": [{"id": "1"}], "links": {"next": "https://evil.example/items?cursor=x"}}
+
+        with patch("app.services.integration_service._request_json", new=request_json):
+            with self.assertRaises(IntegrationRequestError):
+                await _fetch_entity(source, "products")
+
+    def test_incremental_url_keeps_first_sync_full(self):
+        source = SimpleNamespace(
+            last_catalog_synced_at=None,
+            configuration={
+                "endpoints": {
+                    "products": {
+                        "incremental": {"enabled": True, "query_param": "changed_since"},
+                    }
+                }
+            },
+        )
+
+        url, value = _incremental_request_url(
+            source,
+            "products",
+            source.configuration["endpoints"]["products"],
+            "https://provider.example.com/products",
+        )
+
+        self.assertEqual(url, "https://provider.example.com/products")
+        self.assertIsNone(value)
 
 
 if __name__ == "__main__":
