@@ -30,6 +30,7 @@ export interface ProductImage {
 
 export interface Product {
     id?: string;
+    is_active?: boolean;
     name: string;
     internal_reference?: string;
     sku?: string;
