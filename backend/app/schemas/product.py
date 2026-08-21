@@ -165,6 +165,8 @@ class ProductBulkDeleteArchivedRequest(BaseModel):
 
     product_ids: List[UUID] = Field(default_factory=list, max_length=5000)
     purge_inventory: bool = False
+    exclude_product_ids: List[UUID] = Field(default_factory=list, max_length=20000)
+    limit: int = Field(default=25, ge=1, le=100)
 
 
 class ProductPage(BaseModel):

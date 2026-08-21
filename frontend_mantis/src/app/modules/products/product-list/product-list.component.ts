@@ -209,26 +209,94 @@ export class ProductListComponent implements OnInit {
                 }
 
                 this.isLoading = true;
-                const body = ids.length
-                    ? { product_ids: ids, purge_inventory: true }
-                    : { purge_inventory: true };
-                this.apiService.post<BulkDeleteResponse>('/products/bulk-delete-archived', body).subscribe({
-                    next: (response) => {
-                        this.clearSelection();
-                        this.showBulkDeleteResult(response, 'Eliminación definitiva');
-                    },
-                    error: (err) => {
-                        console.error('Error permanently deleting archived products', err);
-                        const detail = err?.error?.detail;
-                        this.swal.error(
-                            'No se pudieron eliminar definitivamente',
-                            typeof detail === 'string' ? detail : 'Intenta nuevamente.'
-                        );
-                        this.isLoading = false;
-                        this.cdr.detectChanges();
-                    }
-                });
+                this.deleteArchivedBatch(
+                    ids.length ? ids : null,
+                    0,
+                    [],
+                    this.emptyBulkDeleteResponse()
+                );
             });
+    }
+
+    private emptyBulkDeleteResponse(): BulkDeleteResponse {
+        return {
+            requested: 0,
+            deleted: 0,
+            deleted_ids: [],
+            archived: 0,
+            archived_ids: [],
+            blocked: [],
+            not_found: []
+        };
+    }
+
+    private mergeBulkDeleteResponse(target: BulkDeleteResponse, response: BulkDeleteResponse): void {
+        target.requested += response.requested;
+        target.deleted += response.deleted;
+        target.deleted_ids.push(...response.deleted_ids);
+        target.archived += response.archived;
+        target.archived_ids.push(...response.archived_ids);
+        target.blocked.push(...response.blocked);
+        target.not_found.push(...response.not_found);
+    }
+
+    private deleteArchivedBatch(
+        productIds: string[] | null,
+        offset: number,
+        excludedIds: string[],
+        aggregate: BulkDeleteResponse
+    ): void {
+        const batchSize = 25;
+        const body: {
+            product_ids?: string[];
+            purge_inventory: boolean;
+            exclude_product_ids?: string[];
+            limit?: number;
+        } = { purge_inventory: true };
+
+        if (productIds) {
+            body.product_ids = productIds.slice(offset, offset + batchSize);
+        } else {
+            body.limit = batchSize;
+            if (excludedIds.length) {
+                body.exclude_product_ids = excludedIds;
+            }
+        }
+
+        this.apiService.post<BulkDeleteResponse>('/products/bulk-delete-archived', body).subscribe({
+            next: (response) => {
+                this.mergeBulkDeleteResponse(aggregate, response);
+                const nextExcludedIds = Array.from(new Set([
+                    ...excludedIds,
+                    ...response.blocked.map((item) => item.id),
+                    ...response.not_found
+                ]));
+                const nextOffset = productIds
+                    ? offset + (body.product_ids?.length ?? 0)
+                    : offset;
+                const hasNextBatch = productIds
+                    ? nextOffset < productIds.length
+                    : response.requested > 0;
+
+                if (hasNextBatch) {
+                    this.deleteArchivedBatch(productIds, nextOffset, nextExcludedIds, aggregate);
+                    return;
+                }
+
+                this.clearSelection();
+                this.showBulkDeleteResult(aggregate, 'Eliminación definitiva');
+            },
+            error: (err) => {
+                console.error('Error permanently deleting archived products', err);
+                const detail = err?.error?.detail;
+                this.swal.error(
+                    'No se pudieron eliminar definitivamente',
+                    typeof detail === 'string' ? detail : 'Intenta nuevamente.'
+                );
+                this.isLoading = false;
+                this.cdr.detectChanges();
+            }
+        });
     }
 
     onPageSizeChange(value: number | string): void {

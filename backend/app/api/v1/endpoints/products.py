@@ -1107,6 +1107,10 @@ async def bulk_delete_archived_products(
     )
     if requested_ids:
         query = query.where(Product.id.in_(requested_ids))
+    else:
+        if product_in.exclude_product_ids:
+            query = query.where(Product.id.not_in(product_in.exclude_product_ids))
+        query = query.order_by(Product.created_at.asc(), Product.id.asc()).limit(product_in.limit)
 
     products = (await db.execute(query)).scalars().all()
     products_by_id = {product.id: product for product in products}
