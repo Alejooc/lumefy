@@ -11,10 +11,15 @@
               <i class="ti ti-file-text"></i> CSV
             </button>
           </div>
+          <button class="btn btn-outline-secondary" (click)="toggleArchivedView" [disabled]="isLoading"
+            [title]="showArchived ? 'Volver al catálogo activo' : 'Consultar productos archivados'">
+            <i class="ti" [ngClass]="showArchived ? 'ti-package' : 'ti-archive'"></i>
+            {{ showArchived ? 'Ver catálogo activo' : 'Ver archivados' }}
+          </button>
           <button class="btn btn-outline-primary" routerLink="/products/import">
             <i class="ti ti-upload"></i> Importar
           </button>
-          @if (totalProducts > 0) {
+          @if (totalProducts > 0 && !showArchived) {
             <button class="btn btn-outline-warning" (click)="completeImageUrls()" [disabled]="isLoading"
               title="Completar rutas relativas o reemplazar una base de imágenes incorrecta">
               <i class="ti ti-photo-edit"></i>
@@ -62,6 +67,9 @@
               <span>Mostrando {{ firstVisibleProduct }}–{{ lastVisibleProduct }} de {{ totalProducts }} producto(s)</span>
             } @else {
               <span>0 productos en el catálogo</span>
+            }
+            @if (showArchived) {
+              <span class="ms-2 badge bg-light-warning text-warning">Vista de archivados</span>
             }
             @if (selectedCount > 0) {
               <span class="ms-2 badge bg-light-danger text-danger">{{ selectedCount }} seleccionado(s)</span>
@@ -124,6 +132,9 @@
                         }
                         <div>
                           <div class="fw-bold">{{ product.name }}</div>
+                          @if (!product.is_active) {
+                            <span class="badge bg-light-warning text-warning">Archivado</span>
+                          }
                           @if (product.internal_reference) {
                             <small class="text-muted">
                               Ref: {{ product.internal_reference }}

@@ -228,14 +228,17 @@ def _product_filter_conditions(
     category_id: str | None = None,
     brand_id: str | None = None,
     product_type: str | None = None,
+    include_archived: bool = False,
 ):
     """Return reusable product predicates without eager-loading side effects."""
     conditions = []
     if company_id:
         conditions.append(Product.company_id == company_id)
     # Archived products remain in the database when they are referenced by
-    # historical documents, but must disappear from the active catalog.
-    conditions.append(Product.is_active.is_(True))
+    # historical documents, but must disappear from the active catalog unless
+    # an administrator explicitly requests the archived view.
+    if not include_archived:
+        conditions.append(Product.is_active.is_(True))
 
     if search:
         search_filter = f"%{search.strip()}%"
@@ -271,6 +274,7 @@ def _product_collection_query(
     category_id: str | None = None,
     brand_id: str | None = None,
     product_type: str | None = None,
+    include_archived: bool = False,
 ):
     """Build the shared catalog query used by list and paginated endpoints."""
     query = select(Product).options(
@@ -288,6 +292,7 @@ def _product_collection_query(
             category_id=category_id,
             brand_id=brand_id,
             product_type=product_type,
+            include_archived=include_archived,
         )
     )
 
@@ -326,6 +331,7 @@ async def read_products(
     category_id: str = None,
     brand_id: str = None,
     product_type: str = None,
+    include_archived: bool = False,
     current_user: User = Depends(PermissionChecker("view_products")),
 ) -> Any:
     """Retrieve products with all relations."""
@@ -335,6 +341,7 @@ async def read_products(
         category_id=category_id,
         brand_id=brand_id,
         product_type=product_type,
+        include_archived=include_archived,
     ).offset(skip).limit(limit)
     result = await db.execute(query)
     products = result.scalars().all()
@@ -350,6 +357,7 @@ async def read_products_page(
     category_id: str = None,
     brand_id: str = None,
     product_type: str = None,
+    include_archived: bool = False,
     current_user: User = Depends(PermissionChecker("view_products")),
 ) -> schemas.ProductPage:
     """Retrieve a catalog page together with the total matching product count."""
@@ -364,6 +372,7 @@ async def read_products_page(
         "category_id": category_id,
         "brand_id": brand_id,
         "product_type": product_type,
+        "include_archived": include_archived,
     }
     # Count only the filtered product rows.  The previous implementation built
     # the full eager-loaded collection query first, which made every search

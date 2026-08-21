@@ -2125,6 +2125,7 @@ async def _sync_products(
                 external_id=external_id,
             )
             db.add(link)
+        link.is_active = True
         link.local_product_id = product.id
         link.external_sku = sku
         link.last_synced_at = datetime.utcnow()
@@ -2191,6 +2192,12 @@ async def _sync_products(
                 if variant_sku is not None:
                     variant.sku = variant_sku
 
+            # A catalog purge archives the product and its variants when
+            # business history protects them from physical deletion. A later
+            # catalog sync is the explicit source-of-truth path for restoring
+            # both records so the imported catalog is usable again.
+            variant.is_active = True
+
             variant_price = _as_float(_mapped_context(
                 variant_item, mapping, "variant.price", variants_prefix, "price", "sale_price", "selling_price"
             ))
@@ -2233,6 +2240,7 @@ async def _sync_products(
                     external_id=variant_external_id,
                 )
                 db.add(variant_link)
+            variant_link.is_active = True
             variant_link.local_product_id = product.id
             variant_link.local_variant_id = variant.id
             variant_link.external_sku = variant_sku

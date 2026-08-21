@@ -68,6 +68,7 @@ export class ProductListComponent implements OnInit {
     pageSize = 50;
     totalProducts = 0;
     totalPages = 0;
+    showArchived = false;
 
     currencySymbol = '$';
 
@@ -95,6 +96,9 @@ export class ProductListComponent implements OnInit {
         if (this.searchQuery.trim()) {
             params['search'] = this.searchQuery.trim();
         }
+        if (this.showArchived) {
+            params['include_archived'] = 'true';
+        }
         this.apiService.get<ProductPageResponse>('/products/paged', params).subscribe({
             next: (data) => {
                 this.products = data.items;
@@ -115,6 +119,16 @@ export class ProductListComponent implements OnInit {
     onSearch() {
         this.clearSelection();
         this.page = 1;
+        this.loadProducts();
+    }
+
+    toggleArchivedView(): void {
+        if (this.isLoading) {
+            return;
+        }
+        this.showArchived = !this.showArchived;
+        this.page = 1;
+        this.clearSelection();
         this.loadProducts();
     }
 
