@@ -189,6 +189,48 @@ export class ProductListComponent implements OnInit {
             });
     }
 
+    deleteArchivedProducts(productIds?: string[]): void {
+        if (!this.showArchived || !this.totalProducts || this.isLoading) {
+            return;
+        }
+
+        const ids = productIds ?? Array.from(this.selectedProductIds);
+        const scopeText = ids.length
+            ? `Se eliminarán definitivamente los ${ids.length} productos seleccionados.`
+            : `Se eliminarán definitivamente los ${this.totalProducts} productos archivados.`;
+        this.swal
+            .confirm(
+                '¿Eliminar definitivamente productos archivados?',
+                `${scopeText} También se eliminarán sus existencias, lotes, movimientos y conteos de inventario, además de variantes, imágenes y publicaciones de ecommerce. Los productos con ventas, facturas u otro historial comercial se conservarán archivados. Esta acción no se puede deshacer.`
+            )
+            .then((result) => {
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                this.isLoading = true;
+                const body = ids.length
+                    ? { product_ids: ids, purge_inventory: true }
+                    : { purge_inventory: true };
+                this.apiService.post<BulkDeleteResponse>('/products/bulk-delete-archived', body).subscribe({
+                    next: (response) => {
+                        this.clearSelection();
+                        this.showBulkDeleteResult(response, 'Eliminación definitiva');
+                    },
+                    error: (err) => {
+                        console.error('Error permanently deleting archived products', err);
+                        const detail = err?.error?.detail;
+                        this.swal.error(
+                            'No se pudieron eliminar definitivamente',
+                            typeof detail === 'string' ? detail : 'Intenta nuevamente.'
+                        );
+                        this.isLoading = false;
+                        this.cdr.detectChanges();
+                    }
+                });
+            });
+    }
+
     onPageSizeChange(value: number | string): void {
         const nextPageSize = Number(value);
         if (!Number.isFinite(nextPageSize) || nextPageSize < 1 || nextPageSize > 100) {
@@ -291,6 +333,11 @@ export class ProductListComponent implements OnInit {
     }
 
     deleteProduct(id: string) {
+        if (this.showArchived) {
+            this.deleteArchivedProducts([id]);
+            return;
+        }
+
         this.swal.confirmDelete().then((confirmed) => {
             if (confirmed) {
                 this.isLoading = true;

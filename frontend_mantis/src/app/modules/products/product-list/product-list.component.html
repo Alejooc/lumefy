@@ -25,6 +25,11 @@
               <i class="ti ti-archive-off"></i>
               {{ selectedCount > 0 ? 'Activar seleccionados' : 'Activar todos' }}
             </button>
+            <button class="btn btn-outline-danger" (click)="deleteArchivedProducts()" [disabled]="isLoading"
+              title="Eliminar definitivamente los productos archivados seleccionados o todos los archivados">
+              <i class="ti ti-trash-x"></i>
+              {{ selectedCount > 0 ? 'Eliminar seleccionados' : 'Eliminar archivados' }}
+            </button>
           }
           @if (totalProducts > 0 && !showArchived) {
             <button class="btn btn-outline-warning" (click)="completeImageUrls()" [disabled]="isLoading"

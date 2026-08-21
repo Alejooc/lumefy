@@ -3,7 +3,7 @@ from uuid import UUID
 from urllib.parse import urljoin, urlsplit
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, load_only, selectinload
 import json
@@ -12,7 +12,7 @@ import re
 from app.core.database import get_db
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
-from app.models.storefront import PublishedProduct, Storefront
+from app.models.storefront import PublishedProduct, StoreCollectionProduct, Storefront
 from app.models.invoice import InvoiceItem
 from app.models.inventory import Inventory
 from app.models.inventory_lot import InventoryLot
@@ -212,6 +212,61 @@ async def _find_product_delete_blockers(db: AsyncSession, product_ids: list[Any]
             if product_id in blockers and reason not in blockers[product_id]:
                 blockers[product_id].append(reason)
     return blockers
+
+
+async def _remove_ecommerce_publications(
+    db: AsyncSession,
+    *,
+    company_id: Any,
+    product_ids: list[Any],
+) -> None:
+    """Remove non-historical ecommerce rows before permanently deleting products."""
+    if not product_ids:
+        return
+
+    published_result = await db.execute(
+        select(PublishedProduct.id).where(
+            PublishedProduct.company_id == company_id,
+            PublishedProduct.product_id.in_(product_ids),
+        )
+    )
+    published_ids = published_result.scalars().all()
+    if not published_ids:
+        return
+
+    # Collection rows point to the publication, not directly to the product.
+    # Delete them first because this relationship is not database-cascading in
+    # every deployed schema.
+    await db.execute(
+        delete(StoreCollectionProduct).where(
+            StoreCollectionProduct.published_product_id.in_(published_ids)
+        )
+    )
+    await db.execute(
+        delete(PublishedProduct).where(PublishedProduct.id.in_(published_ids))
+    )
+
+
+async def _purge_inventory_records(
+    db: AsyncSession,
+    *,
+    company_id: Any,
+    product_ids: list[Any],
+) -> None:
+    """Delete inventory state and inventory audit rows for archived products."""
+    if not product_ids:
+        return
+
+    conditions = lambda model: (
+        model.company_id == company_id,
+        model.product_id.in_(product_ids),
+    )
+
+    # Stock-take lines, lots, movements and current balances all reference the
+    # product directly. They must be removed before deleting its variants and
+    # the product itself.
+    for model in (StockTakeItem, InventoryLot, InventoryMovement, Inventory):
+        await db.execute(delete(model).where(*conditions(model)))
 
 
 def _delete_blocker_detail(product: Product, reasons: list[str]) -> str:
@@ -1029,6 +1084,64 @@ async def bulk_restore_archived_products(
         restored=len(products),
         restored_ids=[product.id for product in products],
         not_found=not_found,
+    )
+
+
+@router.post("/bulk-delete-archived", response_model=schemas.ProductBulkDeleteResponse)
+async def bulk_delete_archived_products(
+    *,
+    product_in: schemas.ProductBulkDeleteArchivedRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> schemas.ProductBulkDeleteResponse:
+    """Permanently delete selected archived products, or all archived products."""
+    product_in = product_in or schemas.ProductBulkDeleteArchivedRequest()
+    requested_ids = list(dict.fromkeys(product_in.product_ids))
+    query = (
+        select(Product)
+        .options(selectinload(Product.variants), selectinload(Product.images))
+        .where(
+            Product.company_id == current_user.company_id,
+            Product.is_active.is_(False),
+        )
+    )
+    if requested_ids:
+        query = query.where(Product.id.in_(requested_ids))
+
+    products = (await db.execute(query)).scalars().all()
+    products_by_id = {product.id: product for product in products}
+    product_ids = list(products_by_id)
+    not_found = [product_id for product_id in requested_ids if product_id not in products_by_id]
+
+    if product_in.purge_inventory:
+        await _purge_inventory_records(
+            db,
+            company_id=current_user.company_id,
+            product_ids=product_ids,
+        )
+
+    # An ecommerce publication is catalog metadata, not business history. It
+    # can be removed for products that have no other protected relation. Keep
+    # it for products that remain blocked by sales, invoices or inventory.
+    blockers = await _find_product_delete_blockers(db, product_ids)
+    publication_only_ids = [
+        product_id
+        for product_id, reasons in blockers.items()
+        if reasons and set(reasons) == {"Está publicado en ecommerce"}
+    ]
+    await _remove_ecommerce_publications(
+        db,
+        company_id=current_user.company_id,
+        product_ids=publication_only_ids,
+    )
+
+    return await _delete_products_guarded(
+        db=db,
+        product_ids=product_ids,
+        products_by_id=products_by_id,
+        not_found=not_found,
+        current_user=current_user,
+        archive_blocked=False,
     )
 
 

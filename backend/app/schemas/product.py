@@ -160,6 +160,13 @@ class ProductBulkRestoreArchivedResponse(BaseModel):
     not_found: List[UUID]
 
 
+class ProductBulkDeleteArchivedRequest(BaseModel):
+    """Archived products selected for permanent deletion, or all when empty."""
+
+    product_ids: List[UUID] = Field(default_factory=list, max_length=5000)
+    purge_inventory: bool = False
+
+
 class ProductPage(BaseModel):
     """A server-paginated product collection for catalog screens."""
 
