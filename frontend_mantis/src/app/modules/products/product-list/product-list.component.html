@@ -19,6 +19,13 @@
           <button class="btn btn-outline-primary" routerLink="/products/import">
             <i class="ti ti-upload"></i> Importar
           </button>
+          @if (showArchived && totalProducts > 0) {
+            <button class="btn btn-success" (click)="restoreArchivedProducts()" [disabled]="isLoading"
+              title="Activar los productos archivados seleccionados o todos los archivados">
+              <i class="ti ti-archive-off"></i>
+              {{ selectedCount > 0 ? 'Activar seleccionados' : 'Activar todos' }}
+            </button>
+          }
           @if (totalProducts > 0 && !showArchived) {
             <button class="btn btn-outline-warning" (click)="completeImageUrls()" [disabled]="isLoading"
               title="Completar rutas relativas o reemplazar una base de imágenes incorrecta">
@@ -34,12 +41,12 @@
           <button class="btn btn-primary" routerLink="/products/create">
             <i class="ti ti-plus"></i> Nuevo Producto
           </button>
-          @if (selectedCount > 0) {
+          @if (selectedCount > 0 && !showArchived) {
             <button class="btn btn-danger" (click)="deleteSelected()" [disabled]="isLoading">
               <i class="ti ti-trash"></i> Eliminar seleccionados ({{ selectedCount }})
             </button>
           }
-          @if (totalProducts > 0) {
+          @if (totalProducts > 0 && !showArchived) {
             <button class="btn btn-outline-danger" (click)="deleteAllProducts()" [disabled]="isLoading"
               title="Eliminar todos los productos del catálogo, no solo los visibles">
               <i class="ti ti-trash-x"></i> Eliminar todo el catálogo

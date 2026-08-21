@@ -975,6 +975,63 @@ async def bulk_delete_all_products(
         archive_blocked=bool(product_in.force),
     )
 
+
+@router.post("/bulk-restore-archived", response_model=schemas.ProductBulkRestoreArchivedResponse)
+async def bulk_restore_archived_products(
+    *,
+    product_in: schemas.ProductBulkRestoreArchivedRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> schemas.ProductBulkRestoreArchivedResponse:
+    """Restore selected archived products, or the complete archived catalog."""
+    product_in = product_in or schemas.ProductBulkRestoreArchivedRequest()
+    requested_ids = list(dict.fromkeys(product_in.product_ids))
+    query = (
+        select(Product)
+        .options(selectinload(Product.variants))
+        .where(
+            Product.company_id == current_user.company_id,
+            Product.is_active.is_(False),
+        )
+    )
+    if requested_ids:
+        query = query.where(Product.id.in_(requested_ids))
+
+    products = (await db.execute(query)).scalars().all()
+    products_by_id = {product.id: product for product in products}
+    not_found = [product_id for product_id in requested_ids if product_id not in products_by_id]
+
+    for product in products:
+        product.is_active = True
+        product.sale_ok = True
+        product.purchase_ok = True
+        for variant in product.variants:
+            variant.is_active = True
+
+    if products:
+        await log_activity(
+            db,
+            action="RESTORE",
+            entity_type="Product",
+            entity_id=current_user.company_id,
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            details={
+                "bulk": True,
+                "restored": len(products),
+                "product_ids": [str(product.id) for product in products],
+            },
+        )
+    await db.commit()
+
+    return schemas.ProductBulkRestoreArchivedResponse(
+        requested=len(requested_ids) if requested_ids else len(products),
+        restored=len(products),
+        restored_ids=[product.id for product in products],
+        not_found=not_found,
+    )
+
+
 @router.get("/{product_id}", response_model=schemas.Product)
 async def read_product(
     product_id: str,

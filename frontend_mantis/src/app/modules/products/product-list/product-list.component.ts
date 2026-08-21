@@ -21,6 +21,13 @@ interface BulkDeleteResponse {
     not_found: string[];
 }
 
+interface BulkRestoreArchivedResponse {
+    requested: number;
+    restored: number;
+    restored_ids: string[];
+    not_found: string[];
+}
+
 interface BulkImageUrlResponse {
     requested: number;
     products_updated: number;
@@ -130,6 +137,56 @@ export class ProductListComponent implements OnInit {
         this.page = 1;
         this.clearSelection();
         this.loadProducts();
+    }
+
+    restoreArchivedProducts(): void {
+        if (!this.showArchived || !this.totalProducts || this.isLoading) {
+            return;
+        }
+
+        const selectedIds = Array.from(this.selectedProductIds);
+        const scopeText = selectedIds.length
+            ? `Se activarán los ${selectedIds.length} productos seleccionados.`
+            : `Se activarán los ${this.totalProducts} productos archivados.`;
+        this.swal
+            .confirm(
+                '¿Activar productos archivados?',
+                `${scopeText} Volverán al catálogo activo junto con sus variantes.`
+            )
+            .then((result) => {
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                this.isLoading = true;
+                const body = selectedIds.length ? { product_ids: selectedIds } : {};
+                this.apiService.post<BulkRestoreArchivedResponse>('/products/bulk-restore-archived', body).subscribe({
+                    next: (response) => {
+                        this.clearSelection();
+                        this.showArchived = false;
+                        this.page = 1;
+                        this.isLoading = false;
+                        const missingText = response.not_found.length
+                            ? ` ${response.not_found.length} no estaban archivados.`
+                            : '';
+                        this.swal.success(
+                            'Productos activados',
+                            `${response.restored} producto(s) volvieron al catálogo activo.${missingText}`
+                        );
+                        this.loadProducts();
+                    },
+                    error: (err) => {
+                        console.error('Error restoring archived products', err);
+                        this.isLoading = false;
+                        const detail = err?.error?.detail;
+                        this.swal.error(
+                            'No se pudieron activar los productos',
+                            typeof detail === 'string' ? detail : 'Intenta nuevamente.'
+                        );
+                        this.cdr.detectChanges();
+                    }
+                });
+            });
     }
 
     onPageSizeChange(value: number | string): void {

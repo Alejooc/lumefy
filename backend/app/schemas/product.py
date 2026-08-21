@@ -147,6 +147,19 @@ class ProductBulkDeleteResponse(BaseModel):
     archived_ids: List[UUID] = Field(default_factory=list)
 
 
+class ProductBulkRestoreArchivedRequest(BaseModel):
+    """Restore selected archived products, or all archived products when empty."""
+
+    product_ids: List[UUID] = Field(default_factory=list, max_length=5000)
+
+
+class ProductBulkRestoreArchivedResponse(BaseModel):
+    requested: int
+    restored: int
+    restored_ids: List[UUID]
+    not_found: List[UUID]
+
+
 class ProductPage(BaseModel):
     """A server-paginated product collection for catalog screens."""
 
