@@ -3,6 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { EcommerceContextService } from 'src/app/core/services/ecommerce-context.service';
+import { environment } from 'src/environments/environment';
 import {
   Storefront,
   StorefrontAdminService,
@@ -15,6 +16,7 @@ import {
   StorefrontSocialLinks
 } from 'src/app/core/services/storefront-admin.service';
 import { PermissionService } from 'src/app/core/services/permission.service';
+import { ApiService } from 'src/app/core/services/api.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
 
 @Component({
@@ -26,12 +28,14 @@ import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.ser
 })
 export class EcommerceBrandingComponent implements OnInit {
   private storefrontService = inject(StorefrontAdminService);
+  private api = inject(ApiService);
   private context = inject(EcommerceContextService);
   private permissions = inject(PermissionService);
   private swal = inject(SweetAlertService);
 
   loading = false;
   saving = false;
+  uploadingLogo = false;
   editing = false;
   storefronts: Storefront[] = [];
   selectedStorefrontId = '';
@@ -78,6 +82,51 @@ export class EcommerceBrandingComponent implements OnInit {
       this.applySelectedStorefront();
       this.editing = false;
     }
+  }
+
+  onLogoFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      this.swal.error('Archivo no válido', 'Selecciona una imagen en formato JPG, PNG, WebP o GIF.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      this.swal.error('Imagen demasiado grande', 'El logo no puede superar los 10 MB.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    this.uploadingLogo = true;
+    this.api.post<{ url: string }>('/upload/storefront-logo', formData).subscribe({
+      next: (response) => {
+        this.brandingForm = { ...this.brandingForm, logo_url: response.url };
+        this.uploadingLogo = false;
+      },
+      error: (err) => {
+        this.uploadingLogo = false;
+        this.swal.error('No se pudo subir el logo', err?.error?.detail || 'Intenta nuevamente.');
+      }
+    });
+  }
+
+  clearLogo(): void {
+    this.brandingForm = { ...this.brandingForm, logo_url: '' };
+  }
+
+  logoPreviewUrl(value: string | null | undefined): string {
+    const normalized = (value || '').trim();
+    if (!normalized.startsWith('/static/')) {
+      return normalized;
+    }
+    const apiRoot = environment.apiUrl.replace(/\/api\/v1\/?$/, '');
+    return `${apiRoot}${normalized}`;
   }
 
   addPromoBanner(): void {

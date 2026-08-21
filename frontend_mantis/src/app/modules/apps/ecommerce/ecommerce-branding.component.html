@@ -59,8 +59,30 @@
 
         <div class="row g-3">
           <div class="col-12">
-            <label class="form-label">Logo URL</label>
-            <input class="form-control" [(ngModel)]="brandingForm.logo_url" placeholder="https://.../logo.png" />
+            <label class="form-label">Logo de la tienda</label>
+            <div class="input-group">
+              <input class="form-control" type="url" [(ngModel)]="brandingForm.logo_url"
+                placeholder="https://.../logo.png" aria-label="URL pública del logo" />
+              <button class="btn btn-outline-primary" type="button" (click)="logoFileInput.click()"
+                [disabled]="uploadingLogo">
+                <i class="ti ti-upload"></i>
+                {{ uploadingLogo ? 'Subiendo...' : 'Subir imagen' }}
+              </button>
+              <button class="btn btn-outline-secondary" type="button" (click)="clearLogo()"
+                [disabled]="uploadingLogo || !brandingForm.logo_url" title="Quitar logo">
+                <i class="ti ti-x"></i>
+              </button>
+            </div>
+            <input #logoFileInput type="file" class="d-none" accept="image/png,image/jpeg,image/webp,image/gif"
+              (change)="onLogoFileSelected($event)" />
+            <small class="text-muted d-block mt-2">Puedes pegar cualquier URL pública o subir JPG, PNG, WebP o GIF (máximo 10 MB).</small>
+            @if (brandingForm.logo_url) {
+              <div class="mt-3 d-flex align-items-center gap-3">
+                <img [src]="logoPreviewUrl(brandingForm.logo_url)" alt="Vista previa del logo" class="rounded border p-1"
+                  style="max-width: 220px; max-height: 80px; object-fit: contain;" />
+                <small class="text-muted">Vista previa del logo configurado</small>
+              </div>
+            }
           </div>
           <div class="col-md-6">
             <label class="form-label">Telefono de soporte</label>
