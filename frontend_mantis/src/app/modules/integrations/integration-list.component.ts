@@ -717,6 +717,16 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     return typeof value === 'number' && Number.isFinite(value) ? value : null;
   }
 
+  enable(source: IntegrationSource): void {
+    this.integrationService.updateSource(source.id, { is_active: true }).subscribe({
+      next: (updated) => {
+        this.sources = this.sources.map((item) => item.id === updated.id ? updated : item);
+        this.swal.success('Origen activado', 'Ya puedes ejecutar el catálogo y el inventario.');
+      },
+      error: (error) => this.swal.error('Error', error?.error?.detail || 'No se pudo activar el origen.')
+    });
+  }
+
   async disable(source: IntegrationSource): Promise<void> {
     const result = await this.swal.confirm('Desactivar origen', `¿Desactivar ${source.name}?`);
     if (!result.isConfirmed) return;

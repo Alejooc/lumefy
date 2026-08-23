@@ -59,6 +59,7 @@ class IntegrationSyncConflict(Exception):
 LOGGER = logging.getLogger("lumefy.integration")
 MAX_SYNC_ERROR_SAMPLES = 100
 MAX_WEBHOOK_BODY_BYTES = 1024 * 1024
+STALE_SYNC_MINUTES = max(10, int(os.getenv("INTEGRATION_SYNC_STALE_MINUTES", "60")))
 
 
 ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
@@ -3448,7 +3449,18 @@ async def enqueue_sync(
         ).limit(1)
     )).scalars().first()
     if active_run:
-        raise IntegrationSyncConflict("Ya existe una sincronización de este tipo en cola o en ejecución.")
+        last_touch = active_run.updated_at or active_run.started_at or active_run.queued_at
+        stale_before = datetime.utcnow() - timedelta(minutes=STALE_SYNC_MINUTES)
+        if normalized_trigger_type == "MANUAL" and last_touch and last_touch < stale_before:
+            active_run.status = "FAILED"
+            active_run.finished_at = datetime.utcnow()
+            active_run.error_message = "La ejecución fue recuperada antes de iniciar una nueva ejecución manual."
+            source.status = "ERROR"
+            source.last_sync_status = "FAILED"
+            source.last_error = active_run.error_message
+            await db.flush()
+        else:
+            raise IntegrationSyncConflict("Ya existe una sincronización de este tipo en cola o en ejecución.")
 
     now = datetime.utcnow()
     run = IntegrationSyncRun(

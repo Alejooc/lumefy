@@ -428,6 +428,109 @@ async def _purge_catalog_dependencies(
     return counts
 
 
+async def _purge_products_physically(
+    *,
+    db: AsyncSession,
+    product_ids: list[Any],
+    current_user: User,
+) -> schemas.ProductBulkDeleteResponse:
+    """Delete the requested products and their product-owned relations.
+
+    Product deletion is intentionally physical in the admin panel.  Sales,
+    invoices and purchase headers remain available for navigation/audit, but
+    their product lines, inventory rows and ecommerce publications are removed
+    so a product the operator no longer wants cannot remain as an archive.
+    """
+
+    requested_ids = list(dict.fromkeys(product_ids))
+    if not requested_ids:
+        return schemas.ProductBulkDeleteResponse(
+            requested=0,
+            deleted=0,
+            deleted_ids=[],
+            blocked=[],
+            not_found=[],
+            archived=0,
+            archived_ids=[],
+        )
+
+    result = await db.execute(
+        select(Product.id).where(
+            Product.company_id == current_user.company_id,
+            Product.id.in_(requested_ids),
+        )
+    )
+    found_ids = list(result.scalars().all())
+    found_set = set(found_ids)
+    not_found = [product_id for product_id in requested_ids if product_id not in found_set]
+    if not found_ids:
+        return schemas.ProductBulkDeleteResponse(
+            requested=len(requested_ids),
+            deleted=0,
+            deleted_ids=[],
+            blocked=[],
+            not_found=not_found,
+            archived=0,
+            archived_ids=[],
+        )
+
+    variant_ids = list(
+        (
+            await db.execute(
+                select(ProductVariant.id).where(ProductVariant.product_id.in_(found_ids))
+            )
+        ).scalars().all()
+    )
+    local_asset_urls: set[str] = {
+        str(value).strip()
+        for value in (
+            await db.execute(select(Product.image_url).where(Product.id.in_(found_ids)))
+        ).scalars().all()
+        if value
+    }
+    local_asset_urls.update(
+        str(value).strip()
+        for value in (
+            await db.execute(select(ProductImage.image_url).where(ProductImage.product_id.in_(found_ids)))
+        ).scalars().all()
+        if value
+    )
+
+    try:
+        counts = await _purge_catalog_dependencies(
+            db,
+            company_id=current_user.company_id,
+            product_ids=found_ids,
+            variant_ids=variant_ids,
+        )
+        await log_activity(
+            db,
+            action="DELETE",
+            entity_type="Product",
+            entity_id=current_user.company_id,
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            details={"bulk": len(found_ids) > 1, "physical": True, "products": len(found_ids)},
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    await remove_unreferenced_local_assets(db, local_asset_urls)
+    await prune_orphaned_local_assets(db)
+    deleted = counts.get("products", 0)
+    return schemas.ProductBulkDeleteResponse(
+        requested=len(requested_ids),
+        deleted=deleted,
+        deleted_ids=found_ids[:deleted],
+        blocked=[],
+        not_found=not_found,
+        archived=0,
+        archived_ids=[],
+    )
+
+
 def _delete_blocker_detail(product: Product, reasons: list[str]) -> str:
     return (
         f"No se puede eliminar '{product.name}' porque {', '.join(reasons).lower()}. "
@@ -1002,28 +1105,14 @@ async def bulk_delete_products(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> schemas.ProductBulkDeleteResponse:
-    """Delete selected products, skipping anything referenced by business history."""
+    """Physically delete the selected products and their owned relations."""
     # Keep the response deterministic and do not process the same product twice
     # if a client accidentally submits duplicate checkbox values.
     product_ids = list(dict.fromkeys(product_in.product_ids))
-    result = await db.execute(
-        select(Product)
-        .options(selectinload(Product.variants), selectinload(Product.images))
-        .where(
-            Product.company_id == current_user.company_id,
-            Product.id.in_(product_ids),
-        )
-    )
-    products = result.scalars().all()
-    products_by_id = {product.id: product for product in products}
-    not_found = [product_id for product_id in product_ids if product_id not in products_by_id]
-    return await _delete_products_guarded(
+    return await _purge_products_physically(
         db=db,
         product_ids=product_ids,
-        products_by_id=products_by_id,
-        not_found=not_found,
         current_user=current_user,
-        archive_blocked=bool(product_in.force),
     )
 
 
@@ -1157,12 +1246,11 @@ async def bulk_delete_all_products(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> schemas.ProductBulkDeleteResponse:
-    """Delete every product in the company, archiving protected history when forced."""
+    """Physically delete every product in the company, including archives."""
     product_in = product_in or schemas.ProductBulkDeleteAllRequest()
     query = (
-        select(Product)
-        .options(selectinload(Product.variants), selectinload(Product.images))
-        .where(Product.company_id == current_user.company_id, Product.is_active.is_(True))
+        select(Product.id)
+        .where(Product.company_id == current_user.company_id)
     )
     if product_in.search:
         search_filter = f"%{product_in.search}%"
@@ -1181,17 +1269,11 @@ async def bulk_delete_all_products(
     if product_in.product_type:
         query = query.where(Product.product_type == product_in.product_type)
 
-    result = await db.execute(query)
-    products = result.scalars().all()
-    products_by_id = {product.id: product for product in products}
-    product_ids = list(products_by_id)
-    return await _delete_products_guarded(
+    result = await db.execute(query.order_by(Product.created_at.asc(), Product.id.asc()))
+    return await _purge_products_physically(
         db=db,
-        product_ids=product_ids,
-        products_by_id=products_by_id,
-        not_found=[],
+        product_ids=list(result.scalars().all()),
         current_user=current_user,
-        archive_blocked=bool(product_in.force),
     )
 
 
@@ -1218,79 +1300,13 @@ async def purge_all_products(
         product_type=product_in.product_type,
         include_archived=True,
     )
-    product_ids = list(
-        (
-            await db.execute(
-                select(Product.id).where(*conditions).order_by(Product.created_at.asc(), Product.id.asc())
-            )
-        ).scalars().all()
+    result = await db.execute(
+        select(Product.id).where(*conditions).order_by(Product.created_at.asc(), Product.id.asc())
     )
-    if not product_ids:
-        return schemas.ProductBulkDeleteResponse(
-            requested=0,
-            deleted=0,
-            deleted_ids=[],
-            blocked=[],
-            not_found=[],
-        )
-
-    variant_ids = list(
-        (
-            await db.execute(
-                select(ProductVariant.id).where(ProductVariant.product_id.in_(product_ids))
-            )
-        ).scalars().all()
-    )
-    local_asset_urls: set[str] = {
-        str(value).strip()
-        for value in (
-            await db.execute(select(Product.image_url).where(Product.id.in_(product_ids)))
-        ).scalars().all()
-        if value
-    }
-    local_asset_urls.update(
-        str(value).strip()
-        for value in (
-            await db.execute(select(ProductImage.image_url).where(ProductImage.product_id.in_(product_ids)))
-        ).scalars().all()
-        if value
-    )
-
-    try:
-        counts = await _purge_catalog_dependencies(
-            db,
-            company_id=current_user.company_id,
-            product_ids=product_ids,
-            variant_ids=variant_ids,
-        )
-        await log_activity(
-            db,
-            action="PURGE",
-            entity_type="Product",
-            entity_id=current_user.company_id,
-            user_id=current_user.id,
-            company_id=current_user.company_id,
-            details={
-                "catalog_purge": True,
-                "products": len(product_ids),
-                "relations": counts,
-            },
-        )
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        raise
-
-    await remove_unreferenced_local_assets(db, local_asset_urls)
-    await prune_orphaned_local_assets(db)
-    return schemas.ProductBulkDeleteResponse(
-        requested=len(product_ids),
-        deleted=counts.get("products", 0),
-        deleted_ids=product_ids,
-        blocked=[],
-        not_found=[],
-        archived=0,
-        archived_ids=[],
+    return await _purge_products_physically(
+        db=db,
+        product_ids=list(result.scalars().all()),
+        current_user=current_user,
     )
 
 
@@ -1357,12 +1373,11 @@ async def bulk_delete_archived_products(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> schemas.ProductBulkDeleteResponse:
-    """Permanently delete selected archived products, or all archived products."""
+    """Permanently delete selected archived products, or one archived batch."""
     product_in = product_in or schemas.ProductBulkDeleteArchivedRequest()
     requested_ids = list(dict.fromkeys(product_in.product_ids))
     query = (
-        select(Product)
-        .options(selectinload(Product.variants), selectinload(Product.images))
+        select(Product.id)
         .where(
             Product.company_id == current_user.company_id,
             Product.is_active.is_(False),
@@ -1375,40 +1390,11 @@ async def bulk_delete_archived_products(
             query = query.where(Product.id.not_in(product_in.exclude_product_ids))
         query = query.order_by(Product.created_at.asc(), Product.id.asc()).limit(product_in.limit)
 
-    products = (await db.execute(query)).scalars().all()
-    products_by_id = {product.id: product for product in products}
-    product_ids = list(products_by_id)
-    not_found = [product_id for product_id in requested_ids if product_id not in products_by_id]
-
-    if product_in.purge_inventory:
-        await _purge_inventory_records(
-            db,
-            company_id=current_user.company_id,
-            product_ids=product_ids,
-        )
-
-    # An ecommerce publication is catalog metadata, not business history. It
-    # can be removed for products that have no other protected relation. Keep
-    # it for products that remain blocked by sales, invoices or inventory.
-    blockers = await _find_product_delete_blockers(db, product_ids)
-    publication_only_ids = [
-        product_id
-        for product_id, reasons in blockers.items()
-        if reasons and set(reasons) == {"Está publicado en ecommerce"}
-    ]
-    await _remove_ecommerce_publications(
-        db,
-        company_id=current_user.company_id,
-        product_ids=publication_only_ids,
-    )
-
-    return await _delete_products_guarded(
+    result = await db.execute(query)
+    return await _purge_products_physically(
         db=db,
-        product_ids=product_ids,
-        products_by_id=products_by_id,
-        not_found=not_found,
+        product_ids=list(result.scalars().all()),
         current_user=current_user,
-        archive_blocked=False,
     )
 
 
@@ -1630,48 +1616,15 @@ async def delete_product(
     product_id: str,
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
-    """Delete a product and its variants."""
-    result = await db.execute(
-        select(Product).options(
-            selectinload(Product.variants),
-            selectinload(Product.images),
-        ).where(
-            Product.id == product_id,
-            Product.company_id == current_user.company_id
-        )
+    """Physically delete a product, including its product-owned relations."""
+    result = await _purge_products_physically(
+        db=db,
+        product_ids=[product_id],
+        current_user=current_user,
     )
-    product = result.scalars().first()
-    if not product:
+    if result.not_found:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
-
-    blockers = await _find_product_delete_blockers(db, [product.id])
-    if blockers.get(product.id):
-        raise HTTPException(
-            status_code=409,
-            detail=_delete_blocker_detail(product, blockers[product.id]),
-        )
-    
-    local_asset_urls_to_cleanup = {
-        str(value).strip()
-        for value in [
-            product.image_url,
-            *(image.image_url for image in product.images),
-        ]
-        if value
-    }
-
-    # Delete variants first
-    for variant in product.variants:
-        await db.delete(variant)
-    
-    await db.delete(product)
-    await db.commit()
-    await remove_unreferenced_local_assets(db, local_asset_urls_to_cleanup)
-    await prune_orphaned_local_assets(db)
-    
-    await log_activity(db, action="DELETE", entity_type="Product", entity_id=product_id,
-                       user_id=current_user.id, company_id=current_user.company_id)
-    return {"ok": True}
+    return {"ok": True, "deleted": result.deleted}
 
 # --- Variant Sub-Endpoints ---
 

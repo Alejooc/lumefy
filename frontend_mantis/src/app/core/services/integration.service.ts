@@ -170,7 +170,7 @@ export class IntegrationService {
     return this.api.post<IntegrationSource>('/integrations/sources', payload);
   }
 
-  updateSource(id: string, payload: Partial<IntegrationSourcePayload>): Observable<IntegrationSource> {
+  updateSource(id: string, payload: Partial<IntegrationSourcePayload> & { is_active?: boolean }): Observable<IntegrationSource> {
     return this.api.put<IntegrationSource>(`/integrations/sources/${id}`, payload);
   }
 
