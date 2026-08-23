@@ -540,6 +540,46 @@ class IntegrationProgressTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(progress[-1]["pages_total"], 2)
         self.assertEqual(progress[-1]["percent"], 40)
 
+    async def test_pagination_does_not_treat_page_count_as_global_total(self):
+        """A provider's ``meta.count`` usually describes the current page."""
+        source = SimpleNamespace(
+            base_url="https://provider.example.com/api",
+            auth_type="none",
+            credentials={},
+            configuration={
+                "endpoints": {
+                    "products": {
+                        "path": "/products",
+                        "pagination": {
+                            "enabled": True,
+                            "type": "page",
+                            "page_param": "page",
+                            "per_page_param": "per_page",
+                            "per_page": 2,
+                            "max_pages": 50,
+                        },
+                    }
+                }
+            },
+        )
+        requests = []
+
+        async def request_json(url, headers):
+            requests.append(url)
+            page = len(requests)
+            if page <= 2:
+                return 200, {
+                    "data": [{"id": f"{page}-a"}, {"id": f"{page}-b"}],
+                    "meta": {"count": 2},
+                }
+            return 200, {"data": [], "meta": {"count": 0}}
+
+        with patch("app.services.integration_service._request_json", new=request_json):
+            rows = await _fetch_entity(source, "products")
+
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(len(requests), 3)
+
     async def test_cursor_pagination_uses_provider_token_and_stops_at_end(self):
         source = SimpleNamespace(
             base_url="https://provider.example.com/api",

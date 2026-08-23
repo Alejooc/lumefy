@@ -2314,8 +2314,14 @@ async def _fetch_entity(
             if isinstance(metadata, dict)
             else None
         )
+        # ``count`` is commonly the number of rows in the *current* page
+        # (for example ``{"meta": {"count": 200}}``).  Treating it as the
+        # global total makes a 3,000-item catalog stop after the first page
+        # when the configured page size is 200.  Only an explicit ``total``
+        # is safe as a collection-wide count; providers that expose another
+        # total can opt in through ``pagination.total_path`` below.
         total_items_value = (
-            metadata.get("total") or metadata.get("count")
+            metadata.get("total")
             if isinstance(metadata, dict)
             else None
         )
