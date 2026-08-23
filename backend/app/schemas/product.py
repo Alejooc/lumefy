@@ -174,6 +174,10 @@ class ProductPage(BaseModel):
 
     items: List[ProductListItem]
     total: int
+    # Total company catalog, including archived rows and products outside the
+    # current search/page. This lets destructive UI actions show their real
+    # scope instead of confusing the active page count with the catalog size.
+    total_catalog: int = 0
     page: int
     page_size: int
     total_pages: int

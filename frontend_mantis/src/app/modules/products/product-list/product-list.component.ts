@@ -47,6 +47,7 @@ interface BulkPublishResponse {
 interface ProductPageResponse {
     items: Product[];
     total: number;
+    total_catalog?: number;
     page: number;
     page_size: number;
     total_pages: number;
@@ -74,6 +75,7 @@ export class ProductListComponent implements OnInit {
     // existing pagination and the optional 100-row choice for bulk review.
     pageSize = 50;
     totalProducts = 0;
+    totalCatalogProducts = 0;
     totalPages = 0;
     showArchived = false;
 
@@ -110,6 +112,7 @@ export class ProductListComponent implements OnInit {
             next: (data) => {
                 this.products = data.items;
                 this.totalProducts = data.total;
+                this.totalCatalogProducts = data.total_catalog ?? data.total;
                 this.totalPages = data.total_pages;
                 this.page = data.page;
                 this.isLoading = false;
@@ -468,13 +471,13 @@ export class ProductListComponent implements OnInit {
     }
 
     deleteAllProducts(): void {
-        if (!this.totalProducts || this.isLoading) {
+        if (!this.totalCatalogProducts || this.isLoading) {
             return;
         }
 
         this.swal.input({
             title: '¿Vaciar todo el catálogo?',
-            text: `Se eliminarán físicamente los ${this.totalProducts} producto(s), variantes, imágenes, existencias y líneas relacionadas de ventas, compras y facturas. Los encabezados de esos documentos se conservarán, pero esta acción NO se puede deshacer. Escribe BORRAR TODO para confirmar.`,
+            text: `Se eliminarán físicamente los ${this.totalCatalogProducts} producto(s) de todo el catálogo, incluidos archivados y productos que no aparecen en esta página. También se eliminarán variantes, imágenes, existencias y líneas relacionadas de ventas, compras y facturas. Los encabezados de esos documentos se conservarán, pero esta acción NO se puede deshacer. Escribe BORRAR TODO para confirmar.`,
             input: 'text',
             inputPlaceholder: 'BORRAR TODO',
             showCancelButton: true,

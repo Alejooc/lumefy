@@ -588,19 +588,23 @@ async def read_products_page(
         "product_type": product_type,
         "include_archived": include_archived,
     }
-    # Count only the filtered product rows.  The previous implementation built
-    # the full eager-loaded collection query first, which made every search
-    # execute all relationship options before counting.
-    total = int(
-        (
-            await db.scalar(
-                select(func.count(Product.id)).where(
-                    *_product_filter_conditions(**filters)
-                )
-            )
+    # Count active and complete-catalog rows in one lightweight query. The
+    # previous implementation built the full eager-loaded collection query
+    # before counting, and two separate counts would add another round trip
+    # on every page/search request.
+    count_filters = {**filters, "include_archived": True}
+    count_row = (
+        await db.execute(
+            select(
+                func.count(Product.id).label("catalog_total"),
+                func.count(Product.id)
+                .filter(Product.is_active.is_(True))
+                .label("active_total"),
+            ).where(*_product_filter_conditions(**count_filters))
         )
-        or 0
-    )
+    ).one()
+    total_catalog = int(count_row.catalog_total or 0)
+    total = total_catalog if include_archived else int(count_row.active_total or 0)
     total_pages = (total + page_size - 1) // page_size if total else 0
     page = min(page, total_pages) if total_pages else 1
 
@@ -648,6 +652,7 @@ async def read_products_page(
     return schemas.ProductPage(
         items=items,
         total=total,
+        total_catalog=total_catalog,
         page=page,
         page_size=page_size,
         total_pages=total_pages,

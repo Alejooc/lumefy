@@ -34,7 +34,7 @@
               <i class="ti ti-trash"></i> Eliminar seleccionados ({{ selectedCount }})
             </button>
           }
-          @if (totalProducts > 0 && !showArchived) {
+          @if (totalCatalogProducts > 0 && !showArchived) {
             <button class="btn btn-danger" (click)="deleteAllProducts()" [disabled]="isLoading"
               title="Eliminar físicamente todo el catálogo y sus relaciones">
               <i class="ti ti-trash-x"></i> Vaciar catálogo definitivamente
@@ -59,9 +59,15 @@
         <div class="col-lg-7 text-lg-end text-muted small">
           @if (!isLoading) {
             @if (totalProducts > 0) {
-              <span>Mostrando {{ firstVisibleProduct }}–{{ lastVisibleProduct }} de {{ totalProducts }} producto(s)</span>
+              <span>Mostrando {{ firstVisibleProduct }}–{{ lastVisibleProduct }} de {{ totalProducts }} coincidencia(s)</span>
+              @if (totalCatalogProducts !== totalProducts || searchQuery) {
+                <span class="ms-2">Catálogo total: {{ totalCatalogProducts }}</span>
+              }
             } @else {
-              <span>0 productos en el catálogo</span>
+              <span>0 productos activos en esta vista</span>
+              @if (totalCatalogProducts > 0) {
+                <span class="ms-2">Catálogo total: {{ totalCatalogProducts }}</span>
+              }
             }
             @if (showArchived) {
               <span class="ms-2 badge bg-light-warning text-warning">Vista de archivados</span>
