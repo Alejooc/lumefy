@@ -204,7 +204,7 @@ export class ProductListComponent implements OnInit {
         this.swal
             .confirm(
                 '¿Eliminar definitivamente productos archivados?',
-                `${scopeText} También se eliminarán sus existencias, lotes, movimientos y conteos de inventario, además de variantes, imágenes y publicaciones de ecommerce. Los productos con ventas, facturas u otro historial comercial se conservarán archivados. Esta acción no se puede deshacer.`
+                `${scopeText} También se eliminarán sus existencias, lotes, movimientos y conteos de inventario, además de variantes, imágenes y publicaciones de ecommerce. Los encabezados de ventas, compras y facturas se conservarán para el historial, pero los productos y sus líneas se borrarán físicamente. Esta acción no se puede deshacer.`
             )
             .then((result) => {
                 if (!result.isConfirmed) {
