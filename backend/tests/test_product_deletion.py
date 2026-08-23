@@ -4,10 +4,15 @@ import tempfile
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
-from app.api.v1.endpoints.products import _PRODUCT_DELETE_RELATIONS, _find_product_delete_blockers
-from app.schemas.product import ProductBulkDeleteRequest
+from app.api.v1.endpoints.products import (
+    _PRODUCT_DELETE_RELATIONS,
+    _find_product_delete_blockers,
+    _product_filter_conditions,
+    bulk_delete_archived_products,
+)
+from app.schemas.product import ProductBulkDeleteArchivedRequest, ProductBulkDeleteRequest
 from app.services.integration_service import (
     prune_orphaned_local_assets,
     remove_unreferenced_local_assets,
@@ -63,6 +68,40 @@ class ProductBulkDeleteSchemaTests(unittest.TestCase):
         request = ProductBulkDeleteAllRequest(force=True)
 
         self.assertTrue(request.force)
+
+    def test_archived_filter_returns_only_inactive_products(self):
+        conditions = _product_filter_conditions(
+            company_id=uuid.uuid4(),
+            include_archived=True,
+            archived_only=True,
+        )
+        sql = " AND ".join(str(condition) for condition in conditions)
+
+        self.assertIn("products.is_active IS false", sql)
+
+
+class ProductArchivedDeletionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_explicit_selection_is_purged_even_if_browser_view_was_stale(self):
+        product_id = uuid.uuid4()
+        company_id = uuid.uuid4()
+        selected = _ScalarResult([product_id])
+        db = SimpleNamespace(execute=AsyncMock(return_value=selected))
+        response = SimpleNamespace(deleted=1)
+
+        with patch(
+            "app.api.v1.endpoints.products._purge_products_physically",
+            new=AsyncMock(return_value=response),
+        ) as purge:
+            result = await bulk_delete_archived_products(
+                product_in=ProductBulkDeleteArchivedRequest(product_ids=[product_id]),
+                db=db,
+                current_user=SimpleNamespace(company_id=company_id),
+            )
+
+        query = db.execute.await_args.args[0]
+        self.assertNotIn("products.is_active IS false", str(query))
+        purge.assert_awaited_once()
+        self.assertIs(result, response)
 
 
 class LocalIntegrationAssetCleanupTests(unittest.IsolatedAsyncioTestCase):

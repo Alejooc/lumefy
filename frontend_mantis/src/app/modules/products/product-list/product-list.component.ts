@@ -106,7 +106,7 @@ export class ProductListComponent implements OnInit {
             params['search'] = this.searchQuery.trim();
         }
         if (this.showArchived) {
-            params['include_archived'] = 'true';
+            params['archived_only'] = 'true';
         }
         this.apiService.get<ProductPageResponse>('/products/paged', params).subscribe({
             next: (data) => {

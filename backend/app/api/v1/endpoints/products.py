@@ -546,6 +546,7 @@ def _product_filter_conditions(
     brand_id: str | None = None,
     product_type: str | None = None,
     include_archived: bool = False,
+    archived_only: bool = False,
 ):
     """Return reusable product predicates without eager-loading side effects."""
     conditions = []
@@ -554,7 +555,9 @@ def _product_filter_conditions(
     # Archived products remain in the database when they are referenced by
     # historical documents, but must disappear from the active catalog unless
     # an administrator explicitly requests the archived view.
-    if not include_archived:
+    if archived_only:
+        conditions.append(Product.is_active.is_(False))
+    elif not include_archived:
         conditions.append(Product.is_active.is_(True))
 
     if search:
@@ -592,6 +595,7 @@ def _product_collection_query(
     brand_id: str | None = None,
     product_type: str | None = None,
     include_archived: bool = False,
+    archived_only: bool = False,
 ):
     """Build the shared catalog query used by list and paginated endpoints."""
     query = select(Product).options(
@@ -610,6 +614,7 @@ def _product_collection_query(
             brand_id=brand_id,
             product_type=product_type,
             include_archived=include_archived,
+            archived_only=archived_only,
         )
     )
 
@@ -649,6 +654,7 @@ async def read_products(
     brand_id: str = None,
     product_type: str = None,
     include_archived: bool = False,
+    archived_only: bool = False,
     current_user: User = Depends(PermissionChecker("view_products")),
 ) -> Any:
     """Retrieve products with all relations."""
@@ -659,6 +665,7 @@ async def read_products(
         brand_id=brand_id,
         product_type=product_type,
         include_archived=include_archived,
+        archived_only=archived_only,
     ).offset(skip).limit(limit)
     result = await db.execute(query)
     products = result.scalars().all()
@@ -675,6 +682,7 @@ async def read_products_page(
     brand_id: str = None,
     product_type: str = None,
     include_archived: bool = False,
+    archived_only: bool = False,
     current_user: User = Depends(PermissionChecker("view_products")),
 ) -> schemas.ProductPage:
     """Retrieve a catalog page together with the total matching product count."""
@@ -690,12 +698,13 @@ async def read_products_page(
         "brand_id": brand_id,
         "product_type": product_type,
         "include_archived": include_archived,
+        "archived_only": archived_only,
     }
     # Count active and complete-catalog rows in one lightweight query. The
     # previous implementation built the full eager-loaded collection query
     # before counting, and two separate counts would add another round trip
     # on every page/search request.
-    count_filters = {**filters, "include_archived": True}
+    count_filters = {**filters, "include_archived": True, "archived_only": False}
     count_row = (
         await db.execute(
             select(
@@ -703,11 +712,19 @@ async def read_products_page(
                 func.count(Product.id)
                 .filter(Product.is_active.is_(True))
                 .label("active_total"),
+                func.count(Product.id)
+                .filter(Product.is_active.is_(False))
+                .label("archived_total"),
             ).where(*_product_filter_conditions(**count_filters))
         )
     ).one()
     total_catalog = int(count_row.catalog_total or 0)
-    total = total_catalog if include_archived else int(count_row.active_total or 0)
+    if archived_only:
+        total = int(count_row.archived_total or 0)
+    elif include_archived:
+        total = total_catalog
+    else:
+        total = int(count_row.active_total or 0)
     total_pages = (total + page_size - 1) // page_size if total else 0
     page = min(page, total_pages) if total_pages else 1
 
@@ -1376,16 +1393,15 @@ async def bulk_delete_archived_products(
     """Permanently delete selected archived products, or one archived batch."""
     product_in = product_in or schemas.ProductBulkDeleteArchivedRequest()
     requested_ids = list(dict.fromkeys(product_in.product_ids))
-    query = (
-        select(Product.id)
-        .where(
-            Product.company_id == current_user.company_id,
-            Product.is_active.is_(False),
-        )
-    )
+    query = select(Product.id).where(Product.company_id == current_user.company_id)
     if requested_ids:
+        # A browser may still have the previous mixed active/archived view in
+        # memory after a deployment. Explicitly selected IDs are therefore
+        # purged regardless of their active flag. The company condition above
+        # remains the authorization boundary.
         query = query.where(Product.id.in_(requested_ids))
     else:
+        query = query.where(Product.is_active.is_(False))
         if product_in.exclude_product_ids:
             query = query.where(Product.id.not_in(product_in.exclude_product_ids))
         query = query.order_by(Product.created_at.asc(), Product.id.asc()).limit(product_in.limit)

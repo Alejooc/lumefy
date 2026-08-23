@@ -908,14 +908,68 @@ def _page_fingerprint(rows: list[dict[str, Any]]) -> str:
     committed.
     """
 
-    payload = json.dumps(
-        rows,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
+    # Sort the canonical rows as well as their keys. Some providers return the
+    # same ignored page in a different order, which must still be recognised
+    # as a repeated page.
+    canonical_rows = sorted(
+        json.dumps(
+            row,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        )
+        for row in rows
     )
+    payload = "\n".join(canonical_rows)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _validate_catalog_identities(
+    source: IntegrationSource,
+    rows: list[dict[str, Any]],
+    seen_external_ids: set[str],
+    *,
+    page: int,
+) -> None:
+    """Reject repeated product identities before touching the local catalog.
+
+    A catalog external ID represents exactly one local product. If the same ID
+    appears twice in one run, either pagination is repeating/overlapping rows
+    or the origin mapping points to a non-unique field. Counting those rows as
+    updates produced the misleading "200 nuevos / 2500 actualizados" result.
+    """
+
+    mapping = _field_map(source)
+    page_ids: set[str] = set()
+    duplicate_ids: list[str] = []
+    for row in rows:
+        value = _mapped(
+            row,
+            mapping,
+            "product.external_id",
+            "id",
+            "external_id",
+            "uuid",
+            "product_id",
+        )
+        identity = _as_text(value, "id", "code", "value")
+        if not identity:
+            continue
+        if identity in seen_external_ids or identity in page_ids:
+            if identity not in duplicate_ids:
+                duplicate_ids.append(identity)
+            continue
+        page_ids.add(identity)
+
+    if duplicate_ids:
+        examples = ", ".join(duplicate_ids[:5])
+        raise IntegrationRequestError(
+            f"El proveedor devolvió productos con identificadores repetidos en la página {page} "
+            f"(ejemplos: {examples}). Revisa la paginación y el mapeo de 'ID externo': "
+            "la sincronización se detuvo sin guardar contadores falsos."
+        )
+    seen_external_ids.update(page_ids)
 
 
 def _incremental_config(endpoint: dict[str, Any]) -> dict[str, Any]:
@@ -2287,6 +2341,8 @@ async def _fetch_entity(
         )
         status_code, payload = await _request_json(url, headers)
         rows = _extract_entity_rows(payload, endpoint, entity, status_code)
+        if entity == "products":
+            _validate_catalog_identities(source, rows, set(), page=1)
         await _report_progress(
             progress_callback,
             stage="FETCHING",
@@ -2303,7 +2359,7 @@ async def _fetch_entity(
 
     pagination_type = str(pagination.get("type", "page")).lower()
     if pagination_type == "cursor":
-        return await _fetch_cursor_entity(
+        rows = await _fetch_cursor_entity(
             source,
             entity,
             endpoint,
@@ -2312,6 +2368,9 @@ async def _fetch_entity(
             pagination,
             progress_callback,
         )
+        if entity == "products":
+            _validate_catalog_identities(source, rows, set(), page=1)
+        return rows
     if pagination_type != "page":
         raise IntegrationRequestError("La paginación configurada debe usar el tipo 'page' o 'cursor'.")
 
@@ -2322,6 +2381,7 @@ async def _fetch_entity(
     max_pages = max(1, int(pagination.get("max_pages") or 1000))
     all_items: list[dict[str, Any]] = []
     seen_page_fingerprints: set[str] = set()
+    seen_catalog_external_ids: set[str] = set()
 
     for _ in range(max_pages):
         page_url = _url_with_query(url, {page_param: page, per_page_param: per_page})
@@ -2336,6 +2396,13 @@ async def _fetch_entity(
                     "la sincronización se detuvo para no actualizar repetidamente los mismos registros."
                 )
             seen_page_fingerprints.add(fingerprint)
+        if entity == "products":
+            _validate_catalog_identities(
+                source,
+                page_items,
+                seen_catalog_external_ids,
+                page=page,
+            )
         all_items.extend(page_items)
 
         metadata = payload.get("meta") if isinstance(payload, dict) else None

@@ -612,6 +612,40 @@ class IntegrationProgressTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(IntegrationRequestError, "página 2.*repetida"):
                 await _fetch_entity(source, "products")
 
+    async def test_pagination_rejects_overlapping_product_identities(self):
+        source = SimpleNamespace(
+            base_url="https://provider.example.com/api",
+            auth_type="none",
+            credentials={},
+            configuration={
+                "mapping": {"product.external_id": "id"},
+                "endpoints": {
+                    "products": {
+                        "path": "/products",
+                        "pagination": {
+                            "enabled": True,
+                            "type": "page",
+                            "page_param": "page",
+                            "per_page_param": "per_page",
+                            "per_page": 2,
+                            "max_pages": 50,
+                        },
+                    }
+                },
+            },
+        )
+        requests = []
+
+        async def request_json(_url, _headers):
+            requests.append(1)
+            if len(requests) == 1:
+                return 200, {"data": [{"id": "a"}, {"id": "b"}], "meta": {"total": 4}}
+            return 200, {"data": [{"id": "b"}, {"id": "c"}], "meta": {"total": 4}}
+
+        with patch("app.services.integration_service._request_json", new=request_json):
+            with self.assertRaisesRegex(IntegrationRequestError, "identificadores repetidos.*página 2"):
+                await _fetch_entity(source, "products")
+
     async def test_cursor_pagination_uses_provider_token_and_stops_at_end(self):
         source = SimpleNamespace(
             base_url="https://provider.example.com/api",
