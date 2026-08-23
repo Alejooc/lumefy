@@ -580,6 +580,38 @@ class IntegrationProgressTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(rows), 4)
         self.assertEqual(len(requests), 3)
 
+    async def test_pagination_rejects_a_repeated_page(self):
+        source = SimpleNamespace(
+            base_url="https://provider.example.com/api",
+            auth_type="none",
+            credentials={},
+            configuration={
+                "endpoints": {
+                    "products": {
+                        "path": "/products",
+                        "pagination": {
+                            "enabled": True,
+                            "type": "page",
+                            "page_param": "page",
+                            "per_page_param": "per_page",
+                            "per_page": 2,
+                            "max_pages": 50,
+                        },
+                    }
+                }
+            },
+        )
+
+        async def request_json(_url, _headers):
+            return 200, {
+                "data": [{"id": "same-a"}, {"id": "same-b"}],
+                "meta": {"total": 4},
+            }
+
+        with patch("app.services.integration_service._request_json", new=request_json):
+            with self.assertRaisesRegex(IntegrationRequestError, "página 2.*repetida"):
+                await _fetch_entity(source, "products")
+
     async def test_cursor_pagination_uses_provider_token_and_stops_at_end(self):
         source = SimpleNamespace(
             base_url="https://provider.example.com/api",

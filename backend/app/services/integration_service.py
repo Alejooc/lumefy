@@ -898,6 +898,26 @@ def _pagination_config(endpoint: dict[str, Any]) -> dict[str, Any]:
     return pagination if isinstance(pagination, dict) else {}
 
 
+def _page_fingerprint(rows: list[dict[str, Any]]) -> str:
+    """Return a stable fingerprint for one provider page.
+
+    Some APIs silently ignore an unknown page parameter and return the first
+    page over and over. Without a guard, the sync would count the first 200
+    products as new and every repeated page as updates. A canonical JSON hash
+    lets the fetcher stop that corruption before any catalog transaction is
+    committed.
+    """
+
+    payload = json.dumps(
+        rows,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _incremental_config(endpoint: dict[str, Any]) -> dict[str, Any]:
     """Return a bounded optional watermark configuration for an endpoint.
 
@@ -2301,11 +2321,21 @@ async def _fetch_entity(
     per_page = max(1, int(pagination.get("per_page") or 50))
     max_pages = max(1, int(pagination.get("max_pages") or 1000))
     all_items: list[dict[str, Any]] = []
+    seen_page_fingerprints: set[str] = set()
 
     for _ in range(max_pages):
         page_url = _url_with_query(url, {page_param: page, per_page_param: per_page})
         status_code, payload = await _request_json(page_url, headers)
         page_items = _extract_entity_rows(payload, endpoint, entity, status_code)
+        if page_items:
+            fingerprint = _page_fingerprint(page_items)
+            if fingerprint in seen_page_fingerprints:
+                raise IntegrationRequestError(
+                    f"El proveedor devolvió repetida la página {page} de {entity_label}. "
+                    f"Revisa el parámetro de página ('{page_param}') y el tamaño ('{per_page_param}'); "
+                    "la sincronización se detuvo para no actualizar repetidamente los mismos registros."
+                )
+            seen_page_fingerprints.add(fingerprint)
         all_items.extend(page_items)
 
         metadata = payload.get("meta") if isinstance(payload, dict) else None
