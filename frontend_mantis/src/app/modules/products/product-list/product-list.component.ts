@@ -441,7 +441,7 @@ export class ProductListComponent implements OnInit {
         this.swal
             .confirm(
                 '¿Eliminar productos seleccionados?',
-                `Se revisarán ${productIds.length} producto(s). Los que estén relacionados con ventas, inventario u otros documentos se conservarán.`
+                `Se eliminarán físicamente ${productIds.length} producto(s), incluyendo variantes, imágenes, existencias y líneas relacionadas. Los encabezados de ventas, compras y facturas se conservarán para el historial.`
             )
             .then((result) => {
                 if (!result.isConfirmed) {
