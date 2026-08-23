@@ -11,19 +11,22 @@ import re
 
 from app.core.database import get_db
 from app.models.product import Product
+from app.models.product_image import ProductImage
 from app.models.product_variant import ProductVariant
 from app.models.storefront import PublishedProduct, StoreCollectionProduct, Storefront
 from app.models.invoice import InvoiceItem
 from app.models.inventory import Inventory
 from app.models.inventory_lot import InventoryLot
 from app.models.inventory_movement import InventoryMovement
-from app.models.manufacturing import BillOfMaterials, BillOfMaterialsLine
+from app.models.manufacturing import BillOfMaterials, BillOfMaterialsLine, ManufacturingOrder
 from app.models.pricelist_item import PriceListItem
 from app.models.procurement import PurchaseRequestItem, SupplierQuoteItem
 from app.models.purchase_item import PurchaseOrderItem
 from app.models.return_order import ReturnOrderItem
 from app.models.sale import SaleItem
 from app.models.stock_take import StockTakeItem
+from app.models.logistics import SalePackageItem
+from app.models.integration import IntegrationRecordLink
 from app.schemas import product as schemas
 from app.schemas import product_variant as variant_schemas
 from app.models.user import User
@@ -267,6 +270,162 @@ async def _purge_inventory_records(
     # the product itself.
     for model in (StockTakeItem, InventoryLot, InventoryMovement, Inventory):
         await db.execute(delete(model).where(*conditions(model)))
+
+
+async def _purge_catalog_dependencies(
+    db: AsyncSession,
+    *,
+    company_id: Any,
+    product_ids: list[Any],
+    variant_ids: list[Any],
+) -> dict[str, int]:
+    """Remove every product-owned row before a deliberate catalog purge.
+
+    The regular delete endpoints intentionally protect sales and accounting
+    history.  This helper is only used by the explicitly confirmed
+    ``/purge-all`` operation.  It removes product lines from those documents,
+    while keeping their headers (sale, invoice, purchase, etc.) intact, so no
+    foreign-key row can turn the requested physical deletion into an archive.
+    """
+
+    if not product_ids:
+        return {}
+
+    counts: dict[str, int] = {}
+
+    async def remove(model: Any, condition: Any, label: str) -> None:
+        # Product and variant UUIDs are globally unique. Filtering by those
+        # foreign keys also handles legacy rows whose audit company_id was
+        # never populated, while the selected IDs were already scoped to the
+        # current company above.
+        result = await db.execute(delete(model).where(condition))
+        counts[label] = counts.get(label, 0) + int(result.rowcount or 0)
+
+    # Ecommerce rows are metadata and must go before their collection links.
+    published_ids = (
+        await db.execute(
+            select(PublishedProduct.id).where(
+                PublishedProduct.company_id == company_id,
+                PublishedProduct.product_id.in_(product_ids),
+            )
+        )
+    ).scalars().all()
+    if published_ids:
+        result = await db.execute(
+            delete(StoreCollectionProduct).where(
+                StoreCollectionProduct.company_id == company_id,
+                StoreCollectionProduct.published_product_id.in_(published_ids),
+            )
+        )
+        counts["collection_links"] = int(result.rowcount or 0)
+        result = await db.execute(
+            delete(PublishedProduct).where(
+                PublishedProduct.company_id == company_id,
+                PublishedProduct.id.in_(published_ids),
+            )
+        )
+        counts["published_products"] = int(result.rowcount or 0)
+
+    # Remove shipping/return children before their sale lines.
+    sale_item_ids = select(SaleItem.id).where(
+        SaleItem.company_id == company_id,
+        SaleItem.product_id.in_(product_ids),
+    )
+    await remove(SalePackageItem, SalePackageItem.sale_item_id.in_(sale_item_ids), "sale_package_items")
+    await remove(
+        ReturnOrderItem,
+        or_(
+            ReturnOrderItem.product_id.in_(product_ids),
+            ReturnOrderItem.sale_item_id.in_(sale_item_ids),
+        ),
+        "return_order_items",
+    )
+    await remove(SaleItem, SaleItem.product_id.in_(product_ids), "sale_items")
+
+    # Product lines in commercial documents are deliberately removed. The
+    # parent documents remain available for navigation and can be reconciled
+    # by the operator after a test-catalog reset.
+    for model, label in (
+        (InvoiceItem, "invoice_items"),
+        (PurchaseOrderItem, "purchase_order_items"),
+        (PurchaseRequestItem, "purchase_request_items"),
+        (SupplierQuoteItem, "supplier_quote_items"),
+        (PriceListItem, "pricelist_items"),
+        (StockTakeItem, "stock_take_items"),
+        (InventoryLot, "inventory_lots"),
+        (InventoryMovement, "inventory_movements"),
+        (Inventory, "inventory"),
+    ):
+        await remove(model, model.product_id.in_(product_ids), label)
+
+    # Manufacturing orders point to BOMs, so remove those orders before BOM
+    # lines/headers. Component lines are removed even when the BOM belongs to
+    # a different product; otherwise the component FK would protect the row.
+    bom_ids = (
+        await db.execute(
+            select(BillOfMaterials.id).where(
+                BillOfMaterials.company_id == company_id,
+                BillOfMaterials.product_id.in_(product_ids),
+            )
+        )
+    ).scalars().all()
+    if bom_ids:
+        result = await db.execute(
+            delete(ManufacturingOrder).where(
+                ManufacturingOrder.company_id == company_id,
+                ManufacturingOrder.bom_id.in_(bom_ids),
+            )
+        )
+        counts["manufacturing_orders"] = int(result.rowcount or 0)
+    await remove(
+        BillOfMaterialsLine,
+        or_(
+            BillOfMaterialsLine.component_id.in_(product_ids),
+            BillOfMaterialsLine.bom_id.in_(bom_ids) if bom_ids else False,
+        ),
+        "bill_of_materials_lines",
+    )
+    if bom_ids:
+        result = await db.execute(
+            delete(BillOfMaterials).where(
+                BillOfMaterials.company_id == company_id,
+                BillOfMaterials.id.in_(bom_ids),
+            )
+        )
+        counts["bills_of_materials"] = int(result.rowcount or 0)
+
+    # Links are source metadata, not business history. Delete them instead of
+    # leaving stale SKU mappings that could make the next inventory run target
+    # products that no longer exist.
+    result = await db.execute(
+        delete(IntegrationRecordLink).where(
+            IntegrationRecordLink.company_id == company_id,
+            or_(
+                IntegrationRecordLink.local_product_id.in_(product_ids),
+                IntegrationRecordLink.local_variant_id.in_(variant_ids) if variant_ids else False,
+            ),
+        )
+    )
+    counts["integration_links"] = int(result.rowcount or 0)
+
+    if variant_ids:
+        result = await db.execute(
+            delete(ProductVariant).where(
+                ProductVariant.company_id == company_id,
+                ProductVariant.id.in_(variant_ids),
+            )
+        )
+        counts["variants"] = int(result.rowcount or 0)
+
+    # ProductImage has an ON DELETE CASCADE in the deployed schema. Explicitly
+    # deleting it keeps the operation valid against older schemas as well.
+    result = await db.execute(delete(ProductImage).where(ProductImage.product_id.in_(product_ids)))
+    counts["images"] = int(result.rowcount or 0)
+    result = await db.execute(
+        delete(Product).where(Product.company_id == company_id, Product.id.in_(product_ids))
+    )
+    counts["products"] = int(result.rowcount or 0)
+    return counts
 
 
 def _delete_blocker_detail(product: Product, reasons: list[str]) -> str:
@@ -1028,6 +1187,105 @@ async def bulk_delete_all_products(
         not_found=[],
         current_user=current_user,
         archive_blocked=bool(product_in.force),
+    )
+
+
+@router.post("/purge-all", response_model=schemas.ProductBulkDeleteResponse)
+async def purge_all_products(
+    *,
+    product_in: schemas.ProductPurgeAllRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> schemas.ProductBulkDeleteResponse:
+    """Physically empty the company catalog after an explicit confirmation.
+
+    This is intentionally not wired to the legacy ``force`` flag: that flag
+    used to archive products with history and was the source of the confusing
+    behaviour in the admin panel. The purge is a separate, unmistakable
+    destructive action.
+    """
+
+    conditions = _product_filter_conditions(
+        company_id=current_user.company_id,
+        search=product_in.search,
+        category_id=str(product_in.category_id) if product_in.category_id else None,
+        brand_id=str(product_in.brand_id) if product_in.brand_id else None,
+        product_type=product_in.product_type,
+        include_archived=True,
+    )
+    product_ids = list(
+        (
+            await db.execute(
+                select(Product.id).where(*conditions).order_by(Product.created_at.asc(), Product.id.asc())
+            )
+        ).scalars().all()
+    )
+    if not product_ids:
+        return schemas.ProductBulkDeleteResponse(
+            requested=0,
+            deleted=0,
+            deleted_ids=[],
+            blocked=[],
+            not_found=[],
+        )
+
+    variant_ids = list(
+        (
+            await db.execute(
+                select(ProductVariant.id).where(ProductVariant.product_id.in_(product_ids))
+            )
+        ).scalars().all()
+    )
+    local_asset_urls: set[str] = {
+        str(value).strip()
+        for value in (
+            await db.execute(select(Product.image_url).where(Product.id.in_(product_ids)))
+        ).scalars().all()
+        if value
+    }
+    local_asset_urls.update(
+        str(value).strip()
+        for value in (
+            await db.execute(select(ProductImage.image_url).where(ProductImage.product_id.in_(product_ids)))
+        ).scalars().all()
+        if value
+    )
+
+    try:
+        counts = await _purge_catalog_dependencies(
+            db,
+            company_id=current_user.company_id,
+            product_ids=product_ids,
+            variant_ids=variant_ids,
+        )
+        await log_activity(
+            db,
+            action="PURGE",
+            entity_type="Product",
+            entity_id=current_user.company_id,
+            user_id=current_user.id,
+            company_id=current_user.company_id,
+            details={
+                "catalog_purge": True,
+                "products": len(product_ids),
+                "relations": counts,
+            },
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    await remove_unreferenced_local_assets(db, local_asset_urls)
+    await prune_orphaned_local_assets(db)
+    return schemas.ProductBulkDeleteResponse(
+        requested=len(product_ids),
+        deleted=counts.get("products", 0),
+        deleted_ids=product_ids,
+        blocked=[],
+        not_found=[],
+        archived=0,
+        archived_ids=[],
     )
 
 

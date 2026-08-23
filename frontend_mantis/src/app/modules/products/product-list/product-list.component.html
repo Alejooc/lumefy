@@ -11,26 +11,9 @@
               <i class="ti ti-file-text"></i> CSV
             </button>
           </div>
-          <button class="btn btn-outline-secondary" (click)="toggleArchivedView()" [disabled]="isLoading"
-            [title]="showArchived ? 'Volver al catálogo activo' : 'Consultar productos archivados'">
-            <i class="ti" [ngClass]="showArchived ? 'ti-package' : 'ti-archive'"></i>
-            {{ showArchived ? 'Ver catálogo activo' : 'Ver archivados' }}
-          </button>
           <button class="btn btn-outline-primary" routerLink="/products/import">
             <i class="ti ti-upload"></i> Importar
           </button>
-          @if (showArchived && totalProducts > 0) {
-            <button class="btn btn-success" (click)="restoreArchivedProducts()" [disabled]="isLoading"
-              title="Activar los productos archivados seleccionados o todos los archivados">
-              <i class="ti ti-archive-off"></i>
-              {{ selectedCount > 0 ? 'Activar seleccionados' : 'Activar todos' }}
-            </button>
-            <button class="btn btn-outline-danger" (click)="deleteArchivedProducts()" [disabled]="isLoading"
-              title="Eliminar definitivamente los productos archivados seleccionados o todos los archivados">
-              <i class="ti ti-trash-x"></i>
-              {{ selectedCount > 0 ? 'Eliminar seleccionados' : 'Eliminar archivados' }}
-            </button>
-          }
           @if (totalProducts > 0 && !showArchived) {
             <button class="btn btn-outline-warning" (click)="completeImageUrls()" [disabled]="isLoading"
               title="Completar rutas relativas o reemplazar una base de imágenes incorrecta">
@@ -52,9 +35,9 @@
             </button>
           }
           @if (totalProducts > 0 && !showArchived) {
-            <button class="btn btn-outline-danger" (click)="deleteAllProducts()" [disabled]="isLoading"
-              title="Eliminar todos los productos del catálogo, no solo los visibles">
-              <i class="ti ti-trash-x"></i> Eliminar todo el catálogo
+            <button class="btn btn-danger" (click)="deleteAllProducts()" [disabled]="isLoading"
+              title="Eliminar físicamente todo el catálogo y sus relaciones">
+              <i class="ti ti-trash-x"></i> Vaciar catálogo definitivamente
             </button>
           }
         </div>

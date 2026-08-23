@@ -472,38 +472,42 @@ export class ProductListComponent implements OnInit {
             return;
         }
 
-        const scope = this.searchQuery.trim()
-            ? 'Se eliminará todo el catálogo, aunque un producto no coincida con la búsqueda actual.'
-            : `Se procesarán los ${this.totalProducts} producto(s) de todas las páginas.`;
-        this.swal
-            .confirm(
-                '¿Eliminar todo el catálogo?',
-                `${scope} Los productos sin historial se eliminarán. Los que tengan ventas, facturas o inventario se archivarán y dejarán de aparecer en el catálogo/ecommerce, conservando intacto el historial. Esta acción no se puede deshacer desde el panel.`
-            )
-            .then((result) => {
-                if (!result.isConfirmed) {
-                    return;
-                }
+        this.swal.input({
+            title: '¿Vaciar todo el catálogo?',
+            text: `Se eliminarán físicamente los ${this.totalProducts} producto(s), variantes, imágenes, existencias y líneas relacionadas de ventas, compras y facturas. Los encabezados de esos documentos se conservarán, pero esta acción NO se puede deshacer. Escribe BORRAR TODO para confirmar.`,
+            input: 'text',
+            inputPlaceholder: 'BORRAR TODO',
+            showCancelButton: true,
+            confirmButtonText: 'Vaciar catálogo',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#dc3545',
+            inputValidator: (value) => value?.trim() === 'BORRAR TODO'
+                ? undefined
+                : 'Escribe exactamente BORRAR TODO para continuar.'
+        }).then((result) => {
+            if (!result.isConfirmed) {
+                return;
+            }
 
-                this.isLoading = true;
-                this.apiService.post<BulkDeleteResponse>('/products/bulk-delete-all', { force: true }).subscribe({
-                    next: (response) => {
-                        this.clearSelection();
-                        this.page = 1;
-                        this.showBulkDeleteResult(response, 'Catálogo eliminado');
-                    },
-                    error: (err) => {
-                        console.error('Error deleting all products', err);
-                        const detail = err?.error?.detail;
-                        this.swal.error(
-                            'No se pudo completar el borrado global',
-                            typeof detail === 'string' ? detail : 'Intenta nuevamente.'
-                        );
-                        this.isLoading = false;
-                        this.cdr.detectChanges();
-                    }
-                });
+            this.isLoading = true;
+            this.apiService.post<BulkDeleteResponse>('/products/purge-all', { confirmation: 'PURGE_CATALOG' }).subscribe({
+                next: (response) => {
+                    this.clearSelection();
+                    this.page = 1;
+                    this.showBulkDeleteResult(response, 'Catálogo vaciado');
+                },
+                error: (err) => {
+                    console.error('Error purging all products', err);
+                    const detail = err?.error?.detail;
+                    this.swal.error(
+                        'No se pudo vaciar el catálogo',
+                        typeof detail === 'string' ? detail : 'Intenta nuevamente.'
+                    );
+                    this.isLoading = false;
+                    this.cdr.detectChanges();
+                }
             });
+        });
         }
 
     async completeImageUrls(): Promise<void> {

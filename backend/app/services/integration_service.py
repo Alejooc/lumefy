@@ -568,6 +568,23 @@ async def _cache_provider_asset(source: IntegrationSource, provider_url: str) ->
         return None
 
 
+def _image_download_concurrency(source: IntegrationSource) -> int:
+    """Return a bounded image fan-out for one catalog sync.
+
+    Image requests used to run strictly one after another, which made a
+    catalog with several gallery images per product take many minutes. Keep a
+    conservative default and let a source opt down/up without allowing an
+    accidental provider overload.
+    """
+
+    configuration = getattr(source, "configuration", None) or {}
+    raw_value = configuration.get("image_download_concurrency", 8)
+    try:
+        return min(16, max(1, int(raw_value)))
+    except (TypeError, ValueError):
+        return 8
+
+
 def _is_local_integration_asset(value: str | None) -> bool:
     return bool(value and value.startswith(f"{LOCAL_INTEGRATION_ASSET_PREFIX}/"))
 
@@ -1560,9 +1577,27 @@ async def _sync_product_images(
             .order_by(ProductImage.order, ProductImage.id)
         )
     ).scalars().all()
+
+    # Download the gallery concurrently, but with a per-source cap. The
+    # provider URL is hashed by _cache_provider_asset, so retries and repeated
+    # catalog runs remain idempotent and never create duplicate files.
+    semaphore = asyncio.Semaphore(_image_download_concurrency(source))
+
+    async def cache_image(provider_url: str) -> str | None:
+        async with semaphore:
+            try:
+                return await _cache_provider_asset(source, provider_url)
+            except Exception as exc:  # noqa: BLE001 - one bad image must not stop the catalog
+                LOGGER.warning("No se pudo procesar la imagen externa %s: %s", provider_url, exc)
+                return None
+
+    unique_urls = list(dict.fromkeys(provider_url for _order, _index, provider_url in provider_incoming))
+    cached_results = await asyncio.gather(*(cache_image(url) for url in unique_urls))
+    cached_by_provider = dict(zip(unique_urls, cached_results, strict=False))
+
     incoming: list[tuple[int, int, str]] = []
     for order, index, provider_url in provider_incoming:
-        local_url = await _cache_provider_asset(source, provider_url)
+        local_url = cached_by_provider.get(provider_url)
         if not local_url:
             # Never replace a previously good local copy with a broken
             # provider URL. A later catalog run can retry the failed download.
@@ -1585,6 +1620,16 @@ async def _sync_product_images(
         "external_image_urls": [provider_url for _order, _index, provider_url in provider_incoming],
     }
     if not incoming:
+        # _sync_products maps the provider's primary image before entering
+        # this function. If every new download failed, restore the previous
+        # local primary instead of leaving a broken external URL in the
+        # storefront.
+        previous_local = next(
+            (row.image_url for row in existing_rows if _is_local_integration_asset(row.image_url)),
+            None,
+        )
+        if previous_local:
+            product.image_url = previous_local
         return
 
     existing_by_url = {
@@ -1711,9 +1756,40 @@ def _preview_mapped_item(item: dict[str, Any], mapping: dict[str, Any], entity: 
             "volume": _as_float(_mapped(item, mapping, "product.volume", "volume", "volume_l", "volumen", "volumen_l")),
         }
     return {
-        "external_id": _mapped(item, mapping, "inventory.external_id", "product_id", "id", "sku"),
-        "sku": _mapped(item, mapping, "inventory.sku", "sku", "product_sku"),
-        "quantity": _as_float(_mapped(item, mapping, "inventory.quantity", "quantity", "stock", "available")),
+        "external_id": _mapped(
+            item,
+            mapping,
+            "inventory.external_id",
+            "product_id",
+            "product_external_id",
+            "external_id",
+            "id",
+        ),
+        "sku": _mapped(
+            item,
+            mapping,
+            "inventory.sku",
+            "sku",
+            "product_sku",
+            "thosku",
+            "item_code",
+            "code",
+            "reference",
+        ),
+        "quantity": _as_float(
+            _mapped(
+                item,
+                mapping,
+                "inventory.quantity",
+                "quantity",
+                "stock",
+                "available",
+                "available_stock",
+                "qty",
+                "existence",
+                "existencias",
+            )
+        ),
     }
 
 
@@ -2323,13 +2399,24 @@ async def _inventory_sku_values(
         return sorted(values)
 
     result = await db.execute(
-        select(IntegrationRecordLink.external_sku).where(
+        select(IntegrationRecordLink.external_sku, IntegrationRecordLink.raw_payload).where(
             IntegrationRecordLink.source_id == source.id,
             IntegrationRecordLink.entity_type.in_(["product", "variant"]),
-            IntegrationRecordLink.external_sku.is_not(None),
         )
     )
-    return sorted({str(sku).strip() for sku in result.scalars().all() if sku not in (None, "") and str(sku).strip()})
+    for external_sku, raw_payload in result.all():
+        if external_sku not in (None, ""):
+            values.add(str(external_sku).strip())
+        if isinstance(raw_payload, dict):
+            # Some providers expose the SKU under a product code (or under
+            # ``thosku`` for a variant) while the catalog mapping was created
+            # before that field was configured. Include those stable aliases
+            # so an inventory-only run can still build its <=100 SKU batches.
+            for key in ("sku", "product_sku", "thosku", "item_code", "code", "reference"):
+                value = raw_payload.get(key)
+                if value not in (None, "") and not isinstance(value, (dict, list)):
+                    values.add(str(value).strip())
+    return sorted(values)
 
 
 async def _fetch_inventory(
@@ -2488,8 +2575,12 @@ async def _linked_product(
     if product and product.company_id == source.company_id:
         return product
     if sku:
+        normalized_sku = str(sku).strip()
         return (await db.execute(
-            select(Product).where(Product.company_id == source.company_id, Product.sku == sku).limit(1)
+            select(Product).where(
+                Product.company_id == source.company_id,
+                func.lower(func.trim(Product.sku)) == normalized_sku.casefold(),
+            ).limit(1)
         )).scalars().first()
     return None
 
@@ -2507,10 +2598,11 @@ async def _linked_variant(
     if variant and variant.company_id == source.company_id:
         return variant
     if sku:
+        normalized_sku = str(sku).strip()
         return (await db.execute(
             select(ProductVariant).where(
                 ProductVariant.company_id == source.company_id,
-                ProductVariant.sku == sku,
+                func.lower(func.trim(ProductVariant.sku)) == normalized_sku.casefold(),
             ).limit(1)
         )).scalars().first()
     return None
@@ -3217,12 +3309,28 @@ async def _sync_inventory(
 
     for item in items:
         variant_external_value = _mapped(
-            item, mapping, "inventory.variant_external_id", "variant_id", "product_variant_id"
+            item,
+            mapping,
+            "inventory.variant_external_id",
+            "variant_id",
+            "product_variant_id",
+            "variant_external_id",
         )
         variant_external_id = (
             str(variant_external_value).strip() if variant_external_value not in (None, "") else None
         )
-        variant_sku_value = _mapped(item, mapping, "inventory.variant_sku", "variant_sku", "sku")
+        variant_sku_value = _mapped(
+            item,
+            mapping,
+            "inventory.variant_sku",
+            "variant_sku",
+            "sku",
+            "product_sku",
+            "thosku",
+            "item_code",
+            "code",
+            "reference",
+        )
         variant_sku = str(variant_sku_value).strip() if variant_sku_value not in (None, "") else None
         variant = (
             external_variants.get(variant_external_id or "")
@@ -3230,16 +3338,47 @@ async def _sync_inventory(
         )
         if not variant and (variant_external_id or variant_sku):
             variant = await _linked_variant(db, source, variant_external_id, variant_sku)
-        external_id_value = _mapped(item, mapping, "inventory.external_id", "product_id", "id", "sku")
+        external_id_value = _mapped(
+            item,
+            mapping,
+            "inventory.external_id",
+            "product_id",
+            "product_external_id",
+            "external_id",
+            "id",
+        )
         external_id = str(external_id_value).strip() if external_id_value not in (None, "") else None
-        sku_value = _mapped(item, mapping, "inventory.sku", "sku", "product_sku")
+        sku_value = _mapped(
+            item,
+            mapping,
+            "inventory.sku",
+            "sku",
+            "product_sku",
+            "thosku",
+            "item_code",
+            "code",
+            "reference",
+        )
         sku = str(sku_value).strip() if sku_value not in (None, "") else None
         product = external_products.get(external_id or "") or (external_products.get(f"sku:{sku}") if sku else None)
         if variant:
             product = await db.get(Product, variant.product_id)
         if not product:
             product = await _linked_product(db, source, external_id, sku)
-        quantity = _as_float(_mapped(item, mapping, "inventory.quantity", "quantity", "stock", "available"))
+        quantity = _as_float(
+            _mapped(
+                item,
+                mapping,
+                "inventory.quantity",
+                "quantity",
+                "stock",
+                "available",
+                "available_stock",
+                "qty",
+                "existence",
+                "existencias",
+            )
+        )
         if not product:
             run.items_failed += 1
             _record_sync_item_error(

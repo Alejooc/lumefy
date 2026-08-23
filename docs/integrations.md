@@ -114,7 +114,10 @@ se sirven desde Lumefy. El nombre del archivo se calcula a partir del origen y
 la URL externa, por lo que repetir el catálogo reutiliza la copia existente.
 Una descarga fallida no reemplaza una copia local válida; la URL externa queda
 guardada en `product.attributes.external_image_urls` para poder reintentarla en
-la siguiente sincronización.
+la siguiente sincronización. Las descargas de la galería se hacen en paralelo
+con un límite de 8 por origen (configurable con `image_download_concurrency`,
+máximo 16), para que un catálogo grande no quede bloqueado esperando una
+imagen detrás de otra.
 
 Cuando `pagination.enabled` es `false`, Lumefy hace una sola solicitud. Con `type: "page"`, reemplaza o agrega los parámetros de página en cada solicitud y continúa hasta encontrar una página vacía, una página menor al tamaño configurado, metadatos de páginas/total devueltos por el proveedor, `last_page`/`total` configurados o el límite `max_pages`. Con `type: "cursor"`, envía el token en `cursor_param` y lee el siguiente token desde `next_cursor_path` (por defecto `meta.next_cursor`); si el proveedor devuelve una URL absoluta, solo se acepta si mantiene el mismo origen configurado. Los cursores repetidos y los recorridos que superan `max_pages` se detienen con error para evitar bucles.
 
@@ -130,7 +133,7 @@ Lumefy valida una firma HMAC-SHA256 del cuerpo JSON. Acepta firmas hexadecimales
 
 Los eventos verificados no modifican existencias directamente: encolan una sincronización `INVENTORY`, `CATALOG` o `FULL`. Esto conserva las mismas validaciones de SKU, variantes, reservas y movimientos de inventario del flujo normal. Si ya hay una ejecución equivalente en cola, el evento queda como `COALESCED` y el polling existente sigue cubriendo el cambio. Los cuerpos no se guardan; solo se conserva el hash, tipo, estado y vínculo con la ejecución.
 
-Para endpoints de inventario que reciben varios SKU (por ejemplo `GET /api/external/inventory?skus=THO12306,THO12362`), activa `batch.enabled`. Lumefy toma los SKU vinculados durante la sincronización de catálogo, los divide en lotes y reemplaza dinámicamente el parámetro `skus`; el tamaño se limita a 100 aunque la configuración indique un valor mayor. La respuesta esperada puede envolver los registros en `data`, con `sku` como identificador y `stock` como cantidad. Las cantidades negativas se normalizan a cero antes de guardarse.
+Para endpoints de inventario que reciben varios SKU (por ejemplo `GET /api/external/inventory?skus=THO12306,THO12362`), activa `batch.enabled`. Lumefy toma los SKU vinculados durante la sincronización de catálogo, los divide en lotes y reemplaza dinámicamente el parámetro `skus`; el tamaño se limita a 100 aunque la configuración indique un valor mayor. La respuesta esperada puede envolver los registros en `data`, con `sku` como identificador y `stock` como cantidad. También se reconocen los alias habituales `product_id`, `product_sku`, `thosku`, `item_code`, `code` y `reference`, de modo que el proveedor no tiene que usar exactamente los nombres de Lumefy. Las cantidades negativas se normalizan a cero antes de guardarse.
 
 Cada elemento de `GET /api/v1/integrations/sources/{id}/runs` incluye el estado operativo en `details.progress`. Sus campos principales son `stage` (`STARTING`, `FETCHING`, `PROCESSING`, `COMPLETED` o `FAILED`), `percent`, `message`, `current`, `total`, `page`, `pages_total`, `items_received`, `items_total` e `items_failed`. El panel consulta este historial mientras la ejecución está en cola o en curso y conserva el último resultado al terminar.
 
@@ -176,6 +179,17 @@ fotografía de existencia física: normaliza valores negativos a cero y no reduc
 una existencia por debajo de `reserved_quantity`. Cuando la fotografía es
 válida y cambia el valor, se registra un ajuste auditable; las ventas y compras
 continúan generando sus propios movimientos `OUT`/`IN`.
+
+## Vaciado físico del catálogo
+
+El botón **Vaciar catálogo definitivamente** usa
+`POST /api/v1/products/purge-all` y exige la confirmación `PURGE_CATALOG`.
+Elimina productos, variantes, imágenes locales, existencias, vínculos de
+integración y líneas relacionadas de ventas, compras, facturas, devoluciones y
+fabricación. Conserva los encabezados de esos documentos para no borrar la
+empresa completa. No es una operación reversible y no debe usarse como el
+borrado normal de un producto; ese flujo protegido sigue conservando el
+historial.
 
 ## Vista previa / debug
 

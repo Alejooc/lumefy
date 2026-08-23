@@ -1,4 +1,4 @@
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Literal
 from pydantic import BaseModel, Field
 from uuid import UUID
 from app.schemas.unit_of_measure import UnitOfMeasure as UnitOfMeasureSchema
@@ -187,6 +187,21 @@ class ProductBulkDeleteAllRequest(BaseModel):
     brand_id: Optional[UUID] = None
     product_type: Optional[str] = None
     force: bool = False
+
+
+class ProductPurgeAllRequest(BaseModel):
+    """Explicit confirmation for the irreversible catalog purge.
+
+    This endpoint is intentionally separate from guarded deletion.  A normal
+    delete preserves business history; a purge is only for an operator who
+    explicitly wants to empty the catalog and its product lines everywhere.
+    """
+
+    confirmation: Literal["PURGE_CATALOG"]
+    search: Optional[str] = None
+    category_id: Optional[UUID] = None
+    brand_id: Optional[UUID] = None
+    product_type: Optional[str] = None
 
 
 class ProductBulkImageUrlRequest(BaseModel):
