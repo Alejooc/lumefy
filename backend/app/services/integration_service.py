@@ -1674,8 +1674,11 @@ async def _sync_product_images(
     for order, index, provider_url in provider_incoming:
         local_url = cached_by_provider.get(provider_url)
         if not local_url:
-            # Never replace a previously good local copy with a broken
-            # provider URL. A later catalog run can retry the failed download.
+            # Keep a valid provider URL when the VPS copy cannot be downloaded.
+            # The previous implementation dropped the image entirely in this
+            # case, leaving the imported product with no gallery at all. A
+            # later catalog run will retry the cache and replace this fallback
+            # with the local URL as soon as the provider is reachable again.
             fallback = next(
                 (
                     row
@@ -1684,12 +1687,13 @@ async def _sync_product_images(
                 ),
                 None,
             )
-            local_url = fallback.image_url if fallback else None
-        if local_url:
-            incoming.append((order, index, local_url))
+            local_url = fallback.image_url if fallback else provider_url
+        incoming.append((order, index, local_url))
 
-    # Keep the provider references for traceability and for future refreshes,
-    # while product.image_url and ProductImage.image_url point to local files.
+    # Keep the provider references for traceability and for future refreshes.
+    # Successful downloads point product.image_url/ProductImage.image_url to a
+    # local file; an unavailable provider temporarily uses its resolved URL so
+    # the product still has a usable image instead of an empty gallery.
     product.attributes = {
         **(getattr(product, "attributes", None) or {}),
         "external_image_urls": [provider_url for _order, _index, provider_url in provider_incoming],

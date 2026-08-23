@@ -210,6 +210,34 @@ class IntegrationImageSyncTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(created.image_url, "https://cdn.example/media/products/1/b.jpg")
         db.delete.assert_awaited_once_with(stale)
 
+    async def test_catalog_images_keep_provider_url_when_cache_fails(self):
+        product_id = uuid.uuid4()
+        source = SimpleNamespace(
+            base_url="https://provider.example/api",
+            configuration={"asset_base_url": "https://cdn.example/media"},
+        )
+        product = SimpleNamespace(id=product_id, image_url=None)
+        result = Mock()
+        result.scalars.return_value.all.return_value = []
+        db = SimpleNamespace(execute=AsyncMock(return_value=result), add=Mock(), delete=AsyncMock())
+
+        with patch(
+            "app.services.integration_service._cache_provider_asset",
+            new=AsyncMock(return_value=None),
+        ):
+            await _sync_product_images(
+                db,
+                source,
+                product,
+                {"images": [{"url": "products/1/a.jpg", "order": "1"}]},
+                {"product.images": "images[]"},
+            )
+
+        self.assertEqual(product.image_url, "https://cdn.example/media/products/1/a.jpg")
+        self.assertEqual(db.add.call_count, 1)
+        created = db.add.call_args.args[0]
+        self.assertEqual(created.image_url, "https://cdn.example/media/products/1/a.jpg")
+
 
 class IntegrationSupplierHomologationTests(unittest.IsolatedAsyncioTestCase):
     async def test_reuses_supplier_by_external_id(self):
