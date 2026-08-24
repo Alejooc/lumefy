@@ -9,6 +9,8 @@ from app.core.database import get_db
 from app.models.sale import Sale, SaleItem, SaleStatus, Payment
 from app.models.branch import Branch
 from app.models.product import Product
+from app.models.pricelist import PriceList
+from app.models.client import Client
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.pos_session import POSSession, POSSessionStatus
@@ -18,6 +20,7 @@ from app.models.company_app_install import CompanyAppInstall
 from app.models.app_definition import AppDefinition
 from app.core import auth
 from app.schemas import pos as schemas
+from app.services.pricing import load_price_list_context, resolve_price
 import uuid
 from datetime import date, datetime, time, timezone
 
@@ -193,6 +196,7 @@ async def get_pos_config(
 @router.get("/products", response_model=List[schemas.POSProduct])
 async def get_pos_products(
     branch_id: uuid.UUID,
+    price_list_id: uuid.UUID | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(check_pos_app)
 ) -> Any:
@@ -205,6 +209,21 @@ async def get_pos_products(
     result = await db.execute(query)
     rows = result.all()
     product_ids = [product.id for product, _category in rows]
+    if price_list_id:
+        price_list_exists = await db.scalar(
+            select(PriceList.id).where(
+                PriceList.id == price_list_id,
+                PriceList.company_id == current_user.company_id,
+                PriceList.type == "SALE",
+                PriceList.is_active.is_(True),
+                PriceList.active.is_(True),
+            )
+        )
+        if not price_list_exists:
+            raise HTTPException(status_code=404, detail="Lista de precios de venta no encontrada")
+    pricing_context = await load_price_list_context(
+        db, price_list_id, product_ids, current_user.company_id
+    )
     inventory_result = await db.execute(
         select(Inventory.product_id, Inventory.variant_id, Inventory.quantity, Inventory.reserved_quantity).where(
             Inventory.branch_id == branch_id,
@@ -220,7 +239,7 @@ async def get_pos_products(
     for product, category in rows:
         variant_payload = []
         for variant in product.variants or []:
-            variant_price = float(variant.price) if variant.price is not None else float(product.price or 0) + float(variant.price_extra or 0)
+            variant_price = resolve_price(pricing_context, product, variant)
             variant_payload.append({
                 "id": variant.id,
                 "name": variant.name,
@@ -235,7 +254,7 @@ async def get_pos_products(
             "name": product.name,
             "sku": product.sku,
             "barcode": product.barcode,
-            "price": min((item["price"] for item in variant_payload), default=float(product.price or 0)),
+            "price": resolve_price(pricing_context, product),
             "stock": product_stock,
             "category_id": product.category_id,
             "category_name": category.name if category else None,
@@ -687,23 +706,39 @@ async def pos_checkout(
         if not branch_result.scalar_one_or_none():
             raise HTTPException(status_code=404, detail="Sucursal no encontrada")
 
+        client_price_list_id = None
         if checkout_in.client_id:
-            from app.models.client import Client
             client_result = await db.execute(
-                select(Client.id).where(
+                select(Client.id, Client.price_list_id).where(
                     Client.id == checkout_in.client_id,
                     Client.company_id == current_user.company_id,
                 )
             )
-            if not client_result.scalar_one_or_none():
+            client_row = client_result.first()
+            if not client_row:
                 raise HTTPException(status_code=404, detail="Cliente no encontrado")
+            client_price_list_id = client_row.price_list_id
+
+        effective_price_list_id = checkout_in.price_list_id or client_price_list_id
+        if checkout_in.price_list_id or client_price_list_id:
+            price_list_exists = await db.scalar(
+                select(PriceList.id).where(
+                    PriceList.id == effective_price_list_id,
+                    PriceList.company_id == current_user.company_id,
+                    PriceList.type == "SALE",
+                    PriceList.is_active.is_(True),
+                    PriceList.active.is_(True),
+                )
+            )
+            if not price_list_exists:
+                if checkout_in.price_list_id:
+                    raise HTTPException(status_code=400, detail="La lista de precios de venta no está activa o no pertenece a la empresa")
+                effective_price_list_id = None
 
         quantities_by_product = {}
         for item in checkout_in.items:
             if item.quantity <= 0 or item.price < 0 or item.discount < 0:
                 raise HTTPException(status_code=400, detail="Las cantidades, precios y descuentos deben ser válidos")
-            if item.discount > item.price * item.quantity:
-                raise HTTPException(status_code=400, detail="El descuento no puede superar el valor del artículo")
             key = (item.product_id, item.variant_id)
             quantities_by_product[key] = quantities_by_product.get(key, 0) + item.quantity
 
@@ -716,6 +751,12 @@ async def pos_checkout(
         products = {product.id: product for product in product_result.scalars().all()}
         if len(products) != len({product_id for product_id, _variant_id in quantities_by_product}):
             raise HTTPException(status_code=404, detail="Uno o más productos no pertenecen a la empresa")
+        pricing_context = await load_price_list_context(
+            db,
+            effective_price_list_id,
+            list(products),
+            current_user.company_id,
+        )
         variant_prices: dict[tuple[uuid.UUID, uuid.UUID | None], float] = {}
         for (product_id, variant_id), quantity in quantities_by_product.items():
             product = products[product_id]
@@ -730,10 +771,7 @@ async def pos_checkout(
                     raise HTTPException(status_code=400, detail=f"La variante no pertenece a '{product.name}'")
             elif variant_id:
                 raise HTTPException(status_code=400, detail=f"El producto '{product.name}' no tiene esa variante")
-            variant_prices[(product_id, variant_id)] = (
-                float(variant.price) if variant and variant.price is not None
-                else float(product.price or 0) + float(variant.price_extra or 0) if variant else float(product.price or 0)
-            )
+            variant_prices[(product_id, variant_id)] = resolve_price(pricing_context, product, variant)
             if next(
                 item.discount for item in checkout_in.items
                 if item.product_id == product_id and item.variant_id == variant_id

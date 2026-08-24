@@ -22,6 +22,9 @@ class Storefront(BaseModel):
     seo_settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     currency: Mapped[str] = mapped_column(String, default="USD")
     language: Mapped[str] = mapped_column(String, default="es")
+    price_list_id: Mapped[UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("price_lists.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     fulfillment_warehouse_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=True, index=True)
 
     domains = relationship("StorefrontDomain", back_populates="storefront", cascade="all, delete-orphan")
@@ -32,6 +35,7 @@ class Storefront(BaseModel):
     shipping_destinations = relationship("StorefrontShippingDestination", back_populates="storefront", cascade="all, delete-orphan")
     shipping_methods = relationship("StorefrontShippingMethod", back_populates="storefront", cascade="all, delete-orphan")
     orders = relationship("StorefrontOrder", back_populates="storefront", cascade="all, delete-orphan")
+    price_list = relationship("PriceList")
 
     __table_args__ = (
         UniqueConstraint("company_id", "slug", name="uq_storefront_company_slug"),

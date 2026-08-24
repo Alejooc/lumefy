@@ -15,6 +15,7 @@ import {
 } from 'src/app/core/services/storefront-admin.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
 import { ApiService } from 'src/app/core/services/api.service';
+import { PriceList, PriceListService } from 'src/app/core/services/pricelist.service';
 
 interface WarehouseOption {
   id: string;
@@ -37,6 +38,7 @@ export class EcommerceSettingsComponent implements OnInit {
   private permissions = inject(PermissionService);
   private swal = inject(SweetAlertService);
   private api = inject(ApiService);
+  private priceListService = inject(PriceListService);
 
   loading = false;
   saving = false;
@@ -44,6 +46,7 @@ export class EcommerceSettingsComponent implements OnInit {
   selectedStorefrontId = '';
   domains: StorefrontDomain[] = [];
   warehouses: WarehouseOption[] = [];
+  priceLists: PriceList[] = [];
   showDomainsModal = false;
   storefrontForm: Partial<Storefront> = this.createStorefrontForm();
   domainForm: Partial<StorefrontDomain> = this.createDomainForm();
@@ -70,6 +73,10 @@ export class EcommerceSettingsComponent implements OnInit {
       return;
     }
     this.loadStorefronts();
+    this.priceListService.getPriceLists('SALE').subscribe({
+      next: (lists) => this.priceLists = lists.filter((list) => list.active),
+      error: () => this.priceLists = []
+    });
     this.api.get<WarehouseOption[]>('/warehouses/').subscribe({
       next: (warehouses) => this.warehouses = warehouses.filter((warehouse) => warehouse.allows_ecommerce),
       error: () => this.warehouses = []
@@ -312,7 +319,8 @@ export class EcommerceSettingsComponent implements OnInit {
         index_storefront: true
       },
       currency: 'USD',
-      language: 'es'
+      language: 'es',
+      price_list_id: null
     };
   }
 

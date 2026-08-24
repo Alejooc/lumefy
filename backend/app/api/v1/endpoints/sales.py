@@ -15,11 +15,13 @@ from app.models.product_variant import ProductVariant
 from app.models.branch import Branch
 from app.models.warehouse import Warehouse
 from app.models.client import Client
+from app.models.pricelist import PriceList
 from app.models.logistics import SalePackage, SalePackageItem
 from app.models.user import User
 from app.core.permissions import PermissionChecker
 from app.core.audit import log_sale_event
 from app.services.inventory_consumption import consume_fifo_lots
+from app.services.pricing import load_price_list_context, resolve_price
 from app.schemas import sale as schemas
 import uuid
 from datetime import datetime
@@ -49,12 +51,30 @@ async def _validate_sale_relations(db: AsyncSession, sale_in: schemas.SaleCreate
     if not branch_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Sucursal no encontrada")
 
+    client = None
     if sale_in.client_id:
         client_result = await db.execute(
-            select(Client.id).where(Client.id == sale_in.client_id, Client.company_id == company_id)
+            select(Client.id, Client.price_list_id).where(Client.id == sale_in.client_id, Client.company_id == company_id)
         )
-        if not client_result.scalar_one_or_none():
+        client = client_result.first()
+        if not client:
             raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    effective_price_list_id = sale_in.price_list_id
+    if effective_price_list_id is None and sale_in.client_id and client:
+        effective_price_list_id = client.price_list_id
+    if effective_price_list_id:
+        price_list_exists = await db.scalar(
+            select(PriceList.id).where(
+                PriceList.id == effective_price_list_id,
+                PriceList.company_id == company_id,
+                PriceList.type == "SALE",
+                PriceList.is_active.is_(True),
+                PriceList.active.is_(True),
+            )
+        )
+        if not price_list_exists:
+            raise HTTPException(status_code=400, detail="La lista de precios de venta no está activa o no pertenece a la empresa")
 
     product_ids = {item.product_id for item in sale_in.items}
     product_result = await db.execute(
@@ -250,6 +270,15 @@ async def create_sale(
     try:
         await _validate_sale_relations(db, sale_in, current_user.company_id)
 
+        effective_price_list_id = sale_in.price_list_id
+        if effective_price_list_id is None and sale_in.client_id:
+            effective_price_list_id = await db.scalar(
+                select(Client.price_list_id).where(
+                    Client.id == sale_in.client_id,
+                    Client.company_id == current_user.company_id,
+                )
+            )
+
         initial_status = SaleStatus(sale_in.status or SaleStatus.DRAFT)
         if initial_status not in (SaleStatus.DRAFT, SaleStatus.QUOTE):
             raise HTTPException(status_code=400, detail="Una venta nueva debe iniciar en Borrador o Cotización")
@@ -280,12 +309,36 @@ async def create_sale(
         )
         db.add(sale)
         await db.flush()
+
+        product_ids = list({item.product_id for item in sale_in.items})
+        product_result = await db.execute(
+            select(Product).options(selectinload(Product.variants)).where(
+                Product.id.in_(product_ids),
+                Product.company_id == current_user.company_id,
+            )
+        )
+        products = {product.id: product for product in product_result.scalars().all()}
+        pricing_context = await load_price_list_context(
+            db,
+            effective_price_list_id,
+            product_ids,
+            current_user.company_id,
+        )
         
         total_amount = 0.0
         
         # 2. Process Items
         for item_in in sale_in.items:
-            item_total = (item_in.price * item_in.quantity) - item_in.discount
+            product = products[item_in.product_id]
+            variant = next((entry for entry in product.variants if entry.id == item_in.variant_id), None) if item_in.variant_id else None
+            effective_price = (
+                resolve_price(pricing_context, product, variant)
+                if pricing_context.price_list
+                else item_in.price
+            )
+            if item_in.discount > effective_price * item_in.quantity:
+                raise HTTPException(status_code=400, detail="El descuento no puede superar el valor del artículo")
+            item_total = (effective_price * item_in.quantity) - item_in.discount
             total_amount += item_total
             
             sale_item = SaleItem(
@@ -293,7 +346,7 @@ async def create_sale(
                 product_id=item_in.product_id,
                 variant_id=item_in.variant_id,
                 quantity=item_in.quantity,
-                price=item_in.price,
+                price=effective_price,
                 discount=item_in.discount,
                 total=item_total
             )

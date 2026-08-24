@@ -35,6 +35,7 @@ class POSCartItem(BaseModel):
 class POSCheckout(BaseModel):
     branch_id: UUID
     client_id: Optional[UUID] = None
+    price_list_id: Optional[UUID] = None
     items: List[POSCartItem]
     payment_method: str # CASH, CARD, MIXED
     amount_paid: float

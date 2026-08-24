@@ -24,6 +24,7 @@ class StorefrontBase(BaseModel):
     seo_settings: dict = Field(default_factory=dict)
     currency: str = "USD"
     language: str = "es"
+    price_list_id: Optional[UUID] = None
     fulfillment_warehouse_id: Optional[UUID] = None
 
 
@@ -37,6 +38,7 @@ class StorefrontCreate(BaseModel):
     seo_settings: dict = Field(default_factory=dict)
     currency: str = "USD"
     language: str = "es"
+    price_list_id: Optional[UUID] = None
     fulfillment_warehouse_id: Optional[UUID] = None
 
 
@@ -49,6 +51,7 @@ class StorefrontUpdate(BaseModel):
     seo_settings: Optional[dict] = None
     currency: Optional[str] = None
     language: Optional[str] = None
+    price_list_id: Optional[UUID] = None
     fulfillment_warehouse_id: Optional[UUID] = None
 
 

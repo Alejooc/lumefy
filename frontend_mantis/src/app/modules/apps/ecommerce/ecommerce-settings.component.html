@@ -117,6 +117,16 @@
               </select>
               <small class="form-hint">El catálogo, las reservas y el despacho online usarán exclusivamente esta bodega.</small>
             </div>
+            <div class="col-12">
+              <label class="form-label">Lista de precios de venta</label>
+              <select class="form-select" [(ngModel)]="storefrontForm.price_list_id">
+                <option [ngValue]="null">Usar precio base del producto</option>
+                @for (priceList of priceLists; track priceList.id) {
+                  <option [value]="priceList.id">{{ priceList.name }} · {{ priceList.pricing_mode === 'FIXED' ? 'Precios fijos' : 'Regla global' }}</option>
+                }
+              </select>
+              <small class="form-hint">La tienda calculará sus precios con esta lista sin modificar los precios del proveedor.</small>
+            </div>
           </div>
         </div>
       </div>

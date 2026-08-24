@@ -32,6 +32,7 @@ from app.models.branch import Branch
 from app.models.brand import Brand
 from app.models.category import Category
 from app.models.integration import (
+    IntegrationProductPrice,
     IntegrationRecordLink,
     IntegrationSource,
     IntegrationSyncRun,
@@ -63,6 +64,44 @@ STALE_SYNC_MINUTES = max(10, int(os.getenv("INTEGRATION_SYNC_STALE_MINUTES", "60
 
 
 ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
+
+
+async def _upsert_external_price_snapshot(
+    db: AsyncSession,
+    source: IntegrationSource,
+    *,
+    entity_type: str,
+    external_id: str,
+    product: Product,
+    variant: ProductVariant | None,
+    external_price: float | None,
+    external_cost: float | None,
+) -> None:
+    """Persist provider values without touching the internal sale price."""
+    if external_price is None and external_cost is None:
+        return
+    snapshot = await db.scalar(
+        select(IntegrationProductPrice).where(
+            IntegrationProductPrice.source_id == source.id,
+            IntegrationProductPrice.entity_type == entity_type,
+            IntegrationProductPrice.external_id == external_id,
+        )
+    )
+    if snapshot is None:
+        snapshot = IntegrationProductPrice(
+            id=uuid.uuid4(),
+            company_id=source.company_id,
+            source_id=source.id,
+            entity_type=entity_type,
+            external_id=external_id,
+        )
+        db.add(snapshot)
+    snapshot.product_id = product.id
+    snapshot.variant_id = variant.id if variant else None
+    snapshot.external_price = external_price
+    snapshot.external_cost = external_cost
+    snapshot.currency = str((source.configuration or {}).get("currency") or "COP").upper()
+    snapshot.synced_at = datetime.utcnow()
 
 
 async def _report_progress(
@@ -2897,6 +2936,7 @@ async def _sync_products(
             )
             product = product_result.scalars().first()
 
+        product_was_created = product is None
         if product is None:
             product = Product(id=uuid.uuid4(), company_id=source.company_id, name=name, sku=sku)
             db.add(product)
@@ -2929,9 +2969,28 @@ async def _sync_products(
                     # bypassed ``asset_base_url`` while gallery images used it.
                     value = _asset_url(source, value)
                 setattr(product, field, str(value))
+        external_product_price = _as_float(_mapped(item, mapping, "product.price", "price", "sale_price", "selling_price"))
+        external_product_cost = _as_float(_mapped(item, mapping, "product.cost", "cost", "purchase_price"))
+        await db.flush()
+        await _upsert_external_price_snapshot(
+            db,
+            source,
+            entity_type="product",
+            external_id=external_id,
+            product=product,
+            variant=None,
+            external_price=external_product_price,
+            external_cost=external_product_cost,
+        )
+        # Seed a sale/cost value only for a new or empty local record. Future
+        # catalog syncs update the external snapshot and preserve edits made
+        # by the operator or by a sales price list.
+        if external_product_price is not None and (product_was_created or product.price in (None, 0)):
+            product.price = external_product_price
+        if external_product_cost is not None and (product_was_created or product.cost in (None, 0)):
+            product.cost = external_product_cost
+
         for field, key, *fallbacks in [
-            ("price", "product.price", "price", "sale_price"),
-            ("cost", "product.cost", "cost", "purchase_price"),
             ("weight", "product.weight", "weight", "weight_kg", "product_weight", "peso", "peso_kg"),
             ("volume", "product.volume", "volume", "volume_l", "product_volume", "volumen", "volumen_l"),
             ("tax_rate", "product.tax_rate", "tax_rate", "tax", "vat", "iva", "impuesto"),
@@ -3135,6 +3194,7 @@ async def _sync_products(
                     ).limit(1)
                 )
                 variant = variant_result.scalars().first()
+            variant_was_created = variant is None
             if not variant:
                 variant = ProductVariant(
                     id=uuid.uuid4(),
@@ -3161,14 +3221,27 @@ async def _sync_products(
             variant_cost = _as_float(_mapped_context(
                 variant_item, mapping, "variant.cost", variants_prefix, "cost", "purchase_price"
             ))
-            if variant_price is not None:
+            # The snapshot has a foreign key to the variant. Flush the newly
+            # created variant before inserting that snapshot.
+            await db.flush()
+            await _upsert_external_price_snapshot(
+                db,
+                source,
+                entity_type="variant",
+                external_id=variant_external_id,
+                product=product,
+                variant=variant,
+                external_price=variant_price,
+                external_cost=variant_cost,
+            )
+            if variant_price is not None and (variant_was_created or variant.price in (None, 0)):
                 variant.price = variant_price
-                if _mapped(item, mapping, "product.price", "price", "sale_price") in (None, "") and product.price in (None, 0):
+                if external_product_price is None and product.price in (None, 0):
                     product.price = variant_price
                 variant.price_extra = variant_price - float(product.price or 0)
-            if variant_cost is not None:
+            if variant_cost is not None and (variant_was_created or variant.cost in (None, 0)):
                 variant.cost = variant_cost
-                if _mapped(item, mapping, "product.cost", "cost", "purchase_price") in (None, "") and product.cost in (None, 0):
+                if external_product_cost is None and product.cost in (None, 0):
                     product.cost = variant_cost
                 variant.cost_extra = variant_cost - float(product.cost or 0)
             variant_barcode = _mapped_context(variant_item, mapping, "variant.barcode", variants_prefix, "barcode", "ean", "upc", "gtin", "item_code")

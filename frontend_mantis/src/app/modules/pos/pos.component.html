@@ -139,7 +139,7 @@
                 <i class="ti ti-user"></i>
               </div>
               <select class="form-select form-select-sm border-0 bg-light fw-semibold"
-                [(ngModel)]="selectedClientId" style="flex:1;">
+                [(ngModel)]="selectedClientId" (ngModelChange)="onClientChange()" style="flex:1;">
                 <option value="">Consumidor Final</option>
                 @for (c of clients; track c) {
                   <option [value]="c.id">{{ c.name }}</option>

@@ -48,6 +48,14 @@ export class ApiService {
         return this.http.get<T>(`${environment.apiUrl}${path}`, { headers, params: this.normalizeParams(params) });
     }
 
+    getBlob(path: string, params: QueryParams = new HttpParams()): Observable<Blob> {
+        return this.http.get(`${environment.apiUrl}${path}`, {
+            headers: this.getHeaders(),
+            params: this.normalizeParams(params),
+            responseType: 'blob'
+        });
+    }
+
     post<T>(path: string, body: unknown = {}): Observable<T> {
         const isFormData = body instanceof FormData;
         return this.http.post<T>(`${environment.apiUrl}${path}`, body, { headers: this.getHeaders(isFormData) });

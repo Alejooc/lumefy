@@ -41,6 +41,7 @@ from app.models.product_image import ProductImage
 from app.models.product_variant import ProductVariant
 from app.models.user import User
 from app.models.client import Client
+from app.models.pricelist import PriceList
 from app.models.storefront_customer import StorefrontCustomerAccount
 from app.models.storefront_newsletter import StorefrontNewsletterSubscription
 from app.services.email import EmailService
@@ -65,6 +66,7 @@ from app.services.storefront_shipping import (
     ensure_default_shipping_configuration,
     validate_shipping_rule_values,
 )
+from app.services.pricing import ProductPricing, load_price_list_context, resolve_price, resolve_product_pricing
 from app.core.credential_crypto import SENSITIVE_GATEWAY_CONFIG_KEYS
 
 router = APIRouter()
@@ -876,6 +878,26 @@ def _variant_attribute(variant: ProductVariant, *keys: str) -> str | None:
     return None
 
 
+def _published_unit_price(
+    published_product: PublishedProduct,
+    product: Product,
+    variant: ProductVariant | None,
+    pricing: ProductPricing | None = None,
+) -> float:
+    base_price = pricing.base_price if pricing else float(product.price or 0)
+    raw_price = (
+        pricing.variant_prices.get(variant.id, float(variant.price) if variant.price is not None else base_price + float(variant.price_extra or 0))
+        if variant and pricing
+        else float(variant.price) if variant and variant.price is not None
+        else float(product.price or 0) + float(variant.price_extra or 0) if variant
+        else float(product.price or 0)
+    )
+    unit_price = _safe_float(published_product.price_override, raw_price)
+    if variant and published_product.price_override is not None and base_price:
+        unit_price = float(published_product.price_override) + (raw_price - base_price)
+    return max(0.0, unit_price)
+
+
 def _serialize_admin_published_product(published_product: PublishedProduct) -> schemas.PublishedProduct:
     base_price = None
     if published_product.product and published_product.product.price is not None:
@@ -905,6 +927,7 @@ def _serialize_public_product(
     stock_map: dict[tuple[uuid.UUID, uuid.UUID | None], float] | None = None,
     *,
     compact: bool = False,
+    pricing: ProductPricing | None = None,
 ) -> schemas.PublicProduct:
     title = (published_product.custom_title or product.name or "").strip()
     # Catalog cards do not render descriptions. Some provider descriptions
@@ -916,17 +939,11 @@ def _serialize_public_product(
         if not compact
         else None
     )
-    base_price = float(product.price or 0)
+    base_price = pricing.base_price if pricing else float(product.price or 0)
     stock_map = stock_map or {}
     variants: list[schemas.PublicProductVariant] = []
     for variant in product.variants or []:
-        raw_variant_price = float(variant.price) if variant.price is not None else base_price + float(variant.price_extra or 0)
-        variant_price = _safe_float(
-            published_product.price_override,
-            raw_variant_price,
-        )
-        if published_product.price_override is not None and base_price:
-            variant_price = float(published_product.price_override) + (raw_variant_price - base_price)
+        variant_price = _published_unit_price(published_product, product, variant, pricing)
         variant_stock = max(0.0, _safe_float(stock_map.get((product.id, variant.id), 0.0)))
         variants.append(
             schemas.PublicProductVariant(
@@ -994,17 +1011,16 @@ def _serialize_public_product(
     )
 
 
-def _public_product_starting_price(published_product: PublishedProduct, product: Product) -> float:
+def _public_product_starting_price(
+    published_product: PublishedProduct,
+    product: Product,
+    pricing: ProductPricing | None = None,
+) -> float:
     """Return the lowest sellable variant price used by catalog filters/sort."""
-    base_price = float(product.price or 0)
+    base_price = pricing.base_price if pricing else float(product.price or 0)
     if not product.variants:
         return _safe_float(published_product.price_override, base_price)
-    prices: list[float] = []
-    for variant in product.variants:
-        raw_price = float(variant.price) if variant.price is not None else base_price + float(variant.price_extra or 0)
-        if published_product.price_override is not None and base_price:
-            raw_price = float(published_product.price_override) + (raw_price - base_price)
-        prices.append(raw_price)
+    prices = [_published_unit_price(published_product, product, variant, pricing) for variant in product.variants]
     return min(prices, default=_safe_float(published_product.price_override, base_price))
 
 
@@ -1137,6 +1153,21 @@ async def _get_storefront_or_404(db: AsyncSession, storefront_id: uuid.UUID, com
     if not storefront:
         raise HTTPException(status_code=404, detail="Storefront not found")
     return storefront
+
+
+async def _validate_storefront_price_list(db: AsyncSession, price_list_id: uuid.UUID | None, company_id: uuid.UUID) -> None:
+    if not price_list_id:
+        return
+    price_list = await db.scalar(
+        select(PriceList).where(
+            PriceList.id == price_list_id,
+            PriceList.company_id == company_id,
+            PriceList.type == "SALE",
+            PriceList.is_active.is_(True),
+        )
+    )
+    if not price_list:
+        raise HTTPException(status_code=400, detail="La lista seleccionada debe ser una lista de venta activa")
 
 
 async def _get_collection_or_404(db: AsyncSession, collection_id: uuid.UUID, company_id: uuid.UUID) -> StoreCollection:
@@ -1416,6 +1447,13 @@ async def _load_checkout_products(
     if len(published_map) != len(published_ids):
         raise HTTPException(status_code=400, detail="One or more products are not available in this storefront")
 
+    price_list_id = await db.scalar(select(Storefront.price_list_id).where(Storefront.id == storefront_id))
+    pricing_context = await load_price_list_context(
+        db,
+        price_list_id,
+        [published.product_id for published in published_map.values()],
+    )
+
     rows: list[schemas.PublicCheckoutPreviewItem] = []
     subtotal = 0.0
     for (published_id, variant_id), quantity in merged.items():
@@ -1438,13 +1476,8 @@ async def _load_checkout_products(
                 variant_id = variant.id
             else:
                 raise HTTPException(status_code=400, detail=f"Selecciona una variante para '{product.name}'")
-        raw_price = (
-            float(variant.price) if variant and variant.price is not None
-            else _safe_float(product.price) + float(variant.price_extra or 0) if variant else _safe_float(product.price)
-        )
-        unit_price = _safe_float(published.price_override, raw_price)
-        if variant and published.price_override is not None and product.price:
-            unit_price = float(published.price_override) + (raw_price - float(product.price))
+        pricing = resolve_product_pricing(pricing_context, product)
+        unit_price = _published_unit_price(published, product, variant, pricing)
         line_subtotal = unit_price * quantity
         subtotal += line_subtotal
         rows.append(
@@ -1796,6 +1829,8 @@ async def create_storefront(
     if not storefront_in.name or not storefront_in.name.strip():
         raise HTTPException(status_code=422, detail="El nombre de la tienda es obligatorio.")
 
+    await _validate_storefront_price_list(db, storefront_in.price_list_id, current_user.company_id)
+
     slug = await _available_storefront_slug(db, current_user.company_id, storefront_in.name)
     subdomain = await _available_storefront_subdomain(db, storefront_in.name)
     storefront_data = storefront_in.model_dump(exclude={"slug", "subdomain"})
@@ -1837,6 +1872,8 @@ async def update_storefront(
         storefront.slug = await _available_storefront_slug(db, current_user.company_id, storefront.name)
     if not storefront.subdomain:
         storefront.subdomain = await _available_storefront_subdomain(db, storefront.name)
+    if "price_list_id" in storefront_in.model_dump(exclude_unset=True):
+        await _validate_storefront_price_list(db, storefront_in.price_list_id, current_user.company_id)
     for field, value in storefront_in.model_dump(exclude_unset=True).items():
         setattr(storefront, field, value)
     storefront.updated_by_id = current_user.id
@@ -3556,6 +3593,11 @@ async def read_public_collection_detail(
         storefront,
         [link.published_product.product_id for link in links if link.published_product and link.published_product.product],
     )
+    pricing_context = await load_price_list_context(
+        db,
+        storefront.price_list_id,
+        [link.published_product.product_id for link in links if link.published_product and link.published_product.product],
+    )
 
     products: list[schemas.PublicProduct] = []
     for link in links:
@@ -3573,6 +3615,7 @@ async def read_public_collection_detail(
                 published_product,
                 published_product.product,
                 stock_map,
+                pricing=resolve_product_pricing(pricing_context, published_product.product),
             )
         )
     return schemas.PublicCollection(
@@ -3793,6 +3836,12 @@ async def read_public_products(
         set_committed_value(product, "category", categories_by_id.get(product.category_id))
         set_committed_value(product, "brand", brands_by_id.get(product.brand_id))
 
+    pricing_context = await load_price_list_context(db, storefront.price_list_id, product_ids)
+    pricing_by_product = {
+        product_id: resolve_product_pricing(pricing_context, product)
+        for product_id, product in products_by_id.items()
+    }
+
     product_collection_map: dict[uuid.UUID, list[str]] = {}
     published_ids = [item.id for item in published_products]
     if published_ids and load_collection_metadata:
@@ -3840,7 +3889,11 @@ async def read_public_products(
             "brand_name": brand_name,
             "brand_normalized": _normalize_catalog_text(brand_name),
             "product_type": (product.product_type or "").upper(),
-            "unit_price": _public_product_starting_price(published_product, product),
+            "unit_price": _public_product_starting_price(
+                published_product,
+                product,
+                pricing_by_product.get(product.id),
+            ),
             "search_values": (
                 _normalize_catalog_text(product.name),
                 _normalize_catalog_text(published_product.custom_title),
@@ -4069,6 +4122,7 @@ async def read_public_products(
                 published_product.product,
                 stock_map,
                 compact=True,
+                pricing=pricing_by_product.get(published_product.product_id),
             )
             for published_product in paginated_products
             if published_product.product
@@ -4143,10 +4197,12 @@ async def read_public_product_detail(
     storefront = await _get_public_storefront_by_id(db, storefront_id)
     published_product = await _get_public_published_product_or_404(db, storefront_id, slug)
     stock_map = await _get_storefront_stock_map(db, storefront, [published_product.product_id])
+    pricing_context = await load_price_list_context(db, storefront.price_list_id, [published_product.product_id])
     return _serialize_public_product(
         published_product,
         published_product.product,
         stock_map,
+        pricing=resolve_product_pricing(pricing_context, published_product.product),
     )
 
 

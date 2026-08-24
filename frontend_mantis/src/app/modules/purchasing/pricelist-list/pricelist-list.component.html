@@ -15,6 +15,7 @@
                 <th>Nombre</th>
                 <th>Tipo</th>
                 <th>Moneda</th>
+                <th>Aplicación</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -29,6 +30,13 @@
                     </span>
                   </td>
                   <td>{{ pl.currency }}</td>
+                  <td>
+                    @if (pl.type === 'SALE' && pl.pricing_mode !== 'FIXED') {
+                      {{ pl.adjustment_value }}{{ pl.pricing_mode === 'MARKUP_PERCENT' ? '%' : '' }} sobre {{ pl.base_source === 'EXTERNAL_COST' ? 'costo externo' : pl.base_source === 'EXTERNAL_PRICE' ? 'precio externo' : pl.base_source === 'INTERNAL_COST' ? 'costo interno' : 'precio interno' }}
+                    }
+                    @if (pl.type === 'SALE' && pl.pricing_mode === 'FIXED') { Precios manuales }
+                    @if (pl.type === 'PURCHASE') { Precios de compra }
+                  </td>
                   <td>
                     @if (pl.active) {
                       <span class="badge bg-primary">Activo</span>
@@ -47,12 +55,12 @@
               }
               @if (priceLists.length === 0 && !loading) {
                 <tr>
-                  <td colspan="5" class="text-center">No se encontraron listas de precios</td>
+                  <td colspan="6" class="text-center">No se encontraron listas de precios</td>
                 </tr>
               }
               @if (loading) {
                 <tr>
-                  <td colspan="5" class="text-center">Cargando...</td>
+                  <td colspan="6" class="text-center">Cargando...</td>
                 </tr>
               }
             </tbody>

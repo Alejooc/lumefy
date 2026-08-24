@@ -198,14 +198,23 @@ export class PosComponent implements OnInit {
     }
 
     loadProducts() {
-        this.posService.getProducts(this.currentBranchId).subscribe((data) => {
+        const selectedClient = this.clients.find((client) => client.id === this.selectedClientId);
+        this.posService.getProducts(this.currentBranchId, selectedClient?.price_list_id).subscribe((data) => {
             this.products = data;
             const cats = data.map((p) => p.category_name).filter((c): c is string => !!c);
             this.categories = [...new Set(cats)].sort();
             this.selectedCategory = '';
             this.filteredProducts = data;
+            for (const item of this.cart) {
+                const product = data.find((entry) => entry.id === item.product_id);
+                if (product) item.price = product.price;
+            }
             this.cdr.detectChanges();
         });
+    }
+
+    onClientChange() {
+        if (this.currentBranchId) this.loadProducts();
     }
 
     selectCategory(cat: string) {
@@ -421,6 +430,7 @@ export class PosComponent implements OnInit {
         const payload: POSCheckout = {
             branch_id: this.currentBranchId,
             client_id: this.selectedClientId || undefined,
+            price_list_id: this.clients.find((client) => client.id === this.selectedClientId)?.price_list_id || undefined,
             items: this.cart.map((i) => ({
                 product_id: i.product_id,
                 quantity: i.quantity,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -113,6 +113,35 @@ class IntegrationRecordLink(BaseModel):
     raw_payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     source = relationship("IntegrationSource", back_populates="record_links")
+
+
+class IntegrationProductPrice(BaseModel):
+    """Latest provider pricing snapshot, kept separate from sale prices."""
+
+    __tablename__ = "integration_product_prices"
+    __table_args__ = (
+        UniqueConstraint("source_id", "entity_type", "external_id", name="uq_integration_product_price_external"),
+    )
+
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("integration_sources.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    entity_type: Mapped[str] = mapped_column(String(20), nullable=False, default="product")
+    external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    variant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    external_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    external_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    source = relationship("IntegrationSource")
+    product = relationship("Product")
+    variant = relationship("ProductVariant")
 
 
 class IntegrationWebhookEvent(BaseModel):

@@ -50,6 +50,7 @@ class SaleItem(SaleItemBase):
 class SaleBase(BaseModel):
     branch_id: UUID
     client_id: Optional[UUID] = None
+    price_list_id: Optional[UUID] = None
     payment_method: Optional[str] = None
     notes: Optional[str] = None
     shipping_address: Optional[str] = None

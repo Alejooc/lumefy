@@ -24,6 +24,7 @@ class ClientBase(BaseModel):
     address: Optional[str] = Field(default=None, max_length=180)
     notes: Optional[str] = Field(default=None, max_length=500)
     is_active: bool = True
+    price_list_id: Optional[UUID] = None
     
     # CRM Fields
     status: str = Field(default="active")

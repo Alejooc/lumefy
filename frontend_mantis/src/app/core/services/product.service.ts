@@ -84,4 +84,8 @@ export class ProductService {
     getProducts(): Observable<Product[]> {
         return this.http.get<Product[]>(this.apiUrl);
     }
+
+    getProductsForPriceList(): Observable<Product[]> {
+        return this.http.get<Product[]>(`${this.apiUrl}?limit=10000`);
+    }
 }

@@ -13,10 +13,20 @@ export interface POSProduct {
     category_id?: string;
     category_name?: string;
     image_url?: string;
+    variants?: POSProductVariant[];
+}
+
+export interface POSProductVariant {
+    id: string;
+    name: string;
+    sku?: string;
+    price: number;
+    stock: number;
 }
 
 export interface POSCartItem {
     product_id: string;
+    variant_id?: string;
     quantity: number;
     price: number;
     discount: number;
@@ -26,6 +36,7 @@ export interface POSCartItem {
 export interface POSCheckout {
     branch_id: string;
     client_id?: string;
+    price_list_id?: string;
     items: POSCartItem[];
     payment_method: string;
     amount_paid: number;
@@ -172,8 +183,10 @@ export class PosService {
 
     private apiUrl = `${environment.apiUrl}/pos`;
 
-    getProducts(branchId: string): Observable<POSProduct[]> {
-        return this.http.get<POSProduct[]>(`${this.apiUrl}/products`, { params: { branch_id: branchId } });
+    getProducts(branchId: string, priceListId?: string | null): Observable<POSProduct[]> {
+        const params: Record<string, string> = { branch_id: branchId };
+        if (priceListId) params['price_list_id'] = priceListId;
+        return this.http.get<POSProduct[]>(`${this.apiUrl}/products`, { params });
     }
 
     getConfig(): Observable<POSConfig> {

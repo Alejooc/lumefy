@@ -7,6 +7,7 @@ export interface Client {
     address?: string;
     notes?: string;
     is_active: boolean;
+    price_list_id?: string | null;
     created_at?: string;
     updated_at?: string;
 

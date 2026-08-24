@@ -35,6 +35,48 @@
               </div>
             </div>
 
+            <div class="row g-3 mb-3">
+              <div class="col-md-3">
+                <label class="form-label">Base del cálculo</label>
+                <select class="form-select" formControlName="base_source">
+                  <option value="INTERNAL_PRICE">Precio interno</option>
+                  <option value="INTERNAL_COST">Costo interno</option>
+                  <option value="EXTERNAL_PRICE">Precio del proveedor</option>
+                  <option value="EXTERNAL_COST">Costo del proveedor</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Regla</label>
+                <select class="form-select" formControlName="pricing_mode">
+                  <option value="FIXED">Precios fijos / manuales</option>
+                  <option value="MARKUP_PERCENT">Aumento porcentual</option>
+                  <option value="MARKUP_AMOUNT">Aumento por valor</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Ajuste global</label>
+                <input type="number" class="form-control" formControlName="adjustment_value" min="-1000000" step="0.01">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Redondear a</label>
+                <input type="number" class="form-control" formControlName="rounding_step" min="0" step="100">
+                <small class="text-muted">0 = sin redondeo</small>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Margen mínimo (%)</label>
+                <input type="number" class="form-control" formControlName="min_margin_percent" min="0" step="0.1">
+              </div>
+              <div class="col-md-9">
+                <label class="form-label">Origen de referencia</label>
+                <select class="form-select" formControlName="source_id">
+                  <option [ngValue]="null">Sin origen externo</option>
+                  @for (source of sources; track source.id) {
+                    <option [value]="source.id">{{ source.name }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+
             <div class="form-check mb-3">
               <input class="form-check-input" type="checkbox" formControlName="active" id="activeCheck">
               <label class="form-check-label" for="activeCheck">Activa</label>
@@ -43,54 +85,102 @@
             <hr>
               <div class="d-flex justify-content-between align-items-center mb-3">
                 <h6>Items (Reglas de Precio)</h6>
-                @if (!isEditMode) {
-                  <button type="button" class="btn btn-primary btn-sm" (click)="addItem()">
-                    <i class="ti ti-plus"></i> Agregar Producto
-                  </button>
-                }
-                @if (isEditMode) {
-                  <div class="text-muted small">
-                    La edición de items no está soportada en esta vista aún.
+                <button type="button" class="btn btn-primary btn-sm" (click)="addItem()">
+                  <i class="ti ti-plus"></i> Agregar excepción
+                </button>
+              </div>
+
+              <div formArrayName="items">
+                @for (item of items.controls; track item; let i = $index) {
+                  <div [formGroupName]="i" class="row mb-2 align-items-end border-bottom pb-2">
+                    <div class="col-md-3">
+                      @if (i===0) { <label class="form-label small">Producto</label> }
+                      <select class="form-select" formControlName="product_id">
+                        <option value="">Seleccionar producto</option>
+                        @for (p of products; track p.id) {
+                          <option [value]="p.id">{{ p.name }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div class="col-md-3">
+                      @if (i===0) { <label class="form-label small">Variante (opcional)</label> }
+                      <select class="form-select" formControlName="variant_id">
+                        <option [ngValue]="null">Todas / producto</option>
+                        @for (variant of variantsFor(item.get('product_id')?.value); track variant.id) {
+                          <option [value]="variant.id">{{ variant.name }}{{ variant.sku ? ' · ' + variant.sku : '' }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div class="col-md-2">
+                      @if (i===0) { <label class="form-label small">Cant. mínima</label> }
+                      <input type="number" class="form-control" formControlName="min_quantity" min="0">
+                    </div>
+                    <div class="col-md-2">
+                      @if (i===0) { <label class="form-label small">Precio manual</label> }
+                      <input type="number" class="form-control" formControlName="price" min="0" placeholder="Usar regla">
+                    </div>
+                    <div class="col-md-2 text-end">
+                      <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeItem(i)" title="Quitar excepción">
+                        <i class="ti ti-trash"></i>
+                      </button>
+                    </div>
                   </div>
                 }
               </div>
 
-              @if (!isEditMode) {
-                <div formArrayName="items">
-                  @for (item of items.controls; track item; let i = $index) {
-                    <div [formGroupName]="i"
-                      class="row mb-2 align-items-end">
-                      <div class="col-md-4">
-                        @if (i===0) {
-                          <label class="form-label small">Producto</label>
-                        }
-                        <select class="form-select" formControlName="product_id">
-                          <option value="">Seleccionar Producto</option>
-                          @for (p of products; track p) {
-                            <option [value]="p.id">{{ p.name }}</option>
-                          }
+              @if (isEditMode) {
+                <div class="card border-primary mt-4">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                        <h6 class="mb-1">Aumento global</h6>
+                        <small class="text-muted">Calcula el precio final de toda la lista sin cambiar el precio del proveedor.</small>
+                      </div>
+                      <span class="badge bg-light-primary text-primary">Regla segura</span>
+                    </div>
+                    <div class="row g-2 align-items-end">
+                      <div class="col-md-3">
+                        <label class="form-label small">Porcentaje</label>
+                        <input type="number" class="form-control" [(ngModel)]="globalPercent" [ngModelOptions]="{standalone: true}" min="-100" step="0.1">
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label small">Base</label>
+                        <select class="form-select" [(ngModel)]="globalBaseSource" [ngModelOptions]="{standalone: true}">
+                          <option value="EXTERNAL_PRICE">Precio externo</option>
+                          <option value="EXTERNAL_COST">Costo externo</option>
+                          <option value="INTERNAL_PRICE">Precio interno</option>
+                          <option value="INTERNAL_COST">Costo interno</option>
                         </select>
                       </div>
-                      <div class="col-md-3">
-                        @if (i===0) {
-                          <label class="form-label small">Cant. Mínima</label>
-                        }
-                        <input type="number" class="form-control" formControlName="min_quantity" min="0">
+                      <div class="col-md-4">
+                        <div class="form-check mb-2">
+                          <input class="form-check-input" type="checkbox" [(ngModel)]="preserveOverrides" [ngModelOptions]="{standalone: true}" id="preserveOverrides">
+                          <label class="form-check-label small" for="preserveOverrides">Conservar precios manuales</label>
+                        </div>
                       </div>
-                      <div class="col-md-3">
-                        @if (i===0) {
-                          <label class="form-label small">Precio/Costo</label>
-                        }
-                        <input type="number" class="form-control" formControlName="price" min="0">
-                      </div>
-                      <div class="col-md-2 text-end">
-                        <button type="button" class="btn btn-danger btn-sm" (click)="removeItem(i)">
-                          <i class="ti ti-trash"></i>
-                        </button>
+                      <div class="col-md-2">
+                        <button type="button" class="btn btn-primary w-100" [disabled]="loading" (click)="applyGlobalAdjustment()">Aplicar</button>
                       </div>
                     </div>
-                  }
+                  </div>
                 </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                  <button type="button" class="btn btn-outline-success" [disabled]="importing" (click)="downloadExcel()">
+                    <i class="ti ti-download"></i> Descargar Excel
+                  </button>
+                  <label class="btn btn-outline-secondary mb-0" [class.disabled]="importing">
+                    <i class="ti ti-upload"></i> Importar Excel
+                    <input type="file" accept=".xlsx,.xlsm" class="d-none" [disabled]="importing" (change)="onExcelSelected($event)">
+                  </label>
+                  @if (importing) { <span class="text-muted small align-self-center">Validando archivo…</span> }
+                </div>
+                @if (importResult) {
+                  <div class="alert alert-light mt-3 mb-0">
+                    {{ importResult.rows_received }} filas leídas · {{ importResult.rows_failed }} con error.
+                    @if (importResult.errors.length) { <div class="small text-danger mt-1">{{ importResult.errors[0] }}</div> }
+                  </div>
+                }
               }
 
               <div class="d-flex justify-content-end mt-4">

@@ -299,6 +299,7 @@ export interface Storefront {
   seo_settings: Record<string, unknown>;
   currency: string;
   language: string;
+  price_list_id?: string | null;
   fulfillment_warehouse_id?: string | null;
 }
 
