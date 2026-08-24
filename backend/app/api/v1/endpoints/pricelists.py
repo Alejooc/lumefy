@@ -15,12 +15,13 @@ from app.api.deps import get_db, PermissionChecker
 from app.models.user import User
 from app.models.pricelist import PriceList
 from app.models.pricelist_item import PriceListItem
+from app.models.pricelist_source_rule import PriceListSourceRule
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.integration import IntegrationSource
 from app.schemas import pricelist as schemas
 from app.core.audit import log_activity
-from app.services.pricing import load_price_list_context, resolve_price
+from app.services.pricing import load_price_list_context, resolve_price, selected_external_values
 
 router = APIRouter()
 
@@ -29,7 +30,7 @@ async def _get_pricelist(db: AsyncSession, list_id: str, current_user: User) -> 
     result = await db.execute(
         select(PriceList)
         .where(PriceList.id == list_id, PriceList.company_id == current_user.company_id)
-        .options(selectinload(PriceList.items))
+        .options(selectinload(PriceList.items), selectinload(PriceList.source_rules))
     )
     pricelist = result.scalars().first()
     if not pricelist:
@@ -103,7 +104,9 @@ async def read_pricelists(
     """
     Retrieve price lists.
     """
-    query = select(PriceList).options(selectinload(PriceList.items)).where(
+    query = select(PriceList).options(
+        selectinload(PriceList.items), selectinload(PriceList.source_rules)
+    ).where(
         PriceList.company_id == current_user.company_id
     )
     if type:
@@ -142,6 +145,11 @@ async def create_pricelist(
     db.add(pricelist)
     await db.flush()
 
+    if pricelist_in.source_rules and pricelist_in.type.value != "SALE":
+        raise HTTPException(status_code=400, detail="Las reglas por proveedor solo aplican a listas de venta")
+    for rule_in in pricelist_in.source_rules:
+        await _validate_source(db, rule_in.source_id, current_user.company_id)
+
     for item_in in pricelist_in.items:
         await _validate_item_product(db, item_in, current_user.company_id)
         item = PriceListItem(
@@ -153,14 +161,21 @@ async def create_pricelist(
         )
         db.add(item)
     
+    for rule_in in pricelist_in.source_rules:
+        db.add(PriceListSourceRule(
+            pricelist_id=pricelist.id,
+            company_id=current_user.company_id,
+            **rule_in.model_dump(),
+        ))
+
     await db.commit()
-    await db.refresh(pricelist)
-    
-    # Reload with items
-    query = select(PriceList).where(PriceList.id == pricelist.id).options(selectinload(PriceList.items))
-    result = await db.execute(query)
-    pricelist = result.scalars().first()
-    
+    refreshed = await db.execute(
+        select(PriceList).where(
+            PriceList.id == pricelist.id,
+            PriceList.company_id == current_user.company_id,
+        ).options(selectinload(PriceList.items), selectinload(PriceList.source_rules))
+    )
+    pricelist = refreshed.scalars().first()
     await log_activity(db, "CREATE", "PriceList", pricelist.id, current_user.id, current_user.company_id)
     return pricelist
 
@@ -176,12 +191,108 @@ async def read_pricelist(
     query = select(PriceList).where(
         PriceList.id == id,
         PriceList.company_id == current_user.company_id
-    ).options(selectinload(PriceList.items))
+    ).options(selectinload(PriceList.items), selectinload(PriceList.source_rules))
     result = await db.execute(query)
     pricelist = result.scalars().first()
     if not pricelist:
         raise HTTPException(status_code=404, detail="Price list not found")
     return pricelist
+
+
+@router.post("/{id}/source-rules", response_model=schemas.PriceListSourceRule)
+async def upsert_pricelist_source_rule(
+    *,
+    db: AsyncSession = Depends(get_db),
+    id: str,
+    rule_in: schemas.PriceListSourceRuleCreate,
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> PriceListSourceRule:
+    pricelist = await _get_pricelist(db, id, current_user)
+    if str(getattr(pricelist.type, "value", pricelist.type)) != "SALE":
+        raise HTTPException(status_code=400, detail="Las reglas por proveedor solo aplican a listas de venta")
+    await _validate_source(db, rule_in.source_id, current_user.company_id)
+    rule = await db.scalar(
+        select(PriceListSourceRule).where(
+            PriceListSourceRule.pricelist_id == pricelist.id,
+            PriceListSourceRule.source_id == rule_in.source_id,
+        )
+    )
+    if rule is None:
+        rule = PriceListSourceRule(
+            pricelist_id=pricelist.id,
+            company_id=current_user.company_id,
+            **rule_in.model_dump(),
+        )
+        db.add(rule)
+    else:
+        for field, value in rule_in.model_dump().items():
+            setattr(rule, field, value)
+        rule.is_active = True
+    await db.commit()
+    await db.refresh(rule)
+    return rule
+
+
+@router.put("/{id}/source-rules/{rule_id}", response_model=schemas.PriceListSourceRule)
+async def update_pricelist_source_rule(
+    *,
+    db: AsyncSession = Depends(get_db),
+    id: str,
+    rule_id: str,
+    rule_in: schemas.PriceListSourceRuleUpdate,
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> PriceListSourceRule:
+    pricelist = await _get_pricelist(db, id, current_user)
+    if str(getattr(pricelist.type, "value", pricelist.type)) != "SALE":
+        raise HTTPException(status_code=400, detail="Las reglas por proveedor solo aplican a listas de venta")
+    rule = await db.scalar(
+        select(PriceListSourceRule).where(
+            PriceListSourceRule.id == rule_id,
+            PriceListSourceRule.pricelist_id == pricelist.id,
+        )
+    )
+    if not rule:
+        raise HTTPException(status_code=404, detail="Regla de proveedor no encontrada")
+    update_data = rule_in.model_dump(exclude_unset=True)
+    if "source_id" in update_data:
+        if not update_data["source_id"]:
+            raise HTTPException(status_code=400, detail="Selecciona un proveedor")
+        await _validate_source(db, update_data["source_id"], current_user.company_id)
+        duplicate = await db.scalar(
+            select(PriceListSourceRule.id).where(
+                PriceListSourceRule.pricelist_id == pricelist.id,
+                PriceListSourceRule.source_id == update_data["source_id"],
+                PriceListSourceRule.id != rule.id,
+            )
+        )
+        if duplicate:
+            raise HTTPException(status_code=409, detail="Este proveedor ya tiene una regla en la lista")
+    for field, value in update_data.items():
+        setattr(rule, field, value)
+    await db.commit()
+    await db.refresh(rule)
+    return rule
+
+
+@router.delete("/{id}/source-rules/{rule_id}", status_code=204)
+async def delete_pricelist_source_rule(
+    *,
+    db: AsyncSession = Depends(get_db),
+    id: str,
+    rule_id: str,
+    current_user: User = Depends(PermissionChecker("manage_inventory")),
+) -> None:
+    pricelist = await _get_pricelist(db, id, current_user)
+    rule = await db.scalar(
+        select(PriceListSourceRule).where(
+            PriceListSourceRule.id == rule_id,
+            PriceListSourceRule.pricelist_id == pricelist.id,
+        )
+    )
+    if not rule:
+        raise HTTPException(status_code=404, detail="Regla de proveedor no encontrada")
+    await db.delete(rule)
+    await db.commit()
 
 @router.put("/{id}", response_model=schemas.PriceList)
 async def update_pricelist(
@@ -204,6 +315,13 @@ async def update_pricelist(
         raise HTTPException(status_code=404, detail="Price list not found")
     
     update_data = pricelist_in.dict(exclude_unset=True)
+    effective_type = update_data.get("type", pricelist.type)
+    if str(getattr(effective_type, "value", effective_type)) != "SALE":
+        existing_rule = await db.scalar(
+            select(PriceListSourceRule.id).where(PriceListSourceRule.pricelist_id == pricelist.id)
+        )
+        if existing_rule:
+            raise HTTPException(status_code=400, detail="Elimina primero las reglas por proveedor para convertir la lista en una lista de compra")
     if "source_id" in update_data:
         await _validate_source(db, update_data["source_id"], current_user.company_id)
     effective_base_source = update_data.get("base_source", pricelist.base_source)
@@ -214,7 +332,13 @@ async def update_pricelist(
         setattr(pricelist, field, value)
     
     await db.commit()
-    await db.refresh(pricelist)
+    refreshed = await db.execute(
+        select(PriceList).where(
+            PriceList.id == pricelist.id,
+            PriceList.company_id == current_user.company_id,
+        ).options(selectinload(PriceList.items), selectinload(PriceList.source_rules))
+    )
+    pricelist = refreshed.scalars().first()
     await log_activity(db, "UPDATE", "PriceList", pricelist.id, current_user.id, current_user.company_id)
     return pricelist
 
@@ -320,7 +444,9 @@ async def apply_global_adjustment(
         await db.execute(delete(PriceListItem).where(PriceListItem.pricelist_id == pricelist.id))
     await db.commit()
     result = await db.execute(
-        select(PriceList).where(PriceList.id == pricelist.id).options(selectinload(PriceList.items))
+        select(PriceList)
+        .where(PriceList.id == pricelist.id)
+        .options(selectinload(PriceList.items), selectinload(PriceList.source_rules))
     )
     return result.scalars().first()
 
@@ -342,7 +468,7 @@ async def _build_price_export_rows(db: AsyncSession, pricelist: PriceList, compa
             variants = [None]
         for variant in variants:
             key = (product.id, variant.id if variant else None)
-            external_price, external_cost = context.external.get(key) or context.external.get((product.id, None)) or (None, None)
+            external_price, external_cost = selected_external_values(context, product, variant)
             rows.append({
                 "PRODUCT_ID": str(product.id),
                 "VARIANT_ID": str(variant.id) if variant else "",

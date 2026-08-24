@@ -19,6 +19,7 @@ from .supplier import Supplier
 from .purchase import PurchaseOrder, PurchaseStatus
 from .pricelist import PriceList, PriceListType
 from .pricelist_item import PriceListItem
+from .pricelist_source_rule import PriceListSourceRule
 from .sale import Sale, SaleItem, Payment, SaleStatus
 from .role import Role
 from .audit import AuditLog

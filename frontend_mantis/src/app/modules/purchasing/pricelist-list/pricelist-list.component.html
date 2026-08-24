@@ -31,6 +31,9 @@
                   </td>
                   <td>{{ pl.currency }}</td>
                   <td>
+                    @if (pl.type === 'SALE' && pl.source_rules?.length) {
+                      <div class="small fw-semibold">{{ pl.source_rules?.length }} proveedor(es)</div>
+                    }
                     @if (pl.type === 'SALE' && pl.pricing_mode !== 'FIXED') {
                       {{ pl.adjustment_value }}{{ pl.pricing_mode === 'MARKUP_PERCENT' ? '%' : '' }} sobre {{ pl.base_source === 'EXTERNAL_COST' ? 'costo externo' : pl.base_source === 'EXTERNAL_PRICE' ? 'precio externo' : pl.base_source === 'INTERNAL_COST' ? 'costo interno' : 'precio interno' }}
                     }

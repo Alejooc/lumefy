@@ -1,1 +1,54 @@
-// Empty
+.source-rules-panel {
+  border: 1px solid rgba(16, 37, 63, 0.12);
+  border-radius: 18px;
+  padding: 1.25rem;
+  margin-top: 1.5rem;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(16, 185, 129, 0.1), transparent 38%),
+    linear-gradient(135deg, #fbfdff 0%, #f4f8f7 100%);
+}
+
+.source-rules-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.source-rules-panel__eyebrow {
+  color: #138a6a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.source-rule-card {
+  border: 1px solid rgba(16, 37, 63, 0.1);
+  border-left: 4px solid #138a6a;
+  border-radius: 14px;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 26px rgba(16, 37, 63, 0.05);
+}
+
+.source-rule-card + .source-rule-card {
+  margin-top: 0.75rem;
+}
+
+.source-rule-card__title {
+  color: #10253f;
+  font-weight: 700;
+}
+
+@media (max-width: 767.98px) {
+  .source-rules-panel {
+    padding: 1rem;
+    border-radius: 14px;
+  }
+
+  .source-rules-panel__header {
+    flex-direction: column;
+  }
+}

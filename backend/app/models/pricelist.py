@@ -31,4 +31,5 @@ class PriceList(BaseModel):
     
     # Relationships
     items = relationship("PriceListItem", back_populates="pricelist", cascade="all, delete-orphan")
+    source_rules = relationship("PriceListSourceRule", back_populates="pricelist", cascade="all, delete-orphan")
     source = relationship("IntegrationSource")

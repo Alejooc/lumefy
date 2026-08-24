@@ -3,7 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators, FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
-import { PriceList, PriceListItem, PriceListService } from '../../../core/services/pricelist.service';
+import { PriceList, PriceListItem, PriceListService, PriceListSourceRule, PriceListSourceRulePayload } from '../../../core/services/pricelist.service';
 import { ProductService, Product } from '../../../core/services/product.service';
 import { IntegrationService, IntegrationSource } from '../../../core/services/integration.service';
 import Swal from 'sweetalert2';
@@ -30,6 +30,8 @@ export class PriceListFormComponent implements OnInit {
     importing = false;
     importResult: { rows_received: number; rows_failed: number; errors: string[] } | null = null;
     private removedItemIds = new Set<string>();
+    sourceRules: PriceListSourceRule[] = [];
+    private removedSourceRuleIds = new Set<string>();
 
     private fb = inject(FormBuilder);
     private router = inject(Router);
@@ -95,6 +97,8 @@ export class PriceListFormComponent implements OnInit {
             pl.items?.forEach(item => {
                 this.items.push(this.createItemGroup(item));
             });
+            this.sourceRules = (pl.source_rules || []).map(rule => ({ ...rule }));
+            this.removedSourceRuleIds.clear();
         });
     }
 
@@ -118,12 +122,68 @@ export class PriceListFormComponent implements OnInit {
         this.items.removeAt(index);
     }
 
+    addSourceRule(): void {
+        this.sourceRules.push({
+            source_id: '',
+            pricing_mode: 'MARKUP_PERCENT',
+            base_source: 'EXTERNAL_PRICE',
+            adjustment_value: 0,
+            rounding_step: 0,
+            min_margin_percent: null
+        });
+    }
+
+    removeSourceRule(index: number): void {
+        const rule = this.sourceRules[index];
+        if (rule?.id) this.removedSourceRuleIds.add(rule.id);
+        this.sourceRules.splice(index, 1);
+    }
+
+    private validateSourceRules(): string | null {
+        if (this.priceListForm.get('type')?.value !== 'SALE' || !this.sourceRules.length) return null;
+        const seen = new Set<string>();
+        for (const rule of this.sourceRules) {
+            if (!rule.source_id) return 'Selecciona un origen para cada regla por proveedor.';
+            if (seen.has(rule.source_id)) return 'No puedes repetir el mismo proveedor dentro de la lista.';
+            seen.add(rule.source_id);
+        }
+        return null;
+    }
+
+    private sourceRulePayload(rule: PriceListSourceRule): PriceListSourceRulePayload {
+        return {
+            source_id: rule.source_id,
+            pricing_mode: rule.pricing_mode,
+            base_source: rule.base_source,
+            adjustment_value: Number(rule.adjustment_value || 0),
+            rounding_step: Number(rule.rounding_step || 0),
+            min_margin_percent: rule.min_margin_percent == null ? null : Number(rule.min_margin_percent)
+        };
+    }
+
+    private sourceRuleRequests(priceListId: string) {
+        return [
+            ...Array.from(this.removedSourceRuleIds).map((ruleId) => this.priceListService.deleteSourceRule(priceListId, ruleId)),
+            ...this.sourceRules.map((rule) => {
+                const payload = this.sourceRulePayload(rule);
+                return rule.id
+                    ? this.priceListService.updateSourceRule(priceListId, rule.id, payload)
+                    : this.priceListService.saveSourceRule(priceListId, payload);
+            })
+        ];
+    }
+
     variantsFor(productId: string): Product['variants'] {
         return this.products.find((product) => product.id === productId)?.variants || [];
     }
 
     onSubmit() {
         if (this.priceListForm.invalid) return;
+        const sourceRuleError = this.validateSourceRules();
+        if (sourceRuleError) {
+            Swal.fire('Revisa las reglas', sourceRuleError, 'warning');
+            return;
+        }
 
         this.loading = true;
         const formVal = this.priceListForm.value;
@@ -133,14 +193,14 @@ export class PriceListFormComponent implements OnInit {
                 name: formVal.name,
                 type: formVal.type,
                 currency: formVal.currency,
-                active: formVal.active,
+                    active: formVal.active,
                 source_id: formVal.source_id || null,
                 pricing_mode: formVal.pricing_mode,
                 base_source: formVal.base_source,
                 adjustment_value: Number(formVal.adjustment_value || 0),
                 rounding_step: Number(formVal.rounding_step || 0),
                 min_margin_percent: formVal.min_margin_percent === '' ? null : formVal.min_margin_percent
-            }).subscribe({
+                }).subscribe({
                 next: () => {
                     const itemRequests = [
                         ...Array.from(this.removedItemIds).map((itemId) => this.priceListService.deletePriceListItem(this.priceListId!, itemId)),
@@ -155,7 +215,8 @@ export class PriceListFormComponent implements OnInit {
                             return value.id
                                 ? this.priceListService.updatePriceListItem(this.priceListId!, value.id, payload)
                                 : this.priceListService.addPriceListItem(this.priceListId!, payload);
-                        })
+                        }),
+                        ...this.sourceRuleRequests(this.priceListId!)
                     ];
                     forkJoin(itemRequests.length ? itemRequests : [of(null)]).subscribe({
                         next: () => {
@@ -175,10 +236,19 @@ export class PriceListFormComponent implements OnInit {
             });
         } else {
             this.priceListService.createPriceList(formVal).subscribe({
-                next: () => {
-                    this.loading = false;
-                    Swal.fire('Creado', 'Lista de precios creada correctamente.', 'success').then(() => {
-                        this.router.navigate(['/purchasing/pricelists']);
+                next: (created) => {
+                    const ruleRequests = this.sourceRuleRequests(created.id);
+                    forkJoin(ruleRequests.length ? ruleRequests : [of(null)]).subscribe({
+                        next: () => {
+                            this.loading = false;
+                            Swal.fire('Creado', 'Lista de precios creada correctamente.', 'success').then(() => {
+                                this.router.navigate(['/purchasing/pricelists']);
+                            });
+                        },
+                        error: (err) => {
+                            this.loading = false;
+                            Swal.fire('Advertencia', 'La lista se creó, pero no se pudieron guardar todas las reglas por proveedor: ' + (err.error?.detail || err.message), 'warning');
+                        }
                     });
                 },
                 error: (err) => {

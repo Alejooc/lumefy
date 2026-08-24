@@ -35,6 +35,7 @@ from app.models.purchase import PurchaseOrder
 from app.models.purchase_item import PurchaseOrderItem
 from app.models.pricelist import PriceList
 from app.models.pricelist_item import PriceListItem
+from app.models.pricelist_source_rule import PriceListSourceRule
 from app.models.plan import Plan
 from app.models.system_setting import SystemSetting
 from app.models.brand import Brand

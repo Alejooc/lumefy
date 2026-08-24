@@ -26,7 +26,21 @@ export interface PriceList {
     rounding_step: number;
     min_margin_percent?: number | null;
     items?: PriceListItem[];
+    source_rules?: PriceListSourceRule[];
 }
+
+export interface PriceListSourceRule {
+    id?: string;
+    pricelist_id?: string;
+    source_id: string;
+    pricing_mode: 'FIXED' | 'MARKUP_PERCENT' | 'MARKUP_AMOUNT';
+    base_source: 'INTERNAL_PRICE' | 'INTERNAL_COST' | 'EXTERNAL_PRICE' | 'EXTERNAL_COST';
+    adjustment_value: number;
+    rounding_step: number;
+    min_margin_percent?: number | null;
+}
+
+export type PriceListSourceRulePayload = Omit<PriceListSourceRule, 'id' | 'pricelist_id'>;
 
 export interface PriceListPayload {
     name: string;
@@ -39,6 +53,7 @@ export interface PriceListPayload {
     adjustment_value?: number;
     rounding_step?: number;
     min_margin_percent?: number | null;
+    source_rules?: PriceListSourceRulePayload[];
 }
 
 export interface PriceListItemPayload {
@@ -87,6 +102,18 @@ export class PriceListService {
 
     deletePriceListItem(priceListId: string, itemId: string): Observable<void> {
         return this.http.delete<void>(`${this.apiUrl}/${priceListId}/items/${itemId}`);
+    }
+
+    saveSourceRule(priceListId: string, rule: PriceListSourceRulePayload): Observable<PriceListSourceRule> {
+        return this.http.post<PriceListSourceRule>(`${this.apiUrl}/${priceListId}/source-rules`, rule);
+    }
+
+    updateSourceRule(priceListId: string, ruleId: string, rule: Partial<PriceListSourceRulePayload>): Observable<PriceListSourceRule> {
+        return this.http.put<PriceListSourceRule>(`${this.apiUrl}/${priceListId}/source-rules/${ruleId}`, rule);
+    }
+
+    deleteSourceRule(priceListId: string, ruleId: string): Observable<void> {
+        return this.http.delete<void>(`${this.apiUrl}/${priceListId}/source-rules/${ruleId}`);
     }
 
     applyGlobalAdjustment(priceListId: string, payload: {

@@ -24,6 +24,36 @@ class PriceListItem(PriceListItemBase):
     class Config:
         from_attributes = True
 
+
+class PriceListSourceRuleBase(BaseModel):
+    source_id: UUID
+    pricing_mode: Literal["FIXED", "MARKUP_PERCENT", "MARKUP_AMOUNT"] = "MARKUP_PERCENT"
+    base_source: Literal["INTERNAL_PRICE", "INTERNAL_COST", "EXTERNAL_PRICE", "EXTERNAL_COST"] = "EXTERNAL_PRICE"
+    adjustment_value: float = 0.0
+    rounding_step: float = 0.0
+    min_margin_percent: Optional[float] = None
+
+
+class PriceListSourceRuleCreate(PriceListSourceRuleBase):
+    pass
+
+
+class PriceListSourceRuleUpdate(BaseModel):
+    source_id: Optional[UUID] = None
+    pricing_mode: Optional[Literal["FIXED", "MARKUP_PERCENT", "MARKUP_AMOUNT"]] = None
+    base_source: Optional[Literal["INTERNAL_PRICE", "INTERNAL_COST", "EXTERNAL_PRICE", "EXTERNAL_COST"]] = None
+    adjustment_value: Optional[float] = None
+    rounding_step: Optional[float] = None
+    min_margin_percent: Optional[float] = None
+
+
+class PriceListSourceRule(PriceListSourceRuleBase):
+    id: UUID
+    pricelist_id: UUID
+
+    class Config:
+        from_attributes = True
+
 # Price List Schemas
 class PriceListBase(BaseModel):
     name: str
@@ -39,6 +69,7 @@ class PriceListBase(BaseModel):
 
 class PriceListCreate(PriceListBase):
     items: List[PriceListItemCreate] = []
+    source_rules: List[PriceListSourceRuleCreate] = []
 
 class PriceListUpdate(BaseModel):
     name: Optional[str] = None
@@ -55,6 +86,7 @@ class PriceListUpdate(BaseModel):
 class PriceList(PriceListBase):
     id: UUID
     items: List[PriceListItem] = []
+    source_rules: List[PriceListSourceRule] = []
 
     class Config:
         from_attributes = True

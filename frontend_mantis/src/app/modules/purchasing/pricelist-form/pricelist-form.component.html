@@ -60,14 +60,14 @@
               <div class="col-md-3">
                 <label class="form-label">Redondear a</label>
                 <input type="number" class="form-control" formControlName="rounding_step" min="0" step="100">
-                <small class="text-muted">0 = sin redondeo</small>
+                <small class="text-muted">Regla general si no hay proveedor específico.</small>
               </div>
               <div class="col-md-3">
                 <label class="form-label">Margen mínimo (%)</label>
                 <input type="number" class="form-control" formControlName="min_margin_percent" min="0" step="0.1">
               </div>
               <div class="col-md-9">
-                <label class="form-label">Origen de referencia</label>
+                <label class="form-label">Origen predeterminado</label>
                 <select class="form-select" formControlName="source_id">
                   <option [ngValue]="null">Sin origen externo</option>
                   @for (source of sources; track source.id) {
@@ -81,6 +81,83 @@
               <input class="form-check-input" type="checkbox" formControlName="active" id="activeCheck">
               <label class="form-check-label" for="activeCheck">Activa</label>
             </div>
+
+            @if (priceListForm.get('type')?.value === 'SALE') {
+              <section class="source-rules-panel" aria-labelledby="source-rules-title">
+                <div class="source-rules-panel__header">
+                  <div>
+                    <div class="source-rules-panel__eyebrow">Precios por proveedor</div>
+                    <h6 id="source-rules-title" class="mb-1 mt-1">Reglas específicas por origen</h6>
+                    <p class="text-muted small mb-0">
+                      Cada producto usa la regla del proveedor al que está vinculado. El precio manual por producto o variante siempre gana.
+                    </p>
+                  </div>
+                  <button type="button" class="btn btn-outline-success btn-sm" (click)="addSourceRule()">
+                    <i class="ti ti-plus me-1"></i>Agregar proveedor
+                  </button>
+                </div>
+
+                @if (!sourceRules.length) {
+                  <div class="text-muted small py-2">
+                    Sin reglas específicas. Se aplicará la regla general de la lista.
+                  </div>
+                }
+
+                @for (rule of sourceRules; track rule.id || $index; let i = $index) {
+                  <div class="source-rule-card">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                      <div class="source-rule-card__title">Proveedor {{ i + 1 }}</div>
+                      <button type="button" class="btn btn-sm btn-light text-danger" (click)="removeSourceRule(i)" title="Quitar regla">
+                        <i class="ti ti-trash"></i>
+                      </button>
+                    </div>
+                    <div class="row g-3">
+                      <div class="col-md-4">
+                        <label class="form-label small">Origen / proveedor</label>
+                        <select class="form-select" [(ngModel)]="rule.source_id" [ngModelOptions]="{standalone: true}">
+                          <option value="">Seleccionar origen</option>
+                          @for (source of sources; track source.id) {
+                            <option [value]="source.id">{{ source.name }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label small">Base del cálculo</label>
+                        <select class="form-select" [(ngModel)]="rule.base_source" [ngModelOptions]="{standalone: true}">
+                          <option value="EXTERNAL_PRICE">Precio del proveedor</option>
+                          <option value="EXTERNAL_COST">Costo del proveedor</option>
+                          <option value="INTERNAL_PRICE">Precio interno</option>
+                          <option value="INTERNAL_COST">Costo interno</option>
+                        </select>
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label small">Regla</label>
+                        <select class="form-select" [(ngModel)]="rule.pricing_mode" [ngModelOptions]="{standalone: true}">
+                          <option value="MARKUP_PERCENT">Aumento porcentual</option>
+                          <option value="MARKUP_AMOUNT">Aumento por valor</option>
+                          <option value="FIXED">Precio interno</option>
+                        </select>
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label small">Ajuste</label>
+                        <div class="input-group">
+                          <input type="number" class="form-control" [(ngModel)]="rule.adjustment_value" [ngModelOptions]="{standalone: true}" step="0.01">
+                          <span class="input-group-text">{{ rule.pricing_mode === 'MARKUP_PERCENT' ? '%' : '$' }}</span>
+                        </div>
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label small">Redondear a</label>
+                        <input type="number" class="form-control" [(ngModel)]="rule.rounding_step" [ngModelOptions]="{standalone: true}" min="0" step="100">
+                      </div>
+                      <div class="col-md-4">
+                        <label class="form-label small">Margen mínimo (%)</label>
+                        <input type="number" class="form-control" [(ngModel)]="rule.min_margin_percent" [ngModelOptions]="{standalone: true}" min="0" step="0.1" placeholder="Opcional">
+                      </div>
+                    </div>
+                  </div>
+                }
+              </section>
+            }
 
             <hr>
               <div class="d-flex justify-content-between align-items-center mb-3">
@@ -133,8 +210,8 @@
                   <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                       <div>
-                        <h6 class="mb-1">Aumento global</h6>
-                        <small class="text-muted">Calcula el precio final de toda la lista sin cambiar el precio del proveedor.</small>
+                        <h6 class="mb-1">Regla general de la lista</h6>
+                        <small class="text-muted">Se usa cuando el producto no tiene una regla específica por proveedor.</small>
                       </div>
                       <span class="badge bg-light-primary text-primary">Regla segura</span>
                     </div>
