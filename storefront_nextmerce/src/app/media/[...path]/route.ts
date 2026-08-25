@@ -1,8 +1,13 @@
+import type { NextRequest } from "next/server";
+
 import { resolveStorefront } from "@/lib/storefront-api";
 
 export const dynamic = "force-dynamic";
 
-export async function GET({ params }: { params: Promise<{ path: string[] }> }) {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> },
+) {
   const { path } = await params;
   if (
     path.length < 2 ||
