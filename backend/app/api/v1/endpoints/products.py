@@ -11,6 +11,10 @@ import re
 
 from app.core.database import get_db
 from app.models.product import Product
+from app.models.category import Category
+from app.models.brand import Brand
+from app.models.unit_of_measure import UnitOfMeasure
+from app.models.supplier import Supplier
 from app.models.product_image import ProductImage
 from app.models.product_variant import ProductVariant
 from app.models.storefront import PublishedProduct, StoreCollectionProduct, Storefront
@@ -31,6 +35,7 @@ from app.schemas import product as schemas
 from app.schemas import product_variant as variant_schemas
 from app.models.user import User
 from app.core.permissions import PermissionChecker
+from app.core.tenant import get_company_owned
 from app.core.plan_limits import PlanLimitChecker
 from app.core.audit import log_activity
 from app.services.integration_service import (
@@ -57,6 +62,25 @@ async def _get_primary_storefront(db: AsyncSession, company_id: str | None) -> S
         ).order_by(Storefront.created_at.asc())
     )
     return result.scalars().first()
+
+
+async def _validate_product_relations(
+    db: AsyncSession,
+    company_id: str,
+    product_data: dict[str, Any],
+) -> None:
+    """Reject product relations that belong to a different company."""
+    relations = (
+        ("category_id", Category, "Categoría no encontrada"),
+        ("brand_id", Brand, "Marca no encontrada"),
+        ("unit_of_measure_id", UnitOfMeasure, "Unidad de medida no encontrada"),
+        ("purchase_uom_id", UnitOfMeasure, "Unidad de compra no encontrada"),
+        ("supplier_id", Supplier, "Proveedor no encontrado"),
+    )
+    for field, model, detail in relations:
+        record_id = product_data.get(field)
+        if record_id is not None:
+            await get_company_owned(db, model, record_id, company_id, detail)
 
 
 def _extract_ecommerce_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -1461,6 +1485,7 @@ async def create_product(
         images_data = product_in.images
         product_data = product_in.model_dump(exclude={"images"})
         ecommerce_data = _extract_ecommerce_payload(product_data)
+        await _validate_product_relations(db, current_user.company_id, product_data)
 
         product_data["sku"] = await _ensure_unique_sku(
             db,
@@ -1549,6 +1574,7 @@ async def update_product(
     update_data = product_in.model_dump(exclude_unset=True)
     ecommerce_data = _extract_ecommerce_payload(update_data)
     images_data = update_data.pop("images", None)
+    await _validate_product_relations(db, current_user.company_id, update_data)
 
     if "sku" in update_data:
         update_data["sku"] = await _ensure_unique_sku(
@@ -1653,17 +1679,19 @@ async def add_variant(
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """Add a variant to a product."""
-    # Verify product exists and belongs to company
-    result = await db.execute(
-        select(Product).where(
-            Product.id == product_id,
-            Product.company_id == current_user.company_id
-        )
+    await get_company_owned(
+        db,
+        Product,
+        product_id,
+        current_user.company_id,
+        "Producto no encontrado",
     )
-    if not result.scalars().first():
-        raise HTTPException(status_code=404, detail="Producto no encontrado")
-    
-    variant = ProductVariant(**variant_in.model_dump(), product_id=product_id)
+
+    variant = ProductVariant(
+        **variant_in.model_dump(),
+        product_id=product_id,
+        company_id=current_user.company_id,
+    )
     db.add(variant)
     await db.commit()
     await db.refresh(variant)
@@ -1679,15 +1707,28 @@ async def update_variant(
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """Update a product variant."""
+    await get_company_owned(
+        db,
+        Product,
+        product_id,
+        current_user.company_id,
+        "Producto no encontrado",
+    )
     result = await db.execute(
         select(ProductVariant).where(
             ProductVariant.id == variant_id,
-            ProductVariant.product_id == product_id
+            ProductVariant.product_id == product_id,
+            or_(
+                ProductVariant.company_id == current_user.company_id,
+                ProductVariant.company_id.is_(None),
+            ),
         )
     )
     variant = result.scalars().first()
     if not variant:
         raise HTTPException(status_code=404, detail="Variante no encontrada")
+    if variant.company_id is None:
+        variant.company_id = current_user.company_id
     
     update_data = variant_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -1706,10 +1747,21 @@ async def delete_variant(
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
     """Delete a product variant."""
+    await get_company_owned(
+        db,
+        Product,
+        product_id,
+        current_user.company_id,
+        "Producto no encontrado",
+    )
     result = await db.execute(
         select(ProductVariant).where(
             ProductVariant.id == variant_id,
-            ProductVariant.product_id == product_id
+            ProductVariant.product_id == product_id,
+            or_(
+                ProductVariant.company_id == current_user.company_id,
+                ProductVariant.company_id.is_(None),
+            ),
         )
     )
     variant = result.scalars().first()
@@ -2058,6 +2110,10 @@ async def import_products(
                         select(ProductVariant).where(
                             ProductVariant.id == variant_id,
                             ProductVariant.product_id == product.id,
+                            or_(
+                                ProductVariant.company_id == current_user.company_id,
+                                ProductVariant.company_id.is_(None),
+                            ),
                         )
                     )
                     variant = variant_result.scalars().first()

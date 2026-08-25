@@ -9,6 +9,7 @@ from app.core import auth
 from app.core.database import get_db
 from app.core.security import get_password_hash
 from app.models.user import User
+from app.models.role import Role
 from app.core.permissions import PermissionChecker 
 from app.core.plan_limits import PlanLimitChecker
 from app.core.audit import log_activity
@@ -147,6 +148,9 @@ async def create_user(
         # ----------------------------
 
         return user
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as e:
         await db.rollback()
         import traceback
@@ -168,6 +172,8 @@ async def update_user(
     if current_user.id != user_id:
         permission_checker = PermissionChecker("manage_users")
         permission_checker(current_user)
+    elif "role_id" in user_in.model_dump(exclude_unset=True):
+        raise HTTPException(status_code=403, detail="No puedes cambiar tu propio rol")
 
     query = select(User).where(
         User.id == user_id, 
@@ -182,12 +188,26 @@ async def update_user(
         
     try:
         update_data = user_in.model_dump(exclude_unset=True)
+        if "role_id" in update_data and update_data["role_id"] is not None:
+            role = await db.scalar(
+                select(Role).where(
+                    Role.id == update_data["role_id"],
+                    Role.company_id == current_user.company_id,
+                    Role.is_active.is_(True),
+                )
+            )
+            if not role:
+                raise HTTPException(status_code=404, detail="Role not found")
+
         if "password" in update_data and update_data["password"]:
             hashed_password = get_password_hash(update_data["password"])
             del update_data["password"]
             update_data["hashed_password"] = hashed_password
             
+        editable_fields = {"email", "full_name", "is_active", "role_id", "hashed_password"}
         for field, value in update_data.items():
+            if field not in editable_fields:
+                continue
             setattr(user, field, value)
             
         user.updated_by_id = current_user.id
@@ -212,6 +232,9 @@ async def update_user(
         )
 
         return user
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as e:
         await db.rollback()
         import traceback

@@ -24,6 +24,13 @@ type StorefrontAuthContextValue = {
 
 const STORAGE_KEY = "nextmerce-storefront-session";
 
+function scopedStorageKey(): string {
+  if (typeof window === "undefined") {
+    return STORAGE_KEY;
+  }
+  return `${STORAGE_KEY}:${encodeURIComponent(window.location.host.toLowerCase())}`;
+}
+
 const StorefrontAuthContext = createContext<StorefrontAuthContextValue | null>(null);
 
 function readStoredSession(): StorefrontSession | null {
@@ -31,7 +38,8 @@ function readStoredSession(): StorefrontSession | null {
     return null;
   }
 
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+  const storageKey = scopedStorageKey();
+  const raw = window.localStorage.getItem(storageKey);
   if (!raw) {
     return null;
   }
@@ -39,7 +47,7 @@ function readStoredSession(): StorefrontSession | null {
   try {
     return JSON.parse(raw) as StorefrontSession;
   } catch {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(storageKey);
     return null;
   }
 }
@@ -50,11 +58,11 @@ function writeStoredSession(session: StorefrontSession | null) {
   }
 
   if (!session) {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(scopedStorageKey());
     return;
   }
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  window.localStorage.setItem(scopedStorageKey(), JSON.stringify(session));
 }
 
 export function StorefrontAuthProvider({ children }: { children: React.ReactNode }) {

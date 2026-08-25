@@ -9,10 +9,19 @@ import { hydrateWishlist } from "./features/wishlist-slice";
 const CART_STORAGE_KEY = "nextmerce-cart";
 const WISHLIST_STORAGE_KEY = "nextmerce-wishlist";
 
+function scopedStorageKey(baseKey: string): string {
+  if (typeof window === "undefined") {
+    return baseKey;
+  }
+  return `${baseKey}:${encodeURIComponent(window.location.host.toLowerCase())}`;
+}
+
 export function ReduxProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
+    const cartStorageKey = scopedStorageKey(CART_STORAGE_KEY);
+    const wishlistStorageKey = scopedStorageKey(WISHLIST_STORAGE_KEY);
     try {
-      const cartRaw = window.localStorage.getItem(CART_STORAGE_KEY);
+      const cartRaw = window.localStorage.getItem(cartStorageKey);
       if (cartRaw) {
         const items = JSON.parse(cartRaw);
         if (Array.isArray(items)) {
@@ -20,7 +29,7 @@ export function ReduxProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const wishlistRaw = window.localStorage.getItem(WISHLIST_STORAGE_KEY);
+      const wishlistRaw = window.localStorage.getItem(wishlistStorageKey);
       if (wishlistRaw) {
         const items = JSON.parse(wishlistRaw);
         if (Array.isArray(items)) {
@@ -28,18 +37,18 @@ export function ReduxProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch {
-      window.localStorage.removeItem(CART_STORAGE_KEY);
-      window.localStorage.removeItem(WISHLIST_STORAGE_KEY);
+      window.localStorage.removeItem(cartStorageKey);
+      window.localStorage.removeItem(wishlistStorageKey);
     }
 
     const unsubscribe = store.subscribe(() => {
       const state = store.getState();
       window.localStorage.setItem(
-        CART_STORAGE_KEY,
+        cartStorageKey,
         JSON.stringify(state.cartReducer.items),
       );
       window.localStorage.setItem(
-        WISHLIST_STORAGE_KEY,
+        wishlistStorageKey,
         JSON.stringify(state.wishlistReducer.items),
       );
     });

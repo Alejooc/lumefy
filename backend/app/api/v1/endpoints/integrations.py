@@ -48,25 +48,28 @@ async def proxy_asset(
     # A paused/failed source may still own products already published in the
     # storefront. Serving those existing assets must not require reactivating
     # catalog or inventory synchronization.
+    sources = (await db.execute(select(IntegrationSource))).scalars().all()
+    matching_sources = [candidate for candidate in sources if _asset_url_matches_source(candidate, url)]
     if source_id:
-        source = await db.get(IntegrationSource, source_id)
-        if source is not None and not _asset_url_matches_source(source, url):
-            source = None
-    else:
-        sources = (await db.execute(select(IntegrationSource))).scalars().all()
-        matching_sources = [candidate for candidate in sources if _asset_url_matches_source(candidate, url)]
-        if len(matching_sources) > 1:
-            # Never select the first company's credentials for an ambiguous
-            # provider URL. Catalogs synced after this endpoint was hardened
-            # can pass source_id explicitly; local cached images do not need
-            # the proxy at all.
-            raise HTTPException(
-                status_code=409,
-                detail="La imagen coincide con más de un origen; vuelve a sincronizar el catálogo.",
-            )
-        source = matching_sources[0] if matching_sources else None
+        # A public source_id is only a disambiguation hint. Never load a
+        # source by id before proving that the requested URL belongs to it.
+        matching_sources = [candidate for candidate in matching_sources if candidate.id == source_id]
+    if len(matching_sources) > 1:
+        # Never select the first company's credentials for an ambiguous
+        # provider URL. Local cached images do not need this proxy.
+        raise HTTPException(
+            status_code=409,
+            detail="La imagen coincide con más de un origen; vuelve a sincronizar el catálogo.",
+        )
+    source = matching_sources[0] if matching_sources else None
     if source is None:
         raise HTTPException(status_code=404, detail="Imagen no asociada a un origen activo")
+    auth_type = (source.auth_type or "none").strip().lower()
+    if auth_type not in {"none", ""} or bool(source.credentials):
+        raise HTTPException(
+            status_code=403,
+            detail="Los activos de fuentes autenticadas deben servirse desde una copia local publicada.",
+        )
     try:
         content_type, body = await request_asset(source, url)
     except IntegrationRequestError as exc:

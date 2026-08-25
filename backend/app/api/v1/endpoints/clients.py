@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import auth
 from app.core.permissions import PermissionChecker
 from app.core.database import get_db
+from app.core.tenant import get_company_owned
 from app.models.client import Client
 from app.models.user import User
 from app.models.client_activity import ClientActivity, ActivityType
@@ -210,7 +211,8 @@ async def get_client_statement(
 
     ledger_query = select(AccountLedger).where(
         AccountLedger.partner_id == client_id,
-        AccountLedger.partner_type == PartnerType.CLIENT
+        AccountLedger.partner_type == PartnerType.CLIENT,
+        AccountLedger.company_id == current_user.company_id,
     ).order_by(desc(AccountLedger.created_at))
     ledger_result = await db.execute(ledger_query)
     entries = ledger_result.scalars().all()
@@ -276,6 +278,13 @@ async def get_client_activities(
     current_user: User = Depends(PermissionChecker("manage_clients")),
 ) -> Any:
     """Get all activity logs for a client."""
+    await get_company_owned(
+        db,
+        Client,
+        client_id,
+        current_user.company_id,
+        "Client not found",
+    )
     query = select(ClientActivity).where(
         ClientActivity.client_id == client_id,
         ClientActivity.company_id == current_user.company_id
@@ -314,6 +323,13 @@ async def create_client_activity(
     current_user: User = Depends(PermissionChecker("manage_clients")),
 ) -> Any:
     """Create a new activity log (note, call, etc) for a client."""
+    client = await get_company_owned(
+        db,
+        Client,
+        client_id,
+        current_user.company_id,
+        "Client not found",
+    )
     activity = ClientActivity(
         **activity_in.model_dump(),
         client_id=client_id,
@@ -323,13 +339,9 @@ async def create_client_activity(
     db.add(activity)
     
     # Update last interaction
-    client_query = select(Client).where(Client.id == client_id)
-    c_res = await db.execute(client_query)
-    client = c_res.scalar_one_or_none()
-    if client:
-        client.last_interaction_at = func.now()
-        db.add(client)
-        
+    client.last_interaction_at = func.now()
+    db.add(client)
+
     await db.commit()
     await db.refresh(activity)
     
@@ -381,10 +393,20 @@ async def get_client_timeline(
     current_user: User = Depends(PermissionChecker("manage_clients")),
 ) -> Any:
     """Get a unified timeline of activities and ledger movements."""
+    await get_company_owned(
+        db,
+        Client,
+        client_id,
+        current_user.company_id,
+        "Client not found",
+    )
     timeline = []
     
     # 1. Activities
-    act_query = select(ClientActivity).where(ClientActivity.client_id == client_id).order_by(desc(ClientActivity.created_at)).limit(50)
+    act_query = select(ClientActivity).where(
+        ClientActivity.client_id == client_id,
+        ClientActivity.company_id == current_user.company_id,
+    ).order_by(desc(ClientActivity.created_at)).limit(50)
     act_res = await db.execute(act_query)
     for a in act_res.scalars().all():
         timeline.append({
@@ -398,7 +420,8 @@ async def get_client_timeline(
     # 2. Ledger Entries
     led_query = select(AccountLedger).where(
         AccountLedger.partner_id == client_id,
-        AccountLedger.partner_type == PartnerType.CLIENT
+        AccountLedger.partner_type == PartnerType.CLIENT,
+        AccountLedger.company_id == current_user.company_id,
     ).order_by(desc(AccountLedger.created_at)).limit(50)
     led_res = await db.execute(led_query)
     for l in led_res.scalars().all():

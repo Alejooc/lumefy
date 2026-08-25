@@ -19,6 +19,7 @@ from app.models.category import Category
 from app.models.company_app_install import CompanyAppInstall
 from app.models.app_definition import AppDefinition
 from app.core import auth
+from app.core.tenant import get_company_owned
 from app.schemas import pos as schemas
 from app.services.pricing import load_price_list_context, resolve_price
 import uuid
@@ -203,6 +204,13 @@ async def get_pos_products(
     """
     Optimized endpoint to fetch all products and their stock for the POS interface.
     """
+    await get_company_owned(
+        db,
+        Branch,
+        branch_id,
+        current_user.company_id,
+        "Sucursal no encontrada",
+    )
     query = select(Product, Category).outerjoin(Category, Category.id == Product.category_id).where(
         Product.company_id == current_user.company_id, Product.is_active == True
     ).options(selectinload(Product.variants))
@@ -434,6 +442,13 @@ async def open_pos_session(
     current_user: User = Depends(check_pos_app)
 ) -> Any:
     settings = await _load_pos_settings(db, current_user)
+    await get_company_owned(
+        db,
+        Branch,
+        payload.branch_id,
+        current_user.company_id,
+        "Sucursal no encontrada",
+    )
 
     existing_result = await db.execute(
         select(POSSession).where(

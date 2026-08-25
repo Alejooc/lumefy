@@ -19,12 +19,14 @@ app = FastAPI(
 )
 
 @app.get("/healthz", tags=["health"])
+@limiter.exempt
 async def liveness_probe():
     """Una sonda pública y mínima para Docker/orquestadores; no expone métricas."""
     return {"status": "ok"}
 
 
 @app.get("/readyz", tags=["health"])
+@limiter.exempt
 async def readiness_probe():
     """Verify that this API can serve requests, including its database."""
     try:

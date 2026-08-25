@@ -17,6 +17,7 @@ from app.models.inventory_lot import InventoryLot
 from app.models.user import User
 from app.core.permissions import PermissionChecker
 from app.core.audit import log_activity
+from app.core.tenant import get_company_owned
 from app.schemas import purchase as schemas
 
 router = APIRouter()
@@ -323,6 +324,23 @@ async def update_purchase(
     
     if purchase.status != PurchaseStatus.DRAFT:
         raise HTTPException(status_code=400, detail="Solo se pueden editar órdenes en estado Borrador")
+
+    if purchase_in.supplier_id is not None:
+        await get_company_owned(
+            db,
+            Supplier,
+            purchase_in.supplier_id,
+            current_user.company_id,
+            "Proveedor no encontrado",
+        )
+    if purchase_in.branch_id is not None:
+        await get_company_owned(
+            db,
+            Branch,
+            purchase_in.branch_id,
+            current_user.company_id,
+            "Sucursal no encontrada",
+        )
     
     update_data = purchase_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():

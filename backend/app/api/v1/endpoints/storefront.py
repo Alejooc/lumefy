@@ -3,11 +3,13 @@ import hmac
 import asyncio
 import secrets
 import base64
+import mimetypes
+from pathlib import Path
 from html import escape
 import re
 import unicodedata
 import uuid
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, List
@@ -15,6 +17,7 @@ import requests
 import dns.resolver
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -78,9 +81,102 @@ SUPPORTED_PUBLIC_PAYMENT_PROVIDERS = {
     "wompi", "payu", "mercadopago", "addi", "sistecredito",
     "whatsapp", "cod", "manual_transfer",
 }
+STATIC_ASSET_ROOT = Path(__file__).resolve().parents[4] / "static"
 RESERVED_STOREFRONT_SUBDOMAINS = {
     "www", "api", "admin", "app", "panel", "mail", "static", "cdn", "support", "help",
 }
+
+
+def _normalize_public_asset_url(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    candidate = value.strip()
+    if not candidate:
+        return None
+    if candidate.startswith("/static/"):
+        return candidate
+    try:
+        parsed = urlsplit(candidate)
+    except ValueError:
+        return None
+    return parsed.path if parsed.path.startswith("/static/") else None
+
+
+def _contains_public_asset(value: Any, asset_url: str) -> bool:
+    if isinstance(value, str):
+        return _normalize_public_asset_url(value) == asset_url
+    if isinstance(value, dict):
+        return any(_contains_public_asset(item, asset_url) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_contains_public_asset(item, asset_url) for item in value)
+    return False
+
+
+def _resolve_public_asset_path(asset_path: str) -> tuple[str, Path]:
+    parts = [part for part in asset_path.strip("/").split("/") if part]
+    if (
+        len(parts) < 2
+        or parts[0] != "static"
+        or any(part in {".", ".."} or "\\" in part for part in parts)
+    ):
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    relative_path = Path(*parts[1:])
+    root = STATIC_ASSET_ROOT.resolve()
+    candidate = (root / relative_path).resolve()
+    if root not in candidate.parents or not candidate.is_file():
+        raise HTTPException(status_code=404, detail="Asset not found")
+    media_type = mimetypes.guess_type(candidate.name)[0] or ""
+    if not media_type.startswith("image/"):
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return "/" + "/".join(parts), candidate
+
+
+async def _public_asset_is_referenced(
+    db: AsyncSession,
+    storefront: Storefront,
+    asset_url: str,
+) -> bool:
+    published_reference = await db.scalar(
+        select(Product.id)
+        .join(PublishedProduct, PublishedProduct.product_id == Product.id)
+        .outerjoin(ProductImage, ProductImage.product_id == Product.id)
+        .where(
+            PublishedProduct.storefront_id == storefront.id,
+            PublishedProduct.company_id == storefront.company_id,
+            PublishedProduct.is_active == True,
+            PublishedProduct.is_published == True,
+            or_(
+                Product.image_url == asset_url,
+                ProductImage.image_url == asset_url,
+            ),
+        )
+        .limit(1)
+    )
+    if published_reference:
+        return True
+
+    collection_reference = await db.scalar(
+        select(StoreCollection.id).where(
+            StoreCollection.storefront_id == storefront.id,
+            StoreCollection.company_id == storefront.company_id,
+            StoreCollection.is_active == True,
+            StoreCollection.image_url == asset_url,
+        ).limit(1)
+    )
+    if collection_reference:
+        return True
+
+    company = await _get_company_for_storefront(db, storefront)
+    return any(
+        _contains_public_asset(value, asset_url)
+        for value in (
+            company.logo_url if company else None,
+            storefront.theme_settings,
+            storefront.checkout_settings,
+            storefront.seo_settings,
+        )
+    )
 def _safe_float(value: Any, default: float = 0.0) -> float:
     try:
         if value is None:
@@ -2953,6 +3049,24 @@ async def update_payment_gateway(
     await db.commit()
     await db.refresh(gateway)
     return _serialize_admin_payment_gateway(gateway)
+
+
+@router.get("/public/{storefront_id}/assets/{asset_path:path}")
+async def read_public_storefront_asset(
+    storefront_id: uuid.UUID,
+    asset_path: str,
+    db: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    """Serve only image files referenced by this published storefront."""
+    storefront = await _get_public_storefront_by_id(db, storefront_id)
+    asset_url, file_path = _resolve_public_asset_path(asset_path)
+    if not await _public_asset_is_referenced(db, storefront, asset_url):
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return FileResponse(
+        file_path,
+        media_type=mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 @router.get("/public/by-subdomain/{subdomain}", response_model=schemas.PublicStorefront)

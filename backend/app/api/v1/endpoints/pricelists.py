@@ -154,6 +154,7 @@ async def create_pricelist(
         await _validate_item_product(db, item_in, current_user.company_id)
         item = PriceListItem(
             pricelist_id=pricelist.id,
+            company_id=current_user.company_id,
             product_id=item_in.product_id,
             variant_id=item_in.variant_id,
             min_quantity=item_in.min_quantity,
@@ -362,9 +363,14 @@ async def add_pricelist_item(
     )
     item = (await db.execute(item_query)).scalars().first()
     if item is None:
-        item = PriceListItem(pricelist_id=pricelist.id, **item_in.model_dump())
+        item = PriceListItem(
+            pricelist_id=pricelist.id,
+            company_id=current_user.company_id,
+            **item_in.model_dump(),
+        )
         db.add(item)
     else:
+        item.company_id = current_user.company_id
         item.min_quantity = item_in.min_quantity
         item.price = item_in.price
         item.is_active = True
@@ -654,6 +660,7 @@ async def import_pricelist_excel(
             else:
                 db.add(PriceListItem(
                     pricelist_id=pricelist.id,
+                    company_id=current_user.company_id,
                     product_id=row["product_id_uuid"],
                     variant_id=row["variant_id_uuid"],
                     price=row["price"],
