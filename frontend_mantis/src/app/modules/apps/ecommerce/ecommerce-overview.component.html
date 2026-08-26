@@ -1,23 +1,40 @@
-<div class="ecommerce-section">
+<div class="ecommerce-section ecommerce-overview-page" [attr.aria-busy]="loading">
   <div class="overview-hero card">
     <div class="card-body">
-      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-        <div>
-          <span class="overview-hero__eyebrow">Storefront control center</span>
-          <h4 class="mb-1">Ecommerce</h4>
-          <p class="text-muted mb-0">Administra la tienda por empresa desde modulos separados y con foco por area.</p>
+      <div class="overview-hero__top">
+        <div class="overview-hero__copy">
+          <span class="overview-hero__eyebrow"><i class="ti ti-building-store"></i> Comercio electrónico</span>
+          <h4 class="mb-1">Tu tienda online</h4>
+          <p class="mb-0">Revisa el estado de tu tienda, identifica lo que falta y accede rápidamente a cada configuración.</p>
         </div>
-        <button class="btn btn-outline-secondary btn-sm" (click)="loadData()" [disabled]="loading">
-          {{ loading ? 'Actualizando...' : 'Actualizar' }}
-        </button>
+        <div class="overview-hero__actions">
+          @if (selectedStorefront) {
+            <a class="btn btn-light btn-sm" routerLink="/commerce/store"><i class="ti ti-settings me-1"></i> Configurar tienda</a>
+            <a class="btn btn-outline-light btn-sm" routerLink="/commerce/design"><i class="ti ti-palette me-1"></i> Editar diseño</a>
+          }
+          <button class="btn btn-outline-light btn-sm" (click)="loadData()" [disabled]="loading" [attr.aria-label]="loading ? 'Actualizando información' : 'Actualizar información'">
+            <i class="ti ti-refresh" [class.ti-spin]="loading"></i>
+            <span class="visually-hidden">{{ loading ? 'Actualizando...' : 'Actualizar' }}</span>
+          </button>
+        </div>
       </div>
 
       @if (selectedStorefront) {
-        <div class="overview-store-meta mt-3">
-          <strong>{{ selectedStorefront.name }}</strong>
-          <span class="overview-store-meta__pill">{{ selectedStorefront.theme_key }}</span>
-          <span>{{ selectedStorefront.subdomain || 'sin-subdominio' }}</span>
-          <span>{{ selectedStorefront.is_enabled ? 'Activa' : 'Borrador' }}</span>
+        <div class="overview-store-summary">
+          <div class="overview-store-summary__identity">
+            <span class="overview-store-summary__avatar"><i class="ti ti-shopping-bag"></i></span>
+            <div>
+              <strong>{{ selectedStorefront.name }}</strong>
+              <span>{{ selectedStorefront.subdomain || 'Aún no tienes subdominio' }}</span>
+            </div>
+          </div>
+          <div class="overview-store-summary__details">
+            <span class="overview-status" [class.is-live]="selectedStorefront.is_enabled">
+              <i class="ti ti-circle-filled"></i> {{ selectedStorefront.is_enabled ? 'Activa' : 'Borrador' }}
+            </span>
+            <span><i class="ti ti-brush me-1"></i>{{ selectedStorefront.theme_key }}</span>
+            <span><i class="ti ti-world me-1"></i>{{ selectedStorefront.language.toUpperCase() }} · {{ selectedStorefront.currency }}</span>
+          </div>
         </div>
       }
 
@@ -25,64 +42,114 @@
         <div class="alert alert-info d-flex justify-content-between align-items-center gap-3 flex-wrap mt-3 mb-0">
           <div>
             <strong>Crea tu primera tienda para comenzar.</strong>
-            <span class="d-block">Luego podrás configurar branding, catálogo, pagos y contenido.</span>
+            <span class="d-block">Luego podrás configurar marca, catálogo, pagos y contenido.</span>
           </div>
           <a class="btn btn-primary btn-sm" routerLink="/commerce/store">Crear tienda</a>
-        </div>
-      }
-
-      <div class="row g-3 mt-1">
-        <div class="col-6 col-xl-3">
-          <div class="card metric-card">
-            <div class="card-body">
-              <small class="text-muted d-block mb-2">Productos publicados</small>
-              <h3 class="mb-0">{{ publishedCount }}</h3>
-            </div>
-          </div>
-        </div>
-        <div class="col-6 col-xl-3">
-          <div class="card metric-card">
-            <div class="card-body">
-              <small class="text-muted d-block mb-2">Colecciones</small>
-              <h3 class="mb-0">{{ collections.length }}</h3>
-            </div>
-          </div>
-        </div>
-        <div class="col-6 col-xl-3">
-          <div class="card metric-card">
-            <div class="card-body">
-              <small class="text-muted d-block mb-2">Items de menu</small>
-              <h3 class="mb-0">{{ navigationCount }}</h3>
-            </div>
-          </div>
-        </div>
-        <div class="col-6 col-xl-3">
-          <div class="card metric-card">
-            <div class="card-body">
-              <small class="text-muted d-block mb-2">Pasarelas activas</small>
-              <h3 class="mb-0">{{ paymentGateways.length }}</h3>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      @if (readiness) {
-        <div class="alert mt-3 mb-0" [class.alert-success]="readiness.ready" [class.alert-warning]="!readiness.ready">
-          <strong>{{ readiness.ready ? 'Tienda lista para vender.' : 'Antes de vender revisa estos puntos:' }}</strong>
-          @if (!readiness.ready) {
-            <ul class="mb-0 mt-2 ps-3">
-              @for (issue of readiness.issues; track issue) {
-                <li>{{ issue }}</li>
-              }
-            </ul>
-          }
         </div>
       }
     </div>
   </div>
 
-  <div class="alert alert-light border mt-3 mb-0">
-    <strong>Productos en ecommerce:</strong> el titulo, descripcion e imagen usan por defecto el producto del ERP.
-    Solo el precio web se puede sobrescribir para manejar listas o estrategia comercial distinta.
-  </div>
+  @if (selectedStorefront) {
+    <div class="row g-3 overview-metrics">
+      <div class="col-6 col-xl-3">
+        <div class="overview-metric card h-100">
+          <div class="overview-metric__icon overview-metric__icon--blue"><i class="ti ti-package"></i></div>
+          <div><span class="overview-metric__value">{{ publishedCount }}</span><span class="overview-metric__label">Productos publicados</span><span class="overview-metric__meta">{{ readiness?.out_of_stock_products || 0 }} sin stock</span></div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="overview-metric card h-100">
+          <div class="overview-metric__icon overview-metric__icon--purple"><i class="ti ti-tags"></i></div>
+          <div><span class="overview-metric__value">{{ collections.length }}</span><span class="overview-metric__label">Colecciones</span><span class="overview-metric__meta">{{ visibleCollectionsCount }} visibles</span></div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="overview-metric card h-100">
+          <div class="overview-metric__icon overview-metric__icon--orange"><i class="ti ti-menu-2"></i></div>
+          <div><span class="overview-metric__value">{{ visibleNavigationCount }}</span><span class="overview-metric__label">Enlaces del menú</span><span class="overview-metric__meta">Navegación de la tienda</span></div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="overview-metric card h-100">
+          <div class="overview-metric__icon overview-metric__icon--green"><i class="ti ti-credit-card"></i></div>
+          <div><span class="overview-metric__value">{{ activePaymentGatewaysCount }}</span><span class="overview-metric__label">Métodos de pago</span><span class="overview-metric__meta">{{ sandboxPaymentGatewaysCount }} en pruebas</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+      <div class="col-xl-8">
+        <div class="overview-panel card h-100">
+          <div class="card-body">
+            <div class="overview-panel__header">
+              <div><span class="overview-panel__eyebrow">Vista general</span><h5 class="mb-0">Estado de tu tienda</h5></div>
+              <span class="overview-progress__label">{{ setupProgress }}% completado</span>
+            </div>
+            <div class="overview-progress" role="progressbar" [attr.aria-valuenow]="setupProgress" aria-valuemin="0" aria-valuemax="100"><span [style.width.%]="setupProgress"></span></div>
+            <p class="overview-panel__hint">Completa estos pasos para ofrecer una experiencia de compra lista para tus clientes.</p>
+
+            <div class="overview-checks">
+              @for (check of setupChecks; track check.label) {
+                <a class="overview-check" [routerLink]="check.route" [class.is-complete]="check.done">
+                  <span class="overview-check__icon"><i [class]="check.icon"></i></span>
+                  <span class="overview-check__copy"><strong>{{ check.label }}</strong><small>{{ check.detail }}</small></span>
+                  <i class="ti" [class.ti-check]="check.done" [class.ti-arrow-up-right]="!check.done"></i>
+                </a>
+              }
+            </div>
+
+            @if (readiness && !readiness.ready && readiness.issues.length) {
+              <div class="overview-alert">
+                <i class="ti ti-alert-circle"></i>
+                <div><strong>Hay algunos puntos por revisar</strong><span>{{ readiness.issues.join(' · ') }}</span></div>
+              </div>
+            }
+            @if (readiness?.ready) {
+              <div class="overview-success"><i class="ti ti-circle-check"></i><span>Tu tienda cumple las condiciones básicas para vender.</span></div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-4">
+        <div class="overview-panel card h-100">
+          <div class="card-body">
+            <div class="overview-panel__header"><div><span class="overview-panel__eyebrow">Configuración</span><h5 class="mb-0">Resumen de la tienda</h5></div><i class="ti ti-settings overview-panel__header-icon"></i></div>
+            <div class="overview-summary-list">
+              <div class="overview-summary-row"><span><i class="ti ti-brush"></i>Tema</span><strong>{{ selectedStorefront.theme_key }}</strong></div>
+              <div class="overview-summary-row"><span><i class="ti ti-world"></i>Idioma y moneda</span><strong>{{ selectedStorefront.language.toUpperCase() }} · {{ selectedStorefront.currency }}</strong></div>
+              <div class="overview-summary-row"><span><i class="ti ti-link"></i>Dominios</span><strong>{{ verifiedDomainsCount }} configurado{{ verifiedDomainsCount === 1 ? '' : 's' }}</strong></div>
+              <div class="overview-summary-row"><span><i class="ti ti-credit-card"></i>Cobros</span><strong>{{ paymentGatewaySummary }}</strong></div>
+            </div>
+            <a class="overview-panel__link" routerLink="/commerce/store">Ver configuración completa <i class="ti ti-arrow-up-right"></i></a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+      <div class="col-xl-8">
+        <div class="overview-panel card">
+          <div class="card-body">
+            <div class="overview-panel__header"><div><span class="overview-panel__eyebrow">Accesos rápidos</span><h5 class="mb-0">Gestiona tu operación</h5></div></div>
+            <div class="overview-actions-grid">
+              <a class="overview-action" routerLink="/products"><span class="overview-action__icon overview-action__icon--blue"><i class="ti ti-package"></i></span><span><strong>Gestionar productos</strong><small>Administra precios, stock y publicación</small></span><i class="ti ti-arrow-up-right"></i></a>
+              <a class="overview-action" routerLink="/sales"><span class="overview-action__icon overview-action__icon--orange"><i class="ti ti-receipt"></i></span><span><strong>Ver pedidos</strong><small>Consulta y gestiona tus ventas</small></span><i class="ti ti-arrow-up-right"></i></a>
+              <a class="overview-action" routerLink="/inventory/logistics-board"><span class="overview-action__icon overview-action__icon--green"><i class="ti ti-truck-delivery"></i></span><span><strong>Preparar pedidos</strong><small>Organiza despachos y entregas</small></span><i class="ti ti-arrow-up-right"></i></a>
+              <a class="overview-action" routerLink="/commerce/navigation"><span class="overview-action__icon overview-action__icon--purple"><i class="ti ti-menu-2"></i></span><span><strong>Editar menú</strong><small>Ordena las secciones de tu tienda</small></span><i class="ti ti-arrow-up-right"></i></a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-4">
+        <div class="overview-catalog-note card h-100">
+          <span class="overview-catalog-note__icon"><i class="ti ti-info-circle"></i></span>
+          <h5>Un catálogo conectado</h5>
+          <p>Los productos, imágenes y existencias se toman del catálogo principal. Desde Ecommerce defines cómo se muestran y venden en tu tienda.</p>
+          <a routerLink="/products">Ir al catálogo <i class="ti ti-arrow-up-right"></i></a>
+        </div>
+      </div>
+    </div>
+  }
 </div>

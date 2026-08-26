@@ -268,7 +268,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/purchasing/requests',
-        icon: 'clipboard-list',
+        icon: 'snippets',
         breadcrumbs: false,
         permissions: ['manage_inventory']
       },
@@ -346,7 +346,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/invoices',
-        icon: 'file-invoice',
+        icon: 'file-done',
         permissions: ['manage_sales', 'manage_inventory']
       },
     ]
@@ -431,21 +431,18 @@ export const NavigationItems: NavigationItem[] = [
         children: [
           { id: 'commerce-overview', title: 'Resumen', type: 'item', classes: 'nav-item', url: '/commerce', icon: 'dashboard', breadcrumbs: false, permissions: ['manage_company'] },
           { id: 'commerce-store', title: 'Tienda', type: 'item', classes: 'nav-item', url: '/commerce/store', icon: 'shop', breadcrumbs: false, permissions: ['manage_company'] },
-          { id: 'commerce-catalog', title: 'Catálogo publicado', type: 'item', classes: 'nav-item', url: '/products', icon: 'shopping-cart', breadcrumbs: false, permissions: ['view_products'] },
           { id: 'commerce-collections', title: 'Colecciones', type: 'item', classes: 'nav-item', url: '/commerce/collections', icon: 'tags', breadcrumbs: false, permissions: ['manage_company'] },
-          { id: 'commerce-content', title: 'Contenido', type: 'collapse', icon: 'layout', permissions: ['manage_company'], children: [
-            { id: 'commerce-branding', title: 'Marca', type: 'item', url: '/commerce/branding', breadcrumbs: false, permissions: ['manage_company'] },
-            { id: 'commerce-design', title: 'Editor visual', type: 'item', url: '/commerce/design', breadcrumbs: false, permissions: ['manage_company'] },
-            { id: 'commerce-menu', title: 'Menú de tienda', type: 'item', url: '/commerce/navigation', breadcrumbs: false, permissions: ['manage_company'] },
-            { id: 'commerce-seo', title: 'SEO', type: 'item', url: '/commerce/seo', breadcrumbs: false, permissions: ['manage_company'] }
+          { id: 'commerce-content', title: 'Diseño y contenido', type: 'collapse', icon: 'layout', permissions: ['manage_company'], children: [
+            { id: 'commerce-branding', title: 'Marca y apariencia', type: 'item', url: '/commerce/branding', icon: 'bg-colors', breadcrumbs: false, permissions: ['manage_company'] },
+            { id: 'commerce-design', title: 'Editor visual', type: 'item', url: '/commerce/design', icon: 'picture', breadcrumbs: false, permissions: ['manage_company'] },
+            { id: 'commerce-menu', title: 'Menú de tienda', type: 'item', url: '/commerce/navigation', icon: 'menu', breadcrumbs: false, permissions: ['manage_company'] },
+            { id: 'commerce-seo', title: 'SEO', type: 'item', url: '/commerce/seo', icon: 'global', breadcrumbs: false, permissions: ['manage_company'] }
           ]},
-          { id: 'commerce-checkout', title: 'Checkout y pagos', type: 'collapse', icon: 'credit-card', permissions: ['manage_company'], children: [
-            { id: 'commerce-checkout-rules', title: 'Reglas de checkout', type: 'item', url: '/commerce/checkout', breadcrumbs: false, permissions: ['manage_company'] },
-            { id: 'commerce-payments', title: 'Métodos de pago', type: 'item', url: '/commerce/payments', breadcrumbs: false, permissions: ['manage_company'] }
+          { id: 'commerce-checkout', title: 'Cobros y checkout', type: 'collapse', icon: 'credit-card', permissions: ['manage_company'], children: [
+            { id: 'commerce-checkout-rules', title: 'Checkout', type: 'item', url: '/commerce/checkout', icon: 'setting', breadcrumbs: false, permissions: ['manage_company'] },
+            { id: 'commerce-payments', title: 'Métodos de pago', type: 'item', url: '/commerce/payments', icon: 'credit-card', breadcrumbs: false, permissions: ['manage_company'] }
           ]},
-          { id: 'commerce-logistics', title: 'Logística y envíos', type: 'item', url: '/commerce/logistics', icon: 'truck', breadcrumbs: false, permissions: ['manage_company'] },
-          { id: 'commerce-orders', title: 'Pedidos online', type: 'item', classes: 'nav-item', url: '/sales', icon: 'solution', breadcrumbs: false, permissions: ['view_sales'] },
-          { id: 'commerce-fulfillment', title: 'Preparación y envío', type: 'item', classes: 'nav-item', url: '/inventory/logistics-board', icon: 'carry-out', breadcrumbs: false, permissions: ['manage_sales'] }
+          { id: 'commerce-logistics', title: 'Envíos y entregas', type: 'item', url: '/commerce/logistics', icon: 'truck', breadcrumbs: false, permissions: ['manage_company'] }
         ]
       }
     ]
@@ -521,7 +518,7 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         classes: 'nav-item',
         url: '/crm',
-        icon: 'chart-line',
+        icon: 'line-chart',
         breadcrumbs: false,
         permissions: ['view_clients']
       },

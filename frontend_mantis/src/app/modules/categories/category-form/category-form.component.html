@@ -1,16 +1,16 @@
 <div class="row">
   <div class="col-sm-12">
-    <app-card [cardTitle]="isEditMode ? 'Edit Category' : 'Create Category'">
+    <app-card [cardTitle]="isEditMode ? 'Editar categoría' : 'Nueva categoría'">
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <div class="form-group row mb-3">
-          <label class="col-lg-3 col-form-label">Name</label>
+          <label class="col-lg-3 col-form-label">Nombre</label>
           <div class="col-lg-9">
-            <input type="text" class="form-control" formControlName="name" placeholder="Enter category name"
+            <input type="text" class="form-control" formControlName="name" placeholder="Escribe el nombre de la categoría"
               [ngClass]="{ 'is-invalid': submitted && form.controls['name'].errors }">
               @if (submitted && form.controls['name'].errors) {
                 <div class="invalid-feedback">
                   @if (form.controls['name'].errors['required']) {
-                    <div>Name is required</div>
+                    <div>El nombre es obligatorio</div>
                   }
                 </div>
               }
@@ -18,18 +18,18 @@
           </div>
 
           <div class="form-group row mb-3">
-            <label class="col-lg-3 col-form-label">Description</label>
+            <label class="col-lg-3 col-form-label">Descripción</label>
             <div class="col-lg-9">
               <textarea class="form-control" formControlName="description" rows="3"
-              placeholder="Enter description"></textarea>
+              placeholder="Añade una descripción (opcional)"></textarea>
             </div>
           </div>
 
           <div class="form-group row">
             <label class="col-lg-3 col-form-label"></label>
             <div class="col-lg-9">
-              <button type="submit" class="btn btn-primary me-2">Submit</button>
-              <button type="button" class="btn btn-secondary" (click)="onCancel()">Cancel</button>
+              <button type="submit" class="btn btn-primary me-2">Guardar categoría</button>
+              <button type="button" class="btn btn-secondary" (click)="onCancel()">Cancelar</button>
             </div>
           </div>
         </form>

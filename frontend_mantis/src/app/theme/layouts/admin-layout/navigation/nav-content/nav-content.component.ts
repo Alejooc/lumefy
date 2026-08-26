@@ -44,7 +44,18 @@ import {
   ContainerOutline,
   FileSearchOutline,
   LayoutOutline,
-  RollbackOutline
+  RollbackOutline,
+  BarcodeOutline,
+  CloudDownloadOutline,
+  FileDoneOutline,
+  GlobalOutline,
+  HomeOutline,
+  LineChartOutline,
+  MenuOutline,
+  PictureOutline,
+  SnippetsOutline,
+  ToolOutline,
+  TruckOutline
 } from '@ant-design/icons-angular/icons';
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { PermissionService } from '../../../../../core/services/permission.service';
@@ -116,7 +127,18 @@ export class NavContentComponent implements OnInit {
         ContainerOutline,
         FileSearchOutline,
         LayoutOutline,
-        RollbackOutline
+        RollbackOutline,
+        BarcodeOutline,
+        CloudDownloadOutline,
+        FileDoneOutline,
+        GlobalOutline,
+        HomeOutline,
+        LineChartOutline,
+        MenuOutline,
+        PictureOutline,
+        SnippetsOutline,
+        ToolOutline,
+        TruckOutline
       ]
     );
     this.navigations = [];

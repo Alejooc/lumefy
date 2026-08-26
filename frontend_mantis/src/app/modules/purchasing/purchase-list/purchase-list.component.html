@@ -29,7 +29,7 @@
                 <th>Fecha Esperada</th>
                 <th>Total</th>
                 <th>Estado</th>
-                <th>Acciones</th>
+                <th class="text-end">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -43,7 +43,7 @@
                   <td>{{ po.total_amount | currency }}</td>
                   <td><span [ngClass]="getStatusClass(po.status)">{{ getStatusLabel(po.status) }}</span>
                 </td>
-                <td>
+                <td class="text-end">
                   <div ngbDropdown container="body" class="d-inline-block">
                     <button class="btn btn-sm btn-light no-arrow" ngbDropdownToggle>
                       <i class="ti ti-dots-vertical"></i>

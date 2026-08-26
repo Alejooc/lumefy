@@ -17,7 +17,7 @@
                 <th>Teléfono</th>
                 <th>Es Almacén</th>
                 <th>Permite POS</th>
-                <th>Acciones</th>
+                <th class="text-end">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -36,7 +36,7 @@
                       {{ branch.allow_pos ? 'Sí' : 'No' }}
                     </span>
                   </td>
-                  <td>
+                  <td class="text-end">
                     <a [routerLink]="['/branches/edit', branch.id]"
                       class="btn btn-icon btn-outline-warning btn-sm me-2">
                       <i class="ti ti-edit"></i>

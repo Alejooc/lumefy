@@ -53,7 +53,7 @@
               <th>Ubicación</th>
               <th>Lote</th>
               <th>Caducidad</th>
-              <th>Acciones</th>
+              <th class="text-end">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -81,7 +81,7 @@
                 <td>{{ item.location || '-' }}</td>
                 <td>{{ item.batch_number || '-' }}</td>
                 <td>{{ item.expiry_date || '-' }}</td>
-                <td>
+                <td class="text-end">
                   <button class="btn btn-icon btn-outline-info btn-sm" title="Ver Movimientos (Kardex)"
                     [routerLink]="['/inventory/history', item.product_id]"
                     [queryParams]="{branchId: item.branch_id, variantId: item.variant_id || null}">

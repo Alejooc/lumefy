@@ -22,6 +22,260 @@ i.ti {
   animation: icon-spin 0.9s linear infinite;
 }
 
+// -----------------------------------------------------------------------------
+// Lumefy admin UI foundation
+// Keeps list, form and detail modules visually consistent without coupling
+// their business logic to a single feature component.
+// -----------------------------------------------------------------------------
+.pc-container {
+  --lumefy-surface: var(--bs-body-bg, #fff);
+  --lumefy-surface-muted: #f8fafc;
+  --lumefy-border: #e6ebf2;
+  --lumefy-radius: #{$border-radius};
+  --lumefy-control-height: 2.5rem;
+
+  .page-wrapper > * {
+    display: block;
+    width: 100%;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+
+    h4,
+    h5,
+    h6 {
+      margin-bottom: 0.25rem;
+      color: var(--bs-heading-color);
+      font-weight: 700;
+    }
+
+    p,
+    small {
+      color: var(--bs-secondary-color);
+    }
+  }
+
+  .card {
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--lumefy-border);
+    border-radius: var(--lumefy-radius);
+    background: var(--lumefy-surface);
+    box-shadow: 0 0.25rem 1rem rgba(31, 41, 55, 0.035);
+
+    > .card-header {
+      min-height: 3.75rem;
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid var(--lumefy-border);
+      border-radius: var(--lumefy-radius) var(--lumefy-radius) 0 0;
+      background: linear-gradient(180deg, #fff 0%, var(--lumefy-surface-muted) 100%);
+
+      h5 {
+        margin: 0;
+        color: var(--bs-heading-color);
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      > div:last-child {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+    }
+
+    > .card-body {
+      padding: 1.25rem;
+    }
+
+    > .card-footer {
+      padding: 0.9rem 1.25rem;
+      border-top: 1px solid var(--lumefy-border);
+      background: var(--lumefy-surface-muted);
+    }
+  }
+
+  .btn {
+    display: inline-flex;
+    min-height: 2.4rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: $btn-border-radius;
+    font-weight: 600;
+    line-height: 1.25;
+
+    > i.ti {
+      margin-inline-end: 0;
+    }
+
+    &.btn-sm {
+      min-height: 2rem;
+      padding: 0.35rem 0.7rem;
+    }
+
+    &.btn-icon {
+      width: 2.1rem;
+      height: 2.1rem;
+      min-height: 2.1rem;
+      padding: 0;
+      gap: 0;
+    }
+  }
+
+  .btn-group {
+    .btn {
+      border-radius: 0;
+
+      &:first-child { border-radius: $btn-border-radius 0 0 $btn-border-radius; }
+      &:last-child { border-radius: 0 $btn-border-radius $btn-border-radius 0; }
+    }
+  }
+
+  .form-label,
+  .col-form-label {
+    margin-bottom: 0.4rem;
+    color: var(--bs-heading-color);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .form-control,
+  .form-select {
+    min-height: var(--lumefy-control-height);
+    border-color: #d9e1ec;
+    border-radius: $input-border-radius;
+    color: var(--bs-body-color);
+    background-color: var(--lumefy-surface);
+
+    &:hover {
+      border-color: #b9c7d9;
+      background-color: var(--lumefy-surface);
+    }
+
+    &:focus {
+      border-color: var(--bs-primary);
+      box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.12);
+    }
+  }
+
+  textarea.form-control {
+    min-height: 5.5rem;
+  }
+
+  .form-text,
+  .text-muted {
+    color: #718096 !important;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+    border: 1px solid var(--lumefy-border);
+    border-radius: $border-radius;
+  }
+
+  .table {
+    margin-bottom: 0;
+    font-size: 0.83rem;
+
+    thead th {
+      padding: 0.8rem 0.9rem;
+      border-top: 0;
+      border-bottom: 1px solid #dce4ee;
+      color: #526174;
+      background: #f7f9fc;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.035em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 0.85rem 0.9rem;
+      border-color: #edf1f6;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+  }
+
+  .table-hover > tbody > tr:hover > * {
+    --bs-table-accent-bg: #f8fbff;
+    color: inherit;
+  }
+
+  .badge {
+    border-radius: $badge-border-radius;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
+  .alert {
+    border-radius: $border-radius;
+  }
+
+  .pagination {
+    gap: 0.25rem;
+
+    .page-item .page-link {
+      min-width: 2rem;
+      border-radius: $border-radius;
+      text-align: center;
+    }
+  }
+
+  .dropdown-menu {
+    border: 1px solid var(--lumefy-border);
+    border-radius: $border-radius;
+    box-shadow: 0 0.75rem 1.75rem rgba(31, 41, 55, 0.12);
+  }
+
+  .modal-content {
+    overflow: hidden;
+    border: 1px solid var(--lumefy-border);
+    border-radius: $border-radius-lg;
+    box-shadow: 0 1.25rem 3rem rgba(31, 41, 55, 0.18);
+  }
+
+  .modal-header,
+  .modal-footer {
+    border-color: var(--lumefy-border);
+    background: var(--lumefy-surface-muted);
+  }
+
+  @media (max-width: 767.98px) {
+    .page-header {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .card > .card-header,
+    .card > .card-body,
+    .card > .card-footer {
+      padding-right: 1rem;
+      padding-left: 1rem;
+    }
+
+    .card > .card-header > div:last-child {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .card > .card-header > div:last-child .btn {
+      flex: 1 1 auto;
+    }
+  }
+}
+
 @keyframes icon-spin {
   to { transform: rotate(360deg); }
 }

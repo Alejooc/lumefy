@@ -1,18 +1,18 @@
 <div class="row">
   <div class="col-sm-12">
-    <app-card cardTitle="Categories">
+    <app-card cardTitle="Categorías">
       <ng-template #headerOptionsTemplate>
         <button [routerLink]="['/categories/create']" class="btn btn-primary" [disabled]="isLoading">
-          <i class="ti ti-plus"></i> Create Category
+          <i class="ti ti-plus"></i> Nueva categoría
         </button>
       </ng-template>
 
       @if (isLoading) {
         <div class="text-center p-4">
           <div class="spinner-border text-primary" role="status">
-            <span class="sr-only">Loading...</span>
+            <span class="visually-hidden">Cargando...</span>
           </div>
-          <p class="mt-2">Loading categories...</p>
+          <p class="mt-2">Cargando categorías...</p>
         </div>
       }
 
@@ -21,9 +21,9 @@
           <table class="table table-hover">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Actions</th>
+                <th>Nombre</th>
+                <th>Descripción</th>
+                <th class="text-end">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -31,7 +31,7 @@
                 <tr>
                   <td>{{ category.name }}</td>
                   <td>{{ category.description }}</td>
-                  <td>
+                    <td class="text-end">
                     <a [routerLink]="['/categories/edit', category.id]"
                       class="btn btn-icon btn-outline-primary btn-sm me-2">
                       <i class="ti ti-edit"></i>
@@ -45,7 +45,7 @@
               }
               @if (categories.length === 0) {
                 <tr>
-                  <td colspan="3" class="text-center">No categories found.</td>
+                  <td colspan="3" class="text-center">No se encontraron categorías.</td>
                 </tr>
               }
             </tbody>
