@@ -23,10 +23,16 @@ export const routes: Routes = [
       },
       {
         path: 'home',
+        // Keep the old form reachable during the controlled rollout. The
+        // navigation entry points to /commerce/design, which uses the visual editor.
         loadComponent: () => import('./ecommerce/ecommerce-home.component').then((c) => c.EcommerceHomeComponent)
       },
       {
         path: 'design',
+        loadComponent: () => import('./ecommerce/ecommerce-visual-editor.component').then((c) => c.EcommerceVisualEditorComponent)
+      },
+      {
+        path: 'home-legacy',
         loadComponent: () => import('./ecommerce/ecommerce-home.component').then((c) => c.EcommerceHomeComponent)
       },
       {

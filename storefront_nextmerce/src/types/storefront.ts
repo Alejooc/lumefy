@@ -28,6 +28,7 @@ export type PublicStorefront = {
   subdomain?: string | null;
   theme_key: string;
   theme_settings: Record<string, unknown>;
+  theme_document?: Record<string, unknown>;
   checkout_settings: Record<string, unknown>;
   seo_settings: Record<string, unknown>;
   currency: string;

@@ -211,7 +211,7 @@ class TenantIsolationTests(unittest.IsolatedAsyncioTestCase):
         )
         company = SimpleNamespace(logo_url="/static/company-a/logo.png")
         db = SimpleNamespace(
-            scalar=AsyncMock(side_effect=[None, None]),
+            scalar=AsyncMock(side_effect=[None, None, None]),
             execute=AsyncMock(return_value=_Result(record=company)),
         )
 
@@ -225,7 +225,7 @@ class TenantIsolationTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(
             await _public_asset_is_referenced(
                 SimpleNamespace(
-                    scalar=AsyncMock(side_effect=[None, None]),
+                    scalar=AsyncMock(side_effect=[None, None, None]),
                     execute=AsyncMock(
                         return_value=_Result(
                             record=SimpleNamespace(logo_url="/static/company-b/logo.png")
@@ -239,6 +239,31 @@ class TenantIsolationTests(unittest.IsolatedAsyncioTestCase):
         published_product_query = str(db.scalar.await_args_list[0].args[0])
         self.assertIn("published_products.storefront_id", published_product_query)
         self.assertIn("published_products.company_id", published_product_query)
+
+    async def test_public_asset_reference_accepts_published_theme_document(self):
+        storefront = SimpleNamespace(
+            id=uuid4(),
+            company_id=uuid4(),
+            theme_settings={},
+            checkout_settings={},
+            seo_settings={},
+        )
+        theme_document = SimpleNamespace(
+            published_document={"legacy_home": {"hero_slides": [{"image": "/static/uploads/hero.png"}]}},
+            draft_document={},
+        )
+        db = SimpleNamespace(
+            scalar=AsyncMock(side_effect=[None, None, theme_document]),
+            execute=AsyncMock(return_value=_Result(record=SimpleNamespace(logo_url=None))),
+        )
+
+        self.assertTrue(
+            await _public_asset_is_referenced(
+                db,
+                storefront,
+                "/static/uploads/hero.png",
+            )
+        )
 
 
 if __name__ == "__main__":

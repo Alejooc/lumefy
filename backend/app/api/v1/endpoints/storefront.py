@@ -3,6 +3,7 @@ import hmac
 import asyncio
 import secrets
 import base64
+import json
 import mimetypes
 from pathlib import Path
 from html import escape
@@ -18,14 +19,14 @@ import dns.resolver
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import load_only, selectinload
 from sqlalchemy.orm.attributes import set_committed_value
 
 from app.core import auth, security
-from app.core.audit import log_sale_event
+from app.core.audit import log_activity, log_sale_event
 from app.core.database import get_db
 from app.core.permissions import PermissionChecker
 from app.core.plan_limits import PlanLimitChecker
@@ -63,7 +64,17 @@ from app.models.storefront import (
     StorefrontOrder,
 )
 from app.models.storefront_coupon import StorefrontCoupon
+from app.models.storefront_theme import (
+    StorefrontThemeDocument as StorefrontThemeDocumentModel,
+    StorefrontThemeRevision as StorefrontThemeRevisionModel,
+)
 from app.schemas import storefront as schemas
+from app.services.storefront_theme import (
+    build_home_document,
+    component_registry,
+    normalize_home_document,
+    validate_template_key,
+)
 from app.services.storefront_shipping import (
     calculate_shipping,
     ensure_default_shipping_configuration,
@@ -136,6 +147,7 @@ async def _public_asset_is_referenced(
     db: AsyncSession,
     storefront: Storefront,
     asset_url: str,
+    preview_token: str | None = None,
 ) -> bool:
     published_reference = await db.scalar(
         select(Product.id)
@@ -166,6 +178,22 @@ async def _public_asset_is_referenced(
     )
     if collection_reference:
         return True
+
+    theme_document = await db.scalar(
+        select(StorefrontThemeDocumentModel).where(
+            StorefrontThemeDocumentModel.storefront_id == storefront.id,
+            StorefrontThemeDocumentModel.company_id == storefront.company_id,
+            StorefrontThemeDocumentModel.template_key == "home",
+            StorefrontThemeDocumentModel.is_active == True,
+        )
+    )
+    if theme_document:
+        if _contains_public_asset(theme_document.published_document, asset_url):
+            return True
+        preview_claims = auth.get_storefront_preview_claims(preview_token) if preview_token else None
+        if preview_claims and preview_claims[:2] == (storefront.id, storefront.company_id):
+            if _contains_public_asset(theme_document.draft_document, asset_url):
+                return True
 
     company = await _get_company_for_storefront(db, storefront)
     return any(
@@ -1142,12 +1170,39 @@ def _parse_multi_query_param(value: str | None) -> list[str]:
     return [item.strip() for item in (value or "").split(",") if item.strip()]
 
 
-async def _get_public_storefront_by_id(db: AsyncSession, storefront_id: uuid.UUID) -> Storefront:
+def _parse_uuid_query_list(value: str | None, limit: int = 24) -> list[uuid.UUID]:
+    parsed: list[uuid.UUID] = []
+    for item in _parse_multi_query_param(value):
+        try:
+            candidate = uuid.UUID(item)
+        except (ValueError, AttributeError):
+            continue
+        if candidate not in parsed:
+            parsed.append(candidate)
+        if len(parsed) >= limit:
+            break
+    return parsed
+
+
+async def _get_public_storefront_by_id(
+    db: AsyncSession,
+    storefront_id: uuid.UUID,
+    preview_token: str | None = None,
+) -> Storefront:
+    preview_claims = auth.get_storefront_preview_claims(preview_token) if preview_token else None
+    preview_storefront_id = preview_claims[0] if preview_claims else None
+    preview_company_id = preview_claims[1] if preview_claims else None
     result = await db.execute(
         select(Storefront).where(
             Storefront.id == storefront_id,
             Storefront.is_active == True,
-            Storefront.is_enabled == True,
+            or_(
+                Storefront.is_enabled == True,
+                and_(
+                    Storefront.id == preview_storefront_id,
+                    Storefront.company_id == preview_company_id,
+                ),
+            ),
         )
     )
     storefront = result.scalars().first()
@@ -1156,16 +1211,29 @@ async def _get_public_storefront_by_id(db: AsyncSession, storefront_id: uuid.UUI
     return storefront
 
 
-async def _get_public_storefront_by_subdomain(db: AsyncSession, subdomain: str) -> Storefront:
+async def _get_public_storefront_by_subdomain(
+    db: AsyncSession,
+    subdomain: str,
+    preview_token: str | None = None,
+) -> Storefront:
     normalized_subdomain = subdomain.strip().lower()
     if not normalized_subdomain:
         raise HTTPException(status_code=404, detail="Storefront not found")
 
+    preview_claims = auth.get_storefront_preview_claims(preview_token) if preview_token else None
+    preview_storefront_id = preview_claims[0] if preview_claims else None
+    preview_company_id = preview_claims[1] if preview_claims else None
     result = await db.execute(
         select(Storefront).where(
             Storefront.subdomain == normalized_subdomain,
             Storefront.is_active == True,
-            Storefront.is_enabled == True,
+            or_(
+                Storefront.is_enabled == True,
+                and_(
+                    Storefront.id == preview_storefront_id,
+                    Storefront.company_id == preview_company_id,
+                ),
+            ),
         )
     )
     storefront = result.scalars().first()
@@ -1174,11 +1242,18 @@ async def _get_public_storefront_by_subdomain(db: AsyncSession, subdomain: str) 
     return storefront
 
 
-async def _get_public_storefront_by_domain(db: AsyncSession, domain: str) -> Storefront:
+async def _get_public_storefront_by_domain(
+    db: AsyncSession,
+    domain: str,
+    preview_token: str | None = None,
+) -> Storefront:
     normalized_domain = domain.strip().lower().split(":", 1)[0]
     if not normalized_domain:
         raise HTTPException(status_code=404, detail="Storefront not found")
 
+    preview_claims = auth.get_storefront_preview_claims(preview_token) if preview_token else None
+    preview_storefront_id = preview_claims[0] if preview_claims else None
+    preview_company_id = preview_claims[1] if preview_claims else None
     result = await db.execute(
         select(Storefront)
         .join(StorefrontDomain, StorefrontDomain.storefront_id == Storefront.id)
@@ -1187,7 +1262,13 @@ async def _get_public_storefront_by_domain(db: AsyncSession, domain: str) -> Sto
             StorefrontDomain.is_active == True,
             StorefrontDomain.is_verified == True,
             Storefront.is_active == True,
-            Storefront.is_enabled == True,
+            or_(
+                Storefront.is_enabled == True,
+                and_(
+                    Storefront.id == preview_storefront_id,
+                    Storefront.company_id == preview_company_id,
+                ),
+            ),
         )
     )
     storefront = result.scalars().first()
@@ -1196,7 +1277,53 @@ async def _get_public_storefront_by_domain(db: AsyncSession, domain: str) -> Sto
     return storefront
 
 
-async def _get_public_collection_or_404(db: AsyncSession, storefront_id: uuid.UUID, slug: str) -> StoreCollection:
+async def _get_storefront_for_certificate_by_subdomain(
+    db: AsyncSession,
+    subdomain: str,
+) -> Storefront:
+    """Authorize TLS for known active stores, including unpublished previews."""
+    normalized_subdomain = subdomain.strip().lower()
+    result = await db.execute(
+        select(Storefront).where(
+            Storefront.subdomain == normalized_subdomain,
+            Storefront.is_active == True,
+        )
+    )
+    storefront = result.scalars().first()
+    if not storefront:
+        raise HTTPException(status_code=404, detail="Unknown storefront")
+    return storefront
+
+
+async def _get_storefront_for_certificate_by_domain(
+    db: AsyncSession,
+    domain: str,
+) -> Storefront:
+    """Authorize TLS only for a verified domain owned by an active store."""
+    normalized_domain = domain.strip().lower().split(":", 1)[0]
+    result = await db.execute(
+        select(Storefront)
+        .join(StorefrontDomain, StorefrontDomain.storefront_id == Storefront.id)
+        .where(
+            StorefrontDomain.domain == normalized_domain,
+            StorefrontDomain.is_active == True,
+            StorefrontDomain.is_verified == True,
+            Storefront.is_active == True,
+        )
+    )
+    storefront = result.scalars().first()
+    if not storefront:
+        raise HTTPException(status_code=404, detail="Unknown storefront")
+    return storefront
+
+
+async def _get_public_collection_or_404(
+    db: AsyncSession,
+    storefront_id: uuid.UUID,
+    slug: str,
+    preview_token: str | None = None,
+) -> StoreCollection:
+    await _get_public_storefront_by_id(db, storefront_id, preview_token)
     result = await db.execute(
         select(StoreCollection).where(
             StoreCollection.storefront_id == storefront_id,
@@ -1211,7 +1338,12 @@ async def _get_public_collection_or_404(db: AsyncSession, storefront_id: uuid.UU
     return collection
 
 
-async def _get_public_published_product_or_404(db: AsyncSession, storefront_id: uuid.UUID, slug: str) -> PublishedProduct:
+async def _get_public_published_product_or_404(
+    db: AsyncSession,
+    storefront_id: uuid.UUID,
+    slug: str,
+    preview_token: str | None = None,
+) -> PublishedProduct:
     result = await db.execute(
         select(PublishedProduct)
         .options(
@@ -1230,7 +1362,7 @@ async def _get_public_published_product_or_404(db: AsyncSession, storefront_id: 
     published_product = result.scalars().first()
     if not published_product or not published_product.product:
         raise HTTPException(status_code=404, detail="Product not found")
-    storefront = await _get_public_storefront_by_id(db, storefront_id)
+    storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     stock_map = await _get_storefront_stock_map(db, storefront, [published_product.product_id])
     if not _public_product_has_available_stock(published_product.product, stock_map):
         raise HTTPException(status_code=404, detail="Product not found")
@@ -1249,6 +1381,168 @@ async def _get_storefront_or_404(db: AsyncSession, storefront_id: uuid.UUID, com
     if not storefront:
         raise HTTPException(status_code=404, detail="Storefront not found")
     return storefront
+
+
+def _theme_template_or_422(template_key: str) -> str:
+    try:
+        return validate_template_key(template_key)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+def _storefront_preview_url(storefront: Storefront) -> str | None:
+    platform_domain = (settings.PLATFORM_STOREFRONT_DOMAIN or "").strip().lower().rstrip(".")
+    subdomain = (storefront.subdomain or "").strip().lower().strip(".")
+    if (
+        not platform_domain
+        or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", subdomain)
+        or not re.fullmatch(r"[a-z0-9.-]+", platform_domain)
+    ):
+        return None
+    return f"https://{subdomain}.{platform_domain}/"
+
+
+def _create_storefront_theme_preview_session(
+    storefront: Storefront,
+    user_id: uuid.UUID,
+) -> tuple[str, datetime]:
+    expires_delta = timedelta(minutes=15)
+    expires_at = datetime.now(timezone.utc) + expires_delta
+    token = auth.create_access_token(
+        data={
+            "sub": str(user_id),
+            "scope": "storefront_theme_preview",
+            "storefront_id": str(storefront.id),
+            "company_id": str(storefront.company_id),
+            "template_key": "home",
+            "jti": secrets.token_urlsafe(16),
+        },
+        expires_delta=expires_delta,
+    )
+    return token, expires_at
+
+
+async def _get_theme_document(
+    db: AsyncSession,
+    storefront: Storefront,
+    template_key: str,
+    create: bool = False,
+    user_id: uuid.UUID | None = None,
+    lock: bool = False,
+) -> StorefrontThemeDocumentModel | None:
+    query = select(StorefrontThemeDocumentModel).where(
+        StorefrontThemeDocumentModel.storefront_id == storefront.id,
+        StorefrontThemeDocumentModel.company_id == storefront.company_id,
+        StorefrontThemeDocumentModel.template_key == template_key,
+        StorefrontThemeDocumentModel.is_active == True,
+    )
+    if lock:
+        query = query.with_for_update()
+    document = await db.scalar(query)
+    if document or not create:
+        return document
+
+    initial = build_home_document(storefront.theme_settings)
+    document = StorefrontThemeDocumentModel(
+        storefront_id=storefront.id,
+        company_id=storefront.company_id,
+        template_key=template_key,
+        draft_document=initial,
+        published_document=initial,
+        draft_version=1,
+        published_version=1,
+        published_at=datetime.now(timezone.utc),
+        published_by_id=user_id,
+        created_by_id=user_id,
+        updated_by_id=user_id,
+    )
+    db.add(document)
+    await db.flush()
+    return document
+
+
+async def _validate_theme_references(
+    db: AsyncSession,
+    storefront: Storefront,
+    document: dict[str, Any],
+) -> None:
+    """Ensure visual selectors cannot reference another tenant's catalog."""
+    collection_ids: set[uuid.UUID] = set()
+    product_ids: set[uuid.UUID] = set()
+    for section in document.get("sections", []):
+        if not isinstance(section, dict):
+            continue
+        settings = section.get("settings")
+        if not isinstance(settings, dict):
+            continue
+        for field_name, target in (("collection_ids", collection_ids), ("product_ids", product_ids)):
+            values = settings.get(field_name, [])
+            if values is None:
+                continue
+            if not isinstance(values, list) or len(values) > 24:
+                raise ValueError(f"La selección {field_name} debe contener como máximo 24 IDs.")
+            for value in values:
+                try:
+                    target.add(uuid.UUID(str(value)))
+                except (ValueError, TypeError, AttributeError) as exc:
+                    raise ValueError(f"La selección {field_name} contiene un ID inválido.") from exc
+
+    if collection_ids:
+        result = await db.execute(
+            select(StoreCollection.id).where(
+                StoreCollection.id.in_(collection_ids),
+                StoreCollection.storefront_id == storefront.id,
+                StoreCollection.company_id == storefront.company_id,
+                StoreCollection.is_active == True,
+                StoreCollection.is_visible == True,
+            )
+        )
+        missing = collection_ids - set(result.scalars().all())
+        if missing:
+            raise ValueError("Una o más colecciones no pertenecen a esta tienda o ya no están disponibles.")
+
+    if product_ids:
+        result = await db.execute(
+            select(PublishedProduct.id).where(
+                PublishedProduct.id.in_(product_ids),
+                PublishedProduct.storefront_id == storefront.id,
+                PublishedProduct.company_id == storefront.company_id,
+                PublishedProduct.is_active == True,
+                PublishedProduct.is_published == True,
+            )
+        )
+        missing = product_ids - set(result.scalars().all())
+        if missing:
+            raise ValueError("Uno o más productos no pertenecen a esta tienda o ya no están publicados.")
+
+
+def _serialize_theme_document(
+    document: StorefrontThemeDocumentModel,
+    theme_settings: dict[str, Any] | None,
+    storefront: Storefront | None = None,
+) -> schemas.StorefrontThemeDocument:
+    return schemas.StorefrontThemeDocument(
+        id=document.id,
+        storefront_id=document.storefront_id,
+        company_id=document.company_id,
+        template_key=document.template_key,
+        draft_document=normalize_home_document(document.draft_document, theme_settings),
+        published_document=normalize_home_document(document.published_document, theme_settings),
+        draft_version=document.draft_version,
+        published_version=document.published_version,
+        published_at=document.published_at,
+        preview_url=_storefront_preview_url(storefront) if storefront else None,
+    )
+
+
+async def _published_theme_document(
+    db: AsyncSession,
+    storefront: Storefront,
+) -> dict[str, Any]:
+    document = await _get_theme_document(db, storefront, "home")
+    if not document:
+        return build_home_document(storefront.theme_settings)
+    return normalize_home_document(document.published_document, storefront.theme_settings)
 
 
 async def _validate_storefront_price_list(db: AsyncSession, price_list_id: uuid.UUID | None, company_id: uuid.UUID) -> None:
@@ -1941,6 +2235,20 @@ async def create_storefront(
     db.add(storefront)
     try:
         await db.flush()
+        initial_theme = build_home_document(storefront.theme_settings)
+        db.add(StorefrontThemeDocumentModel(
+            storefront_id=storefront.id,
+            company_id=current_user.company_id,
+            template_key="home",
+            draft_document=initial_theme,
+            published_document=initial_theme,
+            draft_version=1,
+            published_version=1,
+            published_at=datetime.now(timezone.utc),
+            published_by_id=current_user.id,
+            created_by_id=current_user.id,
+            updated_by_id=current_user.id,
+        ))
         await ensure_default_shipping_configuration(db, storefront, current_user.id)
         await db.commit()
     except IntegrityError as exc:
@@ -1968,15 +2276,329 @@ async def update_storefront(
         storefront.slug = await _available_storefront_slug(db, current_user.company_id, storefront.name)
     if not storefront.subdomain:
         storefront.subdomain = await _available_storefront_subdomain(db, storefront.name)
-    if "price_list_id" in storefront_in.model_dump(exclude_unset=True):
+    update_payload = storefront_in.model_dump(exclude_unset=True)
+    if "price_list_id" in update_payload:
         await _validate_storefront_price_list(db, storefront_in.price_list_id, current_user.company_id)
-    for field, value in storefront_in.model_dump(exclude_unset=True).items():
+    for field, value in update_payload.items():
         setattr(storefront, field, value)
     storefront.updated_by_id = current_user.id
     db.add(storefront)
+    # Keep the old form/API compatible during rollout. A legacy home update was
+    # historically published immediately, so mirror it into both theme states
+    # while preserving the new section order and visibility settings.
+    legacy_theme_settings = update_payload.get("theme_settings")
+    if isinstance(legacy_theme_settings, dict) and isinstance(legacy_theme_settings.get("home"), dict):
+        theme_document = await _get_theme_document(
+            db,
+            storefront,
+            "home",
+            create=True,
+            user_id=current_user.id,
+            lock=True,
+        )
+        current_document = theme_document.published_document if isinstance(theme_document.published_document, dict) else {}
+        compatible_document = {
+            **current_document,
+            "template": "home",
+            "legacy_home": legacy_theme_settings["home"],
+        }
+        try:
+            normalized_theme = normalize_home_document(compatible_document, storefront.theme_settings)
+            await _validate_theme_references(db, storefront, normalized_theme)
+        except ValueError as exc:
+            await db.rollback()
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        next_published_version = theme_document.published_version + 1
+        theme_document.draft_document = normalized_theme
+        theme_document.published_document = normalized_theme
+        theme_document.draft_version += 1
+        theme_document.published_version = next_published_version
+        theme_document.published_at = datetime.now(timezone.utc)
+        theme_document.published_by_id = current_user.id
+        theme_document.updated_by_id = current_user.id
+        db.add(theme_document)
+        db.add(StorefrontThemeRevisionModel(
+            theme_document_id=theme_document.id,
+            storefront_id=storefront.id,
+            company_id=current_user.company_id,
+            template_key="home",
+            version=next_published_version,
+            document=normalized_theme,
+            operation="publish",
+            created_by_id=current_user.id,
+            updated_by_id=current_user.id,
+        ))
+        await log_activity(
+            db,
+            action="THEME_LEGACY_HOME_SYNCED",
+            entity_type="StorefrontThemeDocument",
+            entity_id=str(theme_document.id),
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id),
+            details={"storefront_id": str(storefront.id), "template_key": "home", "published_version": next_published_version},
+        )
     await db.commit()
     await db.refresh(storefront)
     return storefront
+
+
+@router.get("/{storefront_id}/theme/components")
+async def read_theme_component_registry(
+    storefront_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> dict[str, Any]:
+    """Return the safe component palette available to the current tenant."""
+    await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    return {"template_key": "home", "components": component_registry()}
+
+
+@router.post(
+    "/{storefront_id}/theme/{template_key}/preview-session",
+    response_model=schemas.StorefrontThemePreviewSession,
+)
+async def create_theme_preview_session(
+    storefront_id: uuid.UUID,
+    template_key: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> schemas.StorefrontThemePreviewSession:
+    template_key = _theme_template_or_422(template_key)
+    storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    preview_url = _storefront_preview_url(storefront)
+    if not preview_url:
+        raise HTTPException(
+            status_code=422,
+            detail="La tienda no tiene un subdominio de plataforma válido para previsualizar.",
+        )
+    token, expires_at = _create_storefront_theme_preview_session(storefront, current_user.id)
+    return schemas.StorefrontThemePreviewSession(
+        token=token,
+        expires_at=expires_at,
+        preview_url=f"{preview_url}?lumefy_preview=1&preview_token={quote(token, safe='')}",
+        template_key=template_key,
+    )
+
+
+@router.get("/{storefront_id}/theme/{template_key}", response_model=schemas.StorefrontThemeDocument)
+async def read_theme_document(
+    storefront_id: uuid.UUID,
+    template_key: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> schemas.StorefrontThemeDocument:
+    template_key = _theme_template_or_422(template_key)
+    storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    document = await _get_theme_document(
+        db,
+        storefront,
+        template_key,
+        create=True,
+        user_id=current_user.id,
+    )
+    await db.commit()
+    await db.refresh(document)
+    return _serialize_theme_document(document, storefront.theme_settings, storefront)
+
+
+@router.put("/{storefront_id}/theme/{template_key}/draft", response_model=schemas.StorefrontThemeDocument)
+async def save_theme_draft(
+    storefront_id: uuid.UUID,
+    template_key: str,
+    draft_in: schemas.StorefrontThemeDraftUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> schemas.StorefrontThemeDocument:
+    template_key = _theme_template_or_422(template_key)
+    storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    document = await _get_theme_document(
+        db,
+        storefront,
+        template_key,
+        create=True,
+        user_id=current_user.id,
+        lock=True,
+    )
+    if draft_in.expected_draft_version != document.draft_version:
+        raise HTTPException(
+            status_code=409,
+            detail="El borrador cambió mientras lo editabas. Recarga la tienda antes de guardar.",
+        )
+    try:
+        normalized = normalize_home_document(draft_in.document, storefront.theme_settings)
+        await _validate_theme_references(db, storefront, normalized)
+    except ValueError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    document.draft_document = normalized
+    document.draft_version += 1
+    document.updated_by_id = current_user.id
+    db.add(document)
+    await log_activity(
+        db,
+        action="THEME_DRAFT_SAVED",
+        entity_type="StorefrontThemeDocument",
+        entity_id=str(document.id),
+        user_id=str(current_user.id),
+        company_id=str(current_user.company_id),
+        details={"storefront_id": str(storefront.id), "template_key": template_key, "draft_version": document.draft_version},
+    )
+    await db.commit()
+    await db.refresh(document)
+    return _serialize_theme_document(document, storefront.theme_settings, storefront)
+
+
+@router.post("/{storefront_id}/theme/{template_key}/publish", response_model=schemas.StorefrontThemeDocument)
+async def publish_theme_document(
+    storefront_id: uuid.UUID,
+    template_key: str,
+    publish_in: schemas.StorefrontThemePublishRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> schemas.StorefrontThemeDocument:
+    template_key = _theme_template_or_422(template_key)
+    storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    document = await _get_theme_document(
+        db,
+        storefront,
+        template_key,
+        create=True,
+        user_id=current_user.id,
+        lock=True,
+    )
+    expected_version = publish_in.expected_draft_version if publish_in else None
+    if expected_version is not None and expected_version != document.draft_version:
+        raise HTTPException(
+            status_code=409,
+            detail="El borrador cambió mientras lo editabas. Recarga la tienda antes de publicar.",
+        )
+    try:
+        published = normalize_home_document(document.draft_document, storefront.theme_settings)
+        await _validate_theme_references(db, storefront, published)
+    except ValueError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    next_version = document.published_version + 1
+    document.published_document = published
+    document.published_version = next_version
+    document.published_at = datetime.now(timezone.utc)
+    document.published_by_id = current_user.id
+    document.updated_by_id = current_user.id
+    db.add(document)
+    db.add(StorefrontThemeRevisionModel(
+        theme_document_id=document.id,
+        storefront_id=storefront.id,
+        company_id=current_user.company_id,
+        template_key=template_key,
+        version=next_version,
+        document=published,
+        operation="publish",
+        created_by_id=current_user.id,
+        updated_by_id=current_user.id,
+    ))
+    await log_activity(
+        db,
+        action="THEME_PUBLISHED",
+        entity_type="StorefrontThemeDocument",
+        entity_id=str(document.id),
+        user_id=str(current_user.id),
+        company_id=str(current_user.company_id),
+        details={"storefront_id": str(storefront.id), "template_key": template_key, "published_version": next_version},
+    )
+    await db.commit()
+    await db.refresh(document)
+    return _serialize_theme_document(document, storefront.theme_settings, storefront)
+
+
+@router.get("/{storefront_id}/theme/{template_key}/revisions", response_model=List[schemas.StorefrontThemeRevision])
+async def read_theme_revisions(
+    storefront_id: uuid.UUID,
+    template_key: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> list[schemas.StorefrontThemeRevision]:
+    template_key = _theme_template_or_422(template_key)
+    storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    result = await db.execute(
+        select(StorefrontThemeRevisionModel).where(
+            StorefrontThemeRevisionModel.storefront_id == storefront.id,
+            StorefrontThemeRevisionModel.company_id == current_user.company_id,
+            StorefrontThemeRevisionModel.template_key == template_key,
+            StorefrontThemeRevisionModel.is_active == True,
+        ).order_by(StorefrontThemeRevisionModel.version.desc()).limit(50)
+    )
+    return [
+        schemas.StorefrontThemeRevision.model_validate(item, from_attributes=True)
+        for item in result.scalars().all()
+    ]
+
+
+@router.post("/{storefront_id}/theme/{template_key}/restore/{revision_id}", response_model=schemas.StorefrontThemeDocument)
+async def restore_theme_revision(
+    storefront_id: uuid.UUID,
+    template_key: str,
+    revision_id: uuid.UUID,
+    restore_in: schemas.StorefrontThemeRestoreRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> schemas.StorefrontThemeDocument:
+    template_key = _theme_template_or_422(template_key)
+    storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    document = await _get_theme_document(
+        db,
+        storefront,
+        template_key,
+        create=True,
+        user_id=current_user.id,
+        lock=True,
+    )
+    expected_version = restore_in.expected_draft_version if restore_in else None
+    if expected_version is not None and expected_version != document.draft_version:
+        raise HTTPException(
+            status_code=409,
+            detail="El borrador cambió mientras lo editabas. Recarga la tienda antes de restaurar.",
+        )
+    revision = await db.scalar(
+        select(StorefrontThemeRevisionModel).where(
+            StorefrontThemeRevisionModel.id == revision_id,
+            StorefrontThemeRevisionModel.theme_document_id == document.id,
+            StorefrontThemeRevisionModel.storefront_id == storefront.id,
+            StorefrontThemeRevisionModel.company_id == current_user.company_id,
+            StorefrontThemeRevisionModel.template_key == template_key,
+            StorefrontThemeRevisionModel.is_active == True,
+        )
+    )
+    if not revision:
+        raise HTTPException(status_code=404, detail="La revisión no existe en esta tienda")
+    try:
+        restored = normalize_home_document(revision.document, storefront.theme_settings)
+        await _validate_theme_references(db, storefront, restored)
+    except ValueError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    document.draft_document = restored
+    document.draft_version += 1
+    document.updated_by_id = current_user.id
+    db.add(document)
+    await log_activity(
+        db,
+        action="THEME_REVISION_RESTORED",
+        entity_type="StorefrontThemeDocument",
+        entity_id=str(document.id),
+        user_id=str(current_user.id),
+        company_id=str(current_user.company_id),
+        details={
+            "storefront_id": str(storefront.id),
+            "template_key": template_key,
+            "revision_id": str(revision.id),
+            "draft_version": document.draft_version,
+        },
+    )
+    await db.commit()
+    await db.refresh(document)
+    return _serialize_theme_document(document, storefront.theme_settings, storefront)
 
 
 @router.get("/{storefront_id}/readiness")
@@ -3056,16 +3678,20 @@ async def read_public_storefront_asset(
     storefront_id: uuid.UUID,
     asset_path: str,
     db: AsyncSession = Depends(get_db),
+    preview_token: str | None = None,
 ) -> FileResponse:
-    """Serve only image files referenced by this published storefront."""
-    storefront = await _get_public_storefront_by_id(db, storefront_id)
+    """Serve only image files referenced by this storefront or its preview draft."""
+    storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     asset_url, file_path = _resolve_public_asset_path(asset_path)
-    if not await _public_asset_is_referenced(db, storefront, asset_url):
+    if not await _public_asset_is_referenced(db, storefront, asset_url, preview_token):
         raise HTTPException(status_code=404, detail="Asset not found")
     return FileResponse(
         file_path,
         media_type=mimetypes.guess_type(file_path.name)[0] or "application/octet-stream",
-        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        headers={
+            "Cache-Control":
+                "private, no-store" if preview_token else "public, max-age=31536000, immutable"
+        },
     )
 
 
@@ -3073,8 +3699,9 @@ async def read_public_storefront_asset(
 async def read_public_storefront_by_subdomain(
     subdomain: str,
     db: AsyncSession = Depends(get_db),
+    preview_token: str | None = None,
 ) -> Any:
-    storefront = await _get_public_storefront_by_subdomain(db, subdomain)
+    storefront = await _get_public_storefront_by_subdomain(db, subdomain, preview_token)
     company = await _get_company_for_storefront(db, storefront)
     return schemas.PublicStorefront(
         id=storefront.id,
@@ -3083,6 +3710,7 @@ async def read_public_storefront_by_subdomain(
         subdomain=storefront.subdomain,
         theme_key=storefront.theme_key,
         theme_settings=storefront.theme_settings or {},
+        theme_document=await _published_theme_document(db, storefront),
         checkout_settings=storefront.checkout_settings or {},
         seo_settings=storefront.seo_settings or {},
         currency=storefront.currency,
@@ -3095,8 +3723,9 @@ async def read_public_storefront_by_subdomain(
 async def read_public_storefront_by_domain(
     domain: str,
     db: AsyncSession = Depends(get_db),
+    preview_token: str | None = None,
 ) -> Any:
-    storefront = await _get_public_storefront_by_domain(db, domain)
+    storefront = await _get_public_storefront_by_domain(db, domain, preview_token)
     company = await _get_company_for_storefront(db, storefront)
     return schemas.PublicStorefront(
         id=storefront.id,
@@ -3105,6 +3734,7 @@ async def read_public_storefront_by_domain(
         subdomain=storefront.subdomain,
         theme_key=storefront.theme_key,
         theme_settings=storefront.theme_settings or {},
+        theme_document=await _published_theme_document(db, storefront),
         checkout_settings=storefront.checkout_settings or {},
         seo_settings=storefront.seo_settings or {},
         currency=storefront.currency,
@@ -3127,9 +3757,9 @@ async def authorize_storefront_certificate(
     platform_domain = (settings.PLATFORM_STOREFRONT_DOMAIN or "").strip().lower().rstrip(".")
     if platform_domain and host.endswith(f".{platform_domain}"):
         subdomain = host[: -(len(platform_domain) + 1)]
-        await _get_public_storefront_by_subdomain(db, subdomain)
+        await _get_storefront_for_certificate_by_subdomain(db, subdomain)
     else:
-        await _get_public_storefront_by_domain(db, host)
+        await _get_storefront_for_certificate_by_domain(db, host)
     return {"ok": True}
 
 
@@ -3137,8 +3767,9 @@ async def authorize_storefront_certificate(
 async def read_public_storefront(
     storefront_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    preview_token: str | None = None,
 ) -> Any:
-    storefront = await _get_public_storefront_by_id(db, storefront_id)
+    storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     company = await _get_company_for_storefront(db, storefront)
     return schemas.PublicStorefront(
         id=storefront.id,
@@ -3147,6 +3778,7 @@ async def read_public_storefront(
         subdomain=storefront.subdomain,
         theme_key=storefront.theme_key,
         theme_settings=storefront.theme_settings or {},
+        theme_document=await _published_theme_document(db, storefront),
         checkout_settings=storefront.checkout_settings or {},
         seo_settings=storefront.seo_settings or {},
         currency=storefront.currency,
@@ -3159,8 +3791,9 @@ async def read_public_storefront(
 async def read_public_shipping_config(
     storefront_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    preview_token: str | None = None,
 ) -> Any:
-    storefront = await _get_public_storefront_by_id(db, storefront_id)
+    storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     created = await ensure_default_shipping_configuration(db, storefront)
     if created:
         await db.commit()
@@ -3585,8 +4218,9 @@ async def subscribe_public_storefront_newsletter(
 async def read_public_navigation(
     storefront_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    preview_token: str | None = None,
 ) -> Any:
-    await _get_public_storefront_by_id(db, storefront_id)
+    await _get_public_storefront_by_id(db, storefront_id, preview_token)
     result = await db.execute(
         select(StoreNavigationItem).where(
             StoreNavigationItem.storefront_id == storefront_id,
@@ -3612,8 +4246,9 @@ async def read_public_navigation(
 async def read_public_payment_gateways(
     storefront_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    preview_token: str | None = None,
 ) -> Any:
-    await _get_public_storefront_by_id(db, storefront_id)
+    await _get_public_storefront_by_id(db, storefront_id, preview_token)
     result = await db.execute(
         select(StorePaymentGateway).where(
             StorePaymentGateway.storefront_id == storefront_id,
@@ -3647,8 +4282,9 @@ async def read_public_payment_gateways(
 async def read_public_collections(
     storefront_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    preview_token: str | None = None,
 ) -> Any:
-    await _get_public_storefront_by_id(db, storefront_id)
+    await _get_public_storefront_by_id(db, storefront_id, preview_token)
     result = await db.execute(
         select(StoreCollection).where(
             StoreCollection.storefront_id == storefront_id,
@@ -3676,9 +4312,10 @@ async def read_public_collection_detail(
     storefront_id: uuid.UUID,
     slug: str,
     db: AsyncSession = Depends(get_db),
+    preview_token: str | None = None,
 ) -> Any:
-    collection = await _get_public_collection_or_404(db, storefront_id, slug)
-    storefront = await _get_public_storefront_by_id(db, storefront_id)
+    collection = await _get_public_collection_or_404(db, storefront_id, slug, preview_token)
+    storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     result = await db.execute(
         select(StoreCollectionProduct)
         .options(
@@ -3761,8 +4398,10 @@ async def read_public_products(
     page: int = 1,
     page_size: int = 12,
     include_facets: bool = True,
+    product_ids: str | None = None,
+    preview_token: str | None = None,
 ) -> Any:
-    storefront = await _get_public_storefront_by_id(db, storefront_id)
+    storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     # Resolve the warehouse once and let PostgreSQL discard tracked products
     # with no available stock before loading variants, facets and collections.
     # The previous in-memory pass loaded the complete catalog and made every
@@ -3775,6 +4414,7 @@ async def read_public_products(
     selected_types = [item.upper() for item in _parse_multi_query_param(type)]
     selected_sizes = [item.lower() for item in _parse_multi_query_param(size)]
     selected_colors = [item.lower() for item in _parse_multi_query_param(color)]
+    requested_product_ids = _parse_uuid_query_list(product_ids)
     normalized_search = _normalize_catalog_text((q or "").strip())
     normalized_sort = _normalize_catalog_sort(sort)
     current_page = max(1, page)
@@ -3851,6 +4491,8 @@ async def read_public_products(
         published_query = published_query.where(Product.category_id.in_(selected_categories))
     if selected_types:
         published_query = published_query.where(Product.product_type.in_(selected_types))
+    if requested_product_ids:
+        published_query = published_query.where(PublishedProduct.id.in_(requested_product_ids))
     available_inventory = (
         select(Inventory.id)
         .where(
@@ -4307,9 +4949,10 @@ async def read_public_product_detail(
     storefront_id: uuid.UUID,
     slug: str,
     db: AsyncSession = Depends(get_db),
+    preview_token: str | None = None,
 ) -> Any:
-    storefront = await _get_public_storefront_by_id(db, storefront_id)
-    published_product = await _get_public_published_product_or_404(db, storefront_id, slug)
+    storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
+    published_product = await _get_public_published_product_or_404(db, storefront_id, slug, preview_token)
     stock_map = await _get_storefront_stock_map(db, storefront, [published_product.product_id])
     pricing_context = await load_price_list_context(db, storefront.price_list_id, [published_product.product_id])
     return _serialize_public_product(

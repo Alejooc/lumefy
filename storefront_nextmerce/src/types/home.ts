@@ -35,6 +35,24 @@ export type HomeSection = {
   ctaHref?: string;
 };
 
+export type HomeLayoutSectionType =
+  | "hero"
+  | "categories"
+  | "new_arrivals"
+  | "promo_banners"
+  | "best_sellers"
+  | "countdown"
+  | "testimonials"
+  | "newsletter"
+  | "closing_cta";
+
+export type HomeLayoutSection = {
+  id: string;
+  type: HomeLayoutSectionType;
+  enabled: boolean;
+  settings: Record<string, unknown>;
+};
+
 export type HomeCountdown = {
   enabled: boolean;
   eyebrow?: string;
@@ -74,6 +92,7 @@ export type HomeViewModel = {
   storefrontId: string;
   storeName: string;
   currency: string;
+  sections: HomeLayoutSection[];
   heroSlides: HeroSlide[];
   heroPromos: HeroPromo[];
   features: HomeFeature[];

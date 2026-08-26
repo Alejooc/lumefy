@@ -263,3 +263,19 @@ input[type='search']::-webkit-search-results-decoration {
 .range-slider__range {
   @apply !bg-blue;
 }
+
+/* Only the editor iframe emits these wrappers, so the public storefront keeps
+   its original layout while sections become discoverable in preview mode. */
+.lumefy-preview-section {
+  position: relative;
+}
+
+.lumefy-preview-section:hover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  border: 2px solid rgba(182, 83, 50, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+}

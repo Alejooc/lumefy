@@ -20,6 +20,8 @@ import {
 import { cache } from "react";
 import { resolveStorefrontHost } from "./storefront-host";
 
+const PREVIEW_TOKEN_COOKIE = "lumefy_preview_token";
+
 export class StorefrontApiError extends Error {
   status: number;
   payload?: unknown;
@@ -50,6 +52,31 @@ function makeUrl(path: string): string {
   return `${apiBaseUrl()}${path}`;
 }
 
+async function currentPreviewToken(): Promise<string | null> {
+  if (typeof window !== "undefined") {
+    const fromUrl = new URL(window.location.href).searchParams.get("preview_token");
+    if (fromUrl) return fromUrl;
+    const cookie = document.cookie
+      .split(";")
+      .map((item) => item.trim())
+      .find((item) => item.startsWith(`${PREVIEW_TOKEN_COOKIE}=`));
+    return cookie ? decodeURIComponent(cookie.slice(PREVIEW_TOKEN_COOKIE.length + 1)) : null;
+  }
+
+  const { cookies, headers } = await import("next/headers");
+  const requestHeaders = await headers();
+  return (
+    requestHeaders.get("x-lumefy-preview-token") ||
+    (await cookies()).get(PREVIEW_TOKEN_COOKIE)?.value ||
+    null
+  );
+}
+
+function withPreviewToken(path: string, previewToken: string): string {
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}preview_token=${encodeURIComponent(previewToken)}`;
+}
+
 async function parseJsonSafe(response: Response): Promise<unknown> {
   const text = await response.text();
   if (!text) return null;
@@ -69,22 +96,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
           init?.headers &&
             "Authorization" in (init.headers as Record<string, string | undefined>),
         );
-  const isCacheableGet = method === "GET" && !hasAuthorization;
-  const cacheMode = init?.cache ?? (isCacheableGet ? "force-cache" : "no-store");
+  const previewToken = method === "GET" ? await currentPreviewToken() : null;
+  const requestPath =
+    previewToken && path.startsWith("/storefront/public/")
+      ? withPreviewToken(path, previewToken)
+      : path;
+  const isCacheableGet = method === "GET" && !hasAuthorization && !previewToken;
+  const cacheMode = previewToken ? "no-store" : (init?.cache ?? (isCacheableGet ? "force-cache" : "no-store"));
+  const nextOptions = previewToken
+    ? undefined
+    : "next" in (init || {})
+      ? (init as RequestInit & { next?: { revalidate?: number } }).next
+      : isCacheableGet && cacheMode !== "no-store"
+        ? { revalidate: 60 }
+        : undefined;
 
-  const response = await fetch(makeUrl(path), {
+  const response = await fetch(makeUrl(requestPath), {
     ...init,
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers || {}),
     },
     cache: cacheMode,
-    next:
-      "next" in (init || {})
-        ? (init as RequestInit & { next?: { revalidate?: number } }).next
-        : isCacheableGet && cacheMode !== "no-store"
-          ? { revalidate: 60 }
-          : undefined,
+    next: nextOptions,
   });
 
   if (!response.ok) {

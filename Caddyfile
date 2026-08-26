@@ -41,6 +41,13 @@ https://* {
 		on_demand
 	}
 	import lumefy_common
+	# The visual editor lives on ADMIN_DOMAIN while each storefront has its
+	# own origin. Allow only the admin panel to embed the public storefront;
+	# arbitrary third-party framing remains blocked.
+	header {
+		-X-Frame-Options
+		Content-Security-Policy "frame-ancestors https://{$ADMIN_DOMAIN}"
+	}
 	handle /api/v1/storefront/public/* {
 		reverse_proxy backend:8000
 	}

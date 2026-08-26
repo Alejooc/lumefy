@@ -124,6 +124,51 @@ export interface StorefrontHomeSettings {
   testimonials?: StorefrontHomeTestimonialsSettings;
 }
 
+export interface StorefrontThemeSection {
+  id: string;
+  type: string;
+  enabled: boolean;
+  settings: Record<string, unknown>;
+  blocks: Record<string, unknown>[];
+}
+
+export interface StorefrontThemeDocument {
+  id: string;
+  storefront_id: string;
+  company_id: string;
+  template_key: string;
+  draft_document: Record<string, unknown>;
+  published_document: Record<string, unknown>;
+  draft_version: number;
+  published_version: number;
+  published_at?: string | null;
+  preview_url?: string | null;
+}
+
+export interface StorefrontThemePreviewSession {
+  token: string;
+  expires_at: string;
+  preview_url: string;
+  template_key: string;
+}
+
+export interface StorefrontThemeComponent {
+  type: string;
+  label: string;
+  description: string;
+  icon?: string;
+}
+
+export interface StorefrontThemeRevision {
+  id: string;
+  storefront_id: string;
+  template_key: string;
+  version: number;
+  document: Record<string, unknown>;
+  operation: string;
+  created_at: string;
+}
+
 export interface StorefrontBrandingSettings {
   logo_url?: string | null;
   support_phone?: string | null;
@@ -577,6 +622,55 @@ export class StorefrontAdminService {
 
   getReadiness(storefrontId: string): Observable<StorefrontReadiness> {
     return this.api.get<StorefrontReadiness>(`/storefront/${storefrontId}/readiness`);
+  }
+
+  getThemeDocument(storefrontId: string, templateKey = 'home'): Observable<StorefrontThemeDocument> {
+    return this.api.get<StorefrontThemeDocument>(`/storefront/${storefrontId}/theme/${templateKey}`);
+  }
+
+  getThemeComponents(storefrontId: string): Observable<{ template_key: string; components: StorefrontThemeComponent[] }> {
+    return this.api.get<{ template_key: string; components: StorefrontThemeComponent[] }>(`/storefront/${storefrontId}/theme/components`);
+  }
+
+  createThemePreviewSession(storefrontId: string, templateKey = 'home'): Observable<StorefrontThemePreviewSession> {
+    return this.api.post<StorefrontThemePreviewSession>(`/storefront/${storefrontId}/theme/${templateKey}/preview-session`, {});
+  }
+
+  saveThemeDraft(
+    storefrontId: string,
+    document: Record<string, unknown>,
+    expectedDraftVersion: number,
+    templateKey = 'home'
+  ): Observable<StorefrontThemeDocument> {
+    return this.api.put<StorefrontThemeDocument>(`/storefront/${storefrontId}/theme/${templateKey}/draft`, {
+      document,
+      expected_draft_version: expectedDraftVersion
+    });
+  }
+
+  publishTheme(
+    storefrontId: string,
+    expectedDraftVersion?: number,
+    templateKey = 'home'
+  ): Observable<StorefrontThemeDocument> {
+    return this.api.post<StorefrontThemeDocument>(`/storefront/${storefrontId}/theme/${templateKey}/publish`, {
+      ...(expectedDraftVersion === undefined ? {} : { expected_draft_version: expectedDraftVersion })
+    });
+  }
+
+  getThemeRevisions(storefrontId: string, templateKey = 'home'): Observable<StorefrontThemeRevision[]> {
+    return this.api.get<StorefrontThemeRevision[]>(`/storefront/${storefrontId}/theme/${templateKey}/revisions`);
+  }
+
+  restoreThemeRevision(
+    storefrontId: string,
+    revisionId: string,
+    expectedDraftVersion?: number,
+    templateKey = 'home'
+  ): Observable<StorefrontThemeDocument> {
+    return this.api.post<StorefrontThemeDocument>(`/storefront/${storefrontId}/theme/${templateKey}/restore/${revisionId}`, {
+      ...(expectedDraftVersion === undefined ? {} : { expected_draft_version: expectedDraftVersion })
+    });
   }
 
   createStorefront(payload: Partial<Storefront>): Observable<Storefront> {

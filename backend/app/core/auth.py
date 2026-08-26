@@ -33,6 +33,22 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
+
+def get_storefront_preview_claims(token: str) -> tuple[UUID, UUID, str] | None:
+    """Return the scoped claims of a temporary storefront preview session."""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("scope") != "storefront_theme_preview":
+            return None
+        storefront_id = UUID(str(payload.get("storefront_id")))
+        company_id = UUID(str(payload.get("company_id")))
+        template_key = str(payload.get("template_key") or "")
+        if template_key != "home":
+            return None
+        return storefront_id, company_id, template_key
+    except (PyJWTError, ValueError, TypeError, AttributeError):
+        return None
+
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

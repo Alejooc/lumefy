@@ -1,5 +1,5 @@
 import { Category } from "@/types/category";
-import { HomeViewModel } from "@/types/home";
+import { HomeLayoutSection, HomeLayoutSectionType, HomeViewModel } from "@/types/home";
 import { Product } from "@/types/product";
 import { Testimonial } from "@/types/testimonial";
 import { PublicCollection, PublicProduct } from "@/types/storefront";
@@ -74,6 +74,7 @@ function toTemplateProduct(product: PublicProduct): Product {
 function toTemplateCategory(collection: PublicCollection): Category {
   return {
     id: numericId(collection.id),
+    sourceId: collection.id,
     title: collection.name,
     img: storefrontImageUrl(collection.image_url) || fallbackImage(collection.slug),
     href: `/collections/${encodeURIComponent(collection.slug)}`,
@@ -83,7 +84,32 @@ function toTemplateCategory(collection: PublicCollection): Category {
   };
 }
 
-function homeSettings(storefront: { theme_settings?: Record<string, unknown> | null }): Record<string, unknown> {
+const DEFAULT_HOME_LAYOUT: HomeLayoutSection[] = [
+  "hero",
+  "categories",
+  "new_arrivals",
+  "promo_banners",
+  "best_sellers",
+  "countdown",
+  "testimonials",
+  "newsletter",
+  "closing_cta",
+].map((type) => ({
+  id: type,
+  type: type as HomeLayoutSectionType,
+  enabled: true,
+  settings: {},
+}));
+
+function homeSettings(storefront: {
+  theme_settings?: Record<string, unknown> | null;
+  theme_document?: Record<string, unknown> | null;
+}): Record<string, unknown> {
+  const document = storefront.theme_document;
+  const documentHome = document && typeof document === "object" ? document["legacy_home"] : undefined;
+  if (documentHome && typeof documentHome === "object" && !Array.isArray(documentHome)) {
+    return documentHome as Record<string, unknown>;
+  }
   const themeSettings = storefront.theme_settings;
   if (!themeSettings || typeof themeSettings !== "object") {
     return {};
@@ -165,6 +191,32 @@ function defaultTestimonials(): Testimonial[] {
   ];
 }
 
+function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? Array.from(new Set(value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim())))
+    : [];
+}
+
+function homeLayout(storefront: {
+  theme_document?: Record<string, unknown> | null;
+}): HomeLayoutSection[] {
+  const rawSections = storefront.theme_document?.["sections"];
+  if (!Array.isArray(rawSections)) {
+    return DEFAULT_HOME_LAYOUT;
+  }
+  const allowed = new Set<HomeLayoutSectionType>(DEFAULT_HOME_LAYOUT.map((section) => section.type));
+  const sections = rawSections
+    .filter((section): section is Record<string, unknown> => Boolean(section) && typeof section === "object")
+    .map((section, index) => ({
+      id: typeof section["id"] === "string" && section["id"] ? section["id"] : `section-${index + 1}`,
+      type: typeof section["type"] === "string" ? section["type"] as HomeLayoutSectionType : "hero",
+      enabled: section["enabled"] !== false,
+      settings: objectOrEmpty(section["settings"]),
+    }))
+    .filter((section) => allowed.has(section.type));
+  return sections.length ? sections : DEFAULT_HOME_LAYOUT;
+}
+
 function isLegacyTemplateTestimonial(item: Record<string, unknown>): boolean {
   const review = String(item["review"] || "").toLowerCase();
   const role = String(item["author_role"] || "").toLowerCase();
@@ -179,12 +231,33 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
   const storefront = await resolveStorefront();
   const branding = getStorefrontBranding(storefront);
   const home = homeSettings(storefront);
+  const sections = homeLayout(storefront);
+  const selectedNewArrivalIds = stringList(
+    sections.find((section) => section.type === "new_arrivals")?.settings?.["product_ids"],
+  );
+  const selectedBestSellerIds = stringList(
+    sections.find((section) => section.type === "best_sellers")?.settings?.["product_ids"],
+  );
+  const selectedProductIds = Array.from(new Set([...selectedNewArrivalIds, ...selectedBestSellerIds]));
   const [collections, catalog] = await Promise.all([
     getPublicCollections(storefront.id),
     getPublicProducts(storefront.id, { page: 1, page_size: 24, sort: "latest" }),
   ]);
+  const selectedCatalog = selectedProductIds.length
+    ? await getPublicProducts(storefront.id, {
+        product_ids: selectedProductIds.join(","),
+        page: 1,
+        page_size: 48,
+        sort: "latest",
+        include_facets: "false",
+      })
+    : null;
   const categoryFallbackItems = collections.map(toTemplateCategory);
-  const uniqueProducts = Array.from(new Map(catalog.items.map((product) => [product.id, product])).values());
+  const uniqueProducts = Array.from(
+    new Map(
+      [...catalog.items, ...(selectedCatalog?.items || [])].map((product) => [product.id, product]),
+    ).values(),
+  );
   const featuredProducts = uniqueProducts.filter((product) => product.is_featured);
   const sortedProducts = (featuredProducts.length ? featuredProducts : uniqueProducts).slice();
   const productCategoryFallbackItems = Array.from(
@@ -213,6 +286,11 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
   const configuredCategoryCards = arrayOfObjects(home["category_cards"]);
   const newArrivalsSection = objectOrEmpty(home["new_arrivals_section"]);
   const bestSellersSection = objectOrEmpty(home["best_sellers_section"]);
+  const categoryLayoutSettings = sections.find((section) => section.type === "categories")?.settings || {};
+  const selectedCollectionIds = stringList(categoryLayoutSettings["collection_ids"]);
+  const selectedCategoryItems = selectedCollectionIds.length
+    ? categoryFallbackItems.filter((item) => item.sourceId && selectedCollectionIds.includes(item.sourceId))
+    : [];
   const configuredFeatures = arrayOfObjects(home["features"]);
   const countdown = objectOrEmpty(home["countdown"]);
   const newsletter = objectOrEmpty(home["newsletter"]);
@@ -427,6 +505,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
       storefrontId: storefront.id,
       storeName: storefront.name,
       currency: storefront.currency,
+      sections,
       heroSlides,
       heroPromos,
       features,
@@ -435,7 +514,9 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         eyebrow: stringOrUndefined(categorySection["eyebrow"]) || "Explora",
         title: stringOrUndefined(categorySection["title"]) || "Compra por categoría",
       },
-      categories: configuredCategoryCards.length
+      categories: selectedCategoryItems.length
+        ? selectedCategoryItems
+        : configuredCategoryCards.length
         ? configuredCategoryCards
             .map((card, index) => ({
               id: numericId(String(card["id"] || `category-card-${index + 1}`)),
@@ -456,14 +537,20 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         ctaLabel: stringOrUndefined(newArrivalsSection["cta_label"]) || "Ver todos",
         ctaHref: stringOrUndefined(newArrivalsSection["cta_href"]) || "/products",
       },
-      newArrivals: uniqueProducts.slice(0, 8).map(toTemplateProduct),
+      newArrivals: (selectedNewArrivalIds.length
+        ? uniqueProducts.filter((product) => selectedNewArrivalIds.includes(product.id))
+        : uniqueProducts
+      ).slice(0, 8).map(toTemplateProduct),
       bestSellersSection: {
         eyebrow: stringOrUndefined(bestSellersSection["eyebrow"]) || "Lo más elegido",
         title: stringOrUndefined(bestSellersSection["title"]) || "Productos destacados",
         ctaLabel: stringOrUndefined(bestSellersSection["cta_label"]) || "Ver todos",
         ctaHref: stringOrUndefined(bestSellersSection["cta_href"]) || "/products",
       },
-      bestSellers: (featuredProducts.length ? featuredProducts : uniqueProducts).slice(0, 6).map(toTemplateProduct),
+      bestSellers: (selectedBestSellerIds.length
+        ? uniqueProducts.filter((product) => selectedBestSellerIds.includes(product.id))
+        : (featuredProducts.length ? featuredProducts : uniqueProducts)
+      ).slice(0, 6).map(toTemplateProduct),
       countdown: {
         enabled: respectsVisibilitySettings
           ? booleanOrDefault(countdown["enabled"], true)

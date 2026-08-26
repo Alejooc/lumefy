@@ -1,0 +1,361 @@
+<div class="visual-editor-shell">
+  @if (loading && !theme) {
+    <div class="visual-editor-loading">
+      <div class="visual-editor-loading__top"></div>
+      <div class="visual-editor-loading__body">
+        <div class="visual-editor-loading__rail"></div>
+        <div class="visual-editor-loading__canvas"></div>
+        <div class="visual-editor-loading__rail"></div>
+      </div>
+    </div>
+  } @else if (!storefront) {
+    <section class="visual-editor-empty card">
+      <div class="visual-editor-empty__mark">✦</div>
+      <span class="visual-editor-kicker">Editor visual</span>
+      <h4>Elige una tienda para empezar</h4>
+      <p class="text-muted mb-0">Crea y activa un storefront antes de personalizar su página de inicio.</p>
+      @if (errorMessage) {
+        <div class="alert alert-warning mt-4 mb-0">{{ errorMessage }}</div>
+      }
+    </section>
+  } @else {
+    <header class="visual-editor-topbar">
+      <div class="visual-editor-topbar__identity">
+        <div class="visual-editor-logo">L</div>
+        <div>
+          <div class="visual-editor-breadcrumb"><span>Ecommerce</span><span class="visual-editor-breadcrumb__slash">/</span><strong>Diseño de inicio</strong></div>
+          <div class="visual-editor-store-name">{{ storefront.name }}</div>
+        </div>
+      </div>
+
+      <div class="visual-editor-topbar__store">
+        @if (storefronts.length > 1) {
+          <label class="visually-hidden" for="visual-editor-storefront">Tienda a editar</label>
+          <select id="visual-editor-storefront" class="form-select form-select-sm" [(ngModel)]="selectedStorefrontId" (ngModelChange)="onStorefrontChange()">
+            @for (item of storefronts; track item.id) {
+              <option [value]="item.id">{{ item.name }}</option>
+            }
+          </select>
+        } @else {
+          <span class="visual-editor-live-pill"><span></span>{{ storefront.is_enabled ? 'Tienda activa' : 'Borrador' }}</span>
+        }
+      </div>
+
+      <div class="visual-editor-topbar__actions">
+        <span class="visual-editor-save-state" [class.visual-editor-save-state--dirty]="dirty">
+          <span class="visual-editor-save-state__dot"></span>
+          {{ saving ? 'Guardando...' : dirty ? 'Cambios sin guardar' : 'Todo guardado' }}
+        </span>
+        <button class="btn btn-light btn-sm visual-editor-action" type="button" (click)="undo()" [disabled]="!canUndo || saving || publishing" aria-label="Deshacer" title="Deshacer">↶</button>
+        <button class="btn btn-light btn-sm visual-editor-action" type="button" (click)="redo()" [disabled]="!canRedo || saving || publishing" aria-label="Rehacer" title="Rehacer">↷</button>
+        <button class="btn btn-light btn-sm visual-editor-action" type="button" (click)="loadHistory()" [disabled]="loadingHistory">
+          <span class="visual-editor-action__icon">↺</span> Historial
+        </button>
+        <button class="btn btn-outline-primary btn-sm visual-editor-action" type="button" (click)="saveDraft()" [disabled]="saving || publishing || !dirty">
+          {{ saving ? 'Guardando...' : 'Guardar borrador' }}
+        </button>
+        <button class="btn btn-primary btn-sm visual-editor-action visual-editor-action--publish" type="button" (click)="publish()" [disabled]="saving || publishing">
+          {{ publishing ? 'Publicando...' : 'Publicar' }} <span>↗</span>
+        </button>
+      </div>
+    </header>
+
+    @if (errorMessage) {
+      <div class="alert alert-warning visual-editor-alert" role="alert">{{ errorMessage }}</div>
+    }
+
+    <main class="visual-editor-workspace">
+      <aside class="visual-editor-panel visual-editor-structure-panel">
+        <div class="visual-editor-panel__header">
+          <div>
+            <span class="visual-editor-kicker">Estructura</span>
+            <h5>Tu página de inicio</h5>
+          </div>
+          <span class="visual-editor-count">{{ document.sections.length }}/20</span>
+        </div>
+        <p class="visual-editor-panel__hint">Arrastra las secciones para cambiar el orden en que aparecen.</p>
+
+        <div class="visual-editor-structure-list" cdkDropList [cdkDropListData]="document.sections" (cdkDropListDropped)="drop($event)">
+          @for (section of document.sections; track section.id; let i = $index) {
+            <div
+              class="visual-editor-section-row"
+              cdkDrag
+              [class.visual-editor-section-row--selected]="selectedSectionId === section.id"
+              [class.visual-editor-section-row--disabled]="!section.enabled"
+              (click)="selectSection(section)"
+            >
+              <button class="visual-editor-drag-handle" type="button" cdkDragHandle aria-label="Mover sección" title="Arrastrar">⠿</button>
+              <span class="visual-editor-section-icon">{{ sectionIcon(section) }}</span>
+              <span class="visual-editor-section-copy">
+                <strong>{{ sectionLabel(section) }}</strong>
+                <small>{{ section.enabled ? 'Visible en la página' : 'Oculta temporalmente' }}</small>
+              </span>
+              <label class="visual-editor-switch visual-editor-switch--small" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="section.enabled" (change)="toggleSection(section, $event)" [attr.aria-label]="'Mostrar ' + sectionLabel(section)" />
+                <span></span>
+              </label>
+              <button class="visual-editor-more" type="button" [attr.aria-label]="'Más acciones para ' + sectionLabel(section)" [attr.title]="'Duplicar ' + sectionLabel(section)" (click)="duplicateSection(section, $event)">⋯</button>
+            </div>
+          }
+        </div>
+
+        <div class="visual-editor-add-section">
+          <div class="visual-editor-add-section__title"><span>+</span><strong>Añadir sección</strong></div>
+          <div class="visual-editor-component-grid">
+            @for (component of components; track component.type) {
+              <button class="visual-editor-component-chip" type="button" (click)="addSection(component.type)" [disabled]="!canAddSection" [title]="component.description">
+                <span>{{ component.icon || 'block' }}</span>{{ component.label }}
+              </button>
+            }
+          </div>
+          @if (!canAddSection) {
+            <small class="visual-editor-limit-note">Has alcanzado el máximo de 20 secciones.</small>
+          }
+        </div>
+
+        <div class="visual-editor-structure-note">
+          <span>◇</span>
+          <p><strong>Contenido seguro y reusable</strong><br />El editor modifica configuración y contenido; no permite insertar código libre en la tienda.</p>
+        </div>
+      </aside>
+
+      <section class="visual-editor-canvas-panel" aria-label="Vista previa del storefront">
+        <div class="visual-editor-canvas-toolbar">
+          <div class="visual-editor-canvas-toolbar__title">
+            <span class="visual-editor-kicker">Vista previa</span>
+            <strong>Inicio</strong>
+            <span class="visual-editor-preview-badge"><span></span>Preview</span>
+          </div>
+          <div class="visual-editor-viewport-switcher" role="group" aria-label="Tamaño de vista previa">
+            <button type="button" [class.active]="previewViewport === 'desktop'" (click)="setViewport('desktop')" title="Escritorio">▱ <span>Escritorio</span></button>
+            <button type="button" [class.active]="previewViewport === 'tablet'" (click)="setViewport('tablet')" title="Tablet">▯ <span>Tablet</span></button>
+            <button type="button" [class.active]="previewViewport === 'mobile'" (click)="setViewport('mobile')" title="Móvil">▯ <span>Móvil</span></button>
+          </div>
+          @if (previewUrl) {
+            <a class="visual-editor-open-store" [href]="previewUrl" target="_blank" rel="noopener noreferrer">Abrir tienda <span>↗</span></a>
+          }
+        </div>
+
+        <div class="visual-editor-canvas-stage">
+          <div
+            class="visual-editor-device"
+            [class.visual-editor-device--tablet]="previewViewport === 'tablet'"
+            [class.visual-editor-device--mobile]="previewViewport === 'mobile'"
+          >
+            <div class="visual-editor-device__chrome">
+              <span></span><span></span><span></span>
+              <div class="visual-editor-device__address">{{ storefront.subdomain || storefront.name.toLowerCase().replace(' ', '-') }} · vista previa</div>
+            </div>
+            @if (safePreviewUrl) {
+              <iframe #previewFrame class="visual-editor-preview-frame" [src]="safePreviewUrl" (load)="onPreviewLoad()" title="Vista previa de la página de inicio"></iframe>
+            } @else {
+              <div class="visual-editor-preview-empty">
+                <div class="visual-editor-preview-empty__icon">✦</div>
+                <strong>Preview no disponible todavía</strong>
+                <span>Configura el dominio de la tienda para ver los cambios en vivo.</span>
+              </div>
+            }
+          </div>
+        </div>
+        <div class="visual-editor-canvas-footer"><span>Los datos del catálogo se mantienen en producción.</span><span>Los cambios se aplican al publicar.</span></div>
+      </section>
+
+      <aside class="visual-editor-panel visual-editor-inspector-panel">
+        @if (!selectedSection) {
+          <div class="visual-editor-inspector-empty">
+            <div class="visual-editor-inspector-empty__icon">⌘</div>
+            <strong>Selecciona una sección</strong>
+            <p class="text-muted mb-0">Elige un bloque en la estructura para editar su contenido y visibilidad.</p>
+          </div>
+        } @else {
+          <div class="visual-editor-panel__header visual-editor-panel__header--inspector">
+            <div>
+              <span class="visual-editor-kicker">Propiedades</span>
+              <h5>{{ sectionLabel(selectedSection) }}</h5>
+              <p>{{ selectedComponent?.description }}</p>
+            </div>
+            <button class="visual-editor-delete" type="button" (click)="removeSection(selectedSection)" title="Eliminar sección">⌫</button>
+          </div>
+
+          <div class="visual-editor-inspector-scroll">
+            <div class="visual-editor-visibility-card">
+              <div><strong>Mostrar sección</strong><small>Ocúltala sin perder su configuración.</small></div>
+              <label class="visual-editor-switch">
+                <input type="checkbox" [checked]="selectedSection.enabled" (change)="toggleSection(selectedSection, $event)" aria-label="Mostrar sección seleccionada" />
+                <span></span>
+              </label>
+            </div>
+
+            @switch (selectedSection.type) {
+              @case ('hero') {
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Mensaje principal</strong><span>Hero</span></div>
+                  @if (!firstHeroSlide) {
+                    <div class="visual-editor-inline-empty"><span>✦</span><p>Agrega el primer mensaje para personalizar el bloque superior.</p><button class="btn btn-sm btn-outline-primary" type="button" (click)="ensureHeroSlide(); markDirty()">Crear mensaje</button></div>
+                  } @else {
+                    <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="heroTitle" (ngModelChange)="heroTitle = $event; markDirty()" /></label>
+                    <label class="visual-editor-field"><span>Descripción</span><textarea class="form-control" rows="3" [ngModel]="heroDescription" (ngModelChange)="heroDescription = $event; markDirty()"></textarea></label>
+                      <div class="visual-editor-field-grid">
+                       <label class="visual-editor-field"><span>Texto del botón</span><input class="form-control" [ngModel]="heroButtonLabel" (ngModelChange)="heroButtonLabel = $event; markDirty()" /></label>
+                       <label class="visual-editor-field"><span>Enlace interno o URL</span><input class="form-control" list="visual-editor-internal-links" [ngModel]="heroButtonLink" (ngModelChange)="heroButtonLink = $event; markDirty()" placeholder="/products" /></label>
+                    </div>
+                    <label class="visual-editor-field"><span>Imagen o ruta pública</span><input class="form-control" [ngModel]="heroImage" (ngModelChange)="heroImage = $event; markDirty()" placeholder="https://..." /></label>
+                    <div class="visual-editor-field-grid visual-editor-field-grid--colors">
+                      <label class="visual-editor-field"><span>Color del texto</span><input class="form-control" [ngModel]="firstHeroSlide.text_color" (ngModelChange)="firstHeroSlide.text_color = $event; markDirty()" placeholder="#1C274C" /></label>
+                      <label class="visual-editor-field"><span>Color del botón</span><input class="form-control" [ngModel]="firstHeroSlide.button_color" (ngModelChange)="firstHeroSlide.button_color = $event; markDirty()" placeholder="#1C274C" /></label>
+                    </div>
+                  }
+                </div>
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Promoción destacada</strong><span>Opcional</span></div>
+                  @if (!firstHeroPromo) {
+                    <button class="visual-editor-add-line" type="button" (click)="ensureHeroPromo(); markDirty()"><span>+</span> Añadir tarjeta promocional</button>
+                  } @else {
+                    <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="promoTitle" (ngModelChange)="promoTitle = $event; markDirty()" /></label>
+                    <label class="visual-editor-field"><span>Etiqueta de oferta</span><input class="form-control" [ngModel]="promoOfferLabel" (ngModelChange)="promoOfferLabel = $event; markDirty()" /></label>
+                    <label class="visual-editor-field"><span>Imagen</span><input class="form-control" [ngModel]="promoImage" (ngModelChange)="promoImage = $event; markDirty()" placeholder="https://..." /></label>
+                  }
+                </div>
+              }
+              @case ('categories') {
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Encabezado del bloque</strong><span>Contenido</span></div>
+                  @if (selectedCopy) {
+                    <label class="visual-editor-field"><span>Texto superior</span><input class="form-control" [ngModel]="selectedCopyEyebrow" (ngModelChange)="selectedCopyEyebrow = $event; markDirty()" /></label>
+                    <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="selectedCopyTitle" (ngModelChange)="selectedCopyTitle = $event; markDirty()" /></label>
+                  }
+                  <label class="visual-editor-field"><span>Colecciones visibles</span>
+                    <select class="form-select visual-editor-multi-select" multiple size="5" [ngModel]="selectedCollectionIds" (ngModelChange)="setCollectionSelection($event)">
+                      @for (collection of collections; track collection.id) {
+                        <option [value]="collection.id">{{ collection.name }}</option>
+                      }
+                    </select>
+                  </label>
+                  <p class="visual-editor-help">Elige las colecciones publicadas que aparecerán en este bloque. Si no eliges ninguna, se muestran automáticamente.</p>
+                </div>
+              }
+              @case ('new_arrivals') {
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Encabezado del bloque</strong><span>Contenido</span></div>
+                  @if (selectedCopy) {
+                    <label class="visual-editor-field"><span>Texto superior</span><input class="form-control" [ngModel]="selectedCopyEyebrow" (ngModelChange)="selectedCopyEyebrow = $event; markDirty()" /></label>
+                    <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="selectedCopyTitle" (ngModelChange)="selectedCopyTitle = $event; markDirty()" /></label>
+                    <div class="visual-editor-field-grid"><label class="visual-editor-field"><span>Botón</span><input class="form-control" [ngModel]="selectedCopyCtaLabel" (ngModelChange)="selectedCopyCtaLabel = $event; markDirty()" /></label><label class="visual-editor-field"><span>Enlace interno o URL</span><input class="form-control" list="visual-editor-internal-links" [ngModel]="selectedCopyCtaHref" (ngModelChange)="selectedCopyCtaHref = $event; markDirty()" /></label></div>
+                  }
+                  <label class="visual-editor-field"><span>Productos elegidos</span>
+                    <select class="form-select visual-editor-multi-select" multiple size="6" [ngModel]="selectedProductIds" (ngModelChange)="setProductSelection($event)">
+                      @for (product of publishedProducts; track product.id) {
+                        <option [value]="product.id">{{ product.product_name || product.slug }}</option>
+                      }
+                    </select>
+                  </label>
+                  <p class="visual-editor-help">Selecciona productos publicados para fijar el bloque. Sin selección, usa los más recientes.</p>
+                </div>
+              }
+              @case ('best_sellers') {
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Encabezado del bloque</strong><span>Contenido</span></div>
+                  @if (selectedCopy) {
+                    <label class="visual-editor-field"><span>Texto superior</span><input class="form-control" [ngModel]="selectedCopyEyebrow" (ngModelChange)="selectedCopyEyebrow = $event; markDirty()" /></label>
+                    <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="selectedCopyTitle" (ngModelChange)="selectedCopyTitle = $event; markDirty()" /></label>
+                    <div class="visual-editor-field-grid"><label class="visual-editor-field"><span>Botón</span><input class="form-control" [ngModel]="selectedCopyCtaLabel" (ngModelChange)="selectedCopyCtaLabel = $event; markDirty()" /></label><label class="visual-editor-field"><span>Enlace interno o URL</span><input class="form-control" list="visual-editor-internal-links" [ngModel]="selectedCopyCtaHref" (ngModelChange)="selectedCopyCtaHref = $event; markDirty()" /></label></div>
+                  }
+                  <label class="visual-editor-field"><span>Productos elegidos</span>
+                    <select class="form-select visual-editor-multi-select" multiple size="6" [ngModel]="selectedProductIds" (ngModelChange)="setProductSelection($event)">
+                      @for (product of publishedProducts; track product.id) {
+                        <option [value]="product.id">{{ product.product_name || product.slug }}</option>
+                      }
+                    </select>
+                  </label>
+                  <p class="visual-editor-help">Selecciona productos publicados para priorizarlos. Sin selección, usa los destacados.</p>
+                </div>
+              }
+              @case ('promo_banners') {
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Banners editoriales</strong><span>{{ promoBanners.length }} activos</span></div>
+                  @for (banner of promoBanners; track banner.id; let i = $index) {
+                    <div class="visual-editor-repeat-card">
+                      <div class="visual-editor-repeat-card__top"><strong>Banner {{ i + 1 }}</strong><button type="button" class="visual-editor-repeat-remove" (click)="removePromoBanner(i)">Eliminar</button></div>
+                      <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="banner.title" (ngModelChange)="banner.title = $event; markDirty()" /></label>
+                      <label class="visual-editor-field"><span>Subtítulo</span><input class="form-control" [ngModel]="banner.subtitle || ''" (ngModelChange)="banner.subtitle = $event; markDirty()" /></label>
+                      <div class="visual-editor-field-grid"><label class="visual-editor-field"><span>Botón</span><input class="form-control" [ngModel]="banner.cta_label || ''" (ngModelChange)="banner.cta_label = $event; markDirty()" /></label><label class="visual-editor-field"><span>Enlace interno o URL</span><input class="form-control" list="visual-editor-internal-links" [ngModel]="banner.cta_href || '/products'" (ngModelChange)="banner.cta_href = $event; markDirty()" /></label></div>
+                      <label class="visual-editor-field"><span>Imagen</span><input class="form-control" [ngModel]="banner.image_url || ''" (ngModelChange)="banner.image_url = $event; markDirty()" placeholder="https://..." /></label>
+                    </div>
+                  }
+                  <button class="visual-editor-add-line" type="button" (click)="addPromoBanner()"><span>+</span> Añadir banner</button>
+                </div>
+              }
+              @case ('countdown') {
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Cuenta regresiva</strong><span>Oferta</span></div>
+                  <label class="visual-editor-field"><span>Texto superior</span><input class="form-control" [ngModel]="countdown.eyebrow" (ngModelChange)="countdown.eyebrow = $event; markDirty()" /></label>
+                  <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="countdown.title" (ngModelChange)="countdown.title = $event; markDirty()" /></label>
+                  <label class="visual-editor-field"><span>Descripción</span><textarea class="form-control" rows="2" [ngModel]="countdown.description" (ngModelChange)="countdown.description = $event; markDirty()"></textarea></label>
+                  <label class="visual-editor-field"><span>Fecha de finalización</span><input class="form-control" type="datetime-local" [ngModel]="countdown.deadline" (ngModelChange)="countdown.deadline = $event; markDirty()" /></label>
+                </div>
+              }
+              @case ('newsletter') {
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Captación de clientes</strong><span>Newsletter</span></div>
+                  <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="newsletter.title" (ngModelChange)="newsletter.title = $event; markDirty()" /></label>
+                  <label class="visual-editor-field"><span>Descripción</span><textarea class="form-control" rows="2" [ngModel]="newsletter.description" (ngModelChange)="newsletter.description = $event; markDirty()"></textarea></label>
+                  <div class="visual-editor-field-grid"><label class="visual-editor-field"><span>Placeholder</span><input class="form-control" [ngModel]="newsletter.placeholder" (ngModelChange)="newsletter.placeholder = $event; markDirty()" /></label><label class="visual-editor-field"><span>Botón</span><input class="form-control" [ngModel]="newsletter.button_label" (ngModelChange)="newsletter.button_label = $event; markDirty()" /></label></div>
+                </div>
+              }
+              @case ('testimonials') {
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Prueba social</strong><span>{{ testimonials.items?.length || 0 }} reseñas</span></div>
+                  <label class="visual-editor-field"><span>Texto superior</span><input class="form-control" [ngModel]="testimonials.eyebrow" (ngModelChange)="testimonials.eyebrow = $event; markDirty()" /></label>
+                  <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="testimonials.title" (ngModelChange)="testimonials.title = $event; markDirty()" /></label>
+                  @for (item of testimonials.items || []; track item.id; let i = $index) {
+                    <div class="visual-editor-repeat-card">
+                      <div class="visual-editor-repeat-card__top"><strong>Reseña {{ i + 1 }}</strong><button type="button" class="visual-editor-repeat-remove" (click)="removeTestimonial(i)">Eliminar</button></div>
+                      <label class="visual-editor-field"><span>Comentario</span><textarea class="form-control" rows="2" [ngModel]="item.review" (ngModelChange)="item.review = $event; markDirty()"></textarea></label>
+                      <div class="visual-editor-field-grid"><label class="visual-editor-field"><span>Nombre</span><input class="form-control" [ngModel]="item.author_name" (ngModelChange)="item.author_name = $event; markDirty()" /></label><label class="visual-editor-field"><span>Rol</span><input class="form-control" [ngModel]="item.author_role || ''" (ngModelChange)="item.author_role = $event; markDirty()" /></label></div>
+                    </div>
+                  }
+                  <button class="visual-editor-add-line" type="button" (click)="addTestimonial()"><span>+</span> Añadir testimonio</button>
+                </div>
+              }
+              @case ('closing_cta') {
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Llamado final</strong><span>Bloque del tema</span></div>
+                  <p class="visual-editor-help">Este bloque utiliza el estilo global del tema y cierra la página con enlaces al catálogo y contacto. El texto completo se personalizará en una siguiente versión del editor.</p>
+                </div>
+              }
+            }
+          </div>
+        }
+      </aside>
+    </main>
+
+    <datalist id="visual-editor-internal-links">
+      @for (link of internalLinkOptions; track link.href) {
+        <option [value]="link.href">{{ link.label }}</option>
+      }
+    </datalist>
+
+    @if (showHistory) {
+      <div class="visual-editor-history-backdrop" (click)="loadHistory()"></div>
+      <aside class="visual-editor-history-drawer" aria-label="Historial de versiones">
+        <div class="visual-editor-history-drawer__header"><div><span class="visual-editor-kicker">Control de cambios</span><h5>Historial</h5></div><button class="btn btn-light btn-sm" type="button" (click)="loadHistory()">Cerrar</button></div>
+        <p class="visual-editor-history-drawer__intro">Restaura una versión al borrador actual y publícala cuando la hayas revisado.</p>
+        <div class="visual-editor-history-list">
+          @if (loadingHistory) {
+            <div class="visual-editor-history-loading">Cargando versiones...</div>
+          } @else {
+            @for (revision of revisions; track revision.id) {
+              <div class="visual-editor-history-item" [class.visual-editor-history-item--published]="revision.operation === 'publish'">
+                <div class="visual-editor-history-item__top"><span class="visual-editor-history-version">v{{ revision.version }}</span><span class="visual-editor-history-operation">{{ revision.operation === 'publish' ? 'Publicado' : revision.operation === 'restore' ? 'Restaurado' : 'Borrador' }}</span></div>
+                <small>{{ revision.created_at | date:'medium' }}</small>
+                <button class="btn btn-outline-primary btn-sm w-100 mt-3" type="button" (click)="restoreRevision(revision)" [disabled]="saving">Restaurar al borrador</button>
+              </div>
+            } @empty {
+              <div class="visual-editor-history-empty">Todavía no hay versiones anteriores.</div>
+            }
+          }
+        </div>
+      </aside>
+    }
+  }
+</div>

@@ -55,6 +55,49 @@ class StorefrontUpdate(BaseModel):
     fulfillment_warehouse_id: Optional[UUID] = None
 
 
+class StorefrontThemeDraftUpdate(BaseModel):
+    document: dict = Field(default_factory=dict)
+    expected_draft_version: int = Field(default=1, ge=0)
+
+
+class StorefrontThemePublishRequest(BaseModel):
+    expected_draft_version: Optional[int] = Field(default=None, ge=0)
+
+
+class StorefrontThemePreviewSession(BaseModel):
+    token: str
+    expires_at: datetime
+    preview_url: str
+    template_key: str = "home"
+
+
+class StorefrontThemeDocument(BaseModel):
+    id: UUID
+    storefront_id: UUID
+    company_id: UUID
+    template_key: str
+    draft_document: dict = Field(default_factory=dict)
+    published_document: dict = Field(default_factory=dict)
+    draft_version: int
+    published_version: int
+    published_at: Optional[datetime] = None
+    preview_url: Optional[str] = None
+
+
+class StorefrontThemeRevision(BaseModel):
+    id: UUID
+    storefront_id: UUID
+    template_key: str
+    version: int
+    document: dict = Field(default_factory=dict)
+    operation: str
+    created_at: datetime
+
+
+class StorefrontThemeRestoreRequest(BaseModel):
+    expected_draft_version: Optional[int] = Field(default=None, ge=0)
+
+
 class Storefront(StorefrontBase):
     id: UUID
     company_id: Optional[UUID] = None
@@ -415,6 +458,7 @@ class PublicStorefront(BaseModel):
     subdomain: Optional[str] = None
     theme_key: str
     theme_settings: dict = Field(default_factory=dict)
+    theme_document: dict = Field(default_factory=dict)
     checkout_settings: dict = Field(default_factory=dict)
     seo_settings: dict = Field(default_factory=dict)
     currency: str

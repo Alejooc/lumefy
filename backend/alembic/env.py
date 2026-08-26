@@ -55,6 +55,7 @@ from app.models.storefront import (
 )
 from app.models.integration import IntegrationSource, IntegrationSyncRun, IntegrationRecordLink, IntegrationProductPrice
 from app.models.storefront_newsletter import StorefrontNewsletterSubscription
+from app.models.storefront_theme import StorefrontThemeDocument, StorefrontThemeRevision
 
 from app.core.config import settings
 
