@@ -45,6 +45,12 @@ const nextConfig = {
     ];
   },
   images: {
+    // Storefront media is served through a tenant-aware same-origin route.
+    // Next's server-side optimizer does not retain the storefront host while
+    // fetching that route, so it can return an empty response for valid media
+    // selected in the visual editor. Keep the browser request on /media/...;
+    // the backend still enforces the tenant boundary for every asset.
+    unoptimized: true,
     dangerouslyAllowLocalIP: allowLocalIp,
     remotePatterns: [
       { protocol: "http", hostname: "localhost" },
