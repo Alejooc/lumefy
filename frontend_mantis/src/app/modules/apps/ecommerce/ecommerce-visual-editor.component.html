@@ -1,4 +1,7 @@
-<div class="visual-editor-shell">
+<div
+  class="visual-editor-shell"
+  [class.visual-editor-shell--sidebar-collapsed]="!sidebarOpen"
+>
   @if (loading && !theme) {
     <div class="visual-editor-loading">
       <div class="visual-editor-loading__top"></div>
@@ -13,49 +16,83 @@
       <div class="visual-editor-empty__mark">✦</div>
       <span class="visual-editor-kicker">Editor visual</span>
       <h4>Elige una tienda para empezar</h4>
-      <p class="text-muted mb-0">Crea y activa un storefront antes de personalizar su página de inicio.</p>
+      <p class="text-muted mb-0">Crea y activa tu tienda antes de personalizar su página de inicio.</p>
       @if (errorMessage) {
         <div class="alert alert-warning mt-4 mb-0">{{ errorMessage }}</div>
       }
     </section>
   } @else {
     <header class="visual-editor-topbar">
-      <div class="visual-editor-topbar__identity">
-        <div class="visual-editor-logo">L</div>
-        <div>
-          <div class="visual-editor-breadcrumb"><span>Ecommerce</span><span class="visual-editor-breadcrumb__slash">/</span><strong>Diseño de inicio</strong></div>
-          <div class="visual-editor-store-name">{{ storefront.name }}</div>
-        </div>
+      <div class="visual-editor-topbar__modes">
+        <a class="visual-editor-exit" routerLink="/commerce" aria-label="Volver al panel de ecommerce" title="Volver al panel">
+          <i class="ti ti-arrow-left"></i>
+        </a>
+        <span class="visual-editor-topbar__divider"></span>
+        <button class="visual-editor-mode-button" type="button" [class.active]="sidebarOpen && sidebarMode !== 'settings'" (click)="showSections()" aria-label="Secciones" title="Secciones">
+          <i class="ti ti-layout-list"></i>
+        </button>
+        <button class="visual-editor-mode-button" type="button" [class.active]="sidebarOpen && sidebarMode === 'settings'" (click)="showSettings()" aria-label="Ajustes del tema" title="Ajustes del tema">
+          <i class="ti ti-settings"></i>
+        </button>
+        <button class="visual-editor-mode-button" type="button" (click)="openAddSections()" aria-label="Añadir sección" title="Añadir sección">
+          <i class="ti ti-layout-grid-add"></i>
+        </button>
       </div>
 
-      <div class="visual-editor-topbar__store">
-        @if (storefronts.length > 1) {
-          <label class="visually-hidden" for="visual-editor-storefront">Tienda a editar</label>
-          <select id="visual-editor-storefront" class="form-select form-select-sm" [(ngModel)]="selectedStorefrontId" (ngModelChange)="onStorefrontChange()">
-            @for (item of storefronts; track item.id) {
-              <option [value]="item.id">{{ item.name }}</option>
-            }
-          </select>
-        } @else {
-          <span class="visual-editor-live-pill"><span></span>{{ storefront.is_enabled ? 'Tienda activa' : 'Borrador' }}</span>
-        }
+      <div class="visual-editor-topbar__context">
+        <div class="visual-editor-store-context">
+          @if (storefronts.length > 1) {
+            <select id="visual-editor-storefront" class="form-select form-select-sm" aria-label="Tienda seleccionada" [(ngModel)]="selectedStorefrontId" (ngModelChange)="onStorefrontChange()">
+              @for (item of storefronts; track item.id) {
+                <option [value]="item.id">{{ item.name }}</option>
+              }
+            </select>
+          } @else {
+            <strong>{{ storefront.name }}</strong>
+          }
+          <span class="visual-editor-live-pill" [class.visual-editor-live-pill--draft]="!storefront.is_enabled"><span></span>{{ storefront.is_enabled ? 'Activa' : 'Borrador' }}</span>
+        </div>
+
+        <details class="visual-editor-page-picker">
+          <summary><i class="ti ti-home"></i><span>Página de inicio</span><i class="ti ti-chevron-down"></i></summary>
+          <div class="visual-editor-page-picker__menu">
+            <label><i class="ti ti-search"></i><input type="search" placeholder="Buscar página" aria-label="Buscar página de la tienda" /></label>
+            <button type="button" class="active"><i class="ti ti-home"></i><span>Página de inicio</span><i class="ti ti-check"></i></button>
+            <button type="button" disabled><i class="ti ti-tag"></i><span>Productos</span><small>Próximamente</small></button>
+            <button type="button" disabled><i class="ti ti-category"></i><span>Colecciones</span><small>Próximamente</small></button>
+            <button type="button" disabled><i class="ti ti-shopping-cart"></i><span>Carrito</span><small>Próximamente</small></button>
+          </div>
+        </details>
       </div>
 
       <div class="visual-editor-topbar__actions">
         <span class="visual-editor-save-state" [class.visual-editor-save-state--dirty]="dirty">
           <span class="visual-editor-save-state__dot"></span>
-          {{ saving ? 'Guardando...' : dirty ? 'Cambios sin guardar' : 'Todo guardado' }}
+          <span>{{ saving ? 'Guardando...' : dirty ? 'Sin guardar' : 'Guardado' }}</span>
         </span>
-        <button class="btn btn-light btn-sm visual-editor-action" type="button" (click)="undo()" [disabled]="!canUndo || saving || publishing" aria-label="Deshacer" title="Deshacer">↶</button>
-        <button class="btn btn-light btn-sm visual-editor-action" type="button" (click)="redo()" [disabled]="!canRedo || saving || publishing" aria-label="Rehacer" title="Rehacer">↷</button>
-        <button class="btn btn-light btn-sm visual-editor-action" type="button" (click)="loadHistory()" [disabled]="loadingHistory">
-          <span class="visual-editor-action__icon">↺</span> Historial
-        </button>
-        <button class="btn btn-outline-primary btn-sm visual-editor-action" type="button" (click)="saveDraft()" [disabled]="saving || publishing || !dirty">
-          {{ saving ? 'Guardando...' : 'Guardar borrador' }}
+        <div class="visual-editor-viewport-switcher" role="group" aria-label="Tamaño de vista previa">
+          <button type="button" [class.active]="previewViewport === 'desktop'" (click)="setViewport('desktop')" title="Escritorio"><i class="ti ti-device-desktop"></i></button>
+          <button type="button" [class.active]="previewViewport === 'tablet'" (click)="setViewport('tablet')" title="Tablet"><i class="ti ti-device-tablet"></i></button>
+          <button type="button" [class.active]="previewViewport === 'mobile'" (click)="setViewport('mobile')" title="Móvil"><i class="ti ti-device-mobile"></i></button>
+        </div>
+        <button class="visual-editor-selector-toggle visual-editor-selector-toggle--icon" type="button" [class.active]="selectionMode" (click)="toggleSelectionMode()" aria-label="Modo selector" [attr.aria-pressed]="selectionMode" title="Seleccionar elemento"><i class="ti ti-click" aria-hidden="true"></i><span class="visually-hidden">Seleccionar elemento</span></button>
+        <button class="visual-editor-icon-action" type="button" (click)="undo()" [disabled]="!canUndo || saving || publishing" aria-label="Deshacer" title="Deshacer"><i class="ti ti-arrow-back-up"></i></button>
+        <button class="visual-editor-icon-action" type="button" (click)="redo()" [disabled]="!canRedo || saving || publishing" aria-label="Rehacer" title="Rehacer"><i class="ti ti-arrow-forward-up"></i></button>
+        <details class="visual-editor-more-menu">
+          <summary aria-label="Más acciones" title="Más acciones"><i class="ti ti-dots"></i></summary>
+          <div>
+            <button type="button" (click)="loadHistory()" [disabled]="loadingHistory"><i class="ti ti-history"></i>Historial de versiones</button>
+            @if (previewUrl) {
+              <a [href]="previewUrl" target="_blank" rel="noopener noreferrer"><i class="ti ti-external-link"></i>Abrir preview</a>
+            }
+          </div>
+        </details>
+        <button class="btn btn-outline-primary btn-sm visual-editor-action visual-editor-action--save" type="button" (click)="saveDraft()" [disabled]="saving || publishing || !dirty" [attr.aria-label]="saving ? 'Guardando cambios' : 'Guardar cambios'" [attr.title]="saving ? 'Guardando cambios' : 'Guardar cambios'">
+          <i class="ti visual-editor-action__icon" [class.ti-device-floppy]="!saving" [class.ti-loader]="saving" [class.icon-spin]="saving" aria-hidden="true"></i>
+          <span class="visually-hidden">{{ saving ? 'Guardando cambios' : 'Guardar cambios' }}</span>
         </button>
         <button class="btn btn-primary btn-sm visual-editor-action visual-editor-action--publish" type="button" (click)="publish()" [disabled]="saving || publishing">
-          {{ publishing ? 'Publicando...' : 'Publicar' }} <span>↗</span>
+          {{ publishing ? 'Publicando...' : 'Publicar' }}
         </button>
       </div>
     </header>
@@ -65,87 +102,65 @@
     }
 
     <main class="visual-editor-workspace">
-      <aside class="visual-editor-panel visual-editor-structure-panel">
-        <div class="visual-editor-panel__header">
-          <div>
-            <span class="visual-editor-kicker">Estructura</span>
-            <h5>Tu página de inicio</h5>
-          </div>
-          <span class="visual-editor-count">{{ document.sections.length }}/20</span>
-        </div>
-        <p class="visual-editor-panel__hint">Arrastra las secciones para cambiar el orden en que aparecen.</p>
-
-        <div class="visual-editor-structure-list" cdkDropList [cdkDropListData]="document.sections" (cdkDropListDropped)="drop($event)">
-          @for (section of document.sections; track section.id; let i = $index) {
-            <div
-              class="visual-editor-section-row"
-              cdkDrag
-              [class.visual-editor-section-row--selected]="selectedSectionId === section.id"
-              [class.visual-editor-section-row--disabled]="!section.enabled"
-              (click)="selectSection(section)"
-            >
-              <button class="visual-editor-drag-handle" type="button" cdkDragHandle aria-label="Mover sección" title="Arrastrar">⠿</button>
-              <span class="visual-editor-section-icon">{{ sectionIcon(section) }}</span>
-              <span class="visual-editor-section-copy">
-                <strong>{{ sectionLabel(section) }}</strong>
-                <small>{{ section.enabled ? 'Visible en la página' : 'Oculta temporalmente' }}</small>
-              </span>
-              <label class="visual-editor-switch visual-editor-switch--small" (click)="$event.stopPropagation()">
-                <input type="checkbox" [checked]="section.enabled" (change)="toggleSection(section, $event)" [attr.aria-label]="'Mostrar ' + sectionLabel(section)" />
-                <span></span>
-              </label>
-              <button class="visual-editor-more" type="button" [attr.aria-label]="'Más acciones para ' + sectionLabel(section)" [attr.title]="'Duplicar ' + sectionLabel(section)" (click)="duplicateSection(section, $event)">⋯</button>
+      @if (sidebarOpen && (sidebarMode === 'sections' || sidebarMode === 'add')) {
+        <aside class="visual-editor-panel visual-editor-structure-panel">
+          @if (sidebarMode === 'sections') {
+            <div class="visual-editor-panel__header">
+              <div>
+                <span class="visual-editor-kicker">Página</span>
+                <h5>Página de inicio</h5>
+              </div>
+              <button class="visual-editor-panel-close" type="button" (click)="toggleSidebar()" aria-label="Ocultar panel" title="Ocultar panel"><i class="ti ti-layout-sidebar-left-collapse"></i></button>
+            </div>
+            <div class="visual-editor-rail-group">
+              <div class="visual-editor-rail-group__title"><strong>Encabezado</strong><span>Global</span></div>
+              <button class="visual-editor-system-row" type="button" [class.visual-editor-system-row--selected]="selectedGlobalArea === 'announcement'" (click)="showSettings('announcement')"><i class="ti ti-speakerphone"></i><span class="visual-editor-system-row__copy"><strong>Barra de anuncios</strong><small>Mensaje encima de tu tienda</small></span><i class="ti ti-chevron-right"></i></button>
+              <button class="visual-editor-system-row" type="button" [class.visual-editor-system-row--selected]="selectedGlobalArea === 'header'" (click)="showSettings('header')"><i class="ti ti-layout-navbar"></i><span class="visual-editor-system-row__copy"><strong>Encabezado</strong><small>Logo, menú y buscador</small></span><i class="ti ti-chevron-right"></i></button>
+            </div>
+            <div class="visual-editor-rail-divider"></div>
+            <div class="visual-editor-rail-group__title visual-editor-rail-group__title--template"><strong>Plantilla</strong><span>{{ document.sections.length }}/20</span></div>
+            <div class="visual-editor-structure-list" cdkDropList [cdkDropListData]="document.sections" (cdkDropListDropped)="drop($event)">
+              @for (section of document.sections; track section.id; let i = $index) {
+                <div class="visual-editor-section-row" cdkDrag [class.visual-editor-section-row--selected]="selectedSectionId === section.id" [class.visual-editor-section-row--disabled]="!section.enabled" (click)="selectSection(section)">
+                  <button class="visual-editor-drag-handle" type="button" cdkDragHandle aria-label="Mover sección" title="Arrastrar">⠿</button>
+                  <span class="visual-editor-section-copy"><strong>{{ sectionLabel(section) }}</strong><small>{{ section.enabled ? 'Visible' : 'Oculta' }}</small></span>
+                  <label class="visual-editor-switch visual-editor-switch--small" (click)="$event.stopPropagation()"><input type="checkbox" [checked]="section.enabled" (change)="toggleSection(section, $event)" [attr.aria-label]="'Mostrar ' + sectionLabel(section)" /><span></span></label>
+                  <button class="visual-editor-more" type="button" [attr.aria-label]="'Duplicar ' + sectionLabel(section)" [attr.title]="'Duplicar ' + sectionLabel(section)" (click)="duplicateSection(section, $event)"><i class="ti ti-copy" aria-hidden="true"></i></button>
+                </div>
+              }
+            </div>
+            <button class="visual-editor-add-trigger" type="button" (click)="openAddSections()" [disabled]="!canAddSection"><i class="ti ti-circle-plus"></i><span>Añadir sección</span></button>
+            <div class="visual-editor-rail-divider"></div>
+            <button class="visual-editor-system-row visual-editor-system-row--footer" type="button" [class.visual-editor-system-row--selected]="selectedGlobalArea === 'footer'" (click)="showSettings('footer')"><i class="ti ti-layout-bottombar"></i><span class="visual-editor-system-row__copy"><strong>Pie de página</strong><small>Contacto, enlaces y redes</small></span><i class="ti ti-chevron-right"></i></button>
+          } @else {
+            <div class="visual-editor-panel__header visual-editor-panel__header--picker">
+              <button class="visual-editor-back" type="button" (click)="showSections()" aria-label="Volver a las secciones"><i class="ti ti-arrow-left"></i></button>
+              <div><span class="visual-editor-kicker">Biblioteca</span><h5>Añadir sección</h5></div>
+            </div>
+            <p class="visual-editor-panel__hint">Elige un bloque. Se insertará {{ pendingInsertAfterId ? 'en el punto seleccionado' : 'al final de la página' }}.</p>
+            <div class="visual-editor-component-list">
+              @for (component of components; track component.type) {
+                <button class="visual-editor-component-card" type="button" (click)="addSection(component.type)" [disabled]="!canAddSection">
+                  <span class="visual-editor-component-card__icon"><i [class]="componentIcon(component.type)"></i></span>
+                  <span><strong>{{ component.label }}</strong><small>{{ component.description }}</small></span>
+                  <i class="ti ti-plus"></i>
+                </button>
+              }
             </div>
           }
-        </div>
+        </aside>
+      }
 
-        <div class="visual-editor-add-section">
-          <div class="visual-editor-add-section__title"><span>+</span><strong>Añadir sección</strong></div>
-          <div class="visual-editor-component-grid">
-            @for (component of components; track component.type) {
-              <button class="visual-editor-component-chip" type="button" (click)="addSection(component.type)" [disabled]="!canAddSection" [title]="component.description">
-                <span>{{ component.icon || 'block' }}</span>{{ component.label }}
-              </button>
-            }
-          </div>
-          @if (!canAddSection) {
-            <small class="visual-editor-limit-note">Has alcanzado el máximo de 20 secciones.</small>
-          }
-        </div>
-
-        <div class="visual-editor-structure-note">
-          <span>◇</span>
-          <p><strong>Contenido seguro y reusable</strong><br />El editor modifica configuración y contenido; no permite insertar código libre en la tienda.</p>
-        </div>
-      </aside>
-
-      <section class="visual-editor-canvas-panel" aria-label="Vista previa del storefront">
-        <div class="visual-editor-canvas-toolbar">
-          <div class="visual-editor-canvas-toolbar__title">
-            <span class="visual-editor-kicker">Vista previa</span>
-            <strong>Inicio</strong>
-            <span class="visual-editor-preview-badge"><span></span>Preview</span>
-          </div>
-          <div class="visual-editor-viewport-switcher" role="group" aria-label="Tamaño de vista previa">
-            <button type="button" [class.active]="previewViewport === 'desktop'" (click)="setViewport('desktop')" title="Escritorio">▱ <span>Escritorio</span></button>
-            <button type="button" [class.active]="previewViewport === 'tablet'" (click)="setViewport('tablet')" title="Tablet">▯ <span>Tablet</span></button>
-            <button type="button" [class.active]="previewViewport === 'mobile'" (click)="setViewport('mobile')" title="Móvil">▯ <span>Móvil</span></button>
-          </div>
-          @if (previewUrl) {
-            <a class="visual-editor-open-store" [href]="previewUrl" target="_blank" rel="noopener noreferrer">Abrir tienda <span>↗</span></a>
-          }
-        </div>
-
+        <section class="visual-editor-canvas-panel" aria-label="Vista previa de la tienda">
+        @if (!sidebarOpen) {
+          <button class="visual-editor-canvas-sidebar-open" type="button" (click)="showSections()"><i class="ti ti-layout-sidebar-left-expand"></i><span>Mostrar secciones</span></button>
+        }
         <div class="visual-editor-canvas-stage">
           <div
             class="visual-editor-device"
             [class.visual-editor-device--tablet]="previewViewport === 'tablet'"
             [class.visual-editor-device--mobile]="previewViewport === 'mobile'"
           >
-            <div class="visual-editor-device__chrome">
-              <span></span><span></span><span></span>
-              <div class="visual-editor-device__address">{{ storefront.subdomain || storefront.name.toLowerCase().replace(' ', '-') }} · vista previa</div>
-            </div>
             @if (safePreviewUrl) {
               <iframe #previewFrame class="visual-editor-preview-frame" [src]="safePreviewUrl" (load)="onPreviewLoad()" title="Vista previa de la página de inicio"></iframe>
             } @else {
@@ -157,24 +172,180 @@
             }
           </div>
         </div>
-        <div class="visual-editor-canvas-footer"><span>Los datos del catálogo se mantienen en producción.</span><span>Los cambios se aplican al publicar.</span></div>
       </section>
 
-      <aside class="visual-editor-panel visual-editor-inspector-panel">
-        @if (!selectedSection) {
+      @if (sidebarOpen && (sidebarMode === 'settings' || sidebarMode === 'section')) {
+      <aside
+        class="visual-editor-panel visual-editor-inspector-panel"
+        [class.visual-editor-inspector-panel--settings]="sidebarMode === 'settings'"
+        [class.visual-editor-inspector-panel--section]="sidebarMode === 'section'"
+      >
+        @if (sidebarMode === 'settings') {
+        <div class="visual-editor-global-settings visual-editor-global-settings--panel">
+          <div class="visual-editor-global-settings__header">
+            <span>
+              <span class="visual-editor-kicker">Diseño global</span>
+              <strong>{{ selectedGlobalArea === 'announcement' ? 'Barra de anuncios' : selectedGlobalArea === 'header' ? 'Configurar encabezado' : selectedGlobalArea === 'footer' ? 'Configurar pie de página' : 'Identidad de la tienda' }}</strong>
+            </span>
+            <span class="visual-editor-global-settings__badge">{{ selectedGlobalArea ? 'Edición rápida' : 'Ajustes generales' }}</span>
+          </div>
+          <div class="visual-editor-global-settings__body">
+            @if (selectedGlobalArea) {
+              <div class="visual-editor-settings-hero">
+                <span class="visual-editor-settings-hero__icon"><i [class]="selectedGlobalArea === 'announcement' ? 'ti ti-speakerphone' : selectedGlobalArea === 'header' ? 'ti ti-layout-navbar' : 'ti ti-layout-bottombar'"></i></span>
+                <div>
+                  <strong>{{ selectedGlobalArea === 'announcement' ? 'Mensaje para tus visitantes' : selectedGlobalArea === 'header' ? 'Parte superior de tu tienda' : 'Parte inferior de tu tienda' }}</strong>
+                  <p>{{ selectedGlobalArea === 'announcement' ? 'Comunica envíos, promociones o novedades.' : selectedGlobalArea === 'header' ? 'Personaliza el logo, la navegación y la búsqueda.' : 'Edita la información que tus clientes encontrarán al final.' }}</p>
+                </div>
+              </div>
+            } @else {
+              <p class="visual-editor-global-settings__intro">Los cambios se reflejan al instante en la vista previa.</p>
+            }
+
+            @if (!selectedGlobalArea) {
+            <div class="visual-editor-global-settings__group">
+              <div class="visual-editor-field-heading"><strong>Identidad</strong><span>Marca visible</span></div>
+              <div class="visual-editor-field"><span>Logo</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="globalSettings.branding.logo_url" (ngModelChange)="globalSettings.branding.logo_url = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('branding_logo')" aria-label="Elegir logo desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
+              <div class="visual-editor-field"><span>Logo para móvil</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="globalSettings.branding.mobile_logo_url" (ngModelChange)="globalSettings.branding.mobile_logo_url = $event; markDirty()" placeholder="Opcional: versión compacta" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('branding_mobile_logo')" aria-label="Elegir logo móvil desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
+              <label class="visual-editor-field"><span>Texto alternativo del logo</span><input class="form-control" [ngModel]="globalSettings.branding.logo_alt" (ngModelChange)="globalSettings.branding.logo_alt = $event; markDirty()" placeholder="Nombre de la tienda" /></label>
+              <div class="visual-editor-field"><span>Favicon</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="globalSettings.branding.favicon_url" (ngModelChange)="globalSettings.branding.favicon_url = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('branding_favicon')" aria-label="Elegir favicon desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
+              <p class="visual-editor-help">El logo móvil se activa en pantallas pequeñas y el favicon se verá después de publicar.</p>
+            </div>
+
+            }
+
+            @if (!selectedGlobalArea) {
+            <div class="visual-editor-global-settings__group">
+              <div class="visual-editor-field-heading"><strong>Estilo global</strong><span>Paleta y ritmo</span></div>
+              <div class="visual-editor-field-grid visual-editor-field-grid--colors">
+                <label class="visual-editor-field"><span>Color principal</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.styles.primary_color" (ngModelChange)="globalSettings.styles.primary_color = $event; markDirty()" title="Color principal de la tienda" /></label>
+                <label class="visual-editor-field"><span>Color de acento</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.styles.accent_color" (ngModelChange)="globalSettings.styles.accent_color = $event; markDirty()" title="Color de acento de la tienda" /></label>
+              </div>
+              <div class="visual-editor-field-grid visual-editor-field-grid--colors">
+                <label class="visual-editor-field"><span>Fondo de página</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.styles.page_background_color" (ngModelChange)="globalSettings.styles.page_background_color = $event; markDirty()" title="Fondo general de la tienda" /></label>
+                <label class="visual-editor-field"><span>Texto general</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.styles.body_text_color" (ngModelChange)="globalSettings.styles.body_text_color = $event; markDirty()" title="Color del texto general" /></label>
+              </div>
+              <label class="visual-editor-field"><span>Color de titulares</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.styles.heading_text_color" (ngModelChange)="globalSettings.styles.heading_text_color = $event; markDirty()" title="Color de titulares" /></label>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Tipografía de texto</span><select class="form-select" [ngModel]="globalSettings.styles.body_font" (ngModelChange)="globalSettings.styles.body_font = $event; markDirty()"><option value="euclid">Euclid Circular A</option><option value="editorial">Editorial Serif</option><option value="humanist">Humanista</option></select></label>
+                <label class="visual-editor-field"><span>Tipografía de titulares</span><select class="form-select" [ngModel]="globalSettings.styles.heading_font" (ngModelChange)="globalSettings.styles.heading_font = $event; markDirty()"><option value="euclid">Euclid Circular A</option><option value="editorial">Editorial Serif</option><option value="humanist">Humanista</option></select></label>
+              </div>
+              <label class="visual-editor-field"><span>Ancho de contenido</span><input class="form-range" type="range" min="960" max="1440" step="10" [ngModel]="globalSettings.styles.content_width" (ngModelChange)="globalSettings.styles.content_width = +$event; markDirty()" /><small class="visual-editor-range-value">{{ globalSettings.styles.content_width }} px</small></label>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Radios</span><select class="form-select" [ngModel]="globalSettings.styles.corner_radius" (ngModelChange)="globalSettings.styles.corner_radius = $event; markDirty()"><option value="sharp">Preciso</option><option value="soft">Suave</option><option value="round">Redondo</option></select></label>
+                <label class="visual-editor-field"><span>Navegación</span><select class="form-select" [ngModel]="globalSettings.styles.navigation_style" (ngModelChange)="globalSettings.styles.navigation_style = $event; markDirty()"><option value="standard">Completa</option><option value="minimal">Compacta</option></select></label>
+              </div>
+              <label class="visual-editor-field"><span>Estilo de enlaces</span><select class="form-select" [ngModel]="globalSettings.styles.navigation_variant" (ngModelChange)="globalSettings.styles.navigation_variant = $event; markDirty()"><option value="underline">Línea superior</option><option value="pill">Cápsulas</option><option value="plain">Limpio</option></select></label>
+              <label class="visual-editor-field"><span>Espaciado base de secciones</span><select class="form-select" [ngModel]="globalSettings.section_spacing" (ngModelChange)="globalSettings.section_spacing = $event; markDirty()"><option value="theme">Predeterminado del tema</option><option value="compact">Compacto</option><option value="balanced">Equilibrado</option><option value="airy">Amplio</option></select></label>
+              <p class="visual-editor-help">Los cambios se aplican en vivo en la página de inicio.</p>
+            </div>
+
+            }
+
+            @if (!selectedGlobalArea || selectedGlobalArea === 'announcement') {
+            <div id="visual-editor-settings-announcement" class="visual-editor-global-settings__group" [class.visual-editor-global-settings__group--focused]="selectedGlobalArea === 'announcement'">
+              <div class="visual-editor-field-heading"><strong>Barra de anuncios</strong><span>Opcional</span></div>
+              <div class="visual-editor-visibility-card">
+                <div><strong>Mostrar anuncio</strong><small>Un mensaje breve para todos tus visitantes.</small></div>
+                <label class="visual-editor-switch">
+                  <input type="checkbox" [checked]="globalSettings.announcement.enabled" (change)="globalSettings.announcement.enabled = $any($event.target).checked; markDirty()" aria-label="Mostrar barra de anuncios" />
+                  <span></span>
+                </label>
+              </div>
+              <label class="visual-editor-field"><span>Mensaje</span><input class="form-control" [ngModel]="globalSettings.announcement.text" (ngModelChange)="globalSettings.announcement.text = $event; markDirty()" placeholder="Envío gratis desde $150.000" /></label>
+              <label class="visual-editor-field"><span>Enlace opcional</span><input class="form-control" list="visual-editor-internal-links" [ngModel]="globalSettings.announcement.href" (ngModelChange)="globalSettings.announcement.href = $event; markDirty()" placeholder="/products" /></label>
+              <div class="visual-editor-field-grid visual-editor-field-grid--colors">
+                <label class="visual-editor-field"><span>Fondo</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.announcement.background_color" (ngModelChange)="globalSettings.announcement.background_color = $event; markDirty()" title="Color de fondo del anuncio" /></label>
+                <label class="visual-editor-field"><span>Texto</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.announcement.text_color" (ngModelChange)="globalSettings.announcement.text_color = $event; markDirty()" title="Color del texto del anuncio" /></label>
+              </div>
+            </div>
+
+            }
+
+            @if (!selectedGlobalArea || selectedGlobalArea === 'header') {
+            <div id="visual-editor-settings-header" class="visual-editor-global-settings__group" [class.visual-editor-global-settings__group--focused]="selectedGlobalArea === 'header'">
+              <div class="visual-editor-field-heading"><strong>Encabezado</strong><span>Parte superior</span></div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Texto del buscador</span><input class="form-control" [ngModel]="globalSettings.header.search_placeholder" (ngModelChange)="globalSettings.header.search_placeholder = $event; markDirty()" placeholder="Buscar productos..." /></label>
+                <label class="visual-editor-field"><span>Texto de cuenta</span><input class="form-control" [ngModel]="globalSettings.header.account_heading" (ngModelChange)="globalSettings.header.account_heading = $event; markDirty()" placeholder="cuenta" /></label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Botón de ingreso</span><input class="form-control" [ngModel]="globalSettings.header.guest_account_label" (ngModelChange)="globalSettings.header.guest_account_label = $event; markDirty()" placeholder="Ingresar" /></label>
+                <label class="visual-editor-field"><span>Texto del carrito</span><input class="form-control" [ngModel]="globalSettings.header.cart_heading" (ngModelChange)="globalSettings.header.cart_heading = $event; markDirty()" placeholder="carrito" /></label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Vistos recientemente</span><input class="form-control" [ngModel]="globalSettings.header.recently_viewed_label" (ngModelChange)="globalSettings.header.recently_viewed_label = $event; markDirty()" placeholder="Vistos recientemente" /></label>
+                <label class="visual-editor-field"><span>Favoritos</span><input class="form-control" [ngModel]="globalSettings.header.wishlist_label" (ngModelChange)="globalSettings.header.wishlist_label = $event; markDirty()" placeholder="Favoritos" /></label>
+              </div>
+              <div class="visual-editor-field-grid visual-editor-field-grid--colors">
+                <label class="visual-editor-field"><span>Fondo</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.header.background_color" (ngModelChange)="globalSettings.header.background_color = $event; markDirty()" title="Color de fondo del header" /></label>
+                <label class="visual-editor-field"><span>Texto</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.header.text_color" (ngModelChange)="globalSettings.header.text_color = $event; markDirty()" title="Color del texto del header" /></label>
+              </div>
+            </div>
+
+            }
+
+            @if (!selectedGlobalArea || selectedGlobalArea === 'footer') {
+            <div id="visual-editor-settings-footer" class="visual-editor-global-settings__group" [class.visual-editor-global-settings__group--focused]="selectedGlobalArea === 'footer'">
+              <div class="visual-editor-field-heading"><strong>Pie de página</strong><span>Parte inferior</span></div>
+              <label class="visual-editor-field"><span>Texto legal</span><input class="form-control" [ngModel]="globalSettings.footer.footer_text" (ngModelChange)="globalSettings.footer.footer_text = $event; markDirty()" placeholder="Todos los derechos reservados." /></label>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Título de ayuda</span><input class="form-control" [ngModel]="globalSettings.footer.help_title" (ngModelChange)="globalSettings.footer.help_title = $event; markDirty()" placeholder="Ayuda y contacto" /></label>
+                <label class="visual-editor-field"><span>Título de cuenta</span><input class="form-control" [ngModel]="globalSettings.footer.account_title" (ngModelChange)="globalSettings.footer.account_title = $event; markDirty()" placeholder="Cuenta" /></label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Título de enlaces</span><input class="form-control" [ngModel]="globalSettings.footer.quick_links_title" (ngModelChange)="globalSettings.footer.quick_links_title = $event; markDirty()" placeholder="Enlaces" /></label>
+                <label class="visual-editor-field"><span>Título de pagos</span><input class="form-control" [ngModel]="globalSettings.footer.payment_title" (ngModelChange)="globalSettings.footer.payment_title = $event; markDirty()" placeholder="Medios de pago:" /></label>
+              </div>
+              <div class="visual-editor-field-heading"><strong>Contacto</strong><span>Visible en el pie</span></div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Teléfono</span><input class="form-control" [ngModel]="globalSettings.footer.support_phone" (ngModelChange)="globalSettings.footer.support_phone = $event; markDirty()" placeholder="+57 300 000 0000" /></label>
+                <label class="visual-editor-field"><span>Email</span><input class="form-control" type="email" [ngModel]="globalSettings.footer.support_email" (ngModelChange)="globalSettings.footer.support_email = $event; markDirty()" placeholder="hola@marca.com" /></label>
+              </div>
+              <label class="visual-editor-field"><span>Dirección</span><input class="form-control" [ngModel]="globalSettings.footer.support_address" (ngModelChange)="globalSettings.footer.support_address = $event; markDirty()" placeholder="Ciudad, país" /></label>
+              <div class="visual-editor-visibility-card">
+                <div><strong>Mostrar redes sociales</strong><small>Añade tus perfiles para mostrarlos en tu tienda.</small></div>
+                <label class="visual-editor-switch">
+                  <input type="checkbox" [checked]="globalSettings.footer.show_social_links" (change)="globalSettings.footer.show_social_links = $any($event.target).checked; markDirty()" aria-label="Mostrar redes sociales en el footer" />
+                  <span></span>
+                </label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Facebook</span><input class="form-control" type="url" [ngModel]="globalSettings.footer.social_links.facebook" (ngModelChange)="globalSettings.footer.social_links.facebook = $event; markDirty()" placeholder="https://facebook.com/..." /></label>
+                <label class="visual-editor-field"><span>Instagram</span><input class="form-control" type="url" [ngModel]="globalSettings.footer.social_links.instagram" (ngModelChange)="globalSettings.footer.social_links.instagram = $event; markDirty()" placeholder="https://instagram.com/..." /></label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Twitter / X</span><input class="form-control" type="url" [ngModel]="globalSettings.footer.social_links.twitter" (ngModelChange)="globalSettings.footer.social_links.twitter = $event; markDirty()" placeholder="https://x.com/..." /></label>
+                <label class="visual-editor-field"><span>LinkedIn</span><input class="form-control" type="url" [ngModel]="globalSettings.footer.social_links.linkedin" (ngModelChange)="globalSettings.footer.social_links.linkedin = $event; markDirty()" placeholder="https://linkedin.com/..." /></label>
+              </div>
+              <div class="visual-editor-field-grid visual-editor-field-grid--colors">
+                <label class="visual-editor-field"><span>Fondo</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.footer.background_color" (ngModelChange)="globalSettings.footer.background_color = $event; markDirty()" title="Color de fondo del footer" /></label>
+                <label class="visual-editor-field"><span>Franja inferior</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.footer.bottom_background_color" (ngModelChange)="globalSettings.footer.bottom_background_color = $event; markDirty()" title="Color de la franja inferior del footer" /></label>
+              </div>
+            </div>
+
+            }
+          </div>
+        </div>
+        }
+
+        @if (sidebarMode === 'section' && !selectedSection) {
           <div class="visual-editor-inspector-empty">
             <div class="visual-editor-inspector-empty__icon">⌘</div>
             <strong>Selecciona una sección</strong>
             <p class="text-muted mb-0">Elige un bloque en la estructura para editar su contenido y visibilidad.</p>
           </div>
-        } @else {
+        } @else if (sidebarMode === 'section' && selectedSection) {
           <div class="visual-editor-panel__header visual-editor-panel__header--inspector">
+            <button class="visual-editor-back" type="button" (click)="showSections()" aria-label="Volver a las secciones" title="Volver a las secciones"><i class="ti ti-arrow-left"></i></button>
             <div>
               <span class="visual-editor-kicker">Propiedades</span>
               <h5>{{ sectionLabel(selectedSection) }}</h5>
               <p>{{ selectedComponent?.description }}</p>
             </div>
-            <button class="visual-editor-delete" type="button" (click)="removeSection(selectedSection)" title="Eliminar sección">⌫</button>
+            <button class="visual-editor-delete" type="button" (click)="removeSection(selectedSection, $event)" aria-label="Eliminar sección" title="Eliminar sección">
+              <i class="ti ti-trash"></i>
+            </button>
           </div>
 
           <div class="visual-editor-inspector-scroll">
@@ -186,45 +357,126 @@
               </label>
             </div>
 
-            @if (showMediaLibrary) {
-              <div class="visual-editor-inspector-section visual-editor-media-library">
-                <div class="visual-editor-field-heading"><strong>Biblioteca de imágenes</strong><span>{{ mediaAssets.length }} disponibles</span></div>
-                <label class="visual-editor-field"><span>Aplicar imagen a</span>
-                  <select class="form-select" [(ngModel)]="mediaTarget">
-                    @for (target of mediaTargetOptions; track target.value) {
-                      <option [value]="target.value">{{ target.label }}</option>
-                    }
+            <div class="visual-editor-inspector-section">
+              <div class="visual-editor-field-heading"><strong>Ritmo de la sección</strong><span>Espaciado</span></div>
+              <label class="visual-editor-field"><span>Separación vertical</span><select class="form-select" [ngModel]="selectedSectionSpacing" (ngModelChange)="setSectionSpacing($event)"><option value="theme">Predeterminado del tema</option><option value="compact">Compacto</option><option value="balanced">Equilibrado</option><option value="airy">Amplio</option></select></label>
+              <p class="visual-editor-help">Ajusta el aire alrededor de este bloque sin mover el contenido interno. El cambio se refleja en la vista previa y al publicar.</p>
+            </div>
+
+            <div class="visual-editor-inspector-section visual-editor-section-design">
+              <div class="visual-editor-field-heading"><strong>Diseño de la sección</strong><span>Estilo</span></div>
+              <p class="visual-editor-help visual-editor-section-design__intro">Personaliza el aspecto de este bloque con los estilos disponibles en tu tema.</p>
+
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field">
+                  <span>Ancho</span>
+                  <select class="form-select" [ngModel]="sectionDesignWidth" (ngModelChange)="setSectionDesignWidth($event)">
+                    <option value="theme">Predeterminado</option>
+                    <option value="narrow">Estrecho</option>
+                    <option value="wide">Amplio</option>
+                    <option value="full">Pantalla completa</option>
                   </select>
                 </label>
-                <label class="visual-editor-upload-button" [class.visual-editor-upload-button--busy]="uploadingMedia">
-                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" (change)="uploadMedia($event)" [disabled]="uploadingMedia" />
-                  <span>{{ uploadingMedia ? 'Subiendo imagen...' : '＋ Subir imagen' }}</span>
+                <label class="visual-editor-field visual-editor-radius-field">
+                  <span>Radio de bordes</span>
+                  <div class="visual-editor-radius-control">
+                    <input type="range" class="form-range" min="0" max="64" step="1" [ngModel]="sectionDesignRadius" (ngModelChange)="setSectionDesignRadius($event)" [disabled]="sectionDesignRadiusUsesTheme" aria-label="Radio de bordes en píxeles" />
+                    <div class="visual-editor-radius-number"><input type="number" class="form-control" min="0" max="64" step="1" [ngModel]="sectionDesignRadius" (ngModelChange)="setSectionDesignRadius($event)" [disabled]="sectionDesignRadiusUsesTheme" aria-label="Radio de bordes" /><span>px</span></div>
+                  </div>
+                  <small class="visual-editor-range-value">{{ sectionDesignRadiusUsesTheme ? 'Predeterminado del tema' : sectionDesignRadius + ' px' }}</small>
+                  <button class="visual-editor-reset-design visual-editor-radius-toggle" type="button" (click)="toggleSectionDesignRadius()"><i class="ti" [class.ti-adjustments-horizontal]="sectionDesignRadiusUsesTheme" [class.ti-rotate-2]="!sectionDesignRadiusUsesTheme"></i><span>{{ sectionDesignRadiusUsesTheme ? 'Personalizar radio' : 'Usar radio del tema' }}</span></button>
                 </label>
-                @if (uploadingMedia) {
-                  <div class="visual-editor-upload-progress" aria-live="polite">
-                    <div class="visual-editor-upload-progress__bar" [style.width.%]="mediaUploadProgress"></div>
-                    <span>{{ mediaUploadProgress ? mediaUploadProgress + '%' : 'Preparando...' }}</span>
-                  </div>
-                }
-                @if (mediaAssets.length) {
-                  <div class="visual-editor-media-grid" aria-label="Imágenes disponibles">
-                    @for (asset of mediaAssets; track asset.id) {
-                      <button type="button" class="visual-editor-media-tile" (click)="useMediaAsset(asset.url)" [title]="'Usar ' + asset.original_filename">
-                        <img [src]="mediaAssetPreviewUrl(asset.url)" [alt]="asset.alt_text || asset.original_filename" loading="lazy" />
-                        <span>{{ asset.original_filename }}</span>
-                      </button>
-                    }
-                  </div>
-                } @else {
-                  <p class="visual-editor-help">Sube una imagen para reutilizarla en este storefront. El archivo queda aislado de las demás empresas.</p>
-                }
+              </div>
+
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field">
+                  <span>Fondo</span>
+                  <select class="form-select" [ngModel]="sectionDesignBackground" (ngModelChange)="setSectionDesignBackground($event)">
+                    <option value="theme">Predeterminado</option>
+                    <option value="surface">Superficie suave</option>
+                    <option value="primary">Color principal</option>
+                    <option value="accent">Color de acento</option>
+                    <option value="custom">Elegir color</option>
+                  </select>
+                </label>
+                <label class="visual-editor-field">
+                  <span>Texto</span>
+                  <select class="form-select" [ngModel]="sectionDesignText" (ngModelChange)="setSectionDesignText($event)">
+                    <option value="theme">Predeterminado</option>
+                    <option value="inverse">Claro</option>
+                    <option value="custom">Elegir color</option>
+                  </select>
+                </label>
+              </div>
+
+              @if (sectionDesignBackground === 'custom') {
+                <label class="visual-editor-field visual-editor-color-field"><span>Color de fondo</span><span class="visual-editor-color-control"><input class="form-control form-control-color" type="color" [ngModel]="sectionDesignBackgroundColor" (ngModelChange)="setSectionDesignBackgroundColor($event)" aria-label="Elegir color de fondo" /><code>{{ sectionDesignBackgroundColor }}</code></span></label>
+              }
+              @if (sectionDesignText === 'custom') {
+                <label class="visual-editor-field visual-editor-color-field"><span>Color del texto</span><span class="visual-editor-color-control"><input class="form-control form-control-color" type="color" [ngModel]="sectionDesignTextColor" (ngModelChange)="setSectionDesignTextColor($event)" aria-label="Elegir color del texto" /><code>{{ sectionDesignTextColor }}</code></span></label>
+              }
+
+              <label class="visual-editor-field">
+                <span>Sombra</span>
+                <select class="form-select" [ngModel]="sectionDesignShadow" (ngModelChange)="setSectionDesignShadow($event)">
+                  <option value="none">Sin sombra</option>
+                  <option value="soft">Sutil</option>
+                  <option value="lifted">Elevada</option>
+                </select>
+              </label>
+
+              <div class="visual-editor-design-toggle">
+                <div><strong>Ocultar en móvil</strong><small>Útil para bloques que solo necesitas en pantallas grandes.</small></div>
+                <label class="visual-editor-switch"><input type="checkbox" [checked]="sectionDesignHideMobile" (change)="toggleSectionDesignHideMobile($event)" aria-label="Ocultar sección en móvil" /><span></span></label>
+              </div>
+
+              <button class="visual-editor-reset-design" type="button" (click)="resetSectionDesign()"><i class="ti ti-rotate-2"></i><span>Restaurar diseño del tema</span></button>
+            </div>
+
+            @if (showMediaLibrary) {
+              <div class="visual-editor-inspector-section visual-editor-media-library">
+                <div class="visual-editor-field-heading"><strong>Multimedia</strong><span>{{ mediaAssets.length }} disponibles</span></div>
+                <button class="visual-editor-media-library-trigger" type="button" (click)="openMediaPicker(mediaTarget)"><i class="ti ti-photo"></i><span>Abrir biblioteca multimedia</span><i class="ti ti-chevron-right"></i></button>
               </div>
             }
 
             @switch (selectedSection.type) {
               @case ('hero') {
                 <div class="visual-editor-inspector-section">
-                  <div class="visual-editor-field-heading"><strong>Mensaje principal</strong><span>Hero</span></div>
+                  <div class="visual-editor-field-heading"><strong>Diapositivas del hero</strong><span>{{ heroSlides.length }}/6</span></div>
+                  @for (slide of heroSlides; track slide.id; let i = $index) {
+                    <div
+                      class="visual-editor-repeat-card mb-2"
+                      [class.border-primary]="selectedHeroSlideIndex === i"
+                      [class.bg-light]="selectedHeroSlideIndex === i"
+                      (click)="selectHeroSlide(i)"
+                    >
+                      <div class="visual-editor-repeat-card__top">
+                        <div>
+                          <strong>Diapositiva {{ i + 1 }}</strong>
+                          <small class="d-block text-muted">{{ slide.image ? 'Imagen configurada' : 'Sin imagen' }}</small>
+                          <div class="d-flex align-items-center gap-2 mt-1" (click)="$event.stopPropagation()">
+                            <label class="visual-editor-switch visual-editor-switch--small mb-0">
+                              <input type="checkbox" [checked]="slide.enabled !== false" (change)="toggleHeroSlide(i, $event)" [attr.aria-label]="'Mostrar diapositiva ' + (i + 1)" />
+                              <span></span>
+                            </label>
+                            <small class="text-muted">{{ slide.enabled === false ? 'Oculta' : 'Visible' }}</small>
+                          </div>
+                        </div>
+                        <div class="d-flex gap-1">
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="i === 0" (click)="$event.stopPropagation(); moveHeroSlide(i, -1)" aria-label="Subir diapositiva" title="Subir">↑</button>
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="i === heroSlides.length - 1" (click)="$event.stopPropagation(); moveHeroSlide(i, 1)" aria-label="Bajar diapositiva" title="Bajar">↓</button>
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="!canAddHeroSlide" (click)="$event.stopPropagation(); duplicateHeroSlide(i)" aria-label="Duplicar diapositiva" title="Duplicar">＋</button>
+                          <button class="btn btn-link btn-sm py-0 px-1 text-danger" type="button" (click)="$event.stopPropagation(); removeHeroSlide(i)" aria-label="Eliminar diapositiva" title="Eliminar">×</button>
+                        </div>
+                      </div>
+                      <p class="mb-0 text-truncate small">{{ slide.title || 'Sin título todavía' }}</p>
+                    </div>
+                  }
+                  <button class="visual-editor-add-line" type="button" (click)="addHeroSlide()" [disabled]="!canAddHeroSlide"><span>+</span> {{ canAddHeroSlide ? 'Añadir diapositiva' : 'Máximo de 6 diapositivas' }}</button>
+                </div>
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Mensaje principal</strong><span>Diapositiva {{ selectedHeroSlideIndex + 1 }}</span></div>
                   @if (!firstHeroSlide) {
                     <div class="visual-editor-inline-empty"><span>✦</span><p>Agrega el primer mensaje para personalizar el bloque superior.</p><button class="btn btn-sm btn-outline-primary" type="button" (click)="ensureHeroSlide(); markDirty()">Crear mensaje</button></div>
                   } @else {
@@ -234,7 +486,7 @@
                        <label class="visual-editor-field"><span>Texto del botón</span><input class="form-control" [ngModel]="heroButtonLabel" (ngModelChange)="heroButtonLabel = $event; markDirty()" /></label>
                        <label class="visual-editor-field"><span>Enlace interno o URL</span><input class="form-control" list="visual-editor-internal-links" [ngModel]="heroButtonLink" (ngModelChange)="heroButtonLink = $event; markDirty()" placeholder="/products" /></label>
                     </div>
-                    <label class="visual-editor-field"><span>Imagen o ruta pública</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="heroImage" (ngModelChange)="heroImage = $event; markDirty()" placeholder="https://..." /></label>
+                    <div class="visual-editor-field"><span>Imagen o ruta pública</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="heroImage" (ngModelChange)="heroImage = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker(heroSlideMediaTarget(selectedHeroSlideIndex))" aria-label="Elegir imagen del hero desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
                     <div class="visual-editor-field-grid visual-editor-field-grid--colors">
                       <label class="visual-editor-field"><span>Color del texto</span><input class="form-control form-control-color" type="color" [ngModel]="firstHeroSlide.text_color" (ngModelChange)="firstHeroSlide.text_color = $event; markDirty()" title="Color del texto" /></label>
                       <label class="visual-editor-field"><span>Color del botón</span><input class="form-control form-control-color" type="color" [ngModel]="firstHeroSlide.button_color" (ngModelChange)="firstHeroSlide.button_color = $event; markDirty()" title="Color del botón" /></label>
@@ -253,8 +505,39 @@
                   } @else {
                     <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="promoTitle" (ngModelChange)="promoTitle = $event; markDirty()" /></label>
                     <label class="visual-editor-field"><span>Etiqueta de oferta</span><input class="form-control" [ngModel]="promoOfferLabel" (ngModelChange)="promoOfferLabel = $event; markDirty()" /></label>
-                    <label class="visual-editor-field"><span>Imagen</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="promoImage" (ngModelChange)="promoImage = $event; markDirty()" placeholder="https://..." /></label>
+                    <div class="visual-editor-field"><span>Imagen</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="promoImage" (ngModelChange)="promoImage = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('hero_promo')" aria-label="Elegir imagen promocional desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
+                 }
+               </div>
+                <div class="visual-editor-inspector-section">
+                  <div class="visual-editor-field-heading"><strong>Beneficios de la tienda</strong><span>{{ featuresForEditing.length }}/4</span></div>
+                  @for (feature of featuresForEditing; track feature.id; let i = $index) {
+                    <div class="visual-editor-repeat-card mb-2" [class.bg-light]="feature.enabled === false">
+                      <div class="visual-editor-repeat-card__top">
+                        <div>
+                          <strong>Beneficio {{ i + 1 }}</strong>
+                          <small class="d-block text-muted">{{ feature.enabled === false ? 'Oculto' : 'Visible' }}</small>
+                        </div>
+                        <div class="d-flex gap-1">
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="i === 0" (click)="moveFeature(i, -1)" aria-label="Subir beneficio" title="Subir">↑</button>
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="i === featuresForEditing.length - 1" (click)="moveFeature(i, 1)" aria-label="Bajar beneficio" title="Bajar">↓</button>
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="!canAddFeature" (click)="duplicateFeature(i)" aria-label="Duplicar beneficio" title="Duplicar">＋</button>
+                          <button class="btn btn-link btn-sm py-0 px-1 text-danger" type="button" (click)="removeFeature(i)" aria-label="Eliminar beneficio" title="Eliminar">×</button>
+                        </div>
+                      </div>
+                      <div class="d-flex align-items-center gap-2 mb-2">
+                        <label class="visual-editor-switch visual-editor-switch--small mb-0">
+                          <input type="checkbox" [checked]="feature.enabled !== false" (change)="toggleFeature(i, $event)" [attr.aria-label]="'Mostrar beneficio ' + (i + 1)" />
+                          <span></span>
+                        </label>
+                        <small class="text-muted">Mostrar en el hero</small>
+                      </div>
+                      <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="feature.title" (ngModelChange)="feature.title = $event; markDirty()" /></label>
+                      <label class="visual-editor-field"><span>Descripción</span><input class="form-control" [ngModel]="feature.description || ''" (ngModelChange)="feature.description = $event; markDirty()" /></label>
+                      <div class="visual-editor-field"><span>Icono</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="feature.image || ''" (ngModelChange)="feature.image = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker(featureMediaTarget(i))" aria-label="Elegir icono desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
+                    </div>
                   }
+                  <button class="visual-editor-add-line" type="button" (click)="addFeature()" [disabled]="!canAddFeature"><span>+</span> {{ canAddFeature ? 'Añadir beneficio' : 'Máximo de 4 beneficios' }}</button>
+                  <p class="visual-editor-help">Estos elementos aparecen debajo del hero. Puedes ocultarlos sin borrar su contenido.</p>
                 </div>
               }
               @case ('categories') {
@@ -312,18 +595,36 @@
               }
               @case ('promo_banners') {
                 <div class="visual-editor-inspector-section">
-                  <div class="visual-editor-field-heading"><strong>Banners editoriales</strong><span>{{ promoBanners.length }} activos</span></div>
+                  <div class="visual-editor-field-heading"><strong>Banners editoriales</strong><span>{{ promoBanners.length }}/3</span></div>
                   @for (banner of promoBanners; track banner.id; let i = $index) {
-                    <div class="visual-editor-repeat-card">
-                      <div class="visual-editor-repeat-card__top"><strong>Banner {{ i + 1 }}</strong><button type="button" class="visual-editor-repeat-remove" (click)="removePromoBanner(i)">Eliminar</button></div>
+                    <div class="visual-editor-repeat-card" [class.bg-light]="banner.enabled === false">
+                      <div class="visual-editor-repeat-card__top">
+                        <div>
+                          <strong>Banner {{ i + 1 }}</strong>
+                          <small class="d-block text-muted">{{ banner.enabled === false ? 'Oculto' : 'Visible' }}</small>
+                        </div>
+                        <div class="d-flex gap-1">
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="i === 0" (click)="movePromoBanner(i, -1)" aria-label="Subir banner" title="Subir">↑</button>
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="i === promoBanners.length - 1" (click)="movePromoBanner(i, 1)" aria-label="Bajar banner" title="Bajar">↓</button>
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="!canAddPromoBanner" (click)="duplicatePromoBanner(i)" aria-label="Duplicar banner" title="Duplicar">＋</button>
+                          <button class="btn btn-link btn-sm py-0 px-1 text-danger" type="button" (click)="removePromoBanner(i)" aria-label="Eliminar banner" title="Eliminar">×</button>
+                        </div>
+                      </div>
+                      <div class="d-flex align-items-center gap-2 mb-2">
+                        <label class="visual-editor-switch visual-editor-switch--small mb-0">
+                          <input type="checkbox" [checked]="banner.enabled !== false" (change)="togglePromoBanner(i, $event)" [attr.aria-label]="'Mostrar banner ' + (i + 1)" />
+                          <span></span>
+                        </label>
+                        <small class="text-muted">Mostrar en la tienda</small>
+                      </div>
                       <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="banner.title" (ngModelChange)="banner.title = $event; markDirty()" /></label>
                       <label class="visual-editor-field"><span>Subtítulo</span><input class="form-control" [ngModel]="banner.subtitle || ''" (ngModelChange)="banner.subtitle = $event; markDirty()" /></label>
                       <div class="visual-editor-field-grid"><label class="visual-editor-field"><span>Botón</span><input class="form-control" [ngModel]="banner.cta_label || ''" (ngModelChange)="banner.cta_label = $event; markDirty()" /></label><label class="visual-editor-field"><span>Enlace interno o URL</span><input class="form-control" list="visual-editor-internal-links" [ngModel]="banner.cta_href || '/products'" (ngModelChange)="banner.cta_href = $event; markDirty()" /></label></div>
-                      <label class="visual-editor-field"><span>Imagen</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="banner.image_url || ''" (ngModelChange)="banner.image_url = $event; markDirty()" placeholder="https://..." /></label>
+                      <div class="visual-editor-field"><span>Imagen</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="banner.image_url || ''" (ngModelChange)="banner.image_url = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker(bannerMediaTarget(i))" aria-label="Elegir imagen del banner desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
                       <div class="visual-editor-field-grid visual-editor-field-grid--colors"><label class="visual-editor-field"><span>Color de fondo</span><input class="form-control form-control-color" type="color" [ngModel]="banner.background_color || '#DDE6DE'" (ngModelChange)="banner.background_color = $event; markDirty()" /></label><label class="visual-editor-field"><span>Color de acento</span><input class="form-control form-control-color" type="color" [ngModel]="banner.accent_color || '#17233F'" (ngModelChange)="banner.accent_color = $event; markDirty()" /></label></div>
                     </div>
                   }
-                  <button class="visual-editor-add-line" type="button" (click)="addPromoBanner()"><span>+</span> Añadir banner</button>
+                  <button class="visual-editor-add-line" type="button" (click)="addPromoBanner()" [disabled]="!canAddPromoBanner"><span>+</span> {{ canAddPromoBanner ? 'Añadir banner' : 'Máximo de 3 banners' }}</button>
                 </div>
               }
               @case ('countdown') {
@@ -334,8 +635,8 @@
                   <label class="visual-editor-field"><span>Descripción</span><textarea class="form-control" rows="2" [ngModel]="countdown.description" (ngModelChange)="countdown.description = $event; markDirty()"></textarea></label>
                   <label class="visual-editor-field"><span>Fecha de finalización</span><input class="form-control" type="datetime-local" [ngModel]="countdown.deadline" (ngModelChange)="countdown.deadline = $event; markDirty()" /></label>
                   <label class="visual-editor-field"><span>Color de fondo</span><input class="form-control form-control-color" type="color" [ngModel]="countdown.background_color" (ngModelChange)="countdown.background_color = $event; markDirty()" /></label>
-                  <label class="visual-editor-field"><span>Imagen decorativa de fondo</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="countdown.background_image_url" (ngModelChange)="countdown.background_image_url = $event; markDirty()" placeholder="Selecciona una imagen o pega una ruta" /></label>
-                  <label class="visual-editor-field"><span>Imagen del producto</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="countdown.product_image_url" (ngModelChange)="countdown.product_image_url = $event; markDirty()" placeholder="Selecciona una imagen o pega una ruta" /></label>
+                  <div class="visual-editor-field"><span>Imagen decorativa de fondo</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="countdown.background_image_url" (ngModelChange)="countdown.background_image_url = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('countdown_background')" aria-label="Elegir fondo desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
+                  <div class="visual-editor-field"><span>Imagen del producto</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="countdown.product_image_url" (ngModelChange)="countdown.product_image_url = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('countdown_product')" aria-label="Elegir producto desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
                 </div>
               }
               @case ('newsletter') {
@@ -344,23 +645,98 @@
                   <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="newsletter.title" (ngModelChange)="newsletter.title = $event; markDirty()" /></label>
                   <label class="visual-editor-field"><span>Descripción</span><textarea class="form-control" rows="2" [ngModel]="newsletter.description" (ngModelChange)="newsletter.description = $event; markDirty()"></textarea></label>
                   <div class="visual-editor-field-grid"><label class="visual-editor-field"><span>Placeholder</span><input class="form-control" [ngModel]="newsletter.placeholder" (ngModelChange)="newsletter.placeholder = $event; markDirty()" /></label><label class="visual-editor-field"><span>Botón</span><input class="form-control" [ngModel]="newsletter.button_label" (ngModelChange)="newsletter.button_label = $event; markDirty()" /></label></div>
-                  <label class="visual-editor-field"><span>Imagen de fondo</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="newsletter.background_image_url" (ngModelChange)="newsletter.background_image_url = $event; markDirty()" placeholder="Selecciona una imagen o pega una ruta" /></label>
+                  <div class="visual-editor-field"><span>Imagen de fondo</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="newsletter.background_image_url" (ngModelChange)="newsletter.background_image_url = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('newsletter_background')" aria-label="Elegir fondo del newsletter desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
                 </div>
               }
               @case ('testimonials') {
                 <div class="visual-editor-inspector-section">
-                  <div class="visual-editor-field-heading"><strong>Prueba social</strong><span>{{ testimonials.items?.length || 0 }} reseñas</span></div>
+                  <div class="visual-editor-field-heading"><strong>Prueba social</strong><span>{{ testimonials.items?.length || 0 }}/12</span></div>
                   <label class="visual-editor-field"><span>Texto superior</span><input class="form-control" [ngModel]="testimonials.eyebrow" (ngModelChange)="testimonials.eyebrow = $event; markDirty()" /></label>
                   <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="testimonials.title" (ngModelChange)="testimonials.title = $event; markDirty()" /></label>
                   @for (item of testimonials.items || []; track item.id; let i = $index) {
-                    <div class="visual-editor-repeat-card">
-                      <div class="visual-editor-repeat-card__top"><strong>Reseña {{ i + 1 }}</strong><button type="button" class="visual-editor-repeat-remove" (click)="removeTestimonial(i)">Eliminar</button></div>
+                    <div class="visual-editor-repeat-card" [class.bg-light]="item.enabled === false">
+                      <div class="visual-editor-repeat-card__top">
+                        <div>
+                          <strong>Reseña {{ i + 1 }}</strong>
+                          <small class="d-block text-muted">{{ item.enabled === false ? 'Oculta' : 'Visible' }}</small>
+                        </div>
+                        <div class="d-flex gap-1">
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="i === 0" (click)="moveTestimonial(i, -1)" aria-label="Subir reseña" title="Subir">↑</button>
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="i === (testimonials.items?.length || 0) - 1" (click)="moveTestimonial(i, 1)" aria-label="Bajar reseña" title="Bajar">↓</button>
+                          <button class="btn btn-light btn-sm py-0 px-1" type="button" [disabled]="!canAddTestimonial" (click)="duplicateTestimonial(i)" aria-label="Duplicar reseña" title="Duplicar">＋</button>
+                          <button class="btn btn-link btn-sm py-0 px-1 text-danger" type="button" (click)="removeTestimonial(i)" aria-label="Eliminar reseña" title="Eliminar">×</button>
+                        </div>
+                      </div>
+                      <div class="d-flex align-items-center gap-2 mb-2">
+                        <label class="visual-editor-switch visual-editor-switch--small mb-0">
+                          <input type="checkbox" [checked]="item.enabled !== false" (change)="toggleTestimonial(i, $event)" [attr.aria-label]="'Mostrar reseña ' + (i + 1)" />
+                          <span></span>
+                        </label>
+                        <small class="text-muted">Mostrar en la tienda</small>
+                      </div>
                       <label class="visual-editor-field"><span>Comentario</span><textarea class="form-control" rows="2" [ngModel]="item.review" (ngModelChange)="item.review = $event; markDirty()"></textarea></label>
                       <div class="visual-editor-field-grid"><label class="visual-editor-field"><span>Nombre</span><input class="form-control" [ngModel]="item.author_name" (ngModelChange)="item.author_name = $event; markDirty()" /></label><label class="visual-editor-field"><span>Rol</span><input class="form-control" [ngModel]="item.author_role || ''" (ngModelChange)="item.author_role = $event; markDirty()" /></label></div>
-                      <label class="visual-editor-field"><span>Foto del cliente</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="item.author_image || ''" (ngModelChange)="item.author_image = $event; markDirty()" placeholder="Selecciona una imagen o pega una ruta" /></label>
+                      <div class="visual-editor-field"><span>Foto del cliente</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="item.author_image || ''" (ngModelChange)="item.author_image = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker(testimonialMediaTarget(i))" aria-label="Elegir foto del cliente desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
                     </div>
                   }
-                  <button class="visual-editor-add-line" type="button" (click)="addTestimonial()"><span>+</span> Añadir testimonio</button>
+                  <button class="visual-editor-add-line" type="button" (click)="addTestimonial()" [disabled]="!canAddTestimonial"><span>+</span> {{ canAddTestimonial ? 'Añadir testimonio' : 'Máximo de 12 testimonios' }}</button>
+                </div>
+              }
+              @case ('custom_embed') {
+                <div class="visual-editor-inspector-section visual-editor-custom-code">
+                  <div class="visual-editor-field-heading"><strong>Contenido personalizado</strong><span>Flexible</span></div>
+                  <p class="visual-editor-help">Añade un bloque especial a tu tienda sin cambiar las demás secciones.</p>
+
+                  <label class="visual-editor-field">
+                    <span>Tipo de contenido</span>
+                    <select class="form-select" [ngModel]="customEmbedMode" (ngModelChange)="setCustomEmbedMode($event)">
+                      <option value="html">Contenido HTML</option>
+                      <option value="iframe">Contenido integrado</option>
+                    </select>
+                  </label>
+
+                  @if (customEmbedMode === 'html') {
+                    <label class="visual-editor-field">
+                      <span>Contenido</span>
+                      <textarea class="form-control visual-editor-code-input" rows="9" [ngModel]="customEmbedContent" (ngModelChange)="setCustomEmbedContent($event)" placeholder="<div><h2>Una experiencia diferente</h2><p>Escribe tu contenido aquí.</p></div>"></textarea>
+                    </label>
+                    <p class="visual-editor-help">Puedes usar títulos, párrafos, enlaces e imágenes. Por seguridad se retiran scripts, formularios, estilos y eventos.</p>
+                  } @else {
+                    <label class="visual-editor-field">
+                      <span>Enlace del contenido</span>
+                      <input type="url" class="form-control" [ngModel]="customEmbedIframeUrl" (ngModelChange)="setCustomEmbedIframeUrl($event)" placeholder="https://" />
+                    </label>
+                    <label class="visual-editor-field">
+                      <span>Nombre del contenido</span>
+                      <input type="text" class="form-control" [ngModel]="customEmbedIframeTitle" (ngModelChange)="setCustomEmbedIframeTitle($event)" placeholder="Contenido integrado" maxlength="120" />
+                    </label>
+                    <label class="visual-editor-field">
+                      <span>Altura de la ventana</span>
+                      <input type="range" class="form-range" min="240" max="900" step="10" [ngModel]="customEmbedHeight" (ngModelChange)="setCustomEmbedHeight($event)" />
+                      <small class="visual-editor-range-value">{{ customEmbedHeight }} px</small>
+                    </label>
+                    <p class="visual-editor-help">Pega el enlace de inserción que te entrega el servicio que quieres mostrar, como un video, mapa o formulario.</p>
+                  }
+
+                  <div class="visual-editor-field-grid">
+                    <label class="visual-editor-field">
+                      <span>Ancho</span>
+                      <select class="form-select" [ngModel]="customEmbedMaxWidth" (ngModelChange)="setCustomEmbedMaxWidth($event)">
+                        <option value="narrow">Estrecho</option>
+                        <option value="content">Contenido</option>
+                        <option value="wide">Amplio</option>
+                        <option value="full">Pantalla completa</option>
+                      </select>
+                    </label>
+                    <label class="visual-editor-field">
+                      <span>Alineación</span>
+                      <select class="form-select" [ngModel]="customEmbedAlignment" (ngModelChange)="setCustomEmbedAlignment($event)">
+                        <option value="left">Izquierda</option>
+                        <option value="center">Centro</option>
+                        <option value="right">Derecha</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
               }
               @case ('closing_cta') {
@@ -373,6 +749,7 @@
           </div>
         }
       </aside>
+      }
     </main>
 
     <datalist id="visual-editor-internal-links">
@@ -385,6 +762,72 @@
         <option [value]="asset.url">{{ asset.original_filename }}</option>
       }
     </datalist>
+
+    @if (mediaPickerOpen) {
+      <div class="visual-editor-media-modal-backdrop" (click)="closeMediaPicker()">
+        <section class="visual-editor-media-modal" role="dialog" aria-modal="true" aria-labelledby="visual-editor-media-modal-title" (click)="$event.stopPropagation()">
+          <header class="visual-editor-media-modal__header">
+            <div>
+              <span class="visual-editor-kicker">Biblioteca de {{ storefront?.name }}</span>
+              <h3 id="visual-editor-media-modal-title">Seleccionar imagen</h3>
+              <p>Se aplicará en <strong>{{ mediaPickerTarget ? mediaTargetLabel(mediaPickerTarget) : 'tu diseño' }}</strong>.</p>
+            </div>
+            <button class="visual-editor-media-modal__close" type="button" (click)="closeMediaPicker()" [disabled]="uploadingMedia" aria-label="Cerrar biblioteca multimedia" title="Cerrar"><i class="ti ti-x"></i></button>
+          </header>
+
+          <div class="visual-editor-media-modal__toolbar">
+            <label class="visual-editor-media-search"><i class="ti ti-search"></i><span class="visually-hidden">Buscar imágenes</span><input type="search" [(ngModel)]="mediaPickerSearch" placeholder="Buscar por nombre..." aria-label="Buscar imágenes por nombre" /></label>
+            <label class="visual-editor-media-modal__upload" [class.visual-editor-media-modal__upload--busy]="uploadingMedia">
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" (change)="uploadMedia($event)" [disabled]="uploadingMedia" />
+              <i class="ti ti-upload"></i><span>{{ uploadingMedia ? 'Subiendo...' : 'Subir imagen' }}</span>
+            </label>
+          </div>
+
+          @if (uploadingMedia) {
+            <div class="visual-editor-media-modal__progress" aria-live="polite">
+              <div class="visual-editor-upload-progress__bar" [style.width.%]="mediaUploadProgress"></div>
+              <span>{{ mediaUploadProgress ? mediaUploadProgress + '%' : 'Preparando...' }}</span>
+            </div>
+          }
+
+          <div class="visual-editor-media-modal__body">
+            @if (!mediaAssets.length) {
+              <div class="visual-editor-media-modal__empty">
+                <span class="visual-editor-media-modal__empty-icon"><i class="ti ti-photo"></i></span>
+                <strong>Tu biblioteca está vacía</strong>
+                <p>Sube tu primera imagen para usarla en cualquier sección.</p>
+              </div>
+            } @else if (!filteredMediaAssets.length) {
+              <div class="visual-editor-media-modal__empty">
+                <span class="visual-editor-media-modal__empty-icon"><i class="ti ti-search"></i></span>
+                <strong>No encontramos esa imagen</strong>
+                <p>Prueba con otro nombre o limpia la búsqueda.</p>
+              </div>
+            } @else {
+              <div class="visual-editor-media-modal__grid" aria-label="Imágenes disponibles">
+                @for (asset of filteredMediaAssets; track asset.id) {
+                  <article class="visual-editor-media-card">
+                    <span class="visual-editor-media-card__image">
+                      @if (mediaAssetPreviewUrl(asset)) {
+                        <img [src]="mediaAssetPreviewUrl(asset)" [alt]="asset.alt_text || asset.original_filename" loading="lazy" />
+                      } @else {
+                        <span class="visual-editor-media-card__loading"><i class="ti ti-loader"></i></span>
+                      }
+                    </span>
+                    <span class="visual-editor-media-card__info"><strong>{{ asset.original_filename }}</strong><small>{{ asset.width && asset.height ? asset.width + ' × ' + asset.height + ' px' : asset.content_type }}</small></span>
+                    <button class="visual-editor-media-card__action" type="button" (click)="selectMediaAsset(asset.url)" [title]="'Usar ' + asset.original_filename"><i class="ti ti-check"></i><span>Usar imagen</span></button>
+                  </article>
+                }
+              </div>
+            }
+          </div>
+
+          <footer class="visual-editor-media-modal__footer">
+            <button class="btn btn-light btn-sm" type="button" (click)="closeMediaPicker()" [disabled]="uploadingMedia">Cerrar</button>
+          </footer>
+        </section>
+      </div>
+    }
 
     @if (showHistory) {
       <div class="visual-editor-history-backdrop" (click)="loadHistory()"></div>

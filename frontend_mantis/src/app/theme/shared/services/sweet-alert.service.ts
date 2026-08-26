@@ -15,8 +15,8 @@ export class SweetAlertService {
             text: "¡No podrás revertir esto!",
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
+            confirmButtonColor: 'var(--bs-primary)',
+            cancelButtonColor: 'var(--bs-danger)',
             confirmButtonText: 'Sí, eliminar',
             cancelButtonText: 'Cancelar'
         }).then((result) => {
@@ -30,8 +30,8 @@ export class SweetAlertService {
             text: text,
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
+            confirmButtonColor: 'var(--bs-primary)',
+            cancelButtonColor: 'var(--bs-danger)',
             confirmButtonText: 'Sí, continuar',
             cancelButtonText: 'Cancelar'
         });

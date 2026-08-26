@@ -25,7 +25,7 @@ class StorefrontThemeContractTests(unittest.TestCase):
         self.assertEqual(normalized["legacy_home"], legacy_home)
         self.assertEqual(
             [section["type"] for section in normalized["sections"]],
-            [item["type"] for item in HOME_SECTION_REGISTRY],
+            [item["type"] for item in HOME_SECTION_REGISTRY if item["type"] != "custom_embed"],
         )
 
     def test_empty_sections_are_expanded_for_legacy_documents(self):
@@ -68,6 +68,113 @@ class StorefrontThemeContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "no permitido"):
             normalize_home_document({"template": "home", "legacy_home": {"hero_slides": [{"image": "javascript:alert(1)"}]}})
 
+    def test_custom_html_is_filtered_to_presentational_markup(self):
+        normalized = normalize_home_document(
+            {
+                "template": "home",
+                "sections": [
+                    {
+                        "id": "custom-content",
+                        "type": "custom_embed",
+                        "settings": {
+                            "mode": "html",
+                            "content": '<h2 style="color:red" onclick="alert(1)">Hola</h2><img src="javascript:alert(1)" onerror="alert(1)">',
+                        },
+                    }
+                ],
+            }
+        )
+
+        content = normalized["sections"][0]["settings"]["content"]
+        self.assertIn("<h2>Hola</h2>", content)
+        self.assertNotIn("style=", content)
+        self.assertNotIn("onclick", content)
+        self.assertNotIn("onerror", content)
+        self.assertNotIn("javascript:", content)
+
+    def test_custom_iframe_uses_safe_url_and_bounded_height(self):
+        normalized = normalize_home_document(
+            {
+                "template": "home",
+                "sections": [
+                    {
+                        "id": "custom-video",
+                        "type": "custom_embed",
+                        "settings": {
+                            "mode": "iframe",
+                            "iframe_url": "https://player.vimeo.com/video/123",
+                            "iframe_height": 5000,
+                        },
+                    }
+                ],
+            }
+        )
+
+        settings = normalized["sections"][0]["settings"]
+        self.assertEqual(settings["iframe_url"], "https://player.vimeo.com/video/123")
+        self.assertEqual(settings["iframe_height"], 900)
+        self.assertEqual(settings["iframe_title"], "Contenido integrado")
+
+        with self.assertRaisesRegex(ValueError, "no permitido"):
+            normalize_home_document(
+                {
+                    "template": "home",
+                    "sections": [
+                        {"id": "custom-video", "type": "custom_embed", "settings": {"mode": "iframe", "iframe_url": "javascript:alert(1)"}}
+                    ],
+                }
+            )
+
+    def test_custom_iframe_markup_is_rejected_in_html_mode(self):
+        with self.assertRaisesRegex(ValueError, "no permitido"):
+            normalize_home_document(
+                {
+                    "template": "home",
+                    "sections": [
+                        {
+                            "id": "custom-content",
+                            "type": "custom_embed",
+                            "settings": {"mode": "html", "content": '<iframe src="https://example.com"></iframe>'},
+                        }
+                    ],
+                }
+            )
+
+    def test_section_design_is_normalized_to_theme_tokens(self):
+        normalized = normalize_home_document(
+            {
+                "template": "home",
+                "sections": [
+                    {
+                        "id": "hero",
+                        "type": "hero",
+                        "settings": {
+                            "design": {
+                                "width": "wide",
+                                "background": "custom",
+                                "background_color": "#12AB34",
+                                "text": "custom",
+                                "text_color": "not-a-color",
+                                "radius": "round",
+                                "shadow": "lifted",
+                                "hide_mobile": True,
+                                "style": "body { display: none; }",
+                            }
+                        },
+                    }
+                ],
+            }
+        )
+
+        design = normalized["sections"][0]["settings"]["design"]
+        self.assertEqual(design["width"], "wide")
+        self.assertEqual(design["background_color"], "#12AB34")
+        self.assertEqual(design["text_color"], "#1C274C")
+        self.assertEqual(design["radius"], 30)
+        self.assertEqual(design["shadow"], "lifted")
+        self.assertTrue(design["hide_mobile"])
+        self.assertNotIn("style", design)
+
     def test_preview_url_is_built_from_platform_domain_and_storefront_subdomain(self):
         from app.api.v1.endpoints import storefront as storefront_endpoint
 
@@ -76,6 +183,17 @@ class StorefrontThemeContractTests(unittest.TestCase):
             storefront_endpoint.settings.PLATFORM_STOREFRONT_DOMAIN = "lumefy.shop"
             storefront = SimpleNamespace(id=uuid4(), subdomain="demo")
             self.assertEqual(_storefront_preview_url(storefront), "https://demo.lumefy.shop/")
+        finally:
+            storefront_endpoint.settings.PLATFORM_STOREFRONT_DOMAIN = previous_domain
+
+    def test_preview_url_uses_http_and_configured_port_for_localhost(self):
+        from app.api.v1.endpoints import storefront as storefront_endpoint
+
+        previous_domain = storefront_endpoint.settings.PLATFORM_STOREFRONT_DOMAIN
+        try:
+            storefront_endpoint.settings.PLATFORM_STOREFRONT_DOMAIN = "localhost:3001"
+            storefront = SimpleNamespace(id=uuid4(), subdomain="demo")
+            self.assertEqual(_storefront_preview_url(storefront), "http://demo.localhost:3001/")
         finally:
             storefront_endpoint.settings.PLATFORM_STOREFRONT_DOMAIN = previous_domain
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { resolveStorefront } from "@/lib/storefront-api";
 import { getStorefrontBranding } from "@/lib/storefront-branding";
+import { isTrustedPreviewMessage, previewParentOrigin } from "@/lib/preview";
 
 const socialLabels: Record<string, string> = {
   facebook: "Fb",
@@ -13,12 +14,31 @@ const socialLabels: Record<string, string> = {
   linkedin: "In",
 };
 
+function previewObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function previewColor(value: unknown, fallback: string): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return /^#[0-9a-f]{6}$/i.test(normalized) ? normalized : fallback;
+}
+
+function previewText(value: unknown, fallback: string): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return normalized || fallback;
+}
+
 const Footer = () => {
   const year = new Date().getFullYear();
   const [supportPhone, setSupportPhone] = useState("");
   const [supportEmail, setSupportEmail] = useState("");
   const [supportAddress, setSupportAddress] = useState("");
   const [footerText, setFooterText] = useState("Todos los derechos reservados.");
+  const [footerBackgroundColor, setFooterBackgroundColor] = useState("#FFFFFF");
+  const [footerTextColor, setFooterTextColor] = useState("#1C274C");
+  const [footerBottomBackgroundColor, setFooterBottomBackgroundColor] = useState("#F3F4F6");
   const [socialLinks, setSocialLinks] = useState<Array<{ key: string; href: string }>>([]);
   const [helpTitle, setHelpTitle] = useState("Ayuda y contacto");
   const [accountTitle, setAccountTitle] = useState("Cuenta");
@@ -40,6 +60,9 @@ const Footer = () => {
   const [paymentMethods, setPaymentMethods] = useState<
     Array<{ label: string; href?: string; iconUrl?: string }>
   >([]);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedPreviewArea, setSelectedPreviewArea] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -57,6 +80,9 @@ const Footer = () => {
         setSupportEmail(branding.supportEmail);
         setSupportAddress(branding.supportAddress);
         setFooterText(branding.footerText);
+        setFooterBackgroundColor(branding.footer.backgroundColor);
+        setFooterTextColor(branding.footer.textColor);
+        setFooterBottomBackgroundColor(branding.footer.bottomBackgroundColor);
         setSocialLinks(branding.socialLinks);
         setHelpTitle(branding.footer.helpTitle);
         setAccountTitle(branding.footer.accountTitle);
@@ -88,8 +114,111 @@ const Footer = () => {
     };
   }, []);
 
+  useEffect(() => {
+    setPreviewMode(window.parent !== window);
+    const handlePreviewMessage = (event: MessageEvent) => {
+      if (!isTrustedPreviewMessage(event)) return;
+      const message = event.data;
+      if (!message || message.type !== "lumefy:preview:apply" || message.template !== "home") return;
+
+      const document = previewObject(message.document);
+      const settings = previewObject(document["settings"]);
+      const footer = previewObject(settings["footer"]);
+      setPreviewMode(true);
+
+      if (typeof message.selectionMode === "boolean") {
+        setSelectionMode(message.selectionMode);
+      }
+      if ("selectedGlobalArea" in message) {
+        setSelectedPreviewArea(
+          message.selectedGlobalArea === "header" || message.selectedGlobalArea === "footer"
+            ? message.selectedGlobalArea
+            : "",
+        );
+      }
+
+      if (typeof footer["footer_text"] === "string") {
+        const nextFooterText = footer["footer_text"].trim();
+        setFooterText(nextFooterText.slice(0, 240));
+      }
+      if ("help_title" in footer) {
+        setHelpTitle(previewText(footer["help_title"], "Ayuda y contacto"));
+      }
+      if ("account_title" in footer) {
+        setAccountTitle(previewText(footer["account_title"], "Cuenta"));
+      }
+      if ("quick_links_title" in footer) {
+        setQuickLinksTitle(previewText(footer["quick_links_title"], "Enlaces"));
+      }
+      if ("payment_title" in footer) {
+        setPaymentTitle(previewText(footer["payment_title"], "Medios de pago:"));
+      }
+      if (typeof footer["support_phone"] === "string") {
+        setSupportPhone(footer["support_phone"].trim().slice(0, 80));
+      }
+      if (typeof footer["support_email"] === "string") {
+        setSupportEmail(footer["support_email"].trim().slice(0, 160));
+      }
+      if (typeof footer["support_address"] === "string") {
+        setSupportAddress(footer["support_address"].trim().slice(0, 180));
+      }
+      if ("show_social_links" in footer && typeof footer["show_social_links"] === "boolean") {
+        setShowSocialLinks(footer["show_social_links"] === true);
+      }
+      if ("social_links" in footer) {
+        const social = previewObject(footer["social_links"]);
+        setSocialLinks(
+          (["facebook", "twitter", "instagram", "linkedin"] as const)
+            .map((key) => {
+              const value = social[key];
+              return typeof value === "string" && value.trim()
+                ? { key, href: value.trim() }
+                : null;
+            })
+            .filter(
+              (item): item is {
+                key: "facebook" | "twitter" | "instagram" | "linkedin";
+                href: string;
+              } => Boolean(item),
+            ),
+        );
+      }
+      if ("background_color" in footer) {
+        setFooterBackgroundColor(previewColor(footer["background_color"], "#FFFFFF"));
+      }
+      if ("text_color" in footer) {
+        setFooterTextColor(previewColor(footer["text_color"], "#1C274C"));
+      }
+      if ("bottom_background_color" in footer) {
+        setFooterBottomBackgroundColor(previewColor(footer["bottom_background_color"], "#F3F4F6"));
+      }
+    };
+
+    window.addEventListener("message", handlePreviewMessage);
+    return () => window.removeEventListener("message", handlePreviewMessage);
+  }, []);
+
+  const selectPreviewArea = (event: React.MouseEvent<HTMLElement>, area: "header" | "footer") => {
+    if (!previewMode || !selectionMode) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.parent.postMessage(
+      { type: "lumefy:preview:select", area },
+      previewParentOrigin() || "*",
+    );
+  };
+
   return (
-    <footer className="overflow-hidden">
+    <footer
+      onClickCapture={(event) => selectPreviewArea(event, "footer")}
+      className={`storefront-footer overflow-hidden ${previewMode && selectionMode ? "lumefy-preview-global--selectable" : ""} ${selectedPreviewArea === "footer" ? "lumefy-preview-global--selected" : ""}`}
+      data-lumefy-preview-area="footer"
+      style={{
+        backgroundColor: footerBackgroundColor,
+        color: footerTextColor,
+        "--storefront-footer-text": footerTextColor,
+      } as React.CSSProperties}
+    >
       <div className="max-w-[1170px] mx-auto px-4 sm:px-8 xl:px-0">
         <div className="flex flex-wrap xl:flex-nowrap gap-10 xl:gap-19 xl:justify-between pt-17.5 xl:pt-22.5 pb-10 xl:pb-15">
           <div className="max-w-[330px] w-full">
@@ -206,7 +335,10 @@ const Footer = () => {
         </div>
       </div>
 
-      <div className="py-5 xl:py-7.5 bg-gray-1">
+      <div
+        className="py-5 xl:py-7.5 bg-gray-1"
+        style={{ backgroundColor: footerBottomBackgroundColor }}
+      >
         <div className="max-w-[1170px] mx-auto px-4 sm:px-8 xl:px-0">
           <div className="flex gap-5 flex-wrap items-center justify-between">
             <p className="text-dark font-medium">

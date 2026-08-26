@@ -15,11 +15,42 @@ import {
   resolveStorefront,
 } from "@/lib/storefront-api";
 import { buildHeaderMenu } from "@/lib/navigation";
-import { getStorefrontBranding } from "@/lib/storefront-branding";
+import { getStorefrontBranding, getStorefrontThemeStyles } from "@/lib/storefront-branding";
+import { storefrontImageUrl } from "@/lib/storefront-image";
+import { isTrustedPreviewMessage, previewParentOrigin } from "@/lib/preview";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
 import { Menu } from "@/types/Menu";
 import SearchModal from "./SearchModal";
+
+function previewObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function previewColor(value: unknown, fallback: string): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return /^#[0-9a-f]{6}$/i.test(normalized) ? normalized : fallback;
+}
+
+function previewText(value: unknown, fallback: string): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return normalized || fallback;
+}
+
+function previewHref(value: unknown): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return /^\/(?!\/)/.test(normalized) || /^https?:\/\//i.test(normalized)
+    ? normalized
+    : "";
+}
+
+function previewImage(value: unknown): string | undefined {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  if (!/^\/(?!\/)/.test(normalized) && !/^https?:\/\//i.test(normalized)) return undefined;
+  return storefrontImageUrl(normalized);
+}
 
 const Header = () => {
   const router = useRouter();
@@ -31,6 +62,17 @@ const Header = () => {
   const [stickyMenu, setStickyMenu] = useState(false);
   const [menuItems, setMenuItems] = useState<Menu[]>(menuData);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  const [mobileLogoUrl, setMobileLogoUrl] = useState<string | undefined>(undefined);
+  const [logoAlt, setLogoAlt] = useState("Lumefy");
+  const [navigationStyle, setNavigationStyle] = useState<"standard" | "minimal">("standard");
+  const [navigationVariant, setNavigationVariant] = useState<"underline" | "pill" | "plain">("underline");
+  const [announcementEnabled, setAnnouncementEnabled] = useState(false);
+  const [announcementText, setAnnouncementText] = useState("");
+  const [announcementHref, setAnnouncementHref] = useState("");
+  const [announcementBackgroundColor, setAnnouncementBackgroundColor] = useState("#1C274C");
+  const [announcementTextColor, setAnnouncementTextColor] = useState("#FFFFFF");
+  const [headerBackgroundColor, setHeaderBackgroundColor] = useState("#FFFFFF");
+  const [headerTextColor, setHeaderTextColor] = useState("#1C274C");
   const [searchPlaceholder, setSearchPlaceholder] = useState("Buscar productos...");
   const [accountHeading, setAccountHeading] = useState("cuenta");
   const [guestAccountLabel, setGuestAccountLabel] = useState("Ingresar");
@@ -38,6 +80,9 @@ const Header = () => {
   const [cartHeading, setCartHeading] = useState("carrito");
   const [recentlyViewedLabel, setRecentlyViewedLabel] = useState("Vistos recientemente");
   const [wishlistLabel, setWishlistLabel] = useState("Favoritos");
+  const [previewMode, setPreviewMode] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedPreviewArea, setSelectedPreviewArea] = useState("");
   const { openCartModal } = useCartModalContext();
   const { session, signOut } = useStorefrontAuth();
   const { format } = useStorefrontCurrency();
@@ -135,6 +180,18 @@ const Header = () => {
         }
 
         setLogoUrl(branding.logoUrl);
+        setMobileLogoUrl(branding.mobileLogoUrl);
+        setLogoAlt(branding.logoAlt);
+        const themeStyles = getStorefrontThemeStyles(storefront);
+        setNavigationStyle(themeStyles.navigationStyle);
+        setNavigationVariant(themeStyles.navigationVariant);
+        setAnnouncementEnabled(branding.announcement.enabled);
+        setAnnouncementText(branding.announcement.text);
+        setAnnouncementHref(branding.announcement.href || "");
+        setAnnouncementBackgroundColor(branding.announcement.backgroundColor);
+        setAnnouncementTextColor(branding.announcement.textColor);
+        setHeaderBackgroundColor(branding.header.backgroundColor);
+        setHeaderTextColor(branding.header.textColor);
         setSearchPlaceholder(branding.header.searchPlaceholder);
         setAccountHeading(branding.header.accountHeading);
         setGuestAccountLabel(branding.header.guestAccountLabel);
@@ -160,6 +217,110 @@ const Header = () => {
     };
   }, []);
 
+  useEffect(() => {
+    setPreviewMode(window.parent !== window);
+    const handlePreviewMessage = (event: MessageEvent) => {
+      if (!isTrustedPreviewMessage(event)) return;
+      const message = event.data;
+      if (!message || message.type !== "lumefy:preview:apply" || message.template !== "home") return;
+      setPreviewMode(true);
+
+      const document = previewObject(message.document);
+      const settings = previewObject(document["settings"]);
+      const identity = previewObject(settings["branding"]);
+      const styles = previewObject(settings["styles"]);
+      const announcement = previewObject(settings["announcement"]);
+      const header = previewObject(settings["header"]);
+
+      if (typeof message.selectionMode === "boolean") {
+        setSelectionMode(message.selectionMode);
+      }
+      if ("selectedGlobalArea" in message) {
+        setSelectedPreviewArea(
+          message.selectedGlobalArea === "header" || message.selectedGlobalArea === "footer"
+            ? message.selectedGlobalArea
+            : "",
+        );
+      }
+
+      if ("logo_url" in identity) {
+        setLogoUrl(previewImage(identity["logo_url"]));
+      }
+      if ("mobile_logo_url" in identity) {
+        setMobileLogoUrl(previewImage(identity["mobile_logo_url"]));
+      }
+      if ("logo_alt" in identity) {
+        setLogoAlt(previewText(identity["logo_alt"], "Tienda online"));
+      }
+      if ("navigation_style" in styles) {
+        setNavigationStyle(styles["navigation_style"] === "minimal" ? "minimal" : "standard");
+      }
+      if ("navigation_variant" in styles) {
+        setNavigationVariant(
+          styles["navigation_variant"] === "pill" || styles["navigation_variant"] === "plain"
+            ? styles["navigation_variant"]
+            : "underline",
+        );
+      }
+
+      if (typeof announcement["enabled"] === "boolean") {
+        setAnnouncementEnabled(announcement["enabled"] === true);
+      }
+      if (typeof announcement["text"] === "string") {
+        setAnnouncementText(announcement["text"].trim().slice(0, 240));
+      }
+      if ("href" in announcement) {
+        setAnnouncementHref(previewHref(announcement["href"]));
+      }
+      if ("background_color" in announcement) {
+        setAnnouncementBackgroundColor(previewColor(announcement["background_color"], "#1C274C"));
+      }
+      if ("text_color" in announcement) {
+        setAnnouncementTextColor(previewColor(announcement["text_color"], "#FFFFFF"));
+      }
+      if ("background_color" in header) {
+        setHeaderBackgroundColor(previewColor(header["background_color"], "#FFFFFF"));
+      }
+      if ("text_color" in header) {
+        setHeaderTextColor(previewColor(header["text_color"], "#1C274C"));
+      }
+      if ("search_placeholder" in header) {
+        setSearchPlaceholder(previewText(header["search_placeholder"], "Buscar productos..."));
+      }
+      if ("account_heading" in header) {
+        setAccountHeading(previewText(header["account_heading"], "cuenta"));
+      }
+      if ("guest_account_label" in header) {
+        setGuestAccountLabel(previewText(header["guest_account_label"], "Ingresar"));
+      }
+      if ("sign_out_label" in header) {
+        setSignOutLabel(previewText(header["sign_out_label"], "Cerrar sesión"));
+      }
+      if ("cart_heading" in header) {
+        setCartHeading(previewText(header["cart_heading"], "carrito"));
+      }
+      if ("recently_viewed_label" in header) {
+        setRecentlyViewedLabel(previewText(header["recently_viewed_label"], "Vistos recientemente"));
+      }
+      if ("wishlist_label" in header) {
+        setWishlistLabel(previewText(header["wishlist_label"], "Favoritos"));
+      }
+    };
+
+    window.addEventListener("message", handlePreviewMessage);
+    return () => window.removeEventListener("message", handlePreviewMessage);
+  }, []);
+
+  const selectPreviewArea = (event: React.MouseEvent<HTMLElement>, area: "header" | "footer") => {
+    if (!previewMode || !selectionMode) return;
+    event.preventDefault();
+    event.stopPropagation();
+    window.parent.postMessage(
+      { type: "lumefy:preview:select", area },
+      previewParentOrigin() || "*",
+    );
+  };
+
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const params = new URLSearchParams();
@@ -184,10 +345,39 @@ const Header = () => {
 
   return (
     <header
-      className={`fixed left-0 top-0 w-full z-9999 bg-white transition-all ease-in-out duration-300 ${
+      onClickCapture={(event) => selectPreviewArea(event, "header")}
+      style={{
+        backgroundColor: headerBackgroundColor,
+        color: headerTextColor,
+        "--storefront-header-text": headerTextColor,
+      } as React.CSSProperties}
+      data-navigation-variant={navigationVariant}
+      className={`storefront-header ${previewMode && selectionMode ? "lumefy-preview-global--selectable" : ""} ${selectedPreviewArea === "header" ? "lumefy-preview-global--selected" : ""} ${navigationStyle === "minimal" ? "storefront-header--minimal" : ""} fixed left-0 top-0 w-full z-9999 bg-white transition-all ease-in-out duration-300 ${
         stickyMenu && "shadow"
       }`}
+      data-lumefy-preview-area="header"
     >
+      {announcementEnabled && announcementText ? (
+        <div
+          className="border-b border-white/10"
+          style={{ backgroundColor: announcementBackgroundColor, color: announcementTextColor }}
+        >
+          <div className="mx-auto flex max-w-[1170px] items-center justify-center px-4 py-2 text-center text-xs font-medium sm:px-7.5">
+            {announcementHref ? (
+              <a
+                href={announcementHref}
+                className="inline-flex items-center gap-2 transition-opacity hover:opacity-80"
+              >
+                <span>{announcementText}</span>
+                <span aria-hidden="true">↗</span>
+              </a>
+            ) : (
+              <p>{announcementText}</p>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       <SearchModal
         isOpen={searchModalOpen}
         initialQuery={searchQuery}
@@ -440,13 +630,16 @@ const Header = () => {
           <div className="w-full flex flex-col gap-4 lg:grid lg:grid-cols-[auto_minmax(420px,560px)] lg:items-center lg:gap-8 xl:grid-cols-[auto_minmax(500px,620px)]">
             <div className="flex w-full items-center justify-between gap-2 lg:w-auto lg:justify-start lg:min-w-[182px] sm:gap-3">
               <Link className="flex-shrink-0" href="/">
-                <Image
-                  src={logoUrl || "/images/logo/logo.svg"}
-                  alt="Lumefy"
-                  width={182}
-                  height={30}
-                  className="h-auto w-[132px] sm:w-[170px] lg:w-[182px]"
-                />
+                <picture className="block">
+                  {mobileLogoUrl ? <source media="(max-width: 639px)" srcSet={mobileLogoUrl} /> : null}
+                  <Image
+                    src={logoUrl || "/images/logo/logo.svg"}
+                    alt={logoAlt}
+                    width={182}
+                    height={30}
+                    className="h-auto w-[132px] sm:w-[170px] lg:w-[182px]"
+                  />
+                </picture>
               </Link>
 
               <div className="flex shrink-0 items-center gap-2 lg:hidden sm:gap-3">
@@ -706,7 +899,7 @@ const Header = () => {
         <div className="max-w-[1170px] mx-auto px-4 sm:px-7.5 xl:px-0">
           <div className="flex items-center justify-between">
             {/* <!--=== Main Nav Start ===--> */}
-            <div className="hidden xl:flex items-center justify-between">
+            <div className="storefront-main-navigation hidden xl:flex items-center justify-between">
               {/* <!-- Main Nav Start --> */}
               <nav>
                 <ul className="flex xl:items-center flex-col xl:flex-row gap-5 xl:gap-6">
@@ -740,7 +933,7 @@ const Header = () => {
             {/* // <!--=== Main Nav End ===--> */}
 
             {/* // <!--=== Nav Right Start ===--> */}
-            <div className="hidden xl:block">
+            <div className="storefront-header-utilities hidden xl:block">
               <ul className="flex items-center gap-5.5">
                 <li className="py-4">
                   <Link

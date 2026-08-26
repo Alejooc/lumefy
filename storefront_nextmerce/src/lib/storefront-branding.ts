@@ -6,11 +6,21 @@ import { storefrontImageUrl } from "./storefront-image";
 
 export type StorefrontBrandingViewModel = {
   logoUrl?: string;
+  mobileLogoUrl?: string;
+  logoAlt: string;
+  faviconUrl?: string;
   supportPhone: string;
   supportEmail: string;
   supportAddress: string;
   website?: string;
   footerText: string;
+  announcement: {
+    enabled: boolean;
+    text: string;
+    href?: string;
+    backgroundColor: string;
+    textColor: string;
+  };
   header: {
     supportLabel: string;
     searchPlaceholder: string;
@@ -20,6 +30,8 @@ export type StorefrontBrandingViewModel = {
     cartHeading: string;
     recentlyViewedLabel: string;
     wishlistLabel: string;
+    backgroundColor: string;
+    textColor: string;
   };
   footer: {
     helpTitle: string;
@@ -40,12 +52,29 @@ export type StorefrontBrandingViewModel = {
     accountLinks: Array<{ label: string; href: string }>;
     quickLinks: Array<{ label: string; href: string }>;
     paymentMethods: Array<{ label: string; href?: string; iconUrl?: string }>;
+    backgroundColor: string;
+    textColor: string;
+    bottomBackgroundColor: string;
   };
   socialLinks: Array<{
     key: "facebook" | "twitter" | "instagram" | "linkedin";
     href: string;
   }>;
   promoBanners: PublicStorefrontBrandingPromo[];
+};
+
+export type StorefrontThemeStyleViewModel = {
+  primaryColor: string;
+  accentColor: string;
+  pageBackgroundColor: string;
+  bodyTextColor: string;
+  headingTextColor: string;
+  bodyFont: string;
+  headingFont: string;
+  contentWidth: number;
+  cornerRadius: string;
+  navigationStyle: "standard" | "minimal";
+  navigationVariant: "underline" | "pill" | "plain";
 };
 
 const DEFAULT_SUPPORT_PHONE = "";
@@ -63,10 +92,143 @@ const DEFAULT_QUICK_LINKS = [
   { href: "/contact", label: "Contacto" },
 ];
 const DEFAULT_PAYMENT_METHODS: Array<{ label: string; href?: string; iconUrl?: string }> = [];
+const DEFAULT_HEADER_BACKGROUND = "#FFFFFF";
+const DEFAULT_HEADER_TEXT = "#1C274C";
+const DEFAULT_FOOTER_BACKGROUND = "#FFFFFF";
+const DEFAULT_FOOTER_TEXT = "#1C274C";
+const DEFAULT_FOOTER_BOTTOM_BACKGROUND = "#F3F4F6";
+const DEFAULT_ANNOUNCEMENT_BACKGROUND = "#1C274C";
+const DEFAULT_ANNOUNCEMENT_TEXT = "#FFFFFF";
+const DEFAULT_PRIMARY_COLOR = "#3C50E0";
+const DEFAULT_ACCENT_COLOR = "#B65332";
+const DEFAULT_PAGE_BACKGROUND = "#FFFFFF";
+const DEFAULT_BODY_TEXT = "#5D6881";
+const DEFAULT_HEADING_TEXT = "#1C274C";
+const DEFAULT_BODY_FONT = '"Euclid Circular A", sans-serif';
+const DEFAULT_HEADING_FONT = '"Euclid Circular A", sans-serif';
+const DEFAULT_CONTENT_WIDTH = 1170;
+const DEFAULT_CORNER_RADIUS = "0.75rem";
 
 function nonEmpty(value: string | null | undefined): string | undefined {
   const normalized = value?.trim();
   return normalized || undefined;
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function explicitSetting(
+  sources: Array<Record<string, unknown>>,
+  key: string,
+): { present: boolean; value: unknown } {
+  for (const source of sources) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      return { present: true, value: source[key] };
+    }
+  }
+  return { present: false, value: undefined };
+}
+
+function stringSetting(
+  setting: { present: boolean; value: unknown },
+  fallback: string | undefined,
+): string | undefined {
+  if (setting.present) {
+    return typeof setting.value === "string" ? setting.value.trim() : undefined;
+  }
+  return nonEmpty(fallback);
+}
+
+function safeHexColor(value: unknown, fallback: string): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return /^#[0-9a-f]{6}$/i.test(normalized) ? normalized : fallback;
+}
+
+function validHref(value: unknown): string | undefined {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  if (/^\/(?!\/)/.test(normalized) || /^https?:\/\//i.test(normalized)) {
+    return normalized;
+  }
+  return undefined;
+}
+
+function fontFamily(value: unknown, fallback: string): string {
+  switch (value) {
+    case "euclid":
+      return '"Euclid Circular A", sans-serif';
+    case "editorial":
+      return "Georgia, serif";
+    case "humanist":
+      return '"Trebuchet MS", sans-serif';
+    default:
+      return fallback;
+  }
+}
+
+function cornerRadius(value: unknown): string {
+  switch (value) {
+    case "sharp":
+      return "0.25rem";
+    case "round":
+      return "1.5rem";
+    case "soft":
+      return DEFAULT_CORNER_RADIUS;
+    default:
+      return DEFAULT_CORNER_RADIUS;
+  }
+}
+
+function contentWidth(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? Math.min(1440, Math.max(960, Math.round(parsed))) : DEFAULT_CONTENT_WIDTH;
+}
+
+function navigationVariant(value: unknown): "underline" | "pill" | "plain" {
+  return value === "pill" || value === "plain" ? value : "underline";
+}
+
+function themeStylesFromSettings(
+  legacySettings: unknown,
+  documentSettings: unknown,
+): StorefrontThemeStyleViewModel {
+  const legacy = objectValue(legacySettings);
+  const legacyGlobal = objectValue(legacy["global"]);
+  const document = objectValue(documentSettings);
+  const documentGlobal = objectValue(document["global"]);
+  const styles = {
+    ...objectValue(legacy["styles"]),
+    ...objectValue(legacyGlobal["styles"]),
+    ...objectValue(document["styles"]),
+    ...objectValue(documentGlobal["styles"]),
+  };
+
+  return {
+    primaryColor: safeHexColor(styles["primary_color"], DEFAULT_PRIMARY_COLOR),
+    accentColor: safeHexColor(styles["accent_color"], DEFAULT_ACCENT_COLOR),
+    pageBackgroundColor: safeHexColor(styles["page_background_color"], DEFAULT_PAGE_BACKGROUND),
+    bodyTextColor: safeHexColor(styles["body_text_color"], DEFAULT_BODY_TEXT),
+    headingTextColor: safeHexColor(styles["heading_text_color"], DEFAULT_HEADING_TEXT),
+    bodyFont: fontFamily(styles["body_font"], DEFAULT_BODY_FONT),
+    headingFont: fontFamily(styles["heading_font"], DEFAULT_HEADING_FONT),
+    contentWidth: contentWidth(styles["content_width"]),
+    cornerRadius: cornerRadius(styles["corner_radius"]),
+    navigationStyle: styles["navigation_style"] === "minimal" ? "minimal" : "standard",
+    navigationVariant: navigationVariant(styles["navigation_variant"]),
+  };
+}
+
+export function getStorefrontThemeStyles(
+  storefront: PublicStorefront | null | undefined,
+): StorefrontThemeStyleViewModel {
+  const themeDocument = objectValue(storefront?.theme_document);
+  return themeStylesFromSettings(storefront?.theme_settings, themeDocument["settings"]);
+}
+
+export function getThemeStylesFromDocumentSettings(value: unknown): StorefrontThemeStyleViewModel {
+  return themeStylesFromSettings({}, value);
 }
 
 function validPromoBanner(
@@ -108,30 +270,139 @@ export function getStorefrontBranding(
   storefront: PublicStorefront | null | undefined,
 ): StorefrontBrandingViewModel {
   const branding = storefront?.branding;
-  const social = branding?.social_links ?? {};
   const themeSettings =
     storefront?.theme_settings && typeof storefront.theme_settings === "object"
       ? (storefront.theme_settings as Record<string, unknown>)
       : {};
-  const headerSettings =
-    themeSettings["header"] && typeof themeSettings["header"] === "object"
-      ? (themeSettings["header"] as Record<string, unknown>)
-      : {};
-  const footerSettings =
-    themeSettings["footer"] && typeof themeSettings["footer"] === "object"
-      ? (themeSettings["footer"] as Record<string, unknown>)
-      : {};
+  const themeDocument = objectValue(storefront?.theme_document);
+  const documentSettings = objectValue(themeDocument["settings"]);
+  const legacyGlobalSettings = objectValue(themeSettings["global"]);
+  const documentGlobalSettings = objectValue(documentSettings["global"]);
+  const brandingSettings = {
+    ...objectValue(themeSettings["branding"]),
+    ...objectValue(legacyGlobalSettings["branding"]),
+    ...objectValue(documentSettings["branding"]),
+    ...objectValue(documentGlobalSettings["branding"]),
+  };
+  const documentBrandingSettings = [
+    objectValue(documentGlobalSettings["branding"]),
+    objectValue(documentSettings["branding"]),
+  ];
+  const headerSettings = {
+    ...objectValue(themeSettings["header"]),
+    ...objectValue(legacyGlobalSettings["header"]),
+    ...objectValue(documentSettings["header"]),
+    ...objectValue(documentGlobalSettings["header"]),
+  };
+  const footerSettings = {
+    ...objectValue(themeSettings["footer"]),
+    ...objectValue(legacyGlobalSettings["footer"]),
+    ...objectValue(documentSettings["footer"]),
+    ...objectValue(documentGlobalSettings["footer"]),
+  };
+  const documentFooterSettings = [
+    objectValue(documentGlobalSettings["footer"]),
+    objectValue(documentSettings["footer"]),
+  ];
+  const documentSocialSettings = documentFooterSettings.map((footer) =>
+    objectValue(footer["social_links"]),
+  );
+  const legacySocialLinks = objectValue(themeSettings["social_links"]);
+  const socialSetting = (key: string): { present: boolean; value: unknown } =>
+    explicitSetting(documentSocialSettings, key);
+  const social = {
+    facebook: stringSetting(
+      socialSetting("facebook"),
+      nonEmpty(String(legacySocialLinks["facebook"] || "")) || nonEmpty(branding?.social_links?.facebook),
+    ),
+    instagram: stringSetting(
+      socialSetting("instagram"),
+      nonEmpty(String(legacySocialLinks["instagram"] || "")) || nonEmpty(branding?.social_links?.instagram),
+    ),
+    twitter: stringSetting(
+      socialSetting("twitter"),
+      nonEmpty(String(legacySocialLinks["twitter"] || "")) || nonEmpty(branding?.social_links?.twitter),
+    ),
+    linkedin: stringSetting(
+      socialSetting("linkedin"),
+      nonEmpty(String(legacySocialLinks["linkedin"] || "")) || nonEmpty(branding?.social_links?.linkedin),
+    ),
+  };
+  const announcementSettings = {
+    ...objectValue(themeSettings["announcement"]),
+    ...objectValue(legacyGlobalSettings["announcement"]),
+    ...objectValue(documentSettings["announcement"]),
+    ...objectValue(documentGlobalSettings["announcement"]),
+  };
   const storeName = storefront?.name?.trim() || "Tienda online";
+  const announcementText = nonEmpty(String(announcementSettings["text"] || "")) || "";
+  const logoSetting = explicitSetting(documentBrandingSettings, "logo_url");
+  const faviconSetting = explicitSetting(documentBrandingSettings, "favicon_url");
+  const legacyLogoUrl =
+    nonEmpty(String(brandingSettings["logo_url"] || "")) ||
+    nonEmpty(String(themeSettings["logo_url"] || "")) ||
+    nonEmpty(branding?.logo_url);
+  const legacyFaviconUrl =
+    nonEmpty(String(brandingSettings["favicon_url"] || "")) ||
+    nonEmpty(String(themeSettings["favicon_url"] || ""));
+  const mobileLogoSetting = explicitSetting(documentBrandingSettings, "mobile_logo_url");
+  const legacyMobileLogoUrl =
+    nonEmpty(String(brandingSettings["mobile_logo_url"] || "")) ||
+    nonEmpty(String(themeSettings["mobile_logo_url"] || "")) ||
+    nonEmpty(String(objectValue(branding)["mobile_logo_url"] || ""));
+  const supportPhoneSetting = explicitSetting(documentFooterSettings, "support_phone");
+  const supportEmailSetting = explicitSetting(documentFooterSettings, "support_email");
+  const supportAddressSetting = explicitSetting(documentFooterSettings, "support_address");
+  const footerTextSetting = explicitSetting(documentFooterSettings, "footer_text");
 
   return {
-    logoUrl: storefrontImageUrl(branding?.logo_url),
-    supportPhone: nonEmpty(branding?.support_phone) || DEFAULT_SUPPORT_PHONE,
-    supportEmail: nonEmpty(branding?.support_email) || DEFAULT_SUPPORT_EMAIL,
+    logoUrl: storefrontImageUrl(
+      logoSetting.present
+        ? (typeof logoSetting.value === "string" ? logoSetting.value.trim() : "")
+        : legacyLogoUrl,
+    ),
+    mobileLogoUrl: storefrontImageUrl(
+      mobileLogoSetting.present
+        ? (typeof mobileLogoSetting.value === "string" ? mobileLogoSetting.value.trim() : "")
+        : legacyMobileLogoUrl,
+    ),
+    logoAlt: nonEmpty(String(brandingSettings["logo_alt"] || "")) || storeName,
+    faviconUrl: storefrontImageUrl(
+      faviconSetting.present
+        ? (typeof faviconSetting.value === "string" ? faviconSetting.value.trim() : "")
+        : legacyFaviconUrl,
+    ),
+    supportPhone:
+      stringSetting(supportPhoneSetting, undefined) ??
+      (nonEmpty(String(footerSettings["support_phone"] || "")) ||
+        nonEmpty(branding?.support_phone) ||
+        DEFAULT_SUPPORT_PHONE),
+    supportEmail:
+      stringSetting(supportEmailSetting, undefined) ??
+      (nonEmpty(String(footerSettings["support_email"] || "")) ||
+        nonEmpty(branding?.support_email) ||
+        DEFAULT_SUPPORT_EMAIL),
     supportAddress:
-      nonEmpty(branding?.support_address) || DEFAULT_SUPPORT_ADDRESS,
+      stringSetting(supportAddressSetting, undefined) ??
+      (nonEmpty(String(footerSettings["support_address"] || "")) ||
+        nonEmpty(branding?.support_address) ||
+        DEFAULT_SUPPORT_ADDRESS),
     website: nonEmpty(branding?.website),
     footerText:
-      nonEmpty(branding?.footer_text) || `${storeName}. Todos los derechos reservados.`,
+      stringSetting(footerTextSetting, undefined) ??
+      (nonEmpty(String(footerSettings["footer_text"] || "")) ||
+        nonEmpty(branding?.footer_text) ||
+        `${storeName}. Todos los derechos reservados.`),
+    announcement: {
+      enabled: announcementSettings["enabled"] === true && Boolean(announcementText),
+      text: announcementText,
+      href: validHref(announcementSettings["href"]),
+      backgroundColor: safeHexColor(
+        announcementSettings["background_color"],
+        DEFAULT_ANNOUNCEMENT_BACKGROUND,
+      ),
+      textColor: safeHexColor(announcementSettings["text_color"], DEFAULT_ANNOUNCEMENT_TEXT),
+    },
     header: {
       supportLabel: nonEmpty(String(headerSettings["support_label"] || "")) || "Atención al cliente",
       searchPlaceholder:
@@ -144,6 +415,11 @@ export function getStorefrontBranding(
       recentlyViewedLabel:
         nonEmpty(String(headerSettings["recently_viewed_label"] || "")) || "Vistos recientemente",
       wishlistLabel: nonEmpty(String(headerSettings["wishlist_label"] || "")) || "Favoritos",
+      backgroundColor: safeHexColor(
+        headerSettings["background_color"],
+        DEFAULT_HEADER_BACKGROUND,
+      ),
+      textColor: safeHexColor(headerSettings["text_color"], DEFAULT_HEADER_TEXT),
     },
     footer: {
       helpTitle: nonEmpty(String(footerSettings["help_title"] || "")) || "Ayuda y contacto",
@@ -176,6 +452,15 @@ export function getStorefrontBranding(
       paymentMethods: validPaymentList(footerSettings["payment_methods"]).length
         ? validPaymentList(footerSettings["payment_methods"])
         : DEFAULT_PAYMENT_METHODS,
+      backgroundColor: safeHexColor(
+        footerSettings["background_color"],
+        DEFAULT_FOOTER_BACKGROUND,
+      ),
+      textColor: safeHexColor(footerSettings["text_color"], DEFAULT_FOOTER_TEXT),
+      bottomBackgroundColor: safeHexColor(
+        footerSettings["bottom_background_color"],
+        DEFAULT_FOOTER_BOTTOM_BACKGROUND,
+      ),
     },
     socialLinks: (["facebook", "twitter", "instagram", "linkedin"] as const)
       .map((key) => ({ key, href: nonEmpty(social[key]) }))

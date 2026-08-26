@@ -54,6 +54,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/lumefy_db
       - POSTGRES_SERVER=db
       - REDIS_URL=redis://redis:6379/0
+      - PLATFORM_STOREFRONT_DOMAIN=localhost:3001
     depends_on:
       migrate:
         condition: service_completed_successfully

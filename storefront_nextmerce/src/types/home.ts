@@ -4,6 +4,7 @@ import { Testimonial } from "@/types/testimonial";
 
 export type HeroSlide = {
   id: string;
+  enabled?: boolean;
   title: string;
   description: string;
   ctaHref: string;
@@ -18,6 +19,7 @@ export type HeroSlide = {
 
 export type HeroPromo = {
   id: string;
+  enabled?: boolean;
   title: string;
   offerLabel?: string;
   href: string;
@@ -44,7 +46,8 @@ export type HomeLayoutSectionType =
   | "countdown"
   | "testimonials"
   | "newsletter"
-  | "closing_cta";
+  | "closing_cta"
+  | "custom_embed";
 
 export type HomeLayoutSection = {
   id: string;
@@ -77,6 +80,7 @@ export type HomeNewsletter = {
 
 export type HomeFeature = {
   id: string;
+  enabled?: boolean;
   title: string;
   description?: string;
   image: string;
@@ -111,6 +115,7 @@ export type HomeViewModel = {
 
 export type HomePromoBanner = {
   id: string;
+  enabled?: boolean;
   title: string;
   subtitle?: string;
   description?: string;

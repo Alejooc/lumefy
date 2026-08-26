@@ -133,6 +133,13 @@ function objectOrEmpty(value: unknown): Record<string, unknown> {
     : {};
 }
 
+type HomeSectionSpacing = "compact" | "balanced" | "airy";
+
+function configuredSectionSpacing(value: unknown): HomeSectionSpacing | null {
+  if (value === "comfortable") return "balanced";
+  return value === "compact" || value === "balanced" || value === "airy" ? value : null;
+}
+
 function arrayOfObjects(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value)
     ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
@@ -200,19 +207,29 @@ function stringList(value: unknown): string[] {
 function homeLayout(storefront: {
   theme_document?: Record<string, unknown> | null;
 }): HomeLayoutSection[] {
+  const document = objectOrEmpty(storefront.theme_document);
+  const globalSpacing = configuredSectionSpacing(objectOrEmpty(document["settings"])["section_spacing"]);
   const rawSections = storefront.theme_document?.["sections"];
   if (!Array.isArray(rawSections)) {
     return DEFAULT_HOME_LAYOUT;
   }
-  const allowed = new Set<HomeLayoutSectionType>(DEFAULT_HOME_LAYOUT.map((section) => section.type));
+  const allowed = new Set<HomeLayoutSectionType>([
+    ...DEFAULT_HOME_LAYOUT.map((section) => section.type),
+    "custom_embed",
+  ]);
   const sections = rawSections
     .filter((section): section is Record<string, unknown> => Boolean(section) && typeof section === "object")
-    .map((section, index) => ({
+    .map((section, index) => {
+      const sectionSettings = objectOrEmpty(section["settings"]);
+      return {
       id: typeof section["id"] === "string" && section["id"] ? section["id"] : `section-${index + 1}`,
       type: typeof section["type"] === "string" ? section["type"] as HomeLayoutSectionType : "hero",
       enabled: section["enabled"] !== false,
-      settings: objectOrEmpty(section["settings"]),
-    }))
+      settings: Object.prototype.hasOwnProperty.call(sectionSettings, "section_spacing") || !globalSpacing
+        ? sectionSettings
+        : { ...sectionSettings, section_spacing: globalSpacing },
+      };
+    })
     .filter((section) => allowed.has(section.type));
   return sections.length ? sections : DEFAULT_HOME_LAYOUT;
 }
@@ -389,6 +406,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
     ? configuredHeroSlides
         .map((slide, index) => ({
           id: String(slide["id"] || `hero-slide-${index + 1}`),
+          enabled: slide["enabled"] !== false,
           title: stringOrUndefined(slide["title"]) || "",
           description: stringOrUndefined(slide["description"]) || "",
           ctaHref: stringOrUndefined(slide["cta_href"]) || "/products",
@@ -400,13 +418,14 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
           buttonLabel: stringOrUndefined(slide["button_label"]) || "Ver productos",
           buttonColor: stringOrUndefined(slide["button_color"]) || "#1C274C",
         }))
-        .filter((slide) => slide.title)
+        .filter((slide) => slide.enabled !== false && slide.title)
     : fallbackHeroSlides;
 
   const configuredHeroPromoItems = configuredHeroPromos
         .map((promo, index) => ({
-          id: String(promo["id"] || `hero-promo-${index + 1}`),
-          title: stringOrUndefined(promo["title"]) || "",
+         id: String(promo["id"] || `hero-promo-${index + 1}`),
+          enabled: promo["enabled"] !== false,
+         title: stringOrUndefined(promo["title"]) || "",
           offerLabel: stringOrUndefined(promo["offer_label"]) || "Oferta especial",
           href: stringOrUndefined(promo["href"]) || "/products",
           priceLabel: stringOrUndefined(promo["price_label"]) || "Nuevo",
@@ -415,8 +434,8 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
           backgroundColor: stringOrUndefined(promo["background_color"]) || "#FFFFFF",
           backgroundImageUrl: storefrontImageUrl(stringOrUndefined(promo["background_image_url"])),
         }))
-        .filter((promo) => promo.title);
-  const heroPromos = [...configuredHeroPromoItems, ...fallbackHeroPromos]
+        .filter((promo) => promo.enabled !== false && promo.title);
+  const heroPromos = (configuredHeroPromos.length ? configuredHeroPromoItems : fallbackHeroPromos)
     .filter((promo, index, all) => all.findIndex((item) => item.id === promo.id) === index)
     .slice(0, 2);
 
@@ -424,30 +443,34 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
   const features = configuredFeatures.length
     ? configuredFeatures
         .map((feature, index) => ({
-          id: String(feature["id"] || `feature-${index + 1}`),
-          title: stringOrUndefined(feature["title"]) || "",
+         id: String(feature["id"] || `feature-${index + 1}`),
+          enabled: feature["enabled"] !== false,
+         title: stringOrUndefined(feature["title"]) || "",
           description: stringOrUndefined(feature["description"]) || "",
           image: storefrontImageUrl(stringOrUndefined(feature["image"])) || `/images/icons/icon-0${(index % 4) + 1}.svg`,
         }))
-        .filter((feature) => feature.title)
+        .filter((feature) => feature.enabled !== false && feature.title)
     : defaultHomeFeatures();
   const configuredTestimonials = arrayOfObjects(testimonials["items"]).filter(
     (item) => !isLegacyTemplateTestimonial(item),
   );
-  const testimonialItems = configuredTestimonials.length
-    ? configuredTestimonials
-        .map((item) => ({
-          review: stringOrUndefined(item["review"]) || "",
-          authorName: stringOrUndefined(item["author_name"]) || "",
-          authorRole: stringOrUndefined(item["author_role"]) || "",
-          authorImg: storefrontImageUrl(stringOrUndefined(item["author_image"])) || "/images/users/user-01.jpg",
-        }))
-        .filter((item) => item.review && item.authorName)
-    : defaultTestimonials();
+ const testimonialItems = configuredTestimonials.length
+   ? configuredTestimonials
+        .map((item, index) => ({
+          id: String(item["id"] || `testimonial-${index + 1}`),
+          enabled: item["enabled"] !== false,
+         review: stringOrUndefined(item["review"]) || "",
+         authorName: stringOrUndefined(item["author_name"]) || "",
+         authorRole: stringOrUndefined(item["author_role"]) || "",
+         authorImg: storefrontImageUrl(stringOrUndefined(item["author_image"])) || "/images/users/user-01.jpg",
+       }))
+        .filter((item) => item.enabled !== false && item.review && item.authorName)
+   : defaultTestimonials();
   const promoBanners = configuredPromoBanners.length
     ? configuredPromoBanners.slice(0, 3).map((banner, index) => ({
-        id: String(banner["id"] || `promo-${index + 1}`),
-        title: stringOrUndefined(banner["title"]) || "",
+       id: String(banner["id"] || `promo-${index + 1}`),
+        enabled: banner["enabled"] !== false,
+       title: stringOrUndefined(banner["title"]) || "",
         subtitle: stringOrUndefined(banner["subtitle"]),
         description: stringOrUndefined(banner["description"]),
         ctaLabel: stringOrUndefined(banner["cta_label"]) || "Ver productos",
@@ -455,7 +478,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
         image: storefrontImageUrl(stringOrUndefined(banner["image_url"])),
         backgroundColor: stringOrUndefined(banner["background_color"]),
         accentColor: stringOrUndefined(banner["accent_color"]),
-      })).filter((banner) => banner.title)
+      })).filter((banner) => banner.enabled !== false && banner.title)
     : branding.promoBanners.length
     ? branding.promoBanners.slice(0, 3).map((banner) => ({
         id: banner.id,

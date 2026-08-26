@@ -4,6 +4,7 @@ import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 
 import { EcommerceContextService } from 'src/app/core/services/ecommerce-context.service';
 import {
@@ -13,12 +14,13 @@ import {
   StorefrontAdminService,
   StorefrontMediaAsset,
   StorefrontHomeCountdownSettings,
-  StorefrontHomeHeroPromo,
-  StorefrontHomeHeroSlide,
-  StorefrontHomeNewsletterSettings,
-  StorefrontHomeSectionCopy,
-  StorefrontHomeSettings,
-  StorefrontHomeTestimonialsSettings,
+ StorefrontHomeHeroPromo,
+ StorefrontHomeHeroSlide,
+  StorefrontHomeFeatureItem,
+ StorefrontHomeNewsletterSettings,
+ StorefrontHomeSectionCopy,
+ StorefrontHomeSettings,
+ StorefrontHomeTestimonialsSettings,
   StorefrontPromoBanner,
   StorefrontThemeComponent,
   StorefrontThemeDocument,
@@ -26,7 +28,6 @@ import {
   StorefrontThemeRevision,
   StorefrontThemeSection
 } from 'src/app/core/services/storefront-admin.service';
-import { environment } from 'src/environments/environment';
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
 
@@ -39,12 +40,29 @@ type VisualSectionType =
   | 'countdown'
   | 'testimonials'
   | 'newsletter'
-  | 'closing_cta';
+  | 'closing_cta'
+  | 'custom_embed';
+
+type VisualSectionSpacing = 'theme' | 'compact' | 'balanced' | 'airy';
+type VisualSidebarMode = 'sections' | 'settings' | 'section' | 'add';
+type VisualGlobalArea = 'announcement' | 'header' | 'footer';
+type CustomEmbedMode = 'html' | 'iframe';
+type CustomEmbedMaxWidth = 'narrow' | 'content' | 'wide' | 'full';
+type CustomEmbedAlignment = 'left' | 'center' | 'right';
+type SectionDesignWidth = 'theme' | 'narrow' | 'wide' | 'full';
+type SectionDesignBackground = 'theme' | 'surface' | 'primary' | 'accent' | 'custom';
+type SectionDesignText = 'theme' | 'inverse' | 'custom';
+type SectionDesignShadow = 'none' | 'soft' | 'lifted';
 
 type VisualMediaTarget =
-  | 'hero'
-  | 'hero_promo'
-  | 'countdown_background'
+ | 'branding_logo'
+ | 'branding_mobile_logo'
+ | 'branding_favicon'
+ | 'hero'
+ | 'hero_promo'
+ | `hero_slide:${number}`
+  | `feature:${number}`
+ | 'countdown_background'
   | 'countdown_product'
   | 'newsletter_background'
   | `banner:${number}`
@@ -57,6 +75,7 @@ interface VisualSection extends StorefrontThemeSection {
 interface VisualHeroSlide extends StorefrontHomeHeroSlide {
   title: string;
   description: string;
+  enabled: boolean;
   cta_href: string;
   image: string;
   button_label: string;
@@ -121,10 +140,83 @@ interface VisualHomeSettings extends StorefrontHomeSettings {
   testimonials: VisualTestimonials;
 }
 
+interface VisualAnnouncementSettings {
+  enabled: boolean;
+  text: string;
+  href: string;
+  background_color: string;
+  text_color: string;
+}
+
+interface VisualThemeBrandingSettings {
+  logo_url: string;
+  mobile_logo_url: string;
+  logo_alt: string;
+  favicon_url: string;
+}
+
+interface VisualThemeStyleSettings {
+  primary_color: string;
+  accent_color: string;
+  page_background_color: string;
+  body_text_color: string;
+  heading_text_color: string;
+  body_font: 'euclid' | 'editorial' | 'humanist';
+  heading_font: 'euclid' | 'editorial' | 'humanist';
+  content_width: number;
+  corner_radius: 'sharp' | 'soft' | 'round';
+  navigation_style: 'standard' | 'minimal';
+  navigation_variant: 'underline' | 'pill' | 'plain';
+}
+
+interface VisualThemeHeaderSettings {
+  support_label: string;
+  search_placeholder: string;
+  account_heading: string;
+  guest_account_label: string;
+  sign_out_label: string;
+  cart_heading: string;
+  recently_viewed_label: string;
+  wishlist_label: string;
+  background_color: string;
+  text_color: string;
+}
+
+interface VisualThemeFooterSettings {
+  footer_text: string;
+  help_title: string;
+  account_title: string;
+  quick_links_title: string;
+  payment_title: string;
+  support_phone: string;
+  support_email: string;
+  support_address: string;
+  show_social_links: boolean;
+  social_links: {
+    facebook: string;
+    instagram: string;
+    twitter: string;
+    linkedin: string;
+  };
+  background_color: string;
+  text_color: string;
+  bottom_background_color: string;
+}
+
+interface VisualThemeSettings {
+  branding: VisualThemeBrandingSettings;
+  styles: VisualThemeStyleSettings;
+  section_spacing: VisualSectionSpacing;
+  announcement: VisualAnnouncementSettings;
+  header: VisualThemeHeaderSettings;
+  footer: VisualThemeFooterSettings;
+  [key: string]: unknown;
+}
+
 interface VisualThemeDocument {
   schema_version: number;
   template: 'home';
-  settings: Record<string, unknown>;
+  settings: VisualThemeSettings;
   legacy_home: VisualHomeSettings;
   sections: VisualSection[];
 }
@@ -137,7 +229,7 @@ interface VisualLinkOption {
 @Component({
   selector: 'app-ecommerce-visual-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, DragDropModule],
+  imports: [CommonModule, FormsModule, DragDropModule, RouterLink],
   templateUrl: './ecommerce-visual-editor.component.html',
   styleUrls: ['./ecommerce-visual-editor.component.scss']
 })
@@ -156,6 +248,10 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
   loadingHistory = false;
   dirty = false;
   showHistory = false;
+  sidebarOpen = true;
+  sidebarMode: VisualSidebarMode = 'sections';
+  pendingInsertAfterId: string | null = null;
+  selectionMode = true;
   previewReady = false;
   storefronts: Storefront[] = [];
   collections: StoreCollection[] = [];
@@ -168,6 +264,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
   components: StorefrontThemeComponent[] = [];
   revisions: StorefrontThemeRevision[] = [];
   selectedSectionId = '';
+  selectedGlobalArea: VisualGlobalArea | null = null;
   previewUrl = '';
   safePreviewUrl: SafeResourceUrl | null = null;
   previewViewport: 'desktop' | 'tablet' | 'mobile' = 'desktop';
@@ -175,6 +272,10 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
   uploadingMedia = false;
   mediaUploadProgress = 0;
   mediaTarget: VisualMediaTarget = 'hero';
+  mediaPickerOpen = false;
+  mediaPickerSearch = '';
+  mediaPickerTarget: VisualMediaTarget | null = null;
+  selectedHeroSlideIndex = 0;
   readonly internalLinkOptions: VisualLinkOption[] = [
     { label: 'Inicio', href: '/' },
     { label: 'Todos los productos', href: '/products' },
@@ -192,14 +293,34 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
   private previewRequestId = 0;
   private previewOrigin = '';
   private lastAppliedStorefrontId = '';
+  private mediaPreviewUrls = new Map<string, string>();
+  private mediaPreviewRequests = new Set<string>();
   private readonly onWindowMessage = (event: MessageEvent): void => {
     if (event.source !== this.previewFrame?.nativeElement.contentWindow) return;
     if (!this.previewOrigin || event.origin !== this.previewOrigin) return;
+    if (event.data?.type === 'lumefy:preview:select' && (event.data.area === 'header' || event.data.area === 'footer')) {
+      this.selectedSectionId = '';
+      this.showSettings(event.data.area);
+      return;
+    }
     if (event.data?.type === 'lumefy:preview:select' && typeof event.data.sectionId === 'string') {
       if (this.document.sections.some((section) => section.id === event.data.sectionId)) {
         this.selectedSectionId = event.data.sectionId;
+        this.selectedGlobalArea = null;
+        this.sidebarOpen = true;
+        this.sidebarMode = 'section';
+        this.pendingInsertAfterId = null;
         this.ensureMediaTarget();
+        this.pushPreview();
       }
+      return;
+    }
+    if (event.data?.type === 'lumefy:preview:insert') {
+      const afterSectionId = typeof event.data.afterSectionId === 'string'
+        ? event.data.afterSectionId
+        : null;
+      if (afterSectionId && !this.document.sections.some((section) => section.id === afterSectionId)) return;
+      this.openAddSections(afterSectionId);
       return;
     }
     if (event.data?.type === 'lumefy:preview:ready') {
@@ -226,15 +347,222 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     window.removeEventListener('message', this.onWindowMessage);
     window.removeEventListener('beforeunload', this.onBeforeUnload);
+    this.clearMediaPreviewUrls();
   }
 
   get selectedSection(): VisualSection | null {
     return this.document.sections.find((section) => section.id === this.selectedSectionId) || null;
   }
 
+  get globalSettings(): VisualThemeSettings {
+    return this.document.settings;
+  }
+
   get selectedComponent(): StorefrontThemeComponent | null {
     const type = this.selectedSection?.type;
     return this.components.find((component) => component.type === type) || null;
+  }
+
+  get selectedSectionSpacing(): VisualSectionSpacing {
+    const value = this.selectedSection?.settings?.['section_spacing'];
+    return value === 'compact' || value === 'balanced' || value === 'airy' ? value : 'theme';
+  }
+
+  get sectionDesignWidth(): SectionDesignWidth {
+    const value = this.sectionDesignValue('width');
+    return value === 'narrow' || value === 'wide' || value === 'full' ? value : 'theme';
+  }
+
+  get sectionDesignBackground(): SectionDesignBackground {
+    const value = this.sectionDesignValue('background');
+    return value === 'surface' || value === 'primary' || value === 'accent' || value === 'custom' ? value : 'theme';
+  }
+
+  get sectionDesignBackgroundColor(): string {
+    const value = this.sectionDesignValue('background_color');
+    return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : '#FFFFFF';
+  }
+
+  get sectionDesignText(): SectionDesignText {
+    const value = this.sectionDesignValue('text');
+    return value === 'inverse' || value === 'custom' ? value : 'theme';
+  }
+
+  get sectionDesignTextColor(): string {
+    const value = this.sectionDesignValue('text_color');
+    return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : '#1C274C';
+  }
+
+  get sectionDesignRadius(): number {
+    const value = this.sectionDesignValue('radius');
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.min(64, numeric)) : 16;
+  }
+
+  get sectionDesignRadiusUsesTheme(): boolean {
+    const value = this.sectionDesignValue('radius');
+    return value === undefined || value === null || value === 'theme';
+  }
+
+  get sectionDesignShadow(): SectionDesignShadow {
+    const value = this.sectionDesignValue('shadow');
+    return value === 'soft' || value === 'lifted' ? value : 'none';
+  }
+
+  get sectionDesignHideMobile(): boolean {
+    return this.sectionDesignValue('hide_mobile') === true;
+  }
+
+  setSectionDesignWidth(value: string): void {
+    this.updateSectionDesign('width', value === 'narrow' || value === 'wide' || value === 'full' ? value : 'theme');
+  }
+
+  setSectionDesignBackground(value: string): void {
+    this.updateSectionDesign('background', value === 'surface' || value === 'primary' || value === 'accent' || value === 'custom' ? value : 'theme');
+  }
+
+  setSectionDesignBackgroundColor(value: string): void {
+    this.updateSectionDesign('background_color', /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : '#FFFFFF');
+  }
+
+  setSectionDesignText(value: string): void {
+    this.updateSectionDesign('text', value === 'inverse' || value === 'custom' ? value : 'theme');
+  }
+
+  setSectionDesignTextColor(value: string): void {
+    this.updateSectionDesign('text_color', /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : '#1C274C');
+  }
+
+  setSectionDesignRadius(value: string | number): void {
+    const numeric = Number(value);
+    this.updateSectionDesign('radius', Number.isFinite(numeric) ? Math.max(0, Math.min(64, numeric)) : 16);
+  }
+
+  toggleSectionDesignRadius(): void {
+    this.updateSectionDesign('radius', this.sectionDesignRadiusUsesTheme ? this.sectionDesignRadius : 'theme');
+  }
+
+  setSectionDesignShadow(value: string): void {
+    this.updateSectionDesign('shadow', value === 'soft' || value === 'lifted' ? value : 'none');
+  }
+
+  setSectionDesignHideMobile(value: boolean): void {
+    this.updateSectionDesign('hide_mobile', value);
+  }
+
+  toggleSectionDesignHideMobile(event: Event): void {
+    this.setSectionDesignHideMobile((event.target as HTMLInputElement).checked);
+  }
+
+  resetSectionDesign(): void {
+    if (!this.selectedSection) return;
+    delete this.selectedSection.settings['design'];
+    this.markDirty();
+  }
+
+  get customEmbedMode(): CustomEmbedMode {
+    return this.selectedSection?.settings?.['mode'] === 'iframe' ? 'iframe' : 'html';
+  }
+
+  get customEmbedContent(): string {
+    return typeof this.selectedSection?.settings?.['content'] === 'string'
+      ? this.selectedSection.settings['content'] as string
+      : '';
+  }
+
+  get customEmbedIframeUrl(): string {
+    return typeof this.selectedSection?.settings?.['iframe_url'] === 'string'
+      ? this.selectedSection.settings['iframe_url'] as string
+      : '';
+  }
+
+  get customEmbedIframeTitle(): string {
+    return typeof this.selectedSection?.settings?.['iframe_title'] === 'string'
+      ? this.selectedSection.settings['iframe_title'] as string
+      : 'Contenido integrado';
+  }
+
+  get customEmbedHeight(): number {
+    const value = Number(this.selectedSection?.settings?.['iframe_height']);
+    return Number.isFinite(value) ? Math.max(240, Math.min(900, value)) : 420;
+  }
+
+  get customEmbedMaxWidth(): CustomEmbedMaxWidth {
+    const value = this.selectedSection?.settings?.['max_width'];
+    return value === 'narrow' || value === 'wide' || value === 'full' ? value : 'content';
+  }
+
+  get customEmbedAlignment(): CustomEmbedAlignment {
+    const value = this.selectedSection?.settings?.['alignment'];
+    return value === 'left' || value === 'right' ? value : 'center';
+  }
+
+  setCustomEmbedMode(value: string): void {
+    if (!this.selectedSection || this.selectedSection.type !== 'custom_embed') return;
+    this.selectedSection.settings['mode'] = value === 'iframe' ? 'iframe' : 'html';
+    this.markDirty();
+  }
+
+  setCustomEmbedContent(value: string): void {
+    if (!this.selectedSection || this.selectedSection.type !== 'custom_embed') return;
+    this.selectedSection.settings['content'] = value;
+    this.markDirty();
+  }
+
+  setCustomEmbedIframeUrl(value: string): void {
+    if (!this.selectedSection || this.selectedSection.type !== 'custom_embed') return;
+    this.selectedSection.settings['iframe_url'] = value;
+    this.markDirty();
+  }
+
+  setCustomEmbedIframeTitle(value: string): void {
+    if (!this.selectedSection || this.selectedSection.type !== 'custom_embed') return;
+    this.selectedSection.settings['iframe_title'] = value;
+    this.markDirty();
+  }
+
+  setCustomEmbedHeight(value: string | number): void {
+    if (!this.selectedSection || this.selectedSection.type !== 'custom_embed') return;
+    const height = Number(value);
+    this.selectedSection.settings['iframe_height'] = Number.isFinite(height)
+      ? Math.max(240, Math.min(900, height))
+      : 420;
+    this.markDirty();
+  }
+
+  setCustomEmbedMaxWidth(value: string): void {
+    if (!this.selectedSection || this.selectedSection.type !== 'custom_embed') return;
+    this.selectedSection.settings['max_width'] = value === 'narrow' || value === 'wide' || value === 'full' ? value : 'content';
+    this.markDirty();
+  }
+
+  setCustomEmbedAlignment(value: string): void {
+    if (!this.selectedSection || this.selectedSection.type !== 'custom_embed') return;
+    this.selectedSection.settings['alignment'] = value === 'left' || value === 'right' ? value : 'center';
+    this.markDirty();
+  }
+
+  setSectionSpacing(value: string): void {
+    if (!this.selectedSection) return;
+    if (value === 'compact' || value === 'balanced' || value === 'airy') {
+      this.selectedSection.settings['section_spacing'] = value;
+    } else {
+      delete this.selectedSection.settings['section_spacing'];
+    }
+    this.markDirty();
+  }
+
+  private sectionDesignValue(key: string): unknown {
+    return this.asObject(this.selectedSection?.settings?.['design'])[key];
+  }
+
+  private updateSectionDesign(key: string, value: unknown): void {
+    if (!this.selectedSection) return;
+    this.selectedSection.settings['design'] = {
+      ...this.asObject(this.selectedSection.settings['design']),
+      [key]: value
+    };
+    this.markDirty();
   }
 
   componentFor(section: VisualSection): StorefrontThemeComponent | null {
@@ -245,12 +573,40 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     return this.componentFor(section)?.label || section.type.replace(/_/g, ' ');
   }
 
-  sectionIcon(section: VisualSection): string {
-    return this.componentFor(section)?.icon || 'block';
+  componentIcon(type: string): string {
+    const icons: Record<VisualSectionType, string> = {
+      hero: 'ti ti-carousel-horizontal',
+      categories: 'ti ti-category',
+      new_arrivals: 'ti ti-sparkles',
+      promo_banners: 'ti ti-photo',
+      best_sellers: 'ti ti-trending-up',
+      countdown: 'ti ti-clock',
+      testimonials: 'ti ti-message-star',
+      newsletter: 'ti ti-mail',
+      closing_cta: 'ti ti-click',
+      custom_embed: 'ti ti-code'
+    };
+    return this.isSectionType(type) ? icons[type] : 'ti ti-layout';
   }
 
-  get canAddSection(): boolean {
-    return this.document.sections.length < 20;
+ get canAddSection(): boolean {
+   return this.document.sections.length < 20;
+ }
+
+ get canAddHeroSlide(): boolean {
+   return this.heroSlides.length < 6;
+ }
+
+  get canAddFeature(): boolean {
+    return this.features.length < 4;
+  }
+
+  get canAddPromoBanner(): boolean {
+    return this.promoBanners.length < 3;
+  }
+
+  get canAddTestimonial(): boolean {
+    return (this.testimonials.items || []).length < 12;
   }
 
   get canUndo(): boolean {
@@ -274,8 +630,15 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     if (!section) return [];
     if (section.type === 'hero') {
       return [
-        { value: 'hero', label: 'Imagen principal del hero' },
-        { value: 'hero_promo', label: 'Tarjeta promocional del hero' },
+       ...this.heroSlides.map((_, index) => ({
+         value: `hero_slide:${index}` as VisualMediaTarget,
+         label: `Imagen de la diapositiva ${index + 1}`,
+       })),
+        ...this.features.map((_, index) => ({
+          value: `feature:${index}` as VisualMediaTarget,
+          label: `Icono del beneficio ${index + 1}`,
+        })),
+       { value: 'hero_promo', label: 'Tarjeta promocional del hero' },
       ];
     }
     if (section.type === 'promo_banners') {
@@ -304,6 +667,62 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
 
   get showMediaLibrary(): boolean {
     return this.mediaTargetOptions.length > 0;
+  }
+
+  get filteredMediaAssets(): StorefrontMediaAsset[] {
+    const query = this.mediaPickerSearch.trim().toLowerCase();
+    if (!query) return this.mediaAssets;
+    return this.mediaAssets.filter((asset) =>
+      [asset.original_filename, asset.alt_text || '', asset.content_type]
+        .some((value) => value.toLowerCase().includes(query))
+    );
+  }
+
+  mediaTargetLabel(target: VisualMediaTarget): string {
+    const globalLabels: Partial<Record<VisualMediaTarget, string>> = {
+      branding_logo: 'Logo principal',
+      branding_mobile_logo: 'Logo para móvil',
+      branding_favicon: 'Favicon',
+    };
+    return globalLabels[target]
+      || this.mediaTargetOptions.find((option) => option.value === target)?.label
+      || 'este espacio';
+  }
+
+  heroSlideMediaTarget(index: number): VisualMediaTarget {
+    return `hero_slide:${index}`;
+  }
+
+  featureMediaTarget(index: number): VisualMediaTarget {
+    return `feature:${index}`;
+  }
+
+  bannerMediaTarget(index: number): VisualMediaTarget {
+    return `banner:${index}`;
+  }
+
+  testimonialMediaTarget(index: number): VisualMediaTarget {
+    return `testimonial:${index}`;
+  }
+
+  openMediaPicker(target: VisualMediaTarget): void {
+    if (!this.storefront) return;
+    this.mediaTarget = target;
+    this.mediaPickerTarget = target;
+    this.mediaPickerSearch = '';
+    this.mediaPickerOpen = true;
+  }
+
+  closeMediaPicker(): void {
+    if (this.uploadingMedia) return;
+    this.mediaPickerOpen = false;
+    this.mediaPickerTarget = null;
+    this.mediaPickerSearch = '';
+  }
+
+  selectMediaAsset(url: string): void {
+    this.useMediaAsset(url);
+    this.closeMediaPicker();
   }
 
   setCollectionSelection(value: unknown): void {
@@ -342,9 +761,11 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
           const asset = event.body;
           if (this.storefront?.id === storefrontId) {
             this.mediaAssets = [asset, ...this.mediaAssets.filter((item) => item.id !== asset.id)];
+            this.loadMediaPreview(asset, storefrontId);
             this.useMediaAsset(asset.url);
           }
           this.uploadingMedia = false;
+          if (this.mediaPickerOpen) this.closeMediaPicker();
         }
       },
       error: (err) => {
@@ -356,11 +777,25 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
   }
 
   useMediaAsset(url: string): void {
-    if (this.mediaTarget === 'hero') {
+    if (this.mediaTarget === 'branding_logo') {
+      this.globalSettings.branding.logo_url = url;
+    } else if (this.mediaTarget === 'branding_mobile_logo') {
+      this.globalSettings.branding.mobile_logo_url = url;
+    } else if (this.mediaTarget === 'branding_favicon') {
+      this.globalSettings.branding.favicon_url = url;
+    } else if (this.mediaTarget === 'hero') {
       this.heroImage = url;
-    } else if (this.mediaTarget === 'hero_promo') {
-      this.promoImage = url;
-    } else if (this.mediaTarget.startsWith('banner:')) {
+    } else if (this.mediaTarget.startsWith('hero_slide:')) {
+      const index = Number(this.mediaTarget.slice('hero_slide:'.length));
+      const slide = this.heroSlides[index];
+      if (slide) slide.image = url;
+   } else if (this.mediaTarget === 'hero_promo') {
+     this.promoImage = url;
+    } else if (this.mediaTarget.startsWith('feature:')) {
+      const index = Number(this.mediaTarget.slice('feature:'.length));
+      const feature = this.features[index];
+      if (feature) feature.image = url;
+   } else if (this.mediaTarget.startsWith('banner:')) {
       const index = Number(this.mediaTarget.slice('banner:'.length));
       const banner = this.promoBanners[index];
       if (banner) banner.image_url = url;
@@ -380,19 +815,49 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     this.markDirty();
   }
 
-  mediaAssetPreviewUrl(value: string): string {
-    const normalized = (value || '').trim();
-    if (!normalized.startsWith('/static/')) return normalized;
-    const ownedAsset = this.mediaAssets.find((asset) => asset.url === normalized);
-    if (ownedAsset && this.storefront) {
-      return `${environment.apiUrl}/storefront/${this.storefront.id}/media/${ownedAsset.id}`;
-    }
-    const apiRoot = environment.apiUrl.replace(/\/api\/v1\/?$/, '');
-    return `${apiRoot}${normalized}`;
+  mediaAssetPreviewUrl(asset: StorefrontMediaAsset): string {
+    return this.mediaPreviewUrls.get(asset.id) || '';
+  }
+
+  private loadMediaPreviews(assets: StorefrontMediaAsset[], storefrontId: string): void {
+    assets.forEach((asset) => this.loadMediaPreview(asset, storefrontId));
+  }
+
+  private loadMediaPreview(asset: StorefrontMediaAsset, storefrontId: string): void {
+    if (this.mediaPreviewUrls.has(asset.id) || this.mediaPreviewRequests.has(asset.id)) return;
+    this.mediaPreviewRequests.add(asset.id);
+    this.storefrontService.getMediaAssetBlob(storefrontId, asset.id).subscribe({
+      next: (blob) => {
+        this.mediaPreviewRequests.delete(asset.id);
+        const objectUrl = window.URL.createObjectURL(blob);
+        if (this.storefront?.id !== storefrontId) {
+          window.URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        this.mediaPreviewUrls.set(asset.id, objectUrl);
+      },
+      error: () => {
+        this.mediaPreviewRequests.delete(asset.id);
+      }
+    });
+  }
+
+  private clearMediaPreviewUrls(): void {
+    this.mediaPreviewUrls.forEach((url) => window.URL.revokeObjectURL(url));
+    this.mediaPreviewUrls.clear();
+    this.mediaPreviewRequests.clear();
+  }
+
+  get heroSlides(): VisualHeroSlide[] {
+    return this.document.legacy_home.hero_slides;
+  }
+
+  get selectedHeroSlide(): VisualHeroSlide | null {
+    return this.heroSlides[this.selectedHeroSlideIndex] || this.heroSlides[0] || null;
   }
 
   get firstHeroSlide(): VisualHeroSlide | null {
-    return this.document.legacy_home.hero_slides[0] || null;
+    return this.selectedHeroSlide;
   }
 
   get firstHeroPromo(): VisualHeroPromo | null {
@@ -531,20 +996,26 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     return this.document.legacy_home.newsletter;
   }
 
-  get testimonials(): VisualTestimonials {
-    return this.document.legacy_home.testimonials;
+ get testimonials(): VisualTestimonials {
+   return this.document.legacy_home.testimonials;
+ }
+
+  get features(): StorefrontHomeFeatureItem[] {
+    return this.document.legacy_home.features || [];
   }
 
-  get promoBanners(): StorefrontPromoBanner[] {
-    return this.document.legacy_home.promo_banners || [];
-  }
+ get promoBanners(): StorefrontPromoBanner[] {
+   return this.document.legacy_home.promo_banners || [];
+ }
 
   addPromoBanner(): void {
+    if (!this.canAddPromoBanner) return;
     this.document.legacy_home.promo_banners = [
       ...this.promoBanners,
-      {
-        id: `home-promo-${Date.now()}`,
-        title: 'Nueva campaña',
+     {
+       id: `home-promo-${Date.now()}`,
+        enabled: true,
+       title: 'Nueva campaña',
         subtitle: 'Un mensaje para tus clientes',
         description: '',
         cta_label: 'Ver productos',
@@ -558,30 +1029,146 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     this.markDirty();
   }
 
-  removePromoBanner(index: number): void {
-    this.document.legacy_home.promo_banners = this.promoBanners.filter((_, itemIndex) => itemIndex !== index);
+ removePromoBanner(index: number): void {
+   this.document.legacy_home.promo_banners = this.promoBanners.filter((_, itemIndex) => itemIndex !== index);
+   this.ensureMediaTarget();
+   this.markDirty();
+ }
+
+  togglePromoBanner(index: number, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const banner = this.promoBanners[index];
+    if (!banner) return;
+    banner.enabled = input.checked;
+    this.markDirty();
+  }
+
+  duplicatePromoBanner(index: number): void {
+    const source = this.promoBanners[index];
+    if (!source || !this.canAddPromoBanner) return;
+    this.promoBanners.splice(index + 1, 0, {
+      ...source,
+      id: `home-promo-${Date.now()}-${index + 2}`,
+    });
+    this.ensureMediaTarget();
+    this.markDirty();
+  }
+
+  movePromoBanner(index: number, direction: -1 | 1): void {
+    const targetIndex = index + direction;
+    if (!this.promoBanners[index] || targetIndex < 0 || targetIndex >= this.promoBanners.length) return;
+    const [banner] = this.promoBanners.splice(index, 1);
+    this.promoBanners.splice(targetIndex, 0, banner);
     this.ensureMediaTarget();
     this.markDirty();
   }
 
   addTestimonial(): void {
+    if (!this.canAddTestimonial) return;
     this.document.legacy_home.testimonials.items = [
-      ...(this.document.legacy_home.testimonials.items || []),
+     ...(this.document.legacy_home.testimonials.items || []),
+     {
+       id: `testimonial-${Date.now()}`,
+        enabled: true,
+       review: 'Una opinión real de tus clientes ayuda a generar confianza.',
+       author_name: 'Cliente',
+       author_role: 'Cliente verificado',
+       author_image: ''
+     }
+   ];
+   this.ensureMediaTarget();
+   this.markDirty();
+ }
+
+ removeTestimonial(index: number): void {
+   this.document.legacy_home.testimonials.items = (this.document.legacy_home.testimonials.items || [])
+     .filter((_, itemIndex) => itemIndex !== index);
+   this.ensureMediaTarget();
+   this.markDirty();
+ }
+
+  toggleTestimonial(index: number, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const testimonial = this.testimonials.items?.[index];
+    if (!testimonial) return;
+    testimonial.enabled = input.checked;
+    this.markDirty();
+  }
+
+  duplicateTestimonial(index: number): void {
+    const items = this.testimonials.items || [];
+    const source = items[index];
+    if (!source || !this.canAddTestimonial) return;
+    items.splice(index + 1, 0, {
+      ...source,
+      id: `testimonial-${Date.now()}-${index + 2}`,
+    });
+    this.testimonials.items = items;
+    this.ensureMediaTarget();
+    this.markDirty();
+  }
+
+  moveTestimonial(index: number, direction: -1 | 1): void {
+    const items = this.testimonials.items || [];
+    const targetIndex = index + direction;
+    if (!items[index] || targetIndex < 0 || targetIndex >= items.length) return;
+    const [testimonial] = items.splice(index, 1);
+    items.splice(targetIndex, 0, testimonial);
+    this.testimonials.items = items;
+    this.ensureMediaTarget();
+    this.markDirty();
+  }
+
+  get featuresForEditing(): StorefrontHomeFeatureItem[] {
+    return this.document.legacy_home.features || [];
+  }
+
+  addFeature(): void {
+    if (!this.canAddFeature) return;
+    this.document.legacy_home.features = [
+      ...this.featuresForEditing,
       {
-        id: `testimonial-${Date.now()}`,
-        review: 'Una opinión real de tus clientes ayuda a generar confianza.',
-        author_name: 'Cliente',
-        author_role: 'Cliente verificado',
-        author_image: ''
-      }
+        id: `home-feature-${Date.now()}`,
+        enabled: true,
+        title: 'Nuevo beneficio',
+        description: 'Un motivo para elegir tu tienda',
+        image: '',
+      },
     ];
     this.ensureMediaTarget();
     this.markDirty();
   }
 
-  removeTestimonial(index: number): void {
-    this.document.legacy_home.testimonials.items = (this.document.legacy_home.testimonials.items || [])
-      .filter((_, itemIndex) => itemIndex !== index);
+  removeFeature(index: number): void {
+    this.document.legacy_home.features = this.featuresForEditing.filter((_, itemIndex) => itemIndex !== index);
+    this.ensureMediaTarget();
+    this.markDirty();
+  }
+
+  toggleFeature(index: number, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const feature = this.featuresForEditing[index];
+    if (!feature) return;
+    feature.enabled = input.checked;
+    this.markDirty();
+  }
+
+  duplicateFeature(index: number): void {
+    const source = this.featuresForEditing[index];
+    if (!source || !this.canAddFeature) return;
+    this.featuresForEditing.splice(index + 1, 0, {
+      ...source,
+      id: `home-feature-${Date.now()}-${index + 2}`,
+    });
+    this.ensureMediaTarget();
+    this.markDirty();
+  }
+
+  moveFeature(index: number, direction: -1 | 1): void {
+    const targetIndex = index + direction;
+    if (!this.featuresForEditing[index] || targetIndex < 0 || targetIndex >= this.featuresForEditing.length) return;
+    const [feature] = this.featuresForEditing.splice(index, 1);
+    this.featuresForEditing.splice(targetIndex, 0, feature);
     this.ensureMediaTarget();
     this.markDirty();
   }
@@ -614,7 +1201,52 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
 
   selectSection(section: VisualSection): void {
     this.selectedSectionId = section.id;
+    this.selectedGlobalArea = null;
+    this.sidebarOpen = true;
+    this.sidebarMode = 'section';
+    this.pendingInsertAfterId = null;
     this.ensureMediaTarget();
+    this.pushPreview();
+  }
+
+  showSections(): void {
+    this.sidebarOpen = true;
+    this.sidebarMode = 'sections';
+    this.selectedSectionId = '';
+    this.selectedGlobalArea = null;
+    this.pendingInsertAfterId = null;
+    this.pushPreview();
+  }
+
+  showSettings(area: VisualGlobalArea | null = null): void {
+    this.sidebarOpen = true;
+    this.sidebarMode = 'settings';
+    this.selectedSectionId = '';
+    this.selectedGlobalArea = area;
+    this.pendingInsertAfterId = null;
+    if (area) this.focusGlobalArea(area);
+    this.pushPreview();
+  }
+
+  private focusGlobalArea(area: VisualGlobalArea): void {
+    window.setTimeout(() => {
+      window.document
+        .getElementById(`visual-editor-settings-${area}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  openAddSections(afterSectionId: string | null = null): void {
+    this.sidebarOpen = true;
+    this.sidebarMode = 'add';
+    this.selectedSectionId = '';
+    this.selectedGlobalArea = null;
+    this.pendingInsertAfterId = afterSectionId;
+    this.pushPreview();
+  }
+
+  toggleSidebar(): void {
+    this.sidebarOpen = !this.sidebarOpen;
   }
 
   drop(event: CdkDragDrop<VisualSection[]>): void {
@@ -630,11 +1262,29 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
       id,
       type,
       enabled: true,
-      settings: {},
+      settings: type === 'custom_embed' ? {
+        mode: 'html',
+        content: '',
+        iframe_url: '',
+        iframe_title: 'Contenido integrado',
+        iframe_height: 420,
+        max_width: 'content',
+        alignment: 'center'
+      } : {},
       blocks: []
     };
-    this.document.sections.push(section);
+    const afterIndex = this.pendingInsertAfterId
+      ? this.document.sections.findIndex((item) => item.id === this.pendingInsertAfterId)
+      : -1;
+    if (afterIndex >= 0) {
+      this.document.sections.splice(afterIndex + 1, 0, section);
+    } else {
+      this.document.sections.push(section);
+    }
     this.selectedSectionId = id;
+    this.selectedGlobalArea = null;
+    this.sidebarMode = 'section';
+    this.pendingInsertAfterId = null;
     this.ensureMediaTarget();
     if (type === 'hero' && !this.firstHeroSlide) this.ensureHeroSlide();
     if (type === 'promo_banners' && !this.document.legacy_home.promo_banners?.length) {
@@ -654,17 +1304,30 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     const index = this.document.sections.findIndex((item) => item.id === section.id);
     this.document.sections.splice(index + 1, 0, copy);
     this.selectedSectionId = copy.id;
+    this.selectedGlobalArea = null;
+    this.sidebarMode = 'section';
     this.markDirty();
   }
 
   removeSection(section: VisualSection, event?: Event): void {
     event?.stopPropagation();
-    this.document.sections = this.document.sections.filter((item) => item.id !== section.id);
-    if (this.selectedSectionId === section.id) {
-      this.selectedSectionId = this.document.sections[0]?.id || '';
-      this.ensureMediaTarget();
-    }
-    this.markDirty();
+    if (!section || this.saving || this.publishing) return;
+
+    this.swal.confirm(
+      '¿Eliminar esta sección?',
+      `Se quitará “${this.sectionLabel(section)}” del borrador de la tienda.`
+    ).then((result) => {
+      if (!result.isConfirmed) return;
+
+      this.document.sections = this.document.sections.filter((item) => item.id !== section.id);
+      if (this.selectedSectionId === section.id) {
+        this.selectedSectionId = this.document.sections[0]?.id || '';
+        this.ensureMediaTarget();
+      }
+      this.sidebarMode = 'sections';
+      this.selectedGlobalArea = null;
+      this.markDirty();
+    });
   }
 
   toggleSection(section: VisualSection, event: Event): void {
@@ -673,12 +1336,21 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     this.markDirty();
   }
 
-  ensureHeroSlide(): VisualHeroSlide {
+  toggleHeroSlide(index: number, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const slide = this.heroSlides[index];
+    if (!slide) return;
+    slide.enabled = input.checked;
+    this.markDirty();
+  }
+
+ ensureHeroSlide(): VisualHeroSlide {
     if (!this.document.legacy_home.hero_slides.length) {
       this.document.legacy_home.hero_slides.push({
         id: `hero-slide-${Date.now()}`,
         title: 'Una historia que empieza en casa',
         description: 'Cuenta qué hace especial a tu tienda y por qué tus clientes deberían descubrirla.',
+        enabled: true,
         cta_href: '/products',
         image: '',
         overlay_opacity: 0.3,
@@ -689,7 +1361,72 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         button_color: '#1C274C'
       });
     }
-    return this.document.legacy_home.hero_slides[0];
+    this.selectedHeroSlideIndex = Math.min(
+      this.selectedHeroSlideIndex,
+      Math.max(this.heroSlides.length - 1, 0),
+    );
+    this.mediaTarget = `hero_slide:${this.selectedHeroSlideIndex}`;
+    return this.heroSlides[this.selectedHeroSlideIndex];
+  }
+
+  selectHeroSlide(index: number): void {
+    if (!Number.isInteger(index) || index < 0 || index >= this.heroSlides.length) return;
+    this.selectedHeroSlideIndex = index;
+    this.mediaTarget = `hero_slide:${index}`;
+    this.ensureMediaTarget();
+  }
+
+ addHeroSlide(): void {
+   if (!this.canAddHeroSlide) return;
+   const index = this.heroSlides.length;
+    this.heroSlides.push({
+      id: `hero-slide-${Date.now()}-${index + 1}`,
+      title: index ? "Una nueva historia para tu tienda" : "Una historia que empieza en casa",
+      description: "Cuenta qué hace especial a tu tienda y por qué tus clientes deberían descubrirla.",
+      enabled: true,
+     cta_href: "/products",
+     image: "",
+     overlay_opacity: 0.3,
+     image_position: "center",
+     content_alignment: "left",
+     text_color: "#1C274C",
+     button_label: "Descubrir la colección",
+     button_color: "#1C274C",
+   });
+    this.selectedHeroSlideIndex = index;
+    this.mediaTarget = `hero_slide:${index}`;
+    this.markDirty();
+  }
+
+  duplicateHeroSlide(index = this.selectedHeroSlideIndex): void {
+    const source = this.heroSlides[index];
+    if (!source || !this.canAddHeroSlide) return;
+    const copy: VisualHeroSlide = {
+      ...source,
+      id: `hero-slide-${Date.now()}-${index + 2}`,
+    };
+    this.heroSlides.splice(index + 1, 0, copy);
+    this.selectedHeroSlideIndex = index + 1;
+    this.mediaTarget = `hero_slide:${this.selectedHeroSlideIndex}`;
+    this.markDirty();
+  }
+
+  removeHeroSlide(index = this.selectedHeroSlideIndex): void {
+    if (!this.heroSlides[index]) return;
+    this.heroSlides.splice(index, 1);
+    this.selectedHeroSlideIndex = Math.min(index, Math.max(this.heroSlides.length - 1, 0));
+    this.ensureMediaTarget();
+    this.markDirty();
+  }
+
+  moveHeroSlide(index: number, direction: -1 | 1): void {
+    const targetIndex = index + direction;
+    if (!this.heroSlides[index] || targetIndex < 0 || targetIndex >= this.heroSlides.length) return;
+    const [slide] = this.heroSlides.splice(index, 1);
+    this.heroSlides.splice(targetIndex, 0, slide);
+    this.selectedHeroSlideIndex = targetIndex;
+    this.mediaTarget = `hero_slide:${targetIndex}`;
+    this.markDirty();
   }
 
   ensureHeroPromo(): VisualHeroPromo {
@@ -723,6 +1460,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     if (!previous) return;
     this.redoStack.push(current);
     this.document = this.normalizeDocument(previous);
+    this.clampHeroSlideSelection();
     this.historyCurrent = JSON.stringify(this.document);
     this.selectedSectionId = this.document.sections.find((section) => section.id === this.selectedSectionId)?.id
       || this.document.sections[0]?.id
@@ -739,6 +1477,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     if (!next) return;
     this.undoStack.push(current);
     this.document = this.normalizeDocument(next);
+    this.clampHeroSlideSelection();
     this.historyCurrent = JSON.stringify(this.document);
     this.selectedSectionId = this.document.sections.find((section) => section.id === this.selectedSectionId)?.id
       || this.document.sections[0]?.id
@@ -748,7 +1487,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     this.pushPreview();
   }
 
-  saveDraft(afterSave?: () => void): void {
+  saveDraft(afterSave?: () => void, showSuccessNotification = true): void {
     if (!this.storefront || !this.theme || this.saving) return;
     this.saving = true;
     this.errorMessage = '';
@@ -760,11 +1499,15 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
       next: (theme) => {
         this.theme = theme;
         this.document = this.normalizeDocument(theme.draft_document);
+        this.clampHeroSlideSelection();
         this.dirty = false;
         this.saving = false;
         this.historyCurrent = JSON.stringify(this.document);
         this.redoStack = [];
         this.pushPreview();
+        if (showSuccessNotification) {
+          this.swal.toast('Cambios guardados', 'success');
+        }
         afterSave?.();
       },
       error: (err) => {
@@ -783,11 +1526,12 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         next: (theme) => {
           this.theme = theme;
           this.document = this.normalizeDocument(theme.draft_document);
+          this.clampHeroSlideSelection();
           this.dirty = false;
           this.publishing = false;
           this.historyCurrent = JSON.stringify(this.document);
           this.redoStack = [];
-          this.swal.success('Publicado', 'Los cambios ya están visibles en tu storefront.');
+          this.swal.success('Tienda publicada', 'Tu tienda ya está visible para tus clientes.');
           this.pushPreview();
           this.loadHistory(false);
         },
@@ -799,7 +1543,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     };
 
     if (this.dirty) {
-      this.saveDraft(publishNow);
+      this.saveDraft(publishNow, false);
     } else {
       publishNow();
     }
@@ -850,6 +1594,11 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     this.previewViewport = viewport;
   }
 
+  toggleSelectionMode(): void {
+    this.selectionMode = !this.selectionMode;
+    this.pushPreview();
+  }
+
   onPreviewLoad(): void {
     this.previewReady = false;
     window.setTimeout(() => this.pushPreview(), 50);
@@ -860,15 +1609,24 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     this.lastAppliedStorefrontId = this.selectedStorefrontId;
     this.theme = null;
     this.document = this.createDocument();
+    this.selectedHeroSlideIndex = 0;
     this.resetHistory();
     this.selectedSectionId = '';
+    this.selectedGlobalArea = null;
+    this.sidebarOpen = true;
+    this.sidebarMode = 'sections';
+    this.pendingInsertAfterId = null;
     this.collections = [];
     this.publishedProducts = [];
+    this.clearMediaPreviewUrls();
     this.mediaAssets = [];
     this.previewUrl = '';
     this.safePreviewUrl = null;
     this.previewOrigin = '';
     this.mediaTarget = 'hero';
+    this.mediaPickerOpen = false;
+    this.mediaPickerTarget = null;
+    this.mediaPickerSearch = '';
     this.dirty = false;
     this.revisions = [];
     this.showHistory = false;
@@ -877,7 +1635,14 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     this.loading = true;
     this.storefrontService.getThemeComponents(this.storefront.id).subscribe({
       next: (response) => {
-        this.components = response.components || [];
+        const remoteComponents = Array.isArray(response.components) ? response.components : [];
+        const remoteByType = new Map(remoteComponents.map((component) => [component.type, component]));
+        const localComponents = this.defaultComponents().map((component) => remoteByType.get(component.type) || component);
+        const localTypes = new Set(localComponents.map((component) => component.type));
+        this.components = [
+          ...localComponents,
+          ...remoteComponents.filter((component) => !localTypes.has(component.type))
+        ];
       },
       error: () => {
         this.components = this.defaultComponents();
@@ -898,7 +1663,10 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     });
     this.storefrontService.getMediaAssets(storefrontId).subscribe({
       next: (assets) => {
-        if (this.storefront?.id === storefrontId) this.mediaAssets = assets;
+        if (this.storefront?.id === storefrontId) {
+          this.mediaAssets = assets;
+          this.loadMediaPreviews(assets, storefrontId);
+        }
       },
       error: () => {
         if (this.storefront?.id === storefrontId) this.mediaAssets = [];
@@ -908,6 +1676,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
       next: (theme) => {
         this.theme = theme;
         this.document = this.normalizeDocument(theme.draft_document);
+        this.selectedHeroSlideIndex = 0;
         this.selectedSectionId = this.document.sections[0]?.id || '';
         this.ensureMediaTarget();
         this.resetHistory();
@@ -957,10 +1726,17 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
   }
 
   private ensureMediaTarget(): void {
+    this.clampHeroSlideSelection();
     const options = this.mediaTargetOptions;
     if (!options.some((option) => option.value === this.mediaTarget)) {
       this.mediaTarget = options[0]?.value || 'hero';
     }
+  }
+
+  private clampHeroSlideSelection(): void {
+    this.selectedHeroSlideIndex = this.heroSlides.length
+      ? Math.min(this.selectedHeroSlideIndex, this.heroSlides.length - 1)
+      : 0;
   }
 
   private pushPreview(): void {
@@ -977,6 +1753,9 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
       type: 'lumefy:preview:apply',
       template: 'home',
       requestId: this.previewRequestId,
+      selectedSectionId: this.selectedSectionId,
+      selectedGlobalArea: this.selectedGlobalArea,
+      selectionMode: this.selectionMode,
       document: this.serializeDocument()
     }, targetOrigin);
   }
@@ -1016,6 +1795,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
       if (this.undoStack.length > this.maxHistoryEntries) this.undoStack.shift();
     }
     this.document = next;
+    this.clampHeroSlideSelection();
     this.historyCurrent = nextSerialized;
     this.redoStack = [];
   }
@@ -1039,9 +1819,171 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     return {
       schema_version: Number(raw['schema_version'] || 1),
       template: 'home',
-      settings: this.asObject(raw['settings']),
+      settings: this.normalizeThemeSettings(raw['settings']),
       legacy_home: this.normalizeHome(rawHome),
       sections: sections.length ? sections : this.defaultSections()
+    };
+  }
+
+  private normalizeThemeSettings(value: unknown): VisualThemeSettings {
+    const raw = this.asObject(value);
+    const base = this.createThemeSettings();
+    const legacy = this.legacyThemeSettings();
+    const branding = { ...legacy.branding, ...this.asObject(raw['branding']) };
+    const styles = { ...legacy.styles, ...this.asObject(raw['styles']) };
+    const announcement = { ...legacy.announcement, ...this.asObject(raw['announcement']) };
+    const header = { ...legacy.header, ...this.asObject(raw['header']) };
+    const footer = { ...legacy.footer, ...this.asObject(raw['footer']) };
+    const socialLinks = this.asObject(footer['social_links']);
+
+    return {
+      ...base,
+      ...raw,
+      section_spacing: this.themeSectionSpacing(
+        raw['section_spacing'],
+        this.themeSectionSpacing(legacy.section_spacing, base.section_spacing)
+      ),
+      branding: {
+        ...base.branding,
+        ...branding,
+        logo_url: String(branding['logo_url'] || ''),
+        mobile_logo_url: String(branding['mobile_logo_url'] || ''),
+        logo_alt: String(branding['logo_alt'] || base.branding.logo_alt),
+        favicon_url: String(branding['favicon_url'] || '')
+      },
+      styles: {
+        ...base.styles,
+        ...styles,
+        primary_color: String(styles['primary_color'] || base.styles.primary_color),
+        accent_color: String(styles['accent_color'] || base.styles.accent_color),
+        page_background_color: String(styles['page_background_color'] || base.styles.page_background_color),
+        body_text_color: String(styles['body_text_color'] || base.styles.body_text_color),
+        heading_text_color: String(styles['heading_text_color'] || base.styles.heading_text_color),
+        body_font: this.themeFont(styles['body_font'], base.styles.body_font),
+        heading_font: this.themeFont(styles['heading_font'], base.styles.heading_font),
+        content_width: this.themeContentWidth(styles['content_width'], base.styles.content_width),
+        corner_radius: this.themeRadius(styles['corner_radius'], base.styles.corner_radius),
+        navigation_style: styles['navigation_style'] === 'minimal' ? 'minimal' : 'standard',
+        navigation_variant: this.themeNavigationVariant(styles['navigation_variant'], base.styles.navigation_variant)
+      },
+      announcement: {
+        ...base.announcement,
+        ...announcement,
+        enabled: announcement['enabled'] === true,
+        text: String(announcement['text'] || ''),
+        href: String(announcement['href'] || ''),
+        background_color: String(announcement['background_color'] || base.announcement.background_color),
+        text_color: String(announcement['text_color'] || base.announcement.text_color)
+      },
+      header: {
+        ...base.header,
+        ...header,
+        support_label: String(header['support_label'] || base.header.support_label),
+        search_placeholder: String(header['search_placeholder'] || base.header.search_placeholder),
+        account_heading: String(header['account_heading'] || base.header.account_heading),
+        guest_account_label: String(header['guest_account_label'] || base.header.guest_account_label),
+        sign_out_label: String(header['sign_out_label'] || base.header.sign_out_label),
+        cart_heading: String(header['cart_heading'] || base.header.cart_heading),
+        recently_viewed_label: String(header['recently_viewed_label'] || base.header.recently_viewed_label),
+        wishlist_label: String(header['wishlist_label'] || base.header.wishlist_label),
+        background_color: String(header['background_color'] || base.header.background_color),
+        text_color: String(header['text_color'] || base.header.text_color)
+      },
+      footer: {
+        ...base.footer,
+        ...footer,
+        footer_text: String(footer['footer_text'] || ''),
+        help_title: String(footer['help_title'] || base.footer.help_title),
+        account_title: String(footer['account_title'] || base.footer.account_title),
+        quick_links_title: String(footer['quick_links_title'] || base.footer.quick_links_title),
+        payment_title: String(footer['payment_title'] || base.footer.payment_title),
+        support_phone: String(footer['support_phone'] || ''),
+        support_email: String(footer['support_email'] || ''),
+        support_address: String(footer['support_address'] || ''),
+        show_social_links: footer['show_social_links'] === true,
+        social_links: {
+          ...base.footer.social_links,
+          ...socialLinks,
+          facebook: String(socialLinks['facebook'] || ''),
+          instagram: String(socialLinks['instagram'] || ''),
+          twitter: String(socialLinks['twitter'] || ''),
+          linkedin: String(socialLinks['linkedin'] || '')
+        },
+        background_color: String(footer['background_color'] || base.footer.background_color),
+        text_color: String(footer['text_color'] || base.footer.text_color),
+        bottom_background_color: String(footer['bottom_background_color'] || base.footer.bottom_background_color)
+      }
+    };
+  }
+
+  private themeFont(value: unknown, fallback: VisualThemeStyleSettings['body_font']): VisualThemeStyleSettings['body_font'] {
+    return value === 'editorial' || value === 'humanist' || value === 'euclid' ? value : fallback;
+  }
+
+  private themeContentWidth(value: unknown, fallback: number): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.min(1440, Math.max(960, Math.round(parsed))) : fallback;
+  }
+
+  private themeRadius(value: unknown, fallback: VisualThemeStyleSettings['corner_radius']): VisualThemeStyleSettings['corner_radius'] {
+    return value === 'sharp' || value === 'round' || value === 'soft' ? value : fallback;
+  }
+
+  private themeNavigationVariant(
+    value: unknown,
+    fallback: VisualThemeStyleSettings['navigation_variant']
+  ): VisualThemeStyleSettings['navigation_variant'] {
+    return value === 'pill' || value === 'plain' || value === 'underline' ? value : fallback;
+  }
+
+  private themeSectionSpacing(
+    value: unknown,
+    fallback: VisualSectionSpacing
+  ): VisualSectionSpacing {
+    if (value === 'compact' || value === 'balanced' || value === 'airy') return value;
+    if (value === 'comfortable') return 'balanced';
+    return value === 'theme' ? 'theme' : fallback;
+  }
+
+  private legacyThemeSettings(): {
+    branding: Record<string, unknown>;
+    styles: Record<string, unknown>;
+    section_spacing: unknown;
+    announcement: Record<string, unknown>;
+    header: Record<string, unknown>;
+    footer: Record<string, unknown>;
+  } {
+    const themeSettings = this.asObject(this.storefront?.theme_settings);
+    const branding = this.asObject(themeSettings['branding']);
+    const footer = this.asObject(themeSettings['footer']);
+    const legacySocialLinks = {
+      ...this.asObject(themeSettings['social_links']),
+      ...this.asObject(branding['social_links']),
+      ...this.asObject(footer['social_links'])
+    };
+    return {
+      section_spacing: themeSettings['section_spacing'],
+      branding: {
+        ...branding,
+        logo_url: branding['logo_url'] || themeSettings['logo_url'] || '',
+        mobile_logo_url: branding['mobile_logo_url'] || themeSettings['mobile_logo_url'] || '',
+        logo_alt: branding['logo_alt'] || this.storefront?.name || 'Tienda online',
+        favicon_url: branding['favicon_url'] || themeSettings['favicon_url'] || ''
+      },
+      styles: {
+        ...this.asObject(themeSettings['styles']),
+        ...this.asObject(this.asObject(themeSettings['global'])['styles'])
+      },
+      announcement: this.asObject(themeSettings['announcement']),
+      header: this.asObject(themeSettings['header']),
+      footer: {
+        ...footer,
+        footer_text: footer['footer_text'] || branding['footer_text'] || themeSettings['footer_text'] || '',
+        support_phone: footer['support_phone'] || branding['support_phone'] || themeSettings['support_phone'] || '',
+        support_email: footer['support_email'] || branding['support_email'] || themeSettings['support_email'] || '',
+        support_address: footer['support_address'] || branding['support_address'] || themeSettings['support_address'] || '',
+        social_links: legacySocialLinks
+      }
     };
   }
 
@@ -1053,6 +1995,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         id: String(value['id'] || `hero-slide-${index + 1}`),
         title: String(value['title'] || ''),
         description: String(value['description'] || ''),
+        enabled: value['enabled'] !== false,
         cta_href: String(value['cta_href'] || '/products'),
         image: String(value['image'] || ''),
         overlay_opacity: Number(value['overlay_opacity'] ?? 0.3),
@@ -1067,6 +2010,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
       const value = this.asObject(item);
       return {
         id: String(value['id'] || `hero-promo-${index + 1}`),
+        enabled: value['enabled'] !== false,
         title: String(value['title'] || ''),
         offer_label: String(value['offer_label'] || 'Colección destacada'),
         href: String(value['href'] || '/products'),
@@ -1074,16 +2018,43 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         compare_price_label: String(value['compare_price_label'] || ''),
         image: String(value['image'] || ''),
         background_color: String(value['background_color'] || '#DDE6DE'),
-        background_image_url: String(value['background_image_url'] || '')
+       background_image_url: String(value['background_image_url'] || '')
+     };
+   });
+    const features = this.asArray(raw['features']).map((item, index) => {
+      const value = this.asObject(item);
+      return {
+        id: String(value['id'] || `home-feature-${index + 1}`),
+        enabled: value['enabled'] !== false,
+        title: String(value['title'] || ''),
+        description: String(value['description'] || ''),
+        image: String(value['image'] || ''),
+      };
+    });
+    const promoBanners = this.asArray(raw['promo_banners']).map((item, index) => {
+      const value = this.asObject(item);
+      return {
+        id: String(value['id'] || `home-promo-${index + 1}`),
+        enabled: value['enabled'] !== false,
+        title: String(value['title'] || ''),
+        subtitle: String(value['subtitle'] || ''),
+        description: String(value['description'] || ''),
+        cta_label: String(value['cta_label'] || 'Ver productos'),
+        cta_href: String(value['cta_href'] || '/products'),
+        image_url: String(value['image_url'] || ''),
+        background_color: String(value['background_color'] || '#F2E8DE'),
+        accent_color: String(value['accent_color'] || '#B65332'),
       };
     });
 
-    return {
+   return {
       ...base,
       ...raw,
-      hero_slides: heroSlides,
-      hero_promos: heroPromos,
-      category_section: this.normalizeCopy(raw['category_section'], base.category_section),
+     hero_slides: heroSlides,
+     hero_promos: heroPromos,
+      features,
+      promo_banners: promoBanners,
+     category_section: this.normalizeCopy(raw['category_section'], base.category_section),
       new_arrivals_section: this.normalizeCopy(raw['new_arrivals_section'], base.new_arrivals_section),
       best_sellers_section: this.normalizeCopy(raw['best_sellers_section'], base.best_sellers_section),
       countdown: this.normalizeCountdown(raw['countdown'], base.countdown),
@@ -1133,24 +2104,101 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     };
   }
 
-  private normalizeTestimonials(value: unknown, fallback: VisualTestimonials): VisualTestimonials {
-    const raw = this.asObject(value);
-    return {
-      ...fallback,
-      enabled: raw['enabled'] !== false,
-      eyebrow: String(raw['eyebrow'] || fallback.eyebrow),
-      title: String(raw['title'] || fallback.title),
-      items: Array.isArray(raw['items']) ? raw['items'] as VisualTestimonials['items'] : fallback.items
-    };
-  }
+ private normalizeTestimonials(value: unknown, fallback: VisualTestimonials): VisualTestimonials {
+   const raw = this.asObject(value);
+   const items = Array.isArray(raw['items'])
+     ? this.asArray(raw['items']).map((item, index) => {
+       const testimonial = this.asObject(item);
+       return {
+         id: String(testimonial['id'] || `testimonial-${index + 1}`),
+         enabled: testimonial['enabled'] !== false,
+         review: String(testimonial['review'] || ''),
+         author_name: String(testimonial['author_name'] || ''),
+         author_role: String(testimonial['author_role'] || ''),
+         author_image: String(testimonial['author_image'] || ''),
+       };
+     })
+     : fallback.items;
+   return {
+     ...fallback,
+     enabled: raw['enabled'] !== false,
+     eyebrow: String(raw['eyebrow'] || fallback.eyebrow),
+     title: String(raw['title'] || fallback.title),
+      items
+   };
+ }
 
   private createDocument(): VisualThemeDocument {
     return {
       schema_version: 1,
       template: 'home',
-      settings: {},
+      settings: this.createThemeSettings(),
       legacy_home: this.createHome(),
       sections: this.defaultSections()
+    };
+  }
+
+  private createThemeSettings(): VisualThemeSettings {
+    return {
+      branding: {
+        logo_url: '',
+        mobile_logo_url: '',
+        logo_alt: this.storefront?.name || 'Tienda online',
+        favicon_url: ''
+      },
+      styles: {
+        primary_color: '#3C50E0',
+        accent_color: '#B65332',
+        page_background_color: '#FFFFFF',
+        body_text_color: '#5D6881',
+        heading_text_color: '#1C274C',
+        body_font: 'euclid',
+        heading_font: 'euclid',
+        content_width: 1170,
+        corner_radius: 'soft',
+        navigation_style: 'standard',
+        navigation_variant: 'underline'
+      },
+      section_spacing: 'theme',
+      announcement: {
+        enabled: false,
+        text: '',
+        href: '',
+        background_color: '#1C274C',
+        text_color: '#FFFFFF'
+      },
+      header: {
+        support_label: 'Atención al cliente',
+        search_placeholder: 'Buscar productos...',
+        account_heading: 'cuenta',
+        guest_account_label: 'Ingresar',
+        sign_out_label: 'Cerrar sesión',
+        cart_heading: 'carrito',
+        recently_viewed_label: 'Vistos recientemente',
+        wishlist_label: 'Favoritos',
+        background_color: '#FFFFFF',
+        text_color: '#1C274C'
+      },
+      footer: {
+        footer_text: '',
+        help_title: 'Ayuda y contacto',
+        account_title: 'Cuenta',
+        quick_links_title: 'Enlaces',
+        payment_title: 'Medios de pago:',
+        support_phone: '',
+        support_email: '',
+        support_address: '',
+        show_social_links: false,
+        social_links: {
+          facebook: '',
+          instagram: '',
+          twitter: '',
+          linkedin: ''
+        },
+        background_color: '#FFFFFF',
+        text_color: '#1C274C',
+        bottom_background_color: '#F3F4F6'
+      }
     };
   }
 
@@ -1195,13 +2243,15 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
   }
 
   private defaultSections(): VisualSection[] {
-    return this.defaultComponents().map((component) => ({
+    return this.defaultComponents()
+      .filter((component) => component.type !== 'custom_embed')
+      .map((component) => ({
       id: component.type,
       type: component.type as VisualSectionType,
       enabled: true,
       settings: {},
       blocks: []
-    }));
+      }));
   }
 
   private defaultComponents(): StorefrontThemeComponent[] {
@@ -1214,7 +2264,8 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
       { type: 'countdown', label: 'Cuenta regresiva', description: 'Promoción con fecha de finalización.', icon: 'clock' },
       { type: 'testimonials', label: 'Testimonios', description: 'Historias y reseñas de clientes.', icon: 'quote' },
       { type: 'newsletter', label: 'Newsletter', description: 'Captura suscripciones y novedades.', icon: 'mail' },
-      { type: 'closing_cta', label: 'Llamado final', description: 'Cierre de página con una acción principal.', icon: 'arrow-right' }
+      { type: 'closing_cta', label: 'Llamado final', description: 'Cierre de página con una acción principal.', icon: 'arrow-right' },
+      { type: 'custom_embed', label: 'Código personalizado', description: 'HTML seguro o contenido integrado.', icon: 'code' }
     ];
   }
 

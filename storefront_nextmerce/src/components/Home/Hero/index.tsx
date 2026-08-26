@@ -6,6 +6,8 @@ import HeroCarousel from "./HeroCarousel";
 import HeroFeature from "./HeroFeature";
 
 const Hero = ({ slides, promos, features }: { slides: HeroSlide[]; promos: HeroPromo[]; features: HomeFeature[] }) => {
+  if (!slides.length) return null;
+
   return (
     <section className="overflow-hidden bg-gray-1 pb-8 pt-[154px] sm:pt-40 lg:pb-11 lg:pt-28 xl:pt-48">
       <div className="mx-auto w-full max-w-[1240px] px-4 sm:px-8 xl:px-0">

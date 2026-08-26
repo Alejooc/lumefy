@@ -435,7 +435,7 @@ export const NavigationItems: NavigationItem[] = [
           { id: 'commerce-collections', title: 'Colecciones', type: 'item', classes: 'nav-item', url: '/commerce/collections', icon: 'tags', breadcrumbs: false, permissions: ['manage_company'] },
           { id: 'commerce-content', title: 'Contenido', type: 'collapse', icon: 'layout', permissions: ['manage_company'], children: [
             { id: 'commerce-branding', title: 'Marca', type: 'item', url: '/commerce/branding', breadcrumbs: false, permissions: ['manage_company'] },
-            { id: 'commerce-design', title: 'Inicio y banners', type: 'item', url: '/commerce/design', breadcrumbs: false, permissions: ['manage_company'] },
+            { id: 'commerce-design', title: 'Editor visual', type: 'item', url: '/commerce/design', breadcrumbs: false, permissions: ['manage_company'] },
             { id: 'commerce-menu', title: 'Menú de tienda', type: 'item', url: '/commerce/navigation', breadcrumbs: false, permissions: ['manage_company'] },
             { id: 'commerce-seo', title: 'SEO', type: 'item', url: '/commerce/seo', breadcrumbs: false, permissions: ['manage_company'] }
           ]},

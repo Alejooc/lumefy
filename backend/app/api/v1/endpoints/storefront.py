@@ -101,6 +101,29 @@ RESERVED_STOREFRONT_SUBDOMAINS = {
 MAX_STOREFRONT_MEDIA_ASSETS = 200
 
 
+def _platform_storefront_host_and_port() -> tuple[str, int | None]:
+    raw_value = (settings.PLATFORM_STOREFRONT_DOMAIN or "").strip().lower().rstrip(".")
+    if not raw_value:
+        return "", None
+    try:
+        parsed = urlsplit(raw_value if "://" in raw_value else f"//{raw_value}")
+        host = (parsed.hostname or "").rstrip(".")
+        port = parsed.port
+    except ValueError:
+        return "", None
+    if (
+        not host
+        or not re.fullmatch(r"[a-z0-9.-]+", host)
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+        or parsed.path not in {"", "/"}
+    ):
+        return "", None
+    return host, port
+
+
 def _normalize_public_asset_url(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
@@ -890,11 +913,12 @@ async def _get_or_create_storefront_client(
 
 def _storefront_reset_link(storefront: Storefront, token: str) -> str:
     base_url = settings.FRONTEND_URL.rstrip("/")
-    platform_domain = (settings.PLATFORM_STOREFRONT_DOMAIN or "").strip().lower().rstrip(".")
+    platform_domain, platform_port = _platform_storefront_host_and_port()
     subdomain = (storefront.subdomain or "").strip().lower().strip(".")
     if platform_domain and subdomain:
         scheme = "http" if platform_domain in {"localhost", "127.0.0.1"} else "https"
-        base_url = f"{scheme}://{subdomain}.{platform_domain}"
+        port_suffix = f":{platform_port}" if platform_port else ""
+        base_url = f"{scheme}://{subdomain}.{platform_domain}{port_suffix}"
     return f"{base_url}/password/reset?token={token}&storefront_id={storefront.id}"
 
 
@@ -1405,15 +1429,16 @@ def _theme_template_or_422(template_key: str) -> str:
 
 
 def _storefront_preview_url(storefront: Storefront) -> str | None:
-    platform_domain = (settings.PLATFORM_STOREFRONT_DOMAIN or "").strip().lower().rstrip(".")
+    platform_domain, platform_port = _platform_storefront_host_and_port()
     subdomain = (storefront.subdomain or "").strip().lower().strip(".")
     if (
         not platform_domain
         or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", subdomain)
-        or not re.fullmatch(r"[a-z0-9.-]+", platform_domain)
     ):
         return None
-    return f"https://{subdomain}.{platform_domain}/"
+    scheme = "http" if platform_domain in {"localhost", "127.0.0.1"} else "https"
+    port_suffix = f":{platform_port}" if platform_port else ""
+    return f"{scheme}://{subdomain}.{platform_domain}{port_suffix}/"
 
 
 def _create_storefront_theme_preview_session(
@@ -2844,7 +2869,7 @@ async def create_storefront_domain(
 ) -> Any:
     await _get_storefront_or_404(db, domain_in.storefront_id, current_user.company_id)
     normalized_domain = _normalize_custom_domain(domain_in.domain)
-    platform_domain = (settings.PLATFORM_STOREFRONT_DOMAIN or "").strip().lower().rstrip(".")
+    platform_domain, _ = _platform_storefront_host_and_port()
     if platform_domain and (normalized_domain == platform_domain or normalized_domain.endswith(f".{platform_domain}")):
         raise HTTPException(status_code=422, detail="Ese dominio pertenece a la plataforma. Usa el subdominio de la tienda.")
     if domain_in.is_primary:
@@ -3900,7 +3925,7 @@ async def authorize_storefront_certificate(
     except HTTPException:
         raise HTTPException(status_code=404, detail="Unknown storefront")
 
-    platform_domain = (settings.PLATFORM_STOREFRONT_DOMAIN or "").strip().lower().rstrip(".")
+    platform_domain, _ = _platform_storefront_host_and_port()
     if platform_domain and host.endswith(f".{platform_domain}"):
         subdomain = host[: -(len(platform_domain) + 1)]
         await _get_storefront_for_certificate_by_subdomain(db, subdomain)

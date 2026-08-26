@@ -3,7 +3,7 @@
 ## Estado
 
 - **Fecha de creación:** 2026-08-26.
-- **Estado:** en implementación; primera entrega del MVP del inicio completada en código y preview seguro conectado.
+- **Estado:** en implementación; primera entrega del MVP del inicio y primera capa de branding global completadas en código y preview seguro conectado.
 - **Objetivo:** reemplazar el formulario actual de configuración del inicio por un editor visual en vivo, extensible al resto del storefront.
 - **Modelo elegido:** editor estructurado de secciones y bloques, similar al editor de temas de Shopify.
 - **Decisión técnica:** construirlo sobre la arquitectura actual de Lumefy, sin almacenar HTML o JavaScript arbitrario y sin depender de un CMS externo.
@@ -19,14 +19,19 @@ Esta entrega implementa el primer vertical funcional del editor del inicio:
 - auditoría de guardado, publicación y restauración;
 - validación de payloads para rechazar scripts, handlers, HTML ejecutable, protocolos peligrosos y documentos sobredimensionados;
 - renderizador Next basado en secciones publicadas, con fallback legacy;
-- editor Angular de tres paneles con drag and drop, propiedades contextuales, preview real, responsive, borrador y publicación;
+- editor Angular de pantalla completa con una barra lateral contextual, drag and drop, preview real, responsive, borrador y publicación;
+- editor en una ruta independiente de pantalla completa, sin el menú ni el encabezado del panel administrativo, con laterales plegables y un lienzo central sin marco de navegador;
 - selectores tenant-scoped de productos y colecciones para los bloques de catálogo;
 - sugerencias de enlaces internos del storefront y soporte para URLs externas;
 - biblioteca de imágenes aislada por storefront, con carga validada y selección visual;
 - deshacer y rehacer local con hasta 50 estados;
 - sesión de preview firmada, temporal y limitada a `storefront_id`, `company_id` y plantilla, sin enviar el JWT administrativo al iframe.
+- preview local compatible con subdominios y puerto (`http://<tienda>.localhost:3001`), manteniendo HTTPS y dominio sin puerto en producción.
+- controles globales de identidad, anuncio, textos de uso diario del header/footer, contacto, redes sociales, fondos y texto legal, con actualización en vivo dentro del preview.
+- gestión de elementos repetibles del inicio: diapositivas del hero, banners, beneficios y testimonios con visibilidad, orden, duplicado y eliminación.
+- gestión del hero por diapositivas: agregar, ordenar, duplicar, ocultar, eliminar y asignar imágenes desde la biblioteca.
 
-Queda para las siguientes entregas: edición completa de bloques, header/footer y plantillas de producto, colección y páginas informativas. La migración nueva todavía no se ha ejecutado en producción.
+Queda para las siguientes entregas: edición completa de bloques y plantillas de producto, colección y páginas informativas. La migración nueva todavía no se ha ejecutado en producción.
 
 ## Resultado esperado
 
@@ -41,6 +46,23 @@ Cada empresa podrá personalizar su storefront desde el panel mediante una inter
 - aislamiento estricto por `company_id` y `storefront_id`.
 
 La lógica sensible de precios, inventario, autenticación, pedidos, pagos y checkout seguirá controlada por el backend. El editor solo podrá configurar las opciones visuales y de contenido autorizadas por cada componente.
+
+## Dirección UX de referencia
+
+Las capturas compartidas del editor de Shopify se adoptan como referencia funcional, sin copiar su marca ni su interfaz literalmente. La siguiente iteración del editor debe converger en estos patrones:
+
+- una barra superior compacta con salida, tienda activa, selector de página o plantilla, tamaño de dispositivo, deshacer, rehacer y guardar/publicar;
+- un único panel lateral contextual con modos de **secciones**, **ajustes del tema** y **aplicaciones**, evitando mantener dos paneles laterales permanentes;
+- árbol jerárquico de secciones y bloques con expandir, ocultar, ordenar y agregar elementos;
+- al seleccionar una sección o bloque, el mismo panel lateral cambia a sus propiedades y permite regresar al árbol;
+- preview central dominante, sin marco ficticio de navegador y con el mínimo espacio exterior posible;
+- selección directa dentro del preview mediante contorno, etiqueta contextual y puntos para insertar secciones o bloques;
+- selector desplegable para cambiar entre inicio, productos, colecciones y futuras plantillas;
+- acciones secundarias agrupadas en menús contextuales para reducir ruido visual;
+- controles compactos con miniaturas de imagen, estados visibles y formularios progresivos;
+- mantener el editor estructurado y seguro: los comerciantes no podrán insertar JavaScript o código ejecutable libre.
+
+El aspecto final conservará la identidad visual de Lumefy y una estética sobria de herramienta profesional. Shopify sirve como referencia de interacción, jerarquía y aprovechamiento del espacio.
 
 ## Alcance funcional
 
@@ -228,7 +250,7 @@ Todas las rutas deben validar usuario, permiso, `company_id`, `storefront_id` y 
 
 - [x] Crear registro inicial React de tipos de sección y sus componentes.
 - [x] Renderizar las secciones según el orden del documento.
-- [x] Respetar `enabled` y orden de secciones; los bloques se incorporan en la siguiente iteración.
+- [x] Respetar `enabled` y orden de secciones; el hero también respeta la visibilidad y el orden de sus diapositivas.
 - [x] Reutilizar los componentes existentes de Home.
 - [x] Mantener fallback para la configuración legacy.
 - [x] Implementar modo preview autenticado sin cache público.
@@ -241,13 +263,20 @@ Todas las rutas deben validar usuario, permiso, `company_id`, `storefront_id` y 
 
 **Estimación:** 3–5 días.
 
-- [x] Construir layout de tres paneles.
+- [x] Construir layout de lienzo dominante con una sola barra lateral contextual.
+- [x] Ejecutar el editor en una página independiente de pantalla completa y permitir plegar la barra lateral.
 - [x] Implementar árbol de secciones con Angular CDK Drag and Drop.
 - [x] Agregar, ordenar, duplicar, ocultar y eliminar secciones.
-- [x] Seleccionar secciones haciendo clic en el árbol o en la vista previa; la selección de bloques queda para la siguiente iteración.
+- [x] Seleccionar secciones desde el árbol o la vista previa y editar sus elementos repetibles desde el inspector.
+- [x] Mostrar contorno y etiqueta azul para la sección seleccionada dentro del preview.
+- [x] Insertar secciones desde puntos contextuales `+` directamente en el lienzo.
+- [x] Activar un modo selector persistente para que cualquier clic sobre una sección, incluso sobre sus botones o enlaces, abra sus propiedades sin navegar.
+- [x] Unificar secciones, ajustes globales, propiedades y biblioteca de bloques en el mismo lateral izquierdo.
+- [x] Mover página, dispositivo, historial, guardado y publicación a una barra superior compacta.
 - [ ] Generar formularios desde el registro de propiedades.
 - [x] Sincronizar cambios no guardados con el iframe mediante `postMessage` de configuración.
 - [x] Agregar vistas de escritorio, tablet y móvil.
+- [x] Mostrar el preview como lienzo limpio, sin simular una ventana de navegador.
 - [x] Implementar deshacer y rehacer local.
 - [x] Mostrar estado: sin cambios, cambios pendientes, guardando y publicado.
 - [x] Advertir antes de cerrar si existen cambios no guardados.
@@ -258,15 +287,15 @@ Todas las rutas deben validar usuario, permiso, `company_id`, `storefront_id` y 
 
 **Estimación:** 3–5 días.
 
-- [ ] Hero y carrusel.
-- [ ] Tarjetas promocionales.
+- [x] Hero y carrusel con diapositivas administrables desde el editor.
+- [x] Tarjetas promocionales y banners del hero con edición, orden y visibilidad.
 - [ ] Categorías y colecciones.
 - [ ] Grilla y carrusel de productos.
 - [ ] Productos nuevos y destacados.
-- [ ] Banners editoriales.
+- [x] Banners editoriales con edición, orden y visibilidad.
 - [ ] Cuenta regresiva.
-- [ ] Beneficios y características.
-- [ ] Testimonios.
+- [x] Beneficios y características con edición, orden y visibilidad.
+- [x] Testimonios con edición, orden y visibilidad.
 - [ ] Newsletter.
 - [ ] Texto enriquecido sanitizado.
 - [ ] Imagen, video permitido, separador y espacio.
@@ -292,12 +321,14 @@ Cada componente debe incluir defaults, validación, límites, responsive y estad
 
 **Estimación:** 2–3 días.
 
-- [ ] Barra de anuncios.
-- [ ] Header y variantes de navegación.
-- [ ] Logo, favicon y logos alternativos.
-- [ ] Paleta y tipografías.
-- [ ] Ancho de contenido, radios y espaciados.
-- [ ] Footer, contacto, legales y redes sociales.
+- [x] Barra de anuncios con texto, enlace, fondo y color de texto.
+- [x] Textos base del header y footer dentro del documento visual.
+- [x] Header con variante completa y compacta de navegación.
+- [x] Logo, logo móvil, favicon y texto alternativo dentro del documento visual.
+- [x] Paleta base, tipografías, ancho y radios globales.
+- [x] Variantes visuales de navegación y espaciado configurable por sección.
+- [x] Texto legal y fondos base del footer.
+- [x] Footer base, contacto y redes sociales dentro del documento visual.
 - [ ] Vista previa global en todas las plantillas.
 
 **Salida:** branding y navegación dejan de depender de formularios separados.

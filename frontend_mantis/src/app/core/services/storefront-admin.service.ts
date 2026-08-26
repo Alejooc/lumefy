@@ -13,6 +13,7 @@ export interface StorefrontSocialLinks {
 
 export interface StorefrontPromoBanner {
   id: string;
+  enabled?: boolean | null;
   title: string;
   subtitle?: string | null;
   description?: string | null;
@@ -25,6 +26,7 @@ export interface StorefrontPromoBanner {
 
 export interface StorefrontHomeHeroSlide {
   id: string;
+  enabled?: boolean | null;
   title: string;
   description?: string | null;
   cta_href?: string | null;
@@ -39,6 +41,7 @@ export interface StorefrontHomeHeroSlide {
 
 export interface StorefrontHomeHeroPromo {
   id: string;
+  enabled?: boolean | null;
   title: string;
   offer_label?: string | null;
   href?: string | null;
@@ -90,6 +93,7 @@ export interface StorefrontHomeNewsletterSettings {
 
 export interface StorefrontHomeFeatureItem {
   id: string;
+  enabled?: boolean | null;
   title: string;
   description?: string | null;
   image?: string | null;
@@ -97,6 +101,7 @@ export interface StorefrontHomeFeatureItem {
 
 export interface StorefrontHomeTestimonialItem {
   id: string;
+  enabled?: boolean | null;
   review: string;
   author_name: string;
   author_role?: string | null;
@@ -653,6 +658,10 @@ export class StorefrontAdminService {
 
   getMediaAssets(storefrontId: string): Observable<StorefrontMediaAsset[]> {
     return this.api.get<StorefrontMediaAsset[]>(`/storefront/${storefrontId}/media`);
+  }
+
+  getMediaAssetBlob(storefrontId: string, assetId: string): Observable<Blob> {
+    return this.api.getBlob(`/storefront/${storefrontId}/media/${assetId}`);
   }
 
   uploadMediaAsset(storefrontId: string, file: File): Observable<StorefrontMediaAsset> {

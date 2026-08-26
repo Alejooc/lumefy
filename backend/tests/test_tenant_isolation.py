@@ -10,6 +10,8 @@ from app.api.v1.endpoints.integrations import proxy_asset
 from app.api.v1.endpoints.pos import get_pos_products
 from app.api.v1.endpoints.products import _validate_product_relations, update_variant
 from app.api.v1.endpoints.storefront import (
+    _get_storefront_or_404,
+    _get_theme_document,
     _public_asset_is_referenced,
     _resolve_public_asset_path,
     read_storefront_media_asset,
@@ -218,6 +220,25 @@ class TenantIsolationTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(context.exception.status_code, 404)
         self.assertEqual(db.execute.await_count, 1)
+
+    async def test_theme_document_queries_carry_storefront_and_company_scope(self):
+        storefront_id = uuid4()
+        company_id = uuid4()
+        storefront = SimpleNamespace(id=storefront_id, company_id=company_id, is_active=True)
+        db = SimpleNamespace(
+            execute=AsyncMock(return_value=_Result(record=storefront)),
+            scalar=AsyncMock(return_value=None),
+        )
+
+        await _get_storefront_or_404(db, storefront_id, company_id)
+        storefront_query = str(db.execute.await_args.args[0])
+        self.assertIn("storefronts.id", storefront_query)
+        self.assertIn("storefronts.company_id", storefront_query)
+
+        await _get_theme_document(db, storefront, "home")
+        theme_query = str(db.scalar.await_args.args[0])
+        self.assertIn("storefront_theme_documents.storefront_id", theme_query)
+        self.assertIn("storefront_theme_documents.company_id", theme_query)
 
     async def test_public_asset_reference_is_limited_to_requested_storefront(self):
         storefront = SimpleNamespace(
