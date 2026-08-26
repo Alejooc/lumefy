@@ -35,6 +35,7 @@ class Storefront(BaseModel):
     shipping_destinations = relationship("StorefrontShippingDestination", back_populates="storefront", cascade="all, delete-orphan")
     shipping_methods = relationship("StorefrontShippingMethod", back_populates="storefront", cascade="all, delete-orphan")
     orders = relationship("StorefrontOrder", back_populates="storefront", cascade="all, delete-orphan")
+    media_assets = relationship("StorefrontMediaAsset", back_populates="storefront", cascade="all, delete-orphan")
     price_list = relationship("PriceList")
 
     __table_args__ = (

@@ -186,6 +186,41 @@
               </label>
             </div>
 
+            @if (showMediaLibrary) {
+              <div class="visual-editor-inspector-section visual-editor-media-library">
+                <div class="visual-editor-field-heading"><strong>Biblioteca de imágenes</strong><span>{{ mediaAssets.length }} disponibles</span></div>
+                <label class="visual-editor-field"><span>Aplicar imagen a</span>
+                  <select class="form-select" [(ngModel)]="mediaTarget">
+                    @for (target of mediaTargetOptions; track target.value) {
+                      <option [value]="target.value">{{ target.label }}</option>
+                    }
+                  </select>
+                </label>
+                <label class="visual-editor-upload-button" [class.visual-editor-upload-button--busy]="uploadingMedia">
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" (change)="uploadMedia($event)" [disabled]="uploadingMedia" />
+                  <span>{{ uploadingMedia ? 'Subiendo imagen...' : '＋ Subir imagen' }}</span>
+                </label>
+                @if (uploadingMedia) {
+                  <div class="visual-editor-upload-progress" aria-live="polite">
+                    <div class="visual-editor-upload-progress__bar" [style.width.%]="mediaUploadProgress"></div>
+                    <span>{{ mediaUploadProgress ? mediaUploadProgress + '%' : 'Preparando...' }}</span>
+                  </div>
+                }
+                @if (mediaAssets.length) {
+                  <div class="visual-editor-media-grid" aria-label="Imágenes disponibles">
+                    @for (asset of mediaAssets; track asset.id) {
+                      <button type="button" class="visual-editor-media-tile" (click)="useMediaAsset(asset.url)" [title]="'Usar ' + asset.original_filename">
+                        <img [src]="mediaAssetPreviewUrl(asset.url)" [alt]="asset.alt_text || asset.original_filename" loading="lazy" />
+                        <span>{{ asset.original_filename }}</span>
+                      </button>
+                    }
+                  </div>
+                } @else {
+                  <p class="visual-editor-help">Sube una imagen para reutilizarla en este storefront. El archivo queda aislado de las demás empresas.</p>
+                }
+              </div>
+            }
+
             @switch (selectedSection.type) {
               @case ('hero') {
                 <div class="visual-editor-inspector-section">
@@ -199,11 +234,16 @@
                        <label class="visual-editor-field"><span>Texto del botón</span><input class="form-control" [ngModel]="heroButtonLabel" (ngModelChange)="heroButtonLabel = $event; markDirty()" /></label>
                        <label class="visual-editor-field"><span>Enlace interno o URL</span><input class="form-control" list="visual-editor-internal-links" [ngModel]="heroButtonLink" (ngModelChange)="heroButtonLink = $event; markDirty()" placeholder="/products" /></label>
                     </div>
-                    <label class="visual-editor-field"><span>Imagen o ruta pública</span><input class="form-control" [ngModel]="heroImage" (ngModelChange)="heroImage = $event; markDirty()" placeholder="https://..." /></label>
+                    <label class="visual-editor-field"><span>Imagen o ruta pública</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="heroImage" (ngModelChange)="heroImage = $event; markDirty()" placeholder="https://..." /></label>
                     <div class="visual-editor-field-grid visual-editor-field-grid--colors">
-                      <label class="visual-editor-field"><span>Color del texto</span><input class="form-control" [ngModel]="firstHeroSlide.text_color" (ngModelChange)="firstHeroSlide.text_color = $event; markDirty()" placeholder="#1C274C" /></label>
-                      <label class="visual-editor-field"><span>Color del botón</span><input class="form-control" [ngModel]="firstHeroSlide.button_color" (ngModelChange)="firstHeroSlide.button_color = $event; markDirty()" placeholder="#1C274C" /></label>
+                      <label class="visual-editor-field"><span>Color del texto</span><input class="form-control form-control-color" type="color" [ngModel]="firstHeroSlide.text_color" (ngModelChange)="firstHeroSlide.text_color = $event; markDirty()" title="Color del texto" /></label>
+                      <label class="visual-editor-field"><span>Color del botón</span><input class="form-control form-control-color" type="color" [ngModel]="firstHeroSlide.button_color" (ngModelChange)="firstHeroSlide.button_color = $event; markDirty()" title="Color del botón" /></label>
                     </div>
+                    <div class="visual-editor-field-grid">
+                      <label class="visual-editor-field"><span>Opacidad del fondo</span><input class="form-range" type="range" min="0" max="1" step="0.05" [ngModel]="firstHeroSlide.overlay_opacity" (ngModelChange)="firstHeroSlide.overlay_opacity = +$event; markDirty()" /><small class="visual-editor-range-value">{{ (firstHeroSlide.overlay_opacity || 0) * 100 | number:'1.0-0' }}%</small></label>
+                      <label class="visual-editor-field"><span>Posición de imagen</span><select class="form-select" [ngModel]="firstHeroSlide.image_position" (ngModelChange)="firstHeroSlide.image_position = $event; markDirty()"><option value="left">Izquierda</option><option value="center">Centro</option><option value="right">Derecha</option><option value="top">Arriba</option><option value="bottom">Abajo</option></select></label>
+                    </div>
+                    <label class="visual-editor-field"><span>Alineación del contenido</span><select class="form-select" [ngModel]="firstHeroSlide.content_alignment" (ngModelChange)="firstHeroSlide.content_alignment = $event; markDirty()"><option value="left">Izquierda</option><option value="center">Centro</option></select></label>
                   }
                 </div>
                 <div class="visual-editor-inspector-section">
@@ -213,7 +253,7 @@
                   } @else {
                     <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="promoTitle" (ngModelChange)="promoTitle = $event; markDirty()" /></label>
                     <label class="visual-editor-field"><span>Etiqueta de oferta</span><input class="form-control" [ngModel]="promoOfferLabel" (ngModelChange)="promoOfferLabel = $event; markDirty()" /></label>
-                    <label class="visual-editor-field"><span>Imagen</span><input class="form-control" [ngModel]="promoImage" (ngModelChange)="promoImage = $event; markDirty()" placeholder="https://..." /></label>
+                    <label class="visual-editor-field"><span>Imagen</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="promoImage" (ngModelChange)="promoImage = $event; markDirty()" placeholder="https://..." /></label>
                   }
                 </div>
               }
@@ -279,7 +319,8 @@
                       <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="banner.title" (ngModelChange)="banner.title = $event; markDirty()" /></label>
                       <label class="visual-editor-field"><span>Subtítulo</span><input class="form-control" [ngModel]="banner.subtitle || ''" (ngModelChange)="banner.subtitle = $event; markDirty()" /></label>
                       <div class="visual-editor-field-grid"><label class="visual-editor-field"><span>Botón</span><input class="form-control" [ngModel]="banner.cta_label || ''" (ngModelChange)="banner.cta_label = $event; markDirty()" /></label><label class="visual-editor-field"><span>Enlace interno o URL</span><input class="form-control" list="visual-editor-internal-links" [ngModel]="banner.cta_href || '/products'" (ngModelChange)="banner.cta_href = $event; markDirty()" /></label></div>
-                      <label class="visual-editor-field"><span>Imagen</span><input class="form-control" [ngModel]="banner.image_url || ''" (ngModelChange)="banner.image_url = $event; markDirty()" placeholder="https://..." /></label>
+                      <label class="visual-editor-field"><span>Imagen</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="banner.image_url || ''" (ngModelChange)="banner.image_url = $event; markDirty()" placeholder="https://..." /></label>
+                      <div class="visual-editor-field-grid visual-editor-field-grid--colors"><label class="visual-editor-field"><span>Color de fondo</span><input class="form-control form-control-color" type="color" [ngModel]="banner.background_color || '#DDE6DE'" (ngModelChange)="banner.background_color = $event; markDirty()" /></label><label class="visual-editor-field"><span>Color de acento</span><input class="form-control form-control-color" type="color" [ngModel]="banner.accent_color || '#17233F'" (ngModelChange)="banner.accent_color = $event; markDirty()" /></label></div>
                     </div>
                   }
                   <button class="visual-editor-add-line" type="button" (click)="addPromoBanner()"><span>+</span> Añadir banner</button>
@@ -292,6 +333,9 @@
                   <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="countdown.title" (ngModelChange)="countdown.title = $event; markDirty()" /></label>
                   <label class="visual-editor-field"><span>Descripción</span><textarea class="form-control" rows="2" [ngModel]="countdown.description" (ngModelChange)="countdown.description = $event; markDirty()"></textarea></label>
                   <label class="visual-editor-field"><span>Fecha de finalización</span><input class="form-control" type="datetime-local" [ngModel]="countdown.deadline" (ngModelChange)="countdown.deadline = $event; markDirty()" /></label>
+                  <label class="visual-editor-field"><span>Color de fondo</span><input class="form-control form-control-color" type="color" [ngModel]="countdown.background_color" (ngModelChange)="countdown.background_color = $event; markDirty()" /></label>
+                  <label class="visual-editor-field"><span>Imagen decorativa de fondo</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="countdown.background_image_url" (ngModelChange)="countdown.background_image_url = $event; markDirty()" placeholder="Selecciona una imagen o pega una ruta" /></label>
+                  <label class="visual-editor-field"><span>Imagen del producto</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="countdown.product_image_url" (ngModelChange)="countdown.product_image_url = $event; markDirty()" placeholder="Selecciona una imagen o pega una ruta" /></label>
                 </div>
               }
               @case ('newsletter') {
@@ -300,6 +344,7 @@
                   <label class="visual-editor-field"><span>Título</span><input class="form-control" [ngModel]="newsletter.title" (ngModelChange)="newsletter.title = $event; markDirty()" /></label>
                   <label class="visual-editor-field"><span>Descripción</span><textarea class="form-control" rows="2" [ngModel]="newsletter.description" (ngModelChange)="newsletter.description = $event; markDirty()"></textarea></label>
                   <div class="visual-editor-field-grid"><label class="visual-editor-field"><span>Placeholder</span><input class="form-control" [ngModel]="newsletter.placeholder" (ngModelChange)="newsletter.placeholder = $event; markDirty()" /></label><label class="visual-editor-field"><span>Botón</span><input class="form-control" [ngModel]="newsletter.button_label" (ngModelChange)="newsletter.button_label = $event; markDirty()" /></label></div>
+                  <label class="visual-editor-field"><span>Imagen de fondo</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="newsletter.background_image_url" (ngModelChange)="newsletter.background_image_url = $event; markDirty()" placeholder="Selecciona una imagen o pega una ruta" /></label>
                 </div>
               }
               @case ('testimonials') {
@@ -312,6 +357,7 @@
                       <div class="visual-editor-repeat-card__top"><strong>Reseña {{ i + 1 }}</strong><button type="button" class="visual-editor-repeat-remove" (click)="removeTestimonial(i)">Eliminar</button></div>
                       <label class="visual-editor-field"><span>Comentario</span><textarea class="form-control" rows="2" [ngModel]="item.review" (ngModelChange)="item.review = $event; markDirty()"></textarea></label>
                       <div class="visual-editor-field-grid"><label class="visual-editor-field"><span>Nombre</span><input class="form-control" [ngModel]="item.author_name" (ngModelChange)="item.author_name = $event; markDirty()" /></label><label class="visual-editor-field"><span>Rol</span><input class="form-control" [ngModel]="item.author_role || ''" (ngModelChange)="item.author_role = $event; markDirty()" /></label></div>
+                      <label class="visual-editor-field"><span>Foto del cliente</span><input class="form-control" list="visual-editor-media-assets" [ngModel]="item.author_image || ''" (ngModelChange)="item.author_image = $event; markDirty()" placeholder="Selecciona una imagen o pega una ruta" /></label>
                     </div>
                   }
                   <button class="visual-editor-add-line" type="button" (click)="addTestimonial()"><span>+</span> Añadir testimonio</button>
@@ -332,6 +378,11 @@
     <datalist id="visual-editor-internal-links">
       @for (link of internalLinkOptions; track link.href) {
         <option [value]="link.href">{{ link.label }}</option>
+      }
+    </datalist>
+    <datalist id="visual-editor-media-assets">
+      @for (asset of mediaAssets; track asset.id) {
+        <option [value]="asset.url">{{ asset.original_filename }}</option>
       }
     </datalist>
 

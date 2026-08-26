@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { HttpEvent } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { ApiService } from './api.service';
@@ -150,6 +151,20 @@ export interface StorefrontThemePreviewSession {
   expires_at: string;
   preview_url: string;
   template_key: string;
+}
+
+export interface StorefrontMediaAsset {
+  id: string;
+  storefront_id: string;
+  company_id: string;
+  url: string;
+  original_filename: string;
+  content_type: string;
+  size_bytes: number;
+  width?: number | null;
+  height?: number | null;
+  alt_text?: string | null;
+  created_at: string;
 }
 
 export interface StorefrontThemeComponent {
@@ -634,6 +649,22 @@ export class StorefrontAdminService {
 
   createThemePreviewSession(storefrontId: string, templateKey = 'home'): Observable<StorefrontThemePreviewSession> {
     return this.api.post<StorefrontThemePreviewSession>(`/storefront/${storefrontId}/theme/${templateKey}/preview-session`, {});
+  }
+
+  getMediaAssets(storefrontId: string): Observable<StorefrontMediaAsset[]> {
+    return this.api.get<StorefrontMediaAsset[]>(`/storefront/${storefrontId}/media`);
+  }
+
+  uploadMediaAsset(storefrontId: string, file: File): Observable<StorefrontMediaAsset> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.api.post<StorefrontMediaAsset>(`/storefront/${storefrontId}/media`, formData);
+  }
+
+  uploadMediaAssetWithProgress(storefrontId: string, file: File): Observable<HttpEvent<StorefrontMediaAsset>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.api.postWithProgress<StorefrontMediaAsset>(`/storefront/${storefrontId}/media`, formData);
   }
 
   saveThemeDraft(

@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
@@ -59,6 +59,14 @@ export class ApiService {
     post<T>(path: string, body: unknown = {}): Observable<T> {
         const isFormData = body instanceof FormData;
         return this.http.post<T>(`${environment.apiUrl}${path}`, body, { headers: this.getHeaders(isFormData) });
+    }
+
+    postWithProgress<T>(path: string, body: FormData): Observable<HttpEvent<T>> {
+        return this.http.post<T>(`${environment.apiUrl}${path}`, body, {
+            headers: this.getHeaders(true),
+            observe: 'events',
+            reportProgress: true
+        });
     }
 
     put<T>(path: string, body: unknown = {}): Observable<T> {

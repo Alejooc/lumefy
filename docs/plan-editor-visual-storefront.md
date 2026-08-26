@@ -22,10 +22,11 @@ Esta entrega implementa el primer vertical funcional del editor del inicio:
 - editor Angular de tres paneles con drag and drop, propiedades contextuales, preview real, responsive, borrador y publicación;
 - selectores tenant-scoped de productos y colecciones para los bloques de catálogo;
 - sugerencias de enlaces internos del storefront y soporte para URLs externas;
+- biblioteca de imágenes aislada por storefront, con carga validada y selección visual;
 - deshacer y rehacer local con hasta 50 estados;
 - sesión de preview firmada, temporal y limitada a `storefront_id`, `company_id` y plantilla, sin enviar el JWT administrativo al iframe.
 
-Queda para las siguientes entregas: biblioteca tenant-scoped de medios, edición completa de bloques, header/footer y plantillas de producto, colección y páginas informativas. La migración nueva todavía no se ha ejecutado en producción.
+Queda para las siguientes entregas: edición completa de bloques, header/footer y plantillas de producto, colección y páginas informativas. La migración nueva todavía no se ha ejecutado en producción.
 
 ## Resultado esperado
 
@@ -279,10 +280,10 @@ Cada componente debe incluir defaults, validación, límites, responsive y estad
 
 - [x] Selector tenant-scoped de productos publicados.
 - [x] Selector tenant-scoped de colecciones.
-- [ ] Biblioteca de imágenes autorizadas del storefront.
-- [ ] Carga de imágenes con progreso y validación.
+- [x] Biblioteca de imágenes autorizadas del storefront.
+- [x] Carga de imágenes con progreso y validación.
 - [x] Selector de enlaces internos para evitar escribir rutas manualmente.
-- [ ] Selector de color, opacidad, alineación y posición visual.
+- [x] Controles visuales de color, opacidad, alineación y posición para el hero y sus campañas.
 - [x] Validar que un storefront no pueda seleccionar productos o colecciones de otro.
 
 **Salida:** la mayoría de campos técnicos de URL desaparece de la experiencia del usuario.
@@ -382,7 +383,7 @@ La migración debe ser idempotente y no debe eliminar `theme_settings` durante e
 - [x] Un usuario puede agregar, ordenar, ocultar, duplicar y eliminar secciones del inicio.
 - [x] La vista previa refleja cambios sin modificar la tienda pública.
 - [x] Escritorio, tablet y móvil se pueden revisar desde el editor.
-- [ ] Los productos, colecciones, imágenes y enlaces se seleccionan visualmente.
+- [x] Los productos, colecciones, imágenes editables del inicio y enlaces se seleccionan visualmente.
 - [x] Guardar crea un borrador y publicar actualiza la tienda de forma atómica.
 - [x] Se puede restaurar una versión anterior.
 - [x] Dos usuarios concurrentes no sobrescriben cambios silenciosamente.

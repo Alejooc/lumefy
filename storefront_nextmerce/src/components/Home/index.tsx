@@ -13,6 +13,7 @@ import ClosingCta from "./ClosingCta";
 import Newsletter from "../Common/Newsletter";
 
 import { HomeLayoutSection, HomeLayoutSectionType, HomeViewModel } from "@/types/home";
+import { storefrontImageUrl } from "@/lib/storefront-image";
 
 const HOME_SECTION_TYPES = new Set<HomeLayoutSectionType>([
   "hero",
@@ -56,6 +57,10 @@ function previewStringList(value: unknown): string[] {
   return Array.isArray(value)
     ? Array.from(new Set(value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))))
     : [];
+}
+
+function previewImage(value: unknown, fallback = ""): string {
+  return storefrontImageUrl(previewText(value, fallback)) || fallback;
 }
 
 function previewParentOrigin(): string | null {
@@ -112,7 +117,7 @@ function applyPreviewDocument(data: HomeViewModel, document: Record<string, unkn
         title: previewText(slide["title"], data.heroSlides[index]?.title || "Nueva sección"),
         description: previewText(slide["description"], data.heroSlides[index]?.description || ""),
         ctaHref: previewText(slide["cta_href"], data.heroSlides[index]?.ctaHref || "/products"),
-        image: previewText(slide["image"], data.heroSlides[index]?.image || ""),
+        image: previewImage(slide["image"], data.heroSlides[index]?.image || ""),
         overlayOpacity: Number(slide["overlay_opacity"] ?? data.heroSlides[index]?.overlayOpacity ?? 0.3),
         imagePosition: previewText(slide["image_position"], data.heroSlides[index]?.imagePosition || "center"),
         contentAlignment: slide["content_alignment"] === "center" ? "center" : "left",
@@ -134,9 +139,27 @@ function applyPreviewDocument(data: HomeViewModel, document: Record<string, unkn
         href: previewText(promo["href"], data.heroPromos[index]?.href || "/products"),
         priceLabel: previewText(promo["price_label"], data.heroPromos[index]?.priceLabel || "Descubrir"),
         comparePriceLabel: previewText(promo["compare_price_label"], data.heroPromos[index]?.comparePriceLabel || ""),
-        image: previewText(promo["image"], data.heroPromos[index]?.image || ""),
+        image: previewImage(promo["image"], data.heroPromos[index]?.image || ""),
         backgroundColor: previewText(promo["background_color"], data.heroPromos[index]?.backgroundColor || "#FFFFFF"),
-        backgroundImageUrl: previewText(promo["background_image_url"], data.heroPromos[index]?.backgroundImageUrl || ""),
+        backgroundImageUrl: previewImage(promo["background_image_url"], data.heroPromos[index]?.backgroundImageUrl || ""),
+      }));
+  }
+
+  const promoBanners = Array.isArray(home["promo_banners"]) ? home["promo_banners"] : [];
+  if (promoBanners.length) {
+    next.promoBanners = promoBanners
+      .filter((banner): banner is Record<string, unknown> => Boolean(banner) && typeof banner === "object")
+      .map((banner, index) => ({
+        ...(data.promoBanners[index] || data.promoBanners[0]),
+        id: previewText(banner["id"], data.promoBanners[index]?.id || `preview-promo-${index + 1}`),
+        title: previewText(banner["title"], data.promoBanners[index]?.title || "Campaña"),
+        subtitle: previewText(banner["subtitle"], data.promoBanners[index]?.subtitle || ""),
+        description: previewText(banner["description"], data.promoBanners[index]?.description || ""),
+        ctaLabel: previewText(banner["cta_label"], data.promoBanners[index]?.ctaLabel || "Ver productos"),
+        ctaHref: previewText(banner["cta_href"], data.promoBanners[index]?.ctaHref || "/products"),
+        image: previewImage(banner["image_url"], data.promoBanners[index]?.image || ""),
+        backgroundColor: previewText(banner["background_color"], data.promoBanners[index]?.backgroundColor || ""),
+        accentColor: previewText(banner["accent_color"], data.promoBanners[index]?.accentColor || ""),
       }));
   }
 
@@ -174,6 +197,9 @@ function applyPreviewDocument(data: HomeViewModel, document: Record<string, unkn
     ctaLabel: previewText(countdown["cta_label"], data.countdown.ctaLabel || "Ver oferta"),
     ctaHref: previewText(countdown["cta_href"], data.countdown.ctaHref || "/products"),
     deadline: previewText(countdown["deadline"], data.countdown.deadline || ""),
+    backgroundColor: previewText(countdown["background_color"], data.countdown.backgroundColor || "#D0E9F3"),
+    backgroundImageUrl: previewImage(countdown["background_image_url"], data.countdown.backgroundImageUrl || ""),
+    productImageUrl: previewImage(countdown["product_image_url"], data.countdown.productImageUrl || ""),
   };
   next.newsletter = {
     ...data.newsletter,
@@ -182,6 +208,7 @@ function applyPreviewDocument(data: HomeViewModel, document: Record<string, unkn
     description: previewText(newsletter["description"], data.newsletter.description || ""),
     placeholder: previewText(newsletter["placeholder"], data.newsletter.placeholder || "Tu correo electrónico"),
     buttonLabel: previewText(newsletter["button_label"], data.newsletter.buttonLabel || "Registrarme"),
+    backgroundImageUrl: previewImage(newsletter["background_image_url"], data.newsletter.backgroundImageUrl || ""),
   };
 
   const testimonials = previewObject(home["testimonials"]);
@@ -191,6 +218,19 @@ function applyPreviewDocument(data: HomeViewModel, document: Record<string, unkn
     eyebrow: previewText(testimonials["eyebrow"], data.testimonialsSection.eyebrow || "Testimonios"),
     title: previewText(testimonials["title"], data.testimonialsSection.title),
   };
+  const testimonialItems = Array.isArray(testimonials["items"]) ? testimonials["items"] : [];
+  if (testimonialItems.length) {
+    next.testimonials = testimonialItems
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+      .map((item, index) => ({
+        ...(data.testimonials[index] || data.testimonials[0]),
+        review: previewText(item["review"], data.testimonials[index]?.review || ""),
+        authorName: previewText(item["author_name"], data.testimonials[index]?.authorName || "Cliente"),
+        authorRole: previewText(item["author_role"], data.testimonials[index]?.authorRole || ""),
+        authorImg: previewImage(item["author_image"], data.testimonials[index]?.authorImg || "/images/users/user-01.jpg"),
+      }))
+      .filter((item) => item.review && item.authorName);
+  }
 
   return next;
 }

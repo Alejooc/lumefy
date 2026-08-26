@@ -68,6 +68,8 @@ from app.models.storefront_theme import (
     StorefrontThemeDocument as StorefrontThemeDocumentModel,
     StorefrontThemeRevision as StorefrontThemeRevisionModel,
 )
+from app.models.storefront_media import StorefrontMediaAsset
+from app.services.image_upload import save_image_upload
 from app.schemas import storefront as schemas
 from app.services.storefront_theme import (
     build_home_document,
@@ -96,6 +98,7 @@ STATIC_ASSET_ROOT = Path(__file__).resolve().parents[4] / "static"
 RESERVED_STOREFRONT_SUBDOMAINS = {
     "www", "api", "admin", "app", "panel", "mail", "static", "cdn", "support", "help",
 }
+MAX_STOREFRONT_MEDIA_ASSETS = 200
 
 
 def _normalize_public_asset_url(value: Any) -> str | None:
@@ -177,6 +180,17 @@ async def _public_asset_is_referenced(
         ).limit(1)
     )
     if collection_reference:
+        return True
+
+    media_reference = await db.scalar(
+        select(StorefrontMediaAsset.id).where(
+            StorefrontMediaAsset.storefront_id == storefront.id,
+            StorefrontMediaAsset.company_id == storefront.company_id,
+            StorefrontMediaAsset.storage_path == asset_url,
+            StorefrontMediaAsset.is_active == True,
+        ).limit(1)
+    )
+    if media_reference:
         return True
 
     theme_document = await db.scalar(
@@ -1461,6 +1475,28 @@ async def _get_theme_document(
     return document
 
 
+def _serialize_storefront_media_asset(asset: StorefrontMediaAsset) -> schemas.StorefrontMediaAsset:
+    return schemas.StorefrontMediaAsset(
+        id=asset.id,
+        storefront_id=asset.storefront_id,
+        company_id=asset.company_id,
+        url=asset.storage_path,
+        original_filename=asset.original_filename,
+        content_type=asset.content_type,
+        size_bytes=asset.size_bytes,
+        width=asset.width,
+        height=asset.height,
+        alt_text=asset.alt_text,
+        created_at=asset.created_at,
+    )
+
+
+def _safe_media_filename(value: str | None, fallback: str) -> str:
+    candidate = Path(value or "").name
+    candidate = re.sub(r"[\x00-\x1f\x7f]", "", candidate).strip()
+    return (candidate or fallback)[:255]
+
+
 async def _validate_theme_references(
     db: AsyncSession,
     storefront: Storefront,
@@ -2351,6 +2387,116 @@ async def read_theme_component_registry(
     """Return the safe component palette available to the current tenant."""
     await _get_storefront_or_404(db, storefront_id, current_user.company_id)
     return {"template_key": "home", "components": component_registry()}
+
+
+@router.get("/{storefront_id}/media", response_model=List[schemas.StorefrontMediaAsset])
+async def read_storefront_media(
+    storefront_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> list[schemas.StorefrontMediaAsset]:
+    """List only images owned by the current company's storefront."""
+    storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    result = await db.execute(
+        select(StorefrontMediaAsset).where(
+            StorefrontMediaAsset.storefront_id == storefront.id,
+            StorefrontMediaAsset.company_id == current_user.company_id,
+            StorefrontMediaAsset.is_active == True,
+        ).order_by(StorefrontMediaAsset.created_at.desc()).limit(MAX_STOREFRONT_MEDIA_ASSETS)
+    )
+    return [_serialize_storefront_media_asset(asset) for asset in result.scalars().all()]
+
+
+@router.get("/{storefront_id}/media/{asset_id}")
+async def read_storefront_media_asset(
+    storefront_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> FileResponse:
+    """Serve one uploaded image through the authenticated tenant boundary."""
+    storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    asset = await db.scalar(
+        select(StorefrontMediaAsset).where(
+            StorefrontMediaAsset.id == asset_id,
+            StorefrontMediaAsset.storefront_id == storefront.id,
+            StorefrontMediaAsset.company_id == current_user.company_id,
+            StorefrontMediaAsset.is_active == True,
+        )
+    )
+    if not asset:
+        raise HTTPException(status_code=404, detail="Imagen no encontrada.")
+    _, file_path = _resolve_public_asset_path(asset.storage_path)
+    return FileResponse(
+        file_path,
+        media_type=asset.content_type,
+        headers={"Cache-Control": "private, no-store"},
+    )
+
+
+@router.post("/{storefront_id}/media", response_model=schemas.StorefrontMediaAsset)
+async def upload_storefront_media(
+    storefront_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> schemas.StorefrontMediaAsset:
+    """Upload a validated image and register it under one storefront tenant."""
+    storefront = await _get_storefront_or_404(db, storefront_id, current_user.company_id)
+    current_count = await db.scalar(
+        select(func.count(StorefrontMediaAsset.id)).where(
+            StorefrontMediaAsset.storefront_id == storefront.id,
+            StorefrontMediaAsset.company_id == current_user.company_id,
+            StorefrontMediaAsset.is_active == True,
+        )
+    )
+    if int(current_count or 0) >= MAX_STOREFRONT_MEDIA_ASSETS:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Esta tienda alcanzó el límite de {MAX_STOREFRONT_MEDIA_ASSETS} imágenes.",
+        )
+
+    stored = await save_image_upload(file)
+    asset = StorefrontMediaAsset(
+        storefront_id=storefront.id,
+        company_id=current_user.company_id,
+        storage_path=str(stored["storage_path"]),
+        original_filename=_safe_media_filename(
+            str(stored.get("file_name") or ""),
+            str(stored["storage_path"]).rsplit("/", 1)[-1],
+        ),
+        content_type=str(stored["content_type"]),
+        size_bytes=int(stored["size_bytes"]),
+        width=int(stored["width"]),
+        height=int(stored["height"]),
+        created_by_id=current_user.id,
+        updated_by_id=current_user.id,
+    )
+    db.add(asset)
+    try:
+        await log_activity(
+            db,
+            action="STOREFRONT_MEDIA_UPLOADED",
+            entity_type="StorefrontMediaAsset",
+            entity_id=str(asset.id),
+            user_id=str(current_user.id),
+            company_id=str(current_user.company_id),
+            details={
+                "storefront_id": str(storefront.id),
+                "content_type": asset.content_type,
+                "size_bytes": asset.size_bytes,
+            },
+        )
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        try:
+            Path(str(stored["file_path"])).unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise HTTPException(status_code=500, detail="No fue posible registrar la imagen.") from exc
+    await db.refresh(asset)
+    return _serialize_storefront_media_asset(asset)
 
 
 @router.post(

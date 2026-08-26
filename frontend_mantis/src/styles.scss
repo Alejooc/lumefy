@@ -19,6 +19,22 @@ Lumefy application styles
 // bootstrap import
 @import 'scss/bootstrap/bootstrap.scss';
 
+// Visual storefront editor media picker. Kept global so the lazy editor
+// remains below Angular's strict anyComponentStyle production budget.
+.visual-editor-upload-button { position: relative; display: flex; min-height: 34px; align-items: center; justify-content: center; margin-bottom: 0.75rem; overflow: hidden; border: 1px dashed #ddb7aa; border-radius: 7px; background: #fffaf8; color: var(--editor-accent); cursor: pointer; font-size: 0.68rem; font-weight: 700; transition: background 120ms ease, border-color 120ms ease; }
+.visual-editor-upload-button:hover { border-color: #c98a74; background: #fff3ee; }
+.visual-editor-upload-button--busy { cursor: wait; opacity: 0.7; }
+.visual-editor-upload-button input { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; opacity: 0; }
+.visual-editor-upload-button--busy input { cursor: wait; }
+.visual-editor-upload-progress { position: relative; height: 5px; margin: -0.35rem 0 1.15rem; overflow: visible; border-radius: 99px; background: #f0e2dc; }
+.visual-editor-upload-progress__bar { height: 100%; min-width: 2px; border-radius: inherit; background: var(--editor-accent, #b65332); transition: width 160ms ease; }
+.visual-editor-upload-progress span { position: absolute; top: 0.35rem; right: 0; color: var(--editor-muted, #76809a); font-size: 0.57rem; }
+.visual-editor-media-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; max-height: 238px; overflow: auto; padding: 0.1rem; }
+.visual-editor-media-tile { min-width: 0; padding: 0.22rem; border: 1px solid #e5e8ef; border-radius: 7px; background: #fff; color: var(--editor-muted); text-align: left; transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease; }
+.visual-editor-media-tile:hover { border-color: #d7a08d; box-shadow: 0 4px 12px rgba(182, 83, 50, 0.12); transform: translateY(-1px); }
+.visual-editor-media-tile img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 5px; background: #f2f3f7; }
+.visual-editor-media-tile span { display: block; margin-top: 0.25rem; overflow: hidden; font-size: 0.55rem; text-overflow: ellipsis; white-space: nowrap; }
+
 @import 'node_modules/bootstrap/scss/utilities';
 @import 'node_modules/bootstrap/scss/utilities/api';
 

@@ -9,7 +9,11 @@ from app.api.v1.endpoints.clients import create_client_activity, get_client_acti
 from app.api.v1.endpoints.integrations import proxy_asset
 from app.api.v1.endpoints.pos import get_pos_products
 from app.api.v1.endpoints.products import _validate_product_relations, update_variant
-from app.api.v1.endpoints.storefront import _public_asset_is_referenced, _resolve_public_asset_path
+from app.api.v1.endpoints.storefront import (
+    _public_asset_is_referenced,
+    _resolve_public_asset_path,
+    read_storefront_media_asset,
+)
 from app.api.v1.endpoints.users import update_user
 from app.core.tenant import get_company_owned
 from app.models.client import Client
@@ -201,6 +205,20 @@ class TenantIsolationTests(unittest.IsolatedAsyncioTestCase):
                 _resolve_public_asset_path(path)
             self.assertEqual(context.exception.status_code, 404)
 
+    async def test_media_asset_read_rejects_foreign_storefront_before_file_access(self):
+        db = SimpleNamespace(execute=AsyncMock(return_value=_Result()))
+
+        with self.assertRaises(HTTPException) as context:
+            await read_storefront_media_asset(
+                storefront_id=uuid4(),
+                asset_id=uuid4(),
+                db=db,
+                current_user=_user(uuid4()),
+            )
+
+        self.assertEqual(context.exception.status_code, 404)
+        self.assertEqual(db.execute.await_count, 1)
+
     async def test_public_asset_reference_is_limited_to_requested_storefront(self):
         storefront = SimpleNamespace(
             id=uuid4(),
@@ -211,7 +229,7 @@ class TenantIsolationTests(unittest.IsolatedAsyncioTestCase):
         )
         company = SimpleNamespace(logo_url="/static/company-a/logo.png")
         db = SimpleNamespace(
-            scalar=AsyncMock(side_effect=[None, None, None]),
+            scalar=AsyncMock(side_effect=[None, None, None, None]),
             execute=AsyncMock(return_value=_Result(record=company)),
         )
 
@@ -225,7 +243,7 @@ class TenantIsolationTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(
             await _public_asset_is_referenced(
                 SimpleNamespace(
-                    scalar=AsyncMock(side_effect=[None, None, None]),
+                    scalar=AsyncMock(side_effect=[None, None, None, None]),
                     execute=AsyncMock(
                         return_value=_Result(
                             record=SimpleNamespace(logo_url="/static/company-b/logo.png")
@@ -253,7 +271,7 @@ class TenantIsolationTests(unittest.IsolatedAsyncioTestCase):
             draft_document={},
         )
         db = SimpleNamespace(
-            scalar=AsyncMock(side_effect=[None, None, theme_document]),
+            scalar=AsyncMock(side_effect=[None, None, None, theme_document]),
             execute=AsyncMock(return_value=_Result(record=SimpleNamespace(logo_url=None))),
         )
 

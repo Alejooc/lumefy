@@ -28,10 +28,10 @@ const PromoBanner = ({ items }: { items: HomePromoBanner[] }) => {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#111827]/90 via-[#111827]/20 to-transparent" />
               <div className="absolute inset-x-0 bottom-0 max-w-[620px] p-6 text-white sm:p-10 lg:p-12">
-                {promo.subtitle ? <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/75">{promo.subtitle}</p> : null}
+                {promo.subtitle ? <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/75" style={{ color: promo.accentColor || undefined }}>{promo.subtitle}</p> : null}
                 <h3 className="text-[32px] font-semibold leading-[1.08] tracking-[-0.025em] sm:text-[46px]">{promo.title}</h3>
                 {promo.description ? <p className="mt-4 max-w-[520px] text-sm leading-7 text-white/85 sm:text-base">{promo.description}</p> : null}
-                <Link href={promo.ctaHref} className="mt-6 inline-flex items-center gap-3 rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#17233f] transition hover:bg-[#b65332] hover:text-white">
+                <Link href={promo.ctaHref} className="mt-6 inline-flex items-center gap-3 rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#17233f] transition hover:bg-[#b65332] hover:text-white" style={{ color: promo.accentColor || undefined }}>
                   {promo.ctaLabel}<span aria-hidden="true">→</span>
                 </Link>
               </div>
@@ -58,9 +58,9 @@ const PromoBanner = ({ items }: { items: HomePromoBanner[] }) => {
                   ) : null}
                   <div className="absolute inset-0 bg-gradient-to-t from-[#111827]/85 via-[#111827]/10 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
-                    {promo.subtitle ? <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/75">{promo.subtitle}</p> : null}
+                    {promo.subtitle ? <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/75" style={{ color: promo.accentColor || undefined }}>{promo.subtitle}</p> : null}
                     <h3 className="text-2xl font-semibold leading-tight">{promo.title}</h3>
-                    <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold">{promo.ctaLabel}<span className="transition group-hover:translate-x-1">→</span></span>
+                    <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold" style={{ color: promo.accentColor || undefined }}>{promo.ctaLabel}<span className="transition group-hover:translate-x-1">→</span></span>
                   </div>
                 </Link>
               ))}

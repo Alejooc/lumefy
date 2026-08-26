@@ -180,6 +180,7 @@
 .visual-editor-field .visual-editor-multi-select option { padding: 0.35rem 0.4rem; border-radius: 5px; }
 .visual-editor-field textarea.form-control { min-height: 70px; resize: vertical; }
 .visual-editor-field .form-control:focus { border-color: #d99d88; box-shadow: 0 0 0 3px rgba(182, 83, 50, 0.1); }
+.visual-editor-range-value { display: block; margin-top: -0.15rem; color: var(--editor-muted); font-size: 0.6rem; text-align: right; }
 .visual-editor-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
 .visual-editor-field-grid--colors { grid-template-columns: 1fr 1fr; }
 .visual-editor-help { margin: 0.65rem 0 0; color: var(--editor-muted); font-size: 0.65rem; line-height: 1.5; }
@@ -194,6 +195,7 @@
 .visual-editor-repeat-card__top { justify-content: space-between; gap: 0.5rem; margin-bottom: 0.65rem; }
 .visual-editor-repeat-card__top strong { color: #5b6680; font-size: 0.67rem; }
 .visual-editor-repeat-remove { padding: 0; border: 0; background: transparent; color: #c56d5c; font-size: 0.61rem; }
+
 
 .visual-editor-history-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(23, 35, 63, 0.18); }
 .visual-editor-history-drawer { position: fixed; top: 0; right: 0; z-index: 31; display: flex; width: min(380px, 100%); height: 100vh; flex-direction: column; border-left: 1px solid var(--editor-line); background: #fff; box-shadow: -16px 0 42px rgba(23, 35, 63, 0.14); }

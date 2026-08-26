@@ -71,6 +71,20 @@ class StorefrontThemePreviewSession(BaseModel):
     template_key: str = "home"
 
 
+class StorefrontMediaAsset(BaseModel):
+    id: UUID
+    storefront_id: UUID
+    company_id: UUID
+    url: str
+    original_filename: str
+    content_type: str
+    size_bytes: int
+    width: Optional[int] = None
+    height: Optional[int] = None
+    alt_text: Optional[str] = None
+    created_at: datetime
+
+
 class StorefrontThemeDocument(BaseModel):
     id: UUID
     storefront_id: UUID

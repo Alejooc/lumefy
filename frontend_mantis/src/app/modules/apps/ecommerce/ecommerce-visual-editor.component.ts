@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpEventType } from '@angular/common/http';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -10,6 +11,7 @@ import {
   StoreCollection,
   Storefront,
   StorefrontAdminService,
+  StorefrontMediaAsset,
   StorefrontHomeCountdownSettings,
   StorefrontHomeHeroPromo,
   StorefrontHomeHeroSlide,
@@ -24,6 +26,7 @@ import {
   StorefrontThemeRevision,
   StorefrontThemeSection
 } from 'src/app/core/services/storefront-admin.service';
+import { environment } from 'src/environments/environment';
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
 
@@ -37,6 +40,15 @@ type VisualSectionType =
   | 'testimonials'
   | 'newsletter'
   | 'closing_cta';
+
+type VisualMediaTarget =
+  | 'hero'
+  | 'hero_promo'
+  | 'countdown_background'
+  | 'countdown_product'
+  | 'newsletter_background'
+  | `banner:${number}`
+  | `testimonial:${number}`;
 
 interface VisualSection extends StorefrontThemeSection {
   type: VisualSectionType;
@@ -78,6 +90,9 @@ interface VisualCountdown extends StorefrontHomeCountdownSettings {
   cta_label: string;
   cta_href: string;
   deadline: string;
+  background_color: string;
+  background_image_url: string;
+  product_image_url: string;
 }
 
 interface VisualNewsletter extends StorefrontHomeNewsletterSettings {
@@ -86,6 +101,7 @@ interface VisualNewsletter extends StorefrontHomeNewsletterSettings {
   description: string;
   placeholder: string;
   button_label: string;
+  background_image_url: string;
 }
 
 interface VisualTestimonials extends StorefrontHomeTestimonialsSettings {
@@ -144,6 +160,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
   storefronts: Storefront[] = [];
   collections: StoreCollection[] = [];
   publishedProducts: PublishedProduct[] = [];
+  mediaAssets: StorefrontMediaAsset[] = [];
   selectedStorefrontId = '';
   storefront: Storefront | null = null;
   theme: StorefrontThemeDocument | null = null;
@@ -155,6 +172,9 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
   safePreviewUrl: SafeResourceUrl | null = null;
   previewViewport: 'desktop' | 'tablet' | 'mobile' = 'desktop';
   errorMessage = '';
+  uploadingMedia = false;
+  mediaUploadProgress = 0;
+  mediaTarget: VisualMediaTarget = 'hero';
   readonly internalLinkOptions: VisualLinkOption[] = [
     { label: 'Inicio', href: '/' },
     { label: 'Todos los productos', href: '/products' },
@@ -178,6 +198,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     if (event.data?.type === 'lumefy:preview:select' && typeof event.data.sectionId === 'string') {
       if (this.document.sections.some((section) => section.id === event.data.sectionId)) {
         this.selectedSectionId = event.data.sectionId;
+        this.ensureMediaTarget();
       }
       return;
     }
@@ -248,12 +269,126 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     return this.selectedReferenceIds('product_ids');
   }
 
+  get mediaTargetOptions(): Array<{ value: VisualMediaTarget; label: string }> {
+    const section = this.selectedSection;
+    if (!section) return [];
+    if (section.type === 'hero') {
+      return [
+        { value: 'hero', label: 'Imagen principal del hero' },
+        { value: 'hero_promo', label: 'Tarjeta promocional del hero' },
+      ];
+    }
+    if (section.type === 'promo_banners') {
+      return this.promoBanners.map((_, index) => ({
+        value: `banner:${index}` as VisualMediaTarget,
+        label: `Imagen del banner ${index + 1}`,
+      }));
+    }
+    if (section.type === 'countdown') {
+      return [
+        { value: 'countdown_background', label: 'Fondo de la cuenta regresiva' },
+        { value: 'countdown_product', label: 'Producto de la cuenta regresiva' },
+      ];
+    }
+    if (section.type === 'newsletter') {
+      return [{ value: 'newsletter_background', label: 'Fondo del newsletter' }];
+    }
+    if (section.type === 'testimonials') {
+      return (this.testimonials.items || []).map((_, index) => ({
+        value: `testimonial:${index}` as VisualMediaTarget,
+        label: `Foto del testimonio ${index + 1}`,
+      }));
+    }
+    return [];
+  }
+
+  get showMediaLibrary(): boolean {
+    return this.mediaTargetOptions.length > 0;
+  }
+
   setCollectionSelection(value: unknown): void {
     this.setSelectedReferences('collection_ids', value);
   }
 
   setProductSelection(value: unknown): void {
     this.setSelectedReferences('product_ids', value);
+  }
+
+  uploadMedia(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || !this.storefront) return;
+    if (!file.type.startsWith('image/')) {
+      this.errorMessage = 'Selecciona una imagen JPG, PNG, WebP o GIF.';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      this.errorMessage = 'La imagen no puede superar los 10 MB.';
+      return;
+    }
+
+    this.uploadingMedia = true;
+    this.mediaUploadProgress = 0;
+    this.errorMessage = '';
+    const storefrontId = this.storefront.id;
+    this.storefrontService.uploadMediaAssetWithProgress(storefrontId, file).subscribe({
+      next: (event) => {
+        if (event.type === HttpEventType.UploadProgress) {
+          this.mediaUploadProgress = event.total
+            ? Math.round((event.loaded / event.total) * 100)
+            : 0;
+        } else if (event.type === HttpEventType.Response && event.body) {
+          const asset = event.body;
+          if (this.storefront?.id === storefrontId) {
+            this.mediaAssets = [asset, ...this.mediaAssets.filter((item) => item.id !== asset.id)];
+            this.useMediaAsset(asset.url);
+          }
+          this.uploadingMedia = false;
+        }
+      },
+      error: (err) => {
+        this.uploadingMedia = false;
+        this.mediaUploadProgress = 0;
+        this.errorMessage = err?.error?.detail || 'No se pudo subir la imagen.';
+      }
+    });
+  }
+
+  useMediaAsset(url: string): void {
+    if (this.mediaTarget === 'hero') {
+      this.heroImage = url;
+    } else if (this.mediaTarget === 'hero_promo') {
+      this.promoImage = url;
+    } else if (this.mediaTarget.startsWith('banner:')) {
+      const index = Number(this.mediaTarget.slice('banner:'.length));
+      const banner = this.promoBanners[index];
+      if (banner) banner.image_url = url;
+    } else if (this.mediaTarget === 'countdown_background') {
+      this.countdown.background_image_url = url;
+    } else if (this.mediaTarget === 'countdown_product') {
+      this.countdown.product_image_url = url;
+    } else if (this.mediaTarget === 'newsletter_background') {
+      this.newsletter.background_image_url = url;
+    } else if (this.mediaTarget.startsWith('testimonial:')) {
+      const index = Number(this.mediaTarget.slice('testimonial:'.length));
+      const testimonial = this.testimonials.items?.[index];
+      if (testimonial) testimonial.author_image = url;
+    } else {
+      return;
+    }
+    this.markDirty();
+  }
+
+  mediaAssetPreviewUrl(value: string): string {
+    const normalized = (value || '').trim();
+    if (!normalized.startsWith('/static/')) return normalized;
+    const ownedAsset = this.mediaAssets.find((asset) => asset.url === normalized);
+    if (ownedAsset && this.storefront) {
+      return `${environment.apiUrl}/storefront/${this.storefront.id}/media/${ownedAsset.id}`;
+    }
+    const apiRoot = environment.apiUrl.replace(/\/api\/v1\/?$/, '');
+    return `${apiRoot}${normalized}`;
   }
 
   get firstHeroSlide(): VisualHeroSlide | null {
@@ -419,11 +554,13 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         accent_color: '#B65332'
       }
     ];
+    this.ensureMediaTarget();
     this.markDirty();
   }
 
   removePromoBanner(index: number): void {
     this.document.legacy_home.promo_banners = this.promoBanners.filter((_, itemIndex) => itemIndex !== index);
+    this.ensureMediaTarget();
     this.markDirty();
   }
 
@@ -438,12 +575,14 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         author_image: ''
       }
     ];
+    this.ensureMediaTarget();
     this.markDirty();
   }
 
   removeTestimonial(index: number): void {
     this.document.legacy_home.testimonials.items = (this.document.legacy_home.testimonials.items || [])
       .filter((_, itemIndex) => itemIndex !== index);
+    this.ensureMediaTarget();
     this.markDirty();
   }
 
@@ -475,6 +614,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
 
   selectSection(section: VisualSection): void {
     this.selectedSectionId = section.id;
+    this.ensureMediaTarget();
   }
 
   drop(event: CdkDragDrop<VisualSection[]>): void {
@@ -495,6 +635,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     };
     this.document.sections.push(section);
     this.selectedSectionId = id;
+    this.ensureMediaTarget();
     if (type === 'hero' && !this.firstHeroSlide) this.ensureHeroSlide();
     if (type === 'promo_banners' && !this.document.legacy_home.promo_banners?.length) {
       this.document.legacy_home.promo_banners = [];
@@ -521,6 +662,7 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     this.document.sections = this.document.sections.filter((item) => item.id !== section.id);
     if (this.selectedSectionId === section.id) {
       this.selectedSectionId = this.document.sections[0]?.id || '';
+      this.ensureMediaTarget();
     }
     this.markDirty();
   }
@@ -722,9 +864,11 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     this.selectedSectionId = '';
     this.collections = [];
     this.publishedProducts = [];
+    this.mediaAssets = [];
     this.previewUrl = '';
     this.safePreviewUrl = null;
     this.previewOrigin = '';
+    this.mediaTarget = 'hero';
     this.dirty = false;
     this.revisions = [];
     this.showHistory = false;
@@ -752,11 +896,20 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         }
       }
     });
+    this.storefrontService.getMediaAssets(storefrontId).subscribe({
+      next: (assets) => {
+        if (this.storefront?.id === storefrontId) this.mediaAssets = assets;
+      },
+      error: () => {
+        if (this.storefront?.id === storefrontId) this.mediaAssets = [];
+      }
+    });
     this.storefrontService.getThemeDocument(this.storefront.id).subscribe({
       next: (theme) => {
         this.theme = theme;
         this.document = this.normalizeDocument(theme.draft_document);
         this.selectedSectionId = this.document.sections[0]?.id || '';
+        this.ensureMediaTarget();
         this.resetHistory();
         this.createPreviewSession(theme);
         this.loading = false;
@@ -801,6 +954,13 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     this.safePreviewUrl = value
       ? this.sanitizer.bypassSecurityTrustResourceUrl(value)
       : null;
+  }
+
+  private ensureMediaTarget(): void {
+    const options = this.mediaTargetOptions;
+    if (!options.some((option) => option.value === this.mediaTarget)) {
+      this.mediaTarget = options[0]?.value || 'hero';
+    }
   }
 
   private pushPreview(): void {
@@ -953,7 +1113,10 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
       description: String(raw['description'] || fallback.description),
       cta_label: String(raw['cta_label'] || fallback.cta_label),
       cta_href: String(raw['cta_href'] || fallback.cta_href),
-      deadline: String(raw['deadline'] || fallback.deadline)
+      deadline: String(raw['deadline'] || fallback.deadline),
+      background_color: String(raw['background_color'] || fallback.background_color),
+      background_image_url: String(raw['background_image_url'] || fallback.background_image_url),
+      product_image_url: String(raw['product_image_url'] || fallback.product_image_url)
     };
   }
 
@@ -965,7 +1128,8 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
       title: String(raw['title'] || fallback.title),
       description: String(raw['description'] || fallback.description),
       placeholder: String(raw['placeholder'] || fallback.placeholder),
-      button_label: String(raw['button_label'] || fallback.button_label)
+      button_label: String(raw['button_label'] || fallback.button_label),
+      background_image_url: String(raw['background_image_url'] || fallback.background_image_url)
     };
   }
 
@@ -1008,14 +1172,18 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         description: 'Descubre productos seleccionados para ti.',
         cta_label: 'Ver oferta',
         cta_href: '/products',
-        deadline: '2026-12-31T23:59:59'
+        deadline: '2026-12-31T23:59:59',
+        background_color: '#D0E9F3',
+        background_image_url: '',
+        product_image_url: ''
       },
       newsletter: {
         enabled: true,
         title: 'Recibe novedades y ofertas',
         description: 'Regístrate para recibir lanzamientos, descuentos y contenido de la tienda.',
         placeholder: 'Tu correo electrónico',
-        button_label: 'Registrarme'
+        button_label: 'Registrarme',
+        background_image_url: ''
       },
       testimonials: {
         enabled: true,
