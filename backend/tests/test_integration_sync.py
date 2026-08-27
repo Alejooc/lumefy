@@ -30,6 +30,7 @@ from app.services.integration_service import (
     _sync_inventory,
     _sync_supplier,
     _sync_unit_of_measure,
+    repair_external_integration_images,
     verify_webhook_event,
 )
 
@@ -192,7 +193,12 @@ class IntegrationImageSyncTests(unittest.IsolatedAsyncioTestCase):
 
         with patch(
             "app.services.integration_service._cache_provider_asset",
-            new=AsyncMock(side_effect=lambda _source, url: url),
+            new=AsyncMock(
+                side_effect=[
+                    "/static/uploads/integrations/source/a.jpg",
+                    "/static/uploads/integrations/source/b.jpg",
+                ]
+            ),
         ):
             await _sync_product_images(
                 db,
@@ -202,15 +208,15 @@ class IntegrationImageSyncTests(unittest.IsolatedAsyncioTestCase):
                 {"product.images": "images[]"},
             )
 
-        self.assertEqual(product.image_url, "https://cdn.example/media/products/1/a.jpg")
-        self.assertEqual(current.image_url, "https://cdn.example/media/products/1/a.jpg")
+        self.assertEqual(product.image_url, "/static/uploads/integrations/source/a.jpg")
+        self.assertEqual(current.image_url, "/static/uploads/integrations/source/a.jpg")
         self.assertEqual(current.order, 0)
         self.assertEqual(db.add.call_count, 1)
         created = db.add.call_args.args[0]
-        self.assertEqual(created.image_url, "https://cdn.example/media/products/1/b.jpg")
+        self.assertEqual(created.image_url, "/static/uploads/integrations/source/b.jpg")
         db.delete.assert_awaited_once_with(stale)
 
-    async def test_catalog_images_keep_provider_url_when_cache_fails(self):
+    async def test_catalog_images_do_not_keep_provider_url_when_cache_fails(self):
         product_id = uuid.uuid4()
         source = SimpleNamespace(
             base_url="https://provider.example/api",
@@ -233,10 +239,79 @@ class IntegrationImageSyncTests(unittest.IsolatedAsyncioTestCase):
                 {"product.images": "images[]"},
             )
 
-        self.assertEqual(product.image_url, "https://cdn.example/media/products/1/a.jpg")
+        self.assertIsNone(product.image_url)
+        db.add.assert_not_called()
+
+    async def test_primary_image_without_gallery_is_cached_locally(self):
+        product_id = uuid.uuid4()
+        source = SimpleNamespace(
+            base_url="https://provider.example/api",
+            configuration={"asset_base_url": "https://cdn.example/media"},
+        )
+        product = SimpleNamespace(id=product_id, image_url=None)
+        result = Mock()
+        result.scalars.return_value.all.return_value = []
+        db = SimpleNamespace(execute=AsyncMock(return_value=result), add=Mock(), delete=AsyncMock())
+
+        with patch(
+            "app.services.integration_service._cache_provider_asset",
+            new=AsyncMock(return_value="/static/uploads/integrations/source/primary.jpg"),
+        ):
+            await _sync_product_images(
+                db,
+                source,
+                product,
+                {},
+                {},
+                primary_image_url="https://cdn.example/media/products/1/a.jpg",
+            )
+
+        self.assertEqual(product.image_url, "/static/uploads/integrations/source/primary.jpg")
         self.assertEqual(db.add.call_count, 1)
         created = db.add.call_args.args[0]
-        self.assertEqual(created.image_url, "https://cdn.example/media/products/1/a.jpg")
+        self.assertEqual(created.image_url, "/static/uploads/integrations/source/primary.jpg")
+
+    async def test_legacy_external_images_are_repaired_or_removed(self):
+        company_id = uuid.uuid4()
+        source = SimpleNamespace(
+            id=uuid.uuid4(),
+            company_id=company_id,
+            base_url="https://provider.example/api",
+            configuration={"asset_base_url": "https://cdn.example/media"},
+        )
+        product = SimpleNamespace(
+            id=uuid.uuid4(),
+            company_id=company_id,
+            is_active=True,
+            image_url="https://cdn.example/media/products/1/a.jpg",
+            attributes={},
+        )
+        image = SimpleNamespace(
+            id=uuid.uuid4(),
+            product_id=product.id,
+            image_url="https://cdn.example/media/products/1/a.jpg",
+            order=0,
+        )
+        linked_result = Mock()
+        linked_result.all.return_value = [(SimpleNamespace(), source, product)]
+        image_result = Mock()
+        image_result.scalars.return_value.all.return_value = [image]
+        db = SimpleNamespace(
+            execute=AsyncMock(side_effect=[linked_result, image_result]),
+            delete=AsyncMock(),
+        )
+
+        with patch(
+            "app.services.integration_service._cache_provider_asset",
+            new=AsyncMock(return_value="/static/uploads/integrations/source/a.jpg"),
+        ):
+            stats = await repair_external_integration_images(db)
+
+        self.assertEqual(product.image_url, "/static/uploads/integrations/source/a.jpg")
+        self.assertEqual(image.image_url, "/static/uploads/integrations/source/a.jpg")
+        self.assertEqual(stats["products_changed"], 1)
+        self.assertEqual(stats["assets_removed"], 0)
+        db.delete.assert_not_awaited()
 
 
 class IntegrationSupplierHomologationTests(unittest.IsolatedAsyncioTestCase):

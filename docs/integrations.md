@@ -119,6 +119,27 @@ con un límite de 8 por origen (configurable con `image_download_concurrency`,
 máximo 16), para que un catálogo grande no quede bloqueado esperando una
 imagen detrás de otra.
 
+Las sincronizaciones no guardan la URL del proveedor como respaldo visible. Si
+una descarga falla, se conserva la copia local anterior cuando existe y se
+reintenta en la siguiente sincronización. Para reparar productos importados
+antes de esta regla, ejecuta primero una revisión:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml exec -T backend \
+  python scripts/repair_integration_images.py --dry-run
+```
+
+Si el resultado es correcto, ejecuta la reparación:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml exec -T backend \
+  python scripts/repair_integration_images.py
+```
+
+También puedes limitarla con `--source-id`. Las referencias que no puedan
+descargarse se retiran de la imagen visible del producto para que ninguna
+tienda dependa directamente del servidor externo.
+
 Cuando `pagination.enabled` es `false`, Lumefy hace una sola solicitud. Con `type: "page"`, reemplaza o agrega los parámetros de página en cada solicitud y continúa hasta encontrar una página vacía, una página menor al tamaño configurado, metadatos de páginas/total devueltos por el proveedor, `last_page`/`total` configurados o el límite `max_pages`. Con `type: "cursor"`, envía el token en `cursor_param` y lee el siguiente token desde `next_cursor_path` (por defecto `meta.next_cursor`); si el proveedor devuelve una URL absoluta, solo se acepta si mantiene el mismo origen configurado. Los cursores repetidos y los recorridos que superan `max_pages` se detienen con error para evitar bucles.
 
 La sincronización incremental es opcional y se recomienda para catálogos grandes. En el primer catálogo se hace una carga completa; después de una ejecución exitosa, Lumefy envía la marca `last_catalog_synced_at` menos `lookback_minutes` al parámetro configurado. El margen de seguridad evita perder cambios que lleguen con retraso. Los formatos permitidos son `iso8601`, `date`, `unix_seconds` y `unix_milliseconds`. Si el proveedor ignora el parámetro, la respuesta completa sigue siendo válida y se procesa de forma idempotente.

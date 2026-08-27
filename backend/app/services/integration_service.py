@@ -629,6 +629,23 @@ def _is_local_integration_asset(value: str | None) -> bool:
     return bool(value and value.startswith(f"{LOCAL_INTEGRATION_ASSET_PREFIX}/"))
 
 
+def _is_local_image_url(value: str | None) -> bool:
+    """Return whether an image URL is served by Lumefy's own storage."""
+
+    normalized = str(value or "").strip()
+    return normalized.startswith("/static/") or normalized.startswith("static/")
+
+
+def _is_remote_image_url(value: str | None) -> bool:
+    """Return whether an image value would make the browser call a remote host."""
+
+    normalized = str(value or "").strip()
+    if not normalized:
+        return False
+    parsed = urlparse.urlsplit(normalized)
+    return parsed.scheme in {"http", "https"} or bool(parsed.netloc)
+
+
 _LOCAL_ASSET_FILENAME = re.compile(r"^[0-9a-f]{64}\.(?:jpg|png|webp|gif)$")
 
 
@@ -1633,14 +1650,34 @@ async def _sync_supplier(
 
 
 async def _sync_product_images(
-    db: AsyncSession, source: IntegrationSource, product: Product, item: dict[str, Any], mapping: dict[str, Any]
+    db: AsyncSession,
+    source: IntegrationSource,
+    product: Product,
+    item: dict[str, Any],
+    mapping: dict[str, Any],
+    *,
+    primary_image_url: str | None = None,
 ) -> None:
     path = _mapping_path(mapping, "product.images")
     if not path:
         path = (source.configuration or {}).get("collections", {}).get("images_path")
     image_items = _as_list(_value(item, path)) if path else []
-    if not image_items:
+
+    if not path and not primary_image_url:
+        # Sources without an image mapping have nothing to cache. Avoid an
+        # unnecessary ProductImage query for every product, while still
+        # preventing a legacy remote primary from remaining visible.
+        if _is_remote_image_url(product.image_url):
+            product.image_url = None
         return
+
+    existing_rows = (
+        await db.execute(
+            select(ProductImage)
+            .where(ProductImage.product_id == product.id)
+            .order_by(ProductImage.order, ProductImage.id)
+        )
+    ).scalars().all()
 
     # The provider response is authoritative when it contains an image list.
     # Older versions only appended missing rows, so a URL-base correction or a
@@ -1649,6 +1686,22 @@ async def _sync_product_images(
     # copy before reconciling rows below.
     provider_incoming: list[tuple[int, int, str]] = []
     seen_urls: set[str] = set()
+
+    def add_provider_image(value: Any, order: int, index: int) -> None:
+        if value in (None, ""):
+            return
+        normalized_url = str(value).strip()
+        url_key = normalized_url.casefold()
+        if not normalized_url or url_key in seen_urls:
+            return
+        seen_urls.add(url_key)
+        provider_incoming.append((order, index, normalized_url))
+
+    # Some providers expose only a primary image field and do not expose a
+    # gallery. It must go through the same local-cache path as gallery images.
+    if primary_image_url:
+        add_provider_image(primary_image_url, 0, -1)
+
     for index, image in enumerate(image_items):
         if isinstance(image, str):
             image_url = _asset_url(source, image)
@@ -1673,24 +1726,24 @@ async def _sync_product_images(
             continue
         if not image_url:
             continue
-        normalized_url = image_url.strip()
-        url_key = normalized_url.casefold()
-        if not normalized_url or url_key in seen_urls:
-            continue
-        seen_urls.add(url_key)
-        provider_incoming.append((order, index, normalized_url))
-
-    if not provider_incoming:
-        return
+        add_provider_image(image_url, order, index)
 
     provider_incoming.sort(key=lambda value: (value[0], value[1]))
-    existing_rows = (
-        await db.execute(
-            select(ProductImage)
-            .where(ProductImage.product_id == product.id)
-            .order_by(ProductImage.order, ProductImage.id)
-        )
-    ).scalars().all()
+
+    if not provider_incoming:
+        # A sync must never leave a remote image reference visible. Preserve
+        # local assets, but remove old provider URLs when the provider sends no
+        # usable image data in this run.
+        for row in existing_rows:
+            if _is_remote_image_url(row.image_url):
+                await db.delete(row)
+        if not _is_local_image_url(product.image_url):
+            previous_local = next(
+                (row.image_url for row in existing_rows if _is_local_image_url(row.image_url)),
+                None,
+            )
+            product.image_url = previous_local
+        return
 
     # Download the gallery concurrently, but with a per-source cap. The
     # provider URL is hashed by _cache_provider_asset, so retries and repeated
@@ -1698,6 +1751,8 @@ async def _sync_product_images(
     semaphore = asyncio.Semaphore(_image_download_concurrency(source))
 
     async def cache_image(provider_url: str) -> str | None:
+        if _is_local_image_url(provider_url):
+            return provider_url
         async with semaphore:
             try:
                 return await _cache_provider_asset(source, provider_url)
@@ -1711,43 +1766,51 @@ async def _sync_product_images(
 
     incoming: list[tuple[int, int, str]] = []
     for order, index, provider_url in provider_incoming:
-        local_url = cached_by_provider.get(provider_url)
+        cached_url = cached_by_provider.get(provider_url)
+        local_url = cached_url if _is_local_image_url(cached_url) else None
         if not local_url:
-            # Keep a valid provider URL when the VPS copy cannot be downloaded.
-            # The previous implementation dropped the image entirely in this
-            # case, leaving the imported product with no gallery at all. A
-            # later catalog run will retry the cache and replace this fallback
-            # with the local URL as soon as the provider is reachable again.
+            # Keep a previous local copy at the same position when the
+            # provider is temporarily unavailable. Never persist the provider
+            # URL as a fallback: the next sync will retry the download.
             fallback = next(
                 (
                     row
                     for row in existing_rows
-                    if (row.order or 0) == order and _is_local_integration_asset(row.image_url)
+                    if (row.order or 0) == order and _is_local_image_url(row.image_url)
                 ),
                 None,
             )
-            local_url = fallback.image_url if fallback else provider_url
-        incoming.append((order, index, local_url))
+            local_url = fallback.image_url if fallback else None
+        if local_url:
+            incoming.append((order, index, local_url))
 
     # Keep the provider references for traceability and for future refreshes.
     # Successful downloads point product.image_url/ProductImage.image_url to a
-    # local file; an unavailable provider temporarily uses its resolved URL so
-    # the product still has a usable image instead of an empty gallery.
+    # local file. These references are not exposed by the storefront.
     product.attributes = {
         **(getattr(product, "attributes", None) or {}),
-        "external_image_urls": [provider_url for _order, _index, provider_url in provider_incoming],
+        "external_image_urls": [
+            provider_url
+            for _order, _index, provider_url in provider_incoming
+            if _is_remote_image_url(provider_url)
+        ],
     }
     if not incoming:
         # _sync_products maps the provider's primary image before entering
         # this function. If every new download failed, restore the previous
-        # local primary instead of leaving a broken external URL in the
-        # storefront.
+        # local primary instead of leaving an external URL in the storefront.
         previous_local = next(
-            (row.image_url for row in existing_rows if _is_local_integration_asset(row.image_url)),
+            (row.image_url for row in existing_rows if _is_local_image_url(row.image_url)),
             None,
         )
         if previous_local:
             product.image_url = previous_local
+        elif not _is_local_image_url(product.image_url):
+            product.image_url = None
+
+        for row in existing_rows:
+            if _is_remote_image_url(row.image_url):
+                await db.delete(row)
         return
 
     existing_by_url = {
@@ -1796,6 +1859,128 @@ async def _sync_product_images(
             await db.delete(row)
 
     product.image_url = incoming[0][2]
+
+
+async def repair_external_integration_images(
+    db: AsyncSession,
+    *,
+    source_id: uuid.UUID | None = None,
+    dry_run: bool = False,
+) -> dict[str, int]:
+    """Move legacy integration image references back into local storage.
+
+    Only products linked to an integration source are considered. Remote
+    references that cannot be downloaded are removed from the visible product
+    fields instead of being kept as a browser fallback.
+    """
+
+    query = (
+        select(IntegrationRecordLink, IntegrationSource, Product)
+        .join(IntegrationSource, IntegrationSource.id == IntegrationRecordLink.source_id)
+        .join(Product, Product.id == IntegrationRecordLink.local_product_id)
+        .where(
+            IntegrationRecordLink.entity_type == "product",
+            IntegrationRecordLink.local_product_id.is_not(None),
+            Product.company_id == IntegrationSource.company_id,
+            Product.is_active.is_(True),
+        )
+    )
+    if source_id:
+        query = query.where(IntegrationSource.id == source_id)
+
+    linked_rows = (await db.execute(query)).all()
+    products: dict[uuid.UUID, tuple[Product, list[IntegrationSource]]] = {}
+    for _link, source, product in linked_rows:
+        current = products.setdefault(product.id, (product, []))
+        if all(existing.id != source.id for existing in current[1]):
+            current[1].append(source)
+
+    stats = {
+        "products_scanned": 0,
+        "products_changed": 0,
+        "assets_repaired": 0,
+        "assets_removed": 0,
+        "assets_pending": 0,
+    }
+
+    for product, sources in products.values():
+        stats["products_scanned"] += 1
+        image_result = await db.execute(
+            select(ProductImage)
+            .where(ProductImage.product_id == product.id)
+            .order_by(ProductImage.order, ProductImage.id)
+        )
+        image_rows = image_result.scalars().all()
+        changed = False
+        cache_results: dict[tuple[uuid.UUID, str], str | None] = {}
+
+        def matching_source(value: str) -> IntegrationSource | None:
+            for candidate in sources:
+                if _asset_url_matches_source(candidate, value):
+                    return candidate
+            return None
+
+        async def cache_legacy_url(value: str) -> str | None:
+            source = matching_source(value)
+            if source is None:
+                return None
+            key = (source.id, value)
+            if key not in cache_results:
+                cache_results[key] = None if dry_run else await _cache_provider_asset(source, value)
+            return cache_results[key]
+
+        local_rows: list[ProductImage] = []
+        for row in image_rows:
+            current_url = str(row.image_url or "").strip()
+            if _is_local_image_url(current_url):
+                local_rows.append(row)
+                continue
+            if not _is_remote_image_url(current_url):
+                continue
+
+            cached_url = await cache_legacy_url(current_url)
+            if cached_url and _is_local_image_url(cached_url):
+                if not dry_run:
+                    row.image_url = cached_url
+                    changed = True
+                local_rows.append(row)
+                stats["assets_repaired"] += 1
+                continue
+
+            stats["assets_pending"] += 1
+            if not dry_run:
+                await db.delete(row)
+                stats["assets_removed"] += 1
+                changed = True
+
+        current_primary = str(product.image_url or "").strip()
+        if _is_remote_image_url(current_primary):
+            cached_primary = await cache_legacy_url(current_primary)
+            if cached_primary and _is_local_image_url(cached_primary):
+                if not dry_run:
+                    product.image_url = cached_primary
+                    changed = True
+                stats["assets_repaired"] += 1
+            else:
+                stats["assets_pending"] += 1
+                if not dry_run:
+                    product.image_url = None
+                    stats["assets_removed"] += 1
+                    changed = True
+
+        if not dry_run and not _is_local_image_url(product.image_url):
+            first_local = next(
+                (row.image_url for row in local_rows if _is_local_image_url(row.image_url)),
+                None,
+            )
+            if product.image_url != first_local:
+                product.image_url = first_local
+                changed = True
+
+        if changed:
+            stats["products_changed"] += 1
+
+    return stats
 
 
 def _safe_preview_url(url: str) -> str:
@@ -2955,6 +3140,7 @@ async def _sync_products(
         product.purchase_ok = True
         if sku is not None:
             product.sku = sku
+        primary_image_url: str | None = None
         for field, key, *fallbacks in [
             ("description", "product.description", "description", "body_html"),
             ("image_url", "product.image_url", "image_url", "image"),
@@ -2967,7 +3153,8 @@ async def _sync_products(
                     # Apply the configured asset base to relative values from
                     # providers.  Without this, the product's primary image
                     # bypassed ``asset_base_url`` while gallery images used it.
-                    value = _asset_url(source, value)
+                    primary_image_url = _asset_url(source, value)
+                    continue
                 setattr(product, field, str(value))
         external_product_price = _as_float(_mapped(item, mapping, "product.price", "price", "sale_price", "selling_price"))
         external_product_cost = _as_float(_mapped(item, mapping, "product.cost", "cost", "purchase_price"))
@@ -3117,7 +3304,14 @@ async def _sync_products(
         if product_attributes:
             product.attributes = {**(product.attributes or {}), **product_attributes}
 
-        await _sync_product_images(db, source, product, item, mapping)
+        await _sync_product_images(
+            db,
+            source,
+            product,
+            item,
+            mapping,
+            primary_image_url=primary_image_url,
+        )
 
         # The integration link has a foreign key to the product, but no ORM
         # relationship tells SQLAlchemy about this dependency. Flush the
