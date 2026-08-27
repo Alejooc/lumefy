@@ -338,11 +338,11 @@ Cada componente debe incluir defaults, validación, límites, responsive y estad
 **Estimación:** 4–7 días.
 
 - [x] Plantilla de producto con editor visual, preview por producto, orden, visibilidad y publicación independiente.
-- [ ] Plantilla de colección.
-- [ ] Resultados de búsqueda.
-- [ ] Carrito.
-- [ ] Páginas informativas.
-- [ ] Apariencia permitida del checkout.
+- [x] Plantilla de colección con editor visual, preview por colección, orden, visibilidad y publicación independiente.
+- [x] Resultados de búsqueda con plantilla independiente, preview, orden, visibilidad y publicación independiente.
+- [x] Carrito con plantilla independiente, preview, orden, visibilidad y publicación independiente.
+- [x] Páginas informativas con contenido por página, editor visual, preview y publicación por tienda.
+- [x] Apariencia permitida del checkout por tienda, con paleta segura, disposición y marca.
 - [ ] Duplicar plantillas.
 - [ ] Crear plantillas alternativas.
 - [ ] Asignar plantillas a productos, colecciones o páginas.

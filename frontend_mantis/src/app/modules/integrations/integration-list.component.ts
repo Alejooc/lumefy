@@ -21,6 +21,10 @@ interface IntegrationForm {
   auth_type: string;
   token: string;
   api_key_header: string;
+  orders_state: number | null;
+  orders_city: number | null;
+  orders_neighborhood: string;
+  orders_payment_method: number;
   products_path: string;
   products_data_path: string;
   asset_base_url: string;
@@ -109,20 +113,24 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
 
   emptyForm(): IntegrationForm {
     return {
-      name: '',
-      base_url: '',
-      auth_type: 'bearer',
+      name: 'Cuenta principal',
+      base_url: 'https://panel.tuhogaronline.com',
+      auth_type: 'api_key',
       token: '',
       api_key_header: 'X-API-Key',
-      products_path: '/products',
-      products_data_path: '',
+      orders_state: null,
+      orders_city: null,
+      orders_neighborhood: '',
+      orders_payment_method: 1,
+      products_path: '/api/external/products',
+      products_data_path: 'data',
       asset_base_url: '',
-      inventory_path: '/inventory',
-      inventory_data_path: '',
-      inventory_batch_enabled: false,
+      inventory_path: '/api/external/inventory',
+      inventory_data_path: 'data',
+      inventory_batch_enabled: true,
       inventory_batch_query_param: 'skus',
       inventory_batch_size: 100,
-      pagination_enabled: false,
+      pagination_enabled: true,
       pagination_type: 'page',
       page_param: 'page',
       per_page_param: 'per_page',
@@ -164,7 +172,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.loading = false;
-        this.swal.error('Error', 'No se pudieron cargar los orígenes de datos.');
+        this.swal.error('Error', 'No se pudieron cargar las conexiones de ElegantHome.');
       }
     });
   }
@@ -185,6 +193,8 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     const inventoryBatch = this.objectValue(inventory['batch'] || inventory['sku_batch']);
     const pagination = this.objectValue(products['pagination']);
     const incremental = this.objectValue(products['incremental']);
+    const orders = this.objectValue(config['orders']);
+    const orderExport = this.objectValue(orders['export']);
     const webhook = this.objectValue(config['webhook']);
     this.editingId = source.id;
     this.editingConfiguration = config;
@@ -194,6 +204,10 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       base_url: source.base_url,
       auth_type: source.auth_type,
       api_key_header: this.stringValue(config['api_key_header'], 'X-API-Key'),
+      orders_state: this.numberOrNull(orderExport['state']),
+      orders_city: this.numberOrNull(orderExport['city']),
+      orders_neighborhood: this.stringValue(orderExport['neighborhood']),
+      orders_payment_method: this.numberValue(orderExport['payment_method'], 1),
       products_path: this.stringValue(products['path']),
       products_data_path: this.stringValue(products['data_path']),
       asset_base_url: this.stringValue(config['asset_base_url']),
@@ -268,12 +282,12 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       next: () => {
         this.saving = false;
         this.closeForm();
-        this.swal.success(wasEditing ? 'Origen actualizado' : 'Origen creado');
+        this.swal.success(wasEditing ? 'Conexión actualizada' : 'Conexión creada');
         this.loadSources();
       },
       error: (error) => {
         this.saving = false;
-        this.swal.error('Error', error?.error?.detail || 'No se pudo guardar el origen.');
+        this.swal.error('Error', error?.error?.detail || 'No se pudo guardar la conexión.');
       }
     });
   }
@@ -321,6 +335,10 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       }
     };
     const existingEndpoints = this.objectValue(this.editingConfiguration['endpoints']);
+    const existingOrders = this.objectValue(this.editingConfiguration['orders']);
+    const existingOrderExport = this.objectValue(existingOrders['export']);
+    const existingCollections = this.objectValue(this.editingConfiguration['collections']);
+    const existingTransform = this.objectValue(this.editingConfiguration['catalog_transform']);
     const endpoints: JsonObject = {
       products: {
         ...this.objectValue(existingEndpoints['products']),
@@ -342,6 +360,25 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
         }
       };
     }
+    endpoints['orders'] = {
+      ...this.objectValue(existingEndpoints['orders']),
+      path: this.stringValue(this.objectValue(existingEndpoints['orders'])['path'], '/api/external/orders'),
+      data_path: this.stringValue(this.objectValue(existingEndpoints['orders'])['data_path'], 'data'),
+      pagination: {
+        enabled: true,
+        type: 'page',
+        page_param: 'page',
+        per_page_param: 'per_page',
+        per_page: 20,
+        start_page: 1,
+        max_pages: 1000,
+        last_page_path: 'pagination.pages',
+        total_path: 'pagination.total'
+      },
+      detail_path: this.stringValue(this.objectValue(existingEndpoints['orders'])['detail_path'], '/api/external/orders/{id}'),
+      detail_data_path: this.stringValue(this.objectValue(existingEndpoints['orders'])['detail_data_path'], 'data'),
+      id_path: this.stringValue(this.objectValue(existingEndpoints['orders'])['id_path'], 'id')
+    };
     const credentials: JsonObject = {};
     if (this.form.token.trim()) {
       credentials[this.form.auth_type === 'api_key' ? 'api_key' : 'token'] = this.form.token.trim();
@@ -349,20 +386,26 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     const existingFieldMap = this.objectValue(this.editingConfiguration['field_map']);
     const fieldMap = Object.keys(existingFieldMap).length ? existingFieldMap : {
       'product.external_id': 'id',
-      'product.name': 'name',
+      'product.name': 'product_name',
       'product.sku': 'sku',
       'product.price': 'price',
-      'product.cost': 'cost',
-      'inventory.external_id': 'product_id',
+      'variant.external_id': 'variants[].id',
+      'variant.sku': 'variants[].sku',
+      'variant.name': 'variants[].name',
+      'variant.price': 'variants[].price',
+      'variant.stock': 'variants[].stock',
+      'variant.attributes': 'variants[].attributes',
+      'inventory.external_id': 'sku',
       'inventory.sku': 'sku',
       'inventory.quantity': 'stock'
     };
+    const existingOrderMapping = this.objectValue(this.editingConfiguration['order_mapping']);
     if (this.form.webhook_secret.trim()) {
       credentials['webhook_secret'] = this.form.webhook_secret.trim();
     }
     return {
       name: this.form.name.trim(),
-      provider_key: 'custom_rest',
+      provider_key: 'eleganthome',
       source_type: 'REST',
       base_url: this.form.base_url.trim(),
       auth_type: this.form.auth_type,
@@ -372,6 +415,44 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
         api_key_header: this.form.api_key_header.trim() || 'X-API-Key',
         asset_base_url: this.form.asset_base_url.trim(),
         endpoints,
+        catalog_transform: Object.keys(existingTransform).length ? existingTransform : {
+          mode: 'flat_variants',
+          parent_path: 'item',
+          variant_external_id_path: 'id',
+          variant_sku_path: 'sku',
+          variant_name_paths: ['color', 'size'],
+          variant_attribute_paths: ['color', 'size']
+        },
+        collections: {
+          ...existingCollections,
+          variants_path: 'variants[]'
+        },
+        orders: {
+          ...existingOrders,
+          export: {
+            ...existingOrderExport,
+            state: this.form.orders_state,
+            city: this.form.orders_city,
+            neighborhood: this.form.orders_neighborhood.trim(),
+            payment_method: Number(this.form.orders_payment_method) || 1
+          }
+        },
+        order_mapping: Object.keys(existingOrderMapping).length
+          ? existingOrderMapping
+          : {
+            id: 'id',
+            number: 'invoice',
+            tracking: 'track',
+            status: 'state',
+            total: 'total',
+            created_at: 'created',
+            customer_name: 'client_name',
+            items: 'items',
+            item_sku: 'sku',
+            item_quantity: 'qty',
+            item_unit_price: 'unit_price',
+            item_total: 'line_total'
+          },
         field_map: fieldMap,
         webhook
       }
@@ -424,7 +505,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.preflightId = null;
-        this.swal.error('Error', error?.error?.detail || 'No se pudo validar la compatibilidad del origen.');
+        this.swal.error('Error', error?.error?.detail || 'No se pudo validar la compatibilidad de la conexión.');
       }
     });
   }
@@ -563,12 +644,16 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     this.queueSync(source, 'INVENTORY');
   }
 
-  isSyncActive(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY'): boolean {
+  syncOrders(source: IntegrationSource): void {
+    this.queueSync(source, 'ORDERS');
+  }
+
+  isSyncActive(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY' | 'ORDERS'): boolean {
     const status = this.activeRuns[this.runKey(source.id, syncType)]?.status;
     return status === 'QUEUED' || status === 'RUNNING';
   }
 
-  syncStatus(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY'): string | null {
+  syncStatus(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY' | 'ORDERS'): string | null {
     const run = this.activeRuns[this.runKey(source.id, syncType)];
     if (!run) return null;
     const labels: Record<string, string> = {
@@ -581,7 +666,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     return labels[run.status] || run.status;
   }
 
-  syncProgress(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY'): IntegrationSyncProgress | null {
+  syncProgress(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY' | 'ORDERS'): IntegrationSyncProgress | null {
     const run = this.activeRuns[this.runKey(source.id, syncType)];
     const raw = run?.details?.['progress'];
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
@@ -611,10 +696,12 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     return 'Cada día';
   }
 
-  private queueSync(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY'): void {
+  private queueSync(source: IntegrationSource, syncType: 'CATALOG' | 'INVENTORY' | 'ORDERS'): void {
     const request = syncType === 'CATALOG'
       ? this.integrationService.syncCatalog(source.id)
-      : this.integrationService.syncInventory(source.id);
+      : syncType === 'INVENTORY'
+        ? this.integrationService.syncInventory(source.id)
+        : this.integrationService.syncOrders(source.id);
     request.subscribe({
       next: (run) => {
         this.activeRuns[this.runKey(source.id, syncType)] = run;
@@ -642,11 +729,17 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
         if (!terminalStatuses.has(run.status)) return;
         this.loadSources();
         if (run.status === 'FAILED') {
-          this.swal.error('Sincronización fallida', run.error_message || 'Revisa la configuración del origen.');
+        this.swal.error('Sincronización fallida', run.error_message || 'Revisa la configuración de la conexión.');
         } else if (run.status === 'PARTIAL') {
           this.swal.warning('Sincronización parcial', `${run.items_failed} registros no pudieron procesarse.`);
         } else if (run.sync_type === 'CATALOG') {
           this.swal.success('Catálogo actualizado', `${run.products_created} creados y ${run.products_updated} actualizados.`);
+        } else if (run.sync_type === 'ORDERS') {
+          const details = this.objectValue(run.details);
+          this.swal.success(
+            'Órdenes importadas',
+            `${this.numberValue(details['orders_created'], 0)} creadas · ${this.numberValue(details['orders_pending_mapping'], 0)} pendientes de homologación.`
+          );
         } else {
           this.swal.success('Inventario actualizado', `${run.inventory_updated} existencias actualizadas.`);
         }
@@ -663,7 +756,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     this.polling.add(subscription);
   }
 
-  private runKey(sourceId: string, syncType: 'CATALOG' | 'INVENTORY'): string {
+  private runKey(sourceId: string, syncType: 'CATALOG' | 'INVENTORY' | 'ORDERS'): string {
     return `${sourceId}:${syncType}`;
   }
 
@@ -721,21 +814,21 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     this.integrationService.updateSource(source.id, { is_active: true }).subscribe({
       next: (updated) => {
         this.sources = this.sources.map((item) => item.id === updated.id ? updated : item);
-        this.swal.success('Origen activado', 'Ya puedes ejecutar el catálogo y el inventario.');
+        this.swal.success('Conexión activada', 'Ya puedes ejecutar el catálogo y el inventario.');
       },
-      error: (error) => this.swal.error('Error', error?.error?.detail || 'No se pudo activar el origen.')
+      error: (error) => this.swal.error('Error', error?.error?.detail || 'No se pudo activar la conexión.')
     });
   }
 
   async disable(source: IntegrationSource): Promise<void> {
-    const result = await this.swal.confirm('Desactivar origen', `¿Desactivar ${source.name}?`);
+    const result = await this.swal.confirm('Desactivar conexión', `¿Desactivar ${source.name}?`);
     if (!result.isConfirmed) return;
     this.integrationService.disableSource(source.id).subscribe({
       next: () => {
-        this.swal.success('Origen desactivado');
+        this.swal.success('Conexión desactivada');
         this.loadSources();
       },
-      error: () => this.swal.error('Error', 'No se pudo desactivar el origen.')
+      error: () => this.swal.error('Error', 'No se pudo desactivar la conexión.')
     });
   }
 

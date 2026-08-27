@@ -1,8 +1,8 @@
-# Orígenes de datos e integraciones
+# Motor de conexiones e integraciones
 
-Lumefy permite que cada empresa configure sus propios orígenes de datos REST desde el panel en **Orígenes de datos**.
+Este documento describe el motor interno de conexiones que utilizan las apps instalables de Lumefy. La experiencia visible para la empresa se administra desde la app correspondiente, actualmente **ElegantHome**. La ruta histórica **Orígenes de datos** se conserva temporalmente como compatibilidad y redirige a la configuración de la app.
 
-## Alcance actual
+## Alcance actual del motor
 
 La primera versión soporta:
 
@@ -23,9 +23,32 @@ La primera versión soporta:
 - Cada cambio real de inventario crea un movimiento `ADJ` con existencia anterior, nueva, diferencia y referencia de la ejecución.
 - Cola duradera en PostgreSQL y recuperación de ejecuciones interrumpidas.
 - Una sola ejecución concurrente por origen y una sola solicitud activa por tipo.
+- Importación de órdenes externas con detalle por orden, homologación por SKU y estado pendiente cuando falta mapeo.
+- Exportación de una venta interna hacia un endpoint REST de creación de órdenes, cuando la conexión tiene dirección y códigos geográficos configurados.
 
 Las credenciales se almacenan usando el cifrado de credenciales existente en Lumefy y no se devuelven al frontend.
 Los encabezados personalizados también se cifran de forma recursiva. Por defecto, el conector rechaza localhost, redes privadas, direcciones reservadas y redirecciones a otro host para reducir el riesgo de SSRF. Un entorno privado controlado puede habilitarse explícitamente con `INTEGRATION_ALLOW_PRIVATE_NETWORKS=true`.
+
+## Perfil de ElegantHome
+
+La colección `TuHogarOnline — API Externa Distribuidores` define el primer perfil de la app ElegantHome:
+
+- URL base inicial: `https://panel.tuhogaronline.com`.
+- Autenticación: header `X-Api-Key`.
+- Catálogo: `GET /api/external/products`, registros en `data`, paginación `page`/`per_page`.
+- Inventario: `GET /api/external/inventory`, registros en `data`, hasta 100 SKU mediante `skus` separados por coma.
+- Órdenes: `GET /api/external/orders` para el listado y `GET /api/external/orders/{id}` para obtener las líneas.
+- Crear orden: `POST /api/external/orders` con cliente, dirección, método de pago y líneas `{ sku, qty }`.
+
+El catálogo de ElegantHome llega como filas planas. Lumefy agrupa las filas por `item` y crea un producto con variantes usando `id`, `sku`, `color`, `size`, `price` y `stock`. Las órdenes se relacionan con esas variantes por SKU. La sincronización de órdenes es idempotente con la clave `source_id + external_order_id`.
+
+### Flujo de órdenes de ElegantHome
+
+- `POST /api/v1/integrations/sources/{id}/sync/orders` encola la importación manual.
+- `GET /api/v1/integrations/sources/{id}/orders` consulta los vínculos importados y los que requieren corrección.
+- `POST /api/v1/integrations/sources/{id}/orders/export/{sale_id}` crea una orden en ElegantHome desde una venta de Lumefy.
+
+Las órdenes importadas se crean inicialmente como ventas `DRAFT`: así el operador puede revisar la homologación y confirmarlas mediante el flujo normal de ventas, que es el que reserva inventario. Si falta el SKU, la sucursal o la bodega, la orden queda como `PENDING_MAPPING` y no genera una venta duplicada. La colección recibida no define un webhook de órdenes, por lo que la primera versión utiliza el botón de importación manual; el polling automático y la sincronización de estados quedan como siguiente fase.
 
 ## Configuración equivalente por API
 

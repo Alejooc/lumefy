@@ -7,6 +7,7 @@ import Swal from 'sweetalert2';
 import { SaleService, Sale } from '../../../core/services/sale.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { ExportService } from '../../../core/services/export.service';
+import { IntegrationService, IntegrationSource } from '../../../core/services/integration.service';
 import { SkeletonComponent } from '../../../theme/shared/components/skeleton/skeleton.component';
 
 @Component({
@@ -28,16 +29,78 @@ export class SalesListComponent implements OnInit {
     loading = false;
     filterStatus = '';
     canCreateSales = false;
+    canManageCompany = false;
+    elegantHomeSources: IntegrationSource[] = [];
 
     // Inject services
     private saleService = inject(SaleService);
     private permissionService = inject(PermissionService);
     private cdr = inject(ChangeDetectorRef);
     private exportService = inject(ExportService);
+    private integrationService = inject(IntegrationService);
 
     ngOnInit() {
         this.canCreateSales = this.permissionService.hasPermission('create_sales');
+        this.canManageCompany = this.permissionService.hasPermission('manage_company');
         this.loadSales();
+        if (this.canManageCompany) this.loadElegantHomeSources();
+    }
+
+    loadElegantHomeSources() {
+        this.integrationService.listSources().subscribe({
+            next: (sources) => {
+                this.elegantHomeSources = sources.filter((source) => source.provider_key === 'eleganthome' && source.is_active);
+            },
+            error: () => {
+                this.elegantHomeSources = [];
+            }
+        });
+    }
+
+    async exportToElegantHome(sale: Sale) {
+        if (sale.origin_channel === 'EXTERNAL_APP') return;
+        if (!this.elegantHomeSources.length) {
+            await Swal.fire('Sin conexión', 'Instala ElegantHome y crea una conexión activa antes de exportar órdenes.', 'info');
+            return;
+        }
+        let sourceId = this.elegantHomeSources[0].id;
+        if (this.elegantHomeSources.length > 1) {
+            const inputOptions: Record<string, string> = {};
+            for (const source of this.elegantHomeSources) inputOptions[source.id] = source.name;
+            const selection = await Swal.fire({
+                title: 'Elige la conexión ElegantHome',
+                input: 'select',
+                inputOptions,
+                inputValue: sourceId,
+                showCancelButton: true,
+                confirmButtonText: 'Exportar',
+                cancelButtonText: 'Cancelar'
+            });
+            if (!selection.isConfirmed || !selection.value) return;
+            sourceId = selection.value;
+        }
+        const confirmation = await Swal.fire({
+            title: 'Crear orden en ElegantHome',
+            text: 'La API externa validará cliente, dirección, precios y stock antes de crearla.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Crear orden',
+            cancelButtonText: 'Cancelar'
+        });
+        if (!confirmation.isConfirmed) return;
+        this.loading = true;
+        this.integrationService.exportSale(sourceId, sale.id).subscribe({
+            next: (link) => {
+                this.loading = false;
+                this.cdr.detectChanges();
+                Swal.fire('Orden creada', `ElegantHome: ${link.external_number || link.external_order_id}`, 'success');
+            },
+            error: (err) => {
+                this.loading = false;
+                this.cdr.detectChanges();
+                Swal.fire('No se pudo crear', err?.error?.detail || 'ElegantHome rechazó la orden.', 'error');
+            }
+        });
     }
 
     loadSales() {

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Breadcrumb from "../Common/Breadcrumb";
 import CustomSelect from "./CustomSelect";
@@ -15,6 +15,21 @@ import { ShopFilterCategory, ShopFilterFacet, ShopFilterType } from "@/lib/shop-
 import { toTemplateProduct } from "@/lib/product-view-model";
 import { PublicCatalogResponse } from "@/types/storefront";
 import { useStorefrontUi } from "@/lib/storefront-ui";
+import { isTrustedPreviewMessage } from "@/lib/preview";
+import {
+  collectionTemplateContent,
+  collectionTemplateSection,
+  collectionTemplateSectionEnabled,
+  normalizeCollectionTemplate,
+  CollectionTemplateDocument,
+} from "@/lib/collection-template";
+import {
+  normalizeSearchTemplate,
+  searchTemplateContent,
+  searchTemplateSection,
+  searchTemplateSectionEnabled,
+  SearchTemplateDocument,
+} from "@/lib/search-template";
 
 const PRODUCTS_PER_BATCH = 12;
 
@@ -53,6 +68,10 @@ const ShopWithSidebar = ({
   sizes,
   colors,
   selectedCollectionName,
+  selectedCollectionDescription,
+  collectionTemplate,
+  searchTemplate,
+  templateKey = "collection",
   breadcrumbPages,
   searchTerm,
   priceRangeMin,
@@ -78,6 +97,10 @@ const ShopWithSidebar = ({
   sizes: ShopFilterFacet[];
   colors: ShopFilterFacet[];
   selectedCollectionName?: string;
+  selectedCollectionDescription?: string;
+  collectionTemplate?: CollectionTemplateDocument;
+  searchTemplate?: SearchTemplateDocument;
+  templateKey?: "collection" | "search";
   breadcrumbPages?: string[];
   searchTerm?: string;
   priceRangeMin: number;
@@ -105,8 +128,49 @@ const ShopWithSidebar = ({
   const [hasMoreItems, setHasMoreItems] = useState(hasNextPage);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<unknown>(templateKey === "search" ? searchTemplate : collectionTemplate);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedSectionId, setSelectedSectionId] = useState("");
   const { buttonLabels } = useStorefrontUi();
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const normalizedCatalogTemplate = useMemo(
+    () => templateKey === "search" ? normalizeSearchTemplate(previewTemplate) : normalizeCollectionTemplate(previewTemplate),
+    [previewTemplate, templateKey],
+  );
+  const templateContent = templateKey === "search" ? searchTemplateContent(previewTemplate) : collectionTemplateContent(previewTemplate);
+  const headerSectionType = templateKey === "search" ? "search_header" as const : "collection_header" as const;
+  const filtersSectionType = templateKey === "search" ? "search_filters" as const : "collection_filters" as const;
+  const gridSectionType = templateKey === "search" ? "search_grid" as const : "collection_grid" as const;
+  const headerSection = templateKey === "search"
+    ? searchTemplateSection(previewTemplate, "search_header")
+    : collectionTemplateSection(previewTemplate, "collection_header");
+  const filtersSection = templateKey === "search"
+    ? searchTemplateSection(previewTemplate, "search_filters")
+    : collectionTemplateSection(previewTemplate, "collection_filters");
+  const gridSection = templateKey === "search"
+    ? searchTemplateSection(previewTemplate, "search_grid")
+    : collectionTemplateSection(previewTemplate, "collection_grid");
+  const headerEnabled = templateKey === "search"
+    ? searchTemplateSectionEnabled(previewTemplate, "search_header")
+    : collectionTemplateSectionEnabled(previewTemplate, "collection_header");
+  const filtersEnabled = templateKey === "search"
+    ? searchTemplateSectionEnabled(previewTemplate, "search_filters")
+    : collectionTemplateSectionEnabled(previewTemplate, "collection_filters");
+  const gridEnabled = templateKey === "search"
+    ? searchTemplateSectionEnabled(previewTemplate, "search_grid")
+    : collectionTemplateSectionEnabled(previewTemplate, "collection_grid");
+  const sectionOrder = (type: string) => {
+    const index = normalizedCatalogTemplate.sections.findIndex((section) => section.type === type);
+    return index >= 0 ? index : 999;
+  };
+  const gridColumns = Number(gridSection.settings["columns"] || 3);
+  const gridColumnClass = gridColumns === 4 ? "lg:grid-cols-4" : gridColumns === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3";
+  const showSort = filtersSection.settings["show_sort"] !== false;
+  const showCount = gridSection.settings["show_count"] !== false;
+  const showLayoutToggle = gridSection.settings["show_layout_toggle"] !== false;
+  const showFilterChips = filtersSection.settings["show_active_filters"] !== false;
+  const showMobileFilterButton = filtersSection.settings["show_mobile_button"] !== false;
   const startProduct = loadedItems.length ? (currentPage - 1) * PRODUCTS_PER_BATCH + 1 : 0;
   const endProduct = loadedItems.length ? startProduct + loadedItems.length - 1 : 0;
   const activeMinPrice = searchParams.get("minPrice");
@@ -122,6 +186,49 @@ const ShopWithSidebar = ({
     setHasMoreItems(hasNextPage);
     setLoadError(null);
   }, [items, currentPage, hasNextPage]);
+
+  useEffect(() => {
+    setPreviewTemplate(templateKey === "search" ? searchTemplate : collectionTemplate);
+  }, [collectionTemplate, searchTemplate, templateKey]);
+
+  useEffect(() => {
+    const handlePreviewMessage = (event: MessageEvent) => {
+      if (!isTrustedPreviewMessage(event)) return;
+      const message = event.data;
+      if (!message || message.type !== "lumefy:preview:apply" || message.template !== templateKey) return;
+      setPreviewMode(true);
+      if (message.document && typeof message.document === "object") {
+        setPreviewTemplate(message.document);
+      }
+      if (typeof message.selectedSectionId === "string") setSelectedSectionId(message.selectedSectionId);
+      if (typeof message.selectionMode === "boolean") setSelectionMode(message.selectionMode);
+      window.parent.postMessage(
+        { type: "lumefy:preview:ack", requestId: message.requestId || null },
+        event.origin || "*",
+      );
+    };
+
+    setPreviewMode(window.parent !== window);
+    window.addEventListener("message", handlePreviewMessage);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "lumefy:preview:ready" }, "*");
+    }
+    return () => window.removeEventListener("message", handlePreviewMessage);
+  }, [templateKey]);
+
+  const handlePreviewSectionClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (!previewMode) return;
+    const target = event.target as HTMLElement;
+    const section = target.closest<HTMLElement>("[data-lumefy-catalog-section]");
+    if (!section) return;
+    if (!selectionMode && target.closest("a,button,input,textarea,select")) return;
+    const sectionId = section.dataset.lumefyCatalogSection;
+    if (!sectionId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedSectionId(sectionId);
+    window.parent.postMessage({ type: "lumefy:preview:select", sectionId }, "*");
+  };
 
   const loadNextBatch = useCallback(async () => {
     if (isLoadingMore || !hasMoreItems) return;
@@ -336,23 +443,28 @@ const ShopWithSidebar = ({
         title={
           searchTerm?.trim()
             ? `Busqueda: ${searchTerm}`
-            : selectedCollectionName || "Todos los productos"
+            : templateContent.breadcrumb_title || selectedCollectionName || "Todos los productos"
         }
         pages={breadcrumbPages || ["Productos"]}
       />
-      <section className="overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6]">
+      <section className={`overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6] ${previewMode && selectionMode ? "lumefy-preview--selecting" : ""}`}>
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
           <div className="flex gap-7.5">
             {/* <!-- Sidebar Start --> */}
             <div
-              className={`sidebar-content fixed xl:z-1 z-9999 left-0 top-0 xl:translate-x-0 xl:static max-w-[310px] xl:max-w-[270px] w-full ease-out duration-200 ${
+              className={`sidebar-content lumefy-catalog-preview-section fixed xl:z-1 z-9999 left-0 top-0 xl:translate-x-0 xl:static max-w-[310px] xl:max-w-[270px] w-full ease-out duration-200 ${
                 productSidebar
                   ? "translate-x-0 bg-white p-5 h-screen overflow-y-auto"
                   : "-translate-x-full"
               }`}
+              data-lumefy-catalog-section={filtersSectionType}
+              style={{
+                display: filtersEnabled ? undefined : "none",
+              }}
+              onClick={handlePreviewSectionClick}
             >
               <div className="mb-5 flex items-center justify-between xl:hidden">
-                <p className="font-medium text-dark">Filtros</p>
+                <p className="font-medium text-dark">{templateContent.filters_label}</p>
                 <button
                   type="button"
                   aria-label="Cerrar filtros"
@@ -462,8 +574,31 @@ const ShopWithSidebar = ({
             ) : null}
 
             {/* // <!-- Content Start --> */}
-            <div className="xl:max-w-[870px] w-full">
-              {!!activeFilterChips.length && (
+            <div className="catalog-template-content xl:max-w-[870px] w-full">
+              {headerEnabled ? (
+                <div
+                  className={`lumefy-catalog-preview-section mb-6 rounded-lg bg-white px-6 py-7 shadow-1 sm:px-8 sm:py-9 ${previewMode && selectedSectionId === headerSection.id ? "lumefy-catalog-preview-section--selected" : ""}`}
+                  data-lumefy-catalog-section={headerSectionType}
+                  onClick={handlePreviewSectionClick}
+                  style={{ order: sectionOrder(headerSectionType), textAlign: headerSection.settings["alignment"] === "center" ? "center" : "left" }}
+                >
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue">
+                    {templateContent.breadcrumb_title}
+                  </p>
+                  <h1 className="font-semibold text-3xl text-dark sm:text-4xl">
+                    {templateKey === "search"
+                      ? (searchTerm?.trim() ? `Resultados para “${searchTerm}”` : templateContent.breadcrumb_title)
+                      : (selectedCollectionName || "Todos los productos")}
+                  </h1>
+                  {selectedCollectionDescription && headerSection.settings["show_description"] !== false ? (
+                    <p className="mt-3 max-w-2xl text-dark-4" style={{ marginRight: headerSection.settings["alignment"] === "center" ? "auto" : undefined, marginLeft: headerSection.settings["alignment"] === "center" ? "auto" : undefined }}>
+                      {selectedCollectionDescription}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {filtersEnabled && showFilterChips && !!activeFilterChips.length && (
                 <div className="mb-4 rounded-lg border border-gray-3 bg-white px-3 py-3 shadow-1 sm:px-4">
                   <div className="mb-2 flex items-center justify-between gap-3 sm:mb-3">
                     <p className="text-xs font-medium uppercase tracking-[0.16em] text-dark-4">
@@ -474,7 +609,7 @@ const ShopWithSidebar = ({
                       onClick={clearAllFilters}
                       className="shrink-0 text-xs font-medium text-dark-4 underline-offset-4 transition hover:text-dark hover:underline sm:text-sm"
                     >
-                      {buttonLabels.clearFilters}
+                      {templateContent.clear_filters_label || buttonLabels.clearFilters}
                     </button>
                   </div>
 
@@ -494,27 +629,39 @@ const ShopWithSidebar = ({
                 </div>
               )}
 
-              <div className="rounded-lg bg-white shadow-1 pl-3 pr-2.5 py-2.5 mb-6">
+              <div
+                className={`lumefy-catalog-preview-section rounded-lg bg-white shadow-1 pl-3 pr-2.5 py-2.5 mb-6 ${previewMode && selectedSectionId === gridSection.id ? "lumefy-catalog-preview-section--selected" : ""}`}
+                data-lumefy-catalog-section={gridSectionType}
+                onClick={handlePreviewSectionClick}
+                style={{ display: gridEnabled ? undefined : "none", order: sectionOrder(gridSectionType) }}
+              >
                 <div className="flex items-center justify-between">
                   {/* <!-- top bar left --> */}
                   <div className="flex flex-wrap items-center gap-4">
-                    <CustomSelect
-                      options={options}
-                      value={activeSort}
-                      onChange={(value) => updateFilters({ sort: value })}
-                    />
+                    {showSort ? (
+                      <div className="flex items-center gap-2">
+                        <span className="hidden text-sm text-dark-4 sm:inline">{templateContent.sort_label}</span>
+                        <CustomSelect
+                          options={options}
+                          value={activeSort}
+                          onChange={(value) => updateFilters({ sort: value })}
+                        />
+                      </div>
+                    ) : null}
 
-                    <p>
-                      Mostrando{" "}
-                      <span className="text-dark">
-                        {startProduct}-{endProduct}
-                      </span>{" "}
-                      de <span className="text-dark">{totalProducts}</span> productos
-                    </p>
+                    {showCount ? (
+                      <p>
+                        Mostrando{" "}
+                        <span className="text-dark">
+                          {startProduct}-{endProduct}
+                        </span>{" "}
+                        de <span className="text-dark">{totalProducts}</span> {templateContent.products_label}
+                      </p>
+                    ) : null}
                   </div>
 
                   {/* <!-- top bar right --> */}
-                  <div className="flex items-center gap-2.5">
+                  {showLayoutToggle ? <div className="flex items-center gap-2.5">
                     <button
                       onClick={() => setProductStyle("grid")}
                       aria-label="button for product grid tab"
@@ -590,7 +737,7 @@ const ShopWithSidebar = ({
                         />
                       </svg>
                     </button>
-                  </div>
+                  </div> : null}
                 </div>
               </div>
 
@@ -598,9 +745,10 @@ const ShopWithSidebar = ({
               <div
                 className={`${
                   productStyle === "grid"
-                    ? "grid grid-cols-2 gap-x-3.5 gap-y-8 sm:gap-x-7.5 sm:gap-y-9 lg:grid-cols-3"
+                    ? `grid grid-cols-2 gap-x-3.5 gap-y-8 sm:gap-x-7.5 sm:gap-y-9 ${gridColumnClass}`
                     : "flex flex-col gap-7.5"
                 }`}
+                style={{ display: gridEnabled ? undefined : "none", order: sectionOrder(gridSectionType) }}
               >
                 {loadedItems.map((item) =>
                   productStyle === "grid" ? (
@@ -610,6 +758,12 @@ const ShopWithSidebar = ({
                   )
                 )}
               </div>
+              {!loadedItems.length && !isLoadingMore ? (
+                <div className="mt-8 rounded-lg bg-white px-6 py-12 text-center shadow-1" style={{ order: sectionOrder(gridSectionType) }}>
+                  <h2 className="font-semibold text-xl text-dark">{templateContent.empty_title}</h2>
+                  <p className="mt-2 text-dark-4">{templateContent.empty_description}</p>
+                </div>
+              ) : null}
               {/* <!-- Products Grid Tab Content End --> */}
 
               {isLoadingMore && (
@@ -619,6 +773,7 @@ const ShopWithSidebar = ({
                       ? "grid grid-cols-2 gap-x-3.5 gap-y-8 sm:gap-x-7.5 sm:gap-y-9 lg:grid-cols-3"
                       : "flex flex-col gap-7.5"
                   }`}
+                  style={{ display: gridEnabled ? undefined : "none", order: sectionOrder(gridSectionType) }}
                   aria-label="Cargando más productos"
                 >
                   {Array.from({ length: productStyle === "grid" ? 3 : 2 }).map((_, index) => (
@@ -627,7 +782,7 @@ const ShopWithSidebar = ({
                 </div>
               )}
 
-              <div ref={loadMoreRef} className="mt-10 flex min-h-16 items-center justify-center">
+              <div ref={loadMoreRef} className="mt-10 flex min-h-16 items-center justify-center" style={{ display: gridEnabled ? undefined : "none", order: sectionOrder(gridSectionType) }}>
                 {loadError ? (
                   <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-dark-4" role="alert">
                     <span>{loadError}</span>
@@ -651,7 +806,7 @@ const ShopWithSidebar = ({
           </div>
         </div>
 
-        <button
+        {filtersEnabled && showMobileFilterButton ? <button
           type="button"
           onClick={() => setProductSidebar(true)}
           className="fixed bottom-6 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-blue px-4 py-3 text-sm font-medium text-white shadow-2 xl:hidden"
@@ -682,8 +837,8 @@ const ShopWithSidebar = ({
               strokeLinecap="round"
             />
           </svg>
-          Filtros
-        </button>
+          {templateContent.filters_label}
+        </button> : null}
       </section>
     </>
   );

@@ -29,6 +29,7 @@ export interface InstalledApp {
   app_id: string;
   slug: string;
   name: string;
+  setup_url: string | null;
   is_enabled: boolean;
   installed_version: string;
   granted_scopes: string[];

@@ -23,6 +23,8 @@ const CheckoutPage = async () => {
         storefrontId={storefront.id}
         currency={storefront.currency}
         checkoutSettings={storefront.checkout_settings}
+        storefrontName={storefront.name}
+        logoUrl={storefront.branding.logo_url}
       />
     </main>
   );

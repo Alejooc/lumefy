@@ -31,6 +31,7 @@ class AppInstallOut(BaseModel):
     app_id: UUID
     slug: str
     name: str
+    setup_url: Optional[str] = None
     is_enabled: bool
     installed_version: str
     granted_scopes: list[str] = Field(default_factory=list)

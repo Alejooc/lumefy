@@ -11,7 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.permissions import PermissionChecker
-from app.models.integration import IntegrationSource, IntegrationSyncRun, IntegrationWebhookEvent
+from app.models.integration import IntegrationOrderLink, IntegrationSource, IntegrationSyncRun, IntegrationWebhookEvent
+from app.models.app_definition import AppDefinition
+from app.models.company_app_install import CompanyAppInstall
 from app.models.user import User
 from app.schemas import integration as schemas
 from app.services.integration_service import (
@@ -26,9 +28,66 @@ from app.services.integration_service import (
     validate_source,
     verify_webhook_event,
 )
+from app.services.integration_orders import export_sale_to_source
+from app.models.sale import Sale, SaleItem
+from sqlalchemy.orm import selectinload
 
 
 router = APIRouter()
+
+ELEGANTHOME_PROVIDER_KEY = "eleganthome"
+
+
+async def _active_app_install(
+    db: AsyncSession,
+    company_id: UUID,
+    slug: str,
+) -> CompanyAppInstall | None:
+    result = await db.execute(
+        select(CompanyAppInstall)
+        .join(AppDefinition, AppDefinition.id == CompanyAppInstall.app_id)
+        .where(
+            CompanyAppInstall.company_id == company_id,
+            CompanyAppInstall.is_enabled.is_(True),
+            AppDefinition.slug == slug,
+            AppDefinition.is_active.is_(True),
+        )
+    )
+    return result.scalars().first()
+
+
+async def _require_provider_install(
+    db: AsyncSession,
+    company_id: UUID,
+    provider_key: str,
+) -> CompanyAppInstall | None:
+    if provider_key != ELEGANTHOME_PROVIDER_KEY:
+        return None
+    install = await _active_app_install(db, company_id, ELEGANTHOME_PROVIDER_KEY)
+    if not install:
+        raise HTTPException(
+            status_code=403,
+            detail="Instala y activa la app ElegantHome antes de crear esta conexión.",
+        )
+    return install
+
+
+async def _validate_source_install(
+    db: AsyncSession,
+    source: IntegrationSource,
+    company_id: UUID,
+) -> None:
+    if not source.app_install_id:
+        return
+    install = await db.scalar(
+        select(CompanyAppInstall).where(
+            CompanyAppInstall.id == source.app_install_id,
+            CompanyAppInstall.company_id == company_id,
+            CompanyAppInstall.is_enabled.is_(True),
+        )
+    )
+    if not install:
+        raise HTTPException(status_code=403, detail="La app asociada a esta conexión no está activa.")
 
 
 @router.get("/assets")
@@ -86,6 +145,7 @@ def _serialize_source(source: IntegrationSource) -> dict[str, Any]:
     return {
         "id": source.id,
         "company_id": source.company_id,
+        "app_install_id": source.app_install_id,
         "name": source.name,
         "provider_key": source.provider_key,
         "source_type": source.source_type,
@@ -119,6 +179,7 @@ async def _get_source(db: AsyncSession, source_id: UUID, company_id: UUID) -> In
     )).scalars().first()
     if not source:
         raise HTTPException(status_code=404, detail="Origen de datos no encontrado")
+    await _validate_source_install(db, source, company_id)
     return source
 
 
@@ -137,9 +198,12 @@ async def create_source(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_company")),
 ) -> dict[str, Any]:
+    provider_key = (payload.provider_key or "custom_rest").strip().lower()
+    app_install = await _require_provider_install(db, current_user.company_id, provider_key)
     source = IntegrationSource(
         name=payload.name.strip(),
-        provider_key=payload.provider_key,
+        provider_key=provider_key,
+        app_install_id=app_install.id if app_install else None,
         source_type=payload.source_type.upper(),
         base_url=payload.base_url.strip(),
         auth_type=payload.auth_type,
@@ -178,6 +242,14 @@ async def update_source(
 ) -> dict[str, Any]:
     source = await _get_source(db, source_id, current_user.company_id)
     changes = payload.model_dump(exclude_unset=True)
+    target_provider_key = str(changes.get("provider_key") or source.provider_key or "custom_rest").strip().lower()
+    app_install = await _require_provider_install(db, current_user.company_id, target_provider_key)
+    if "provider_key" in changes:
+        changes["provider_key"] = target_provider_key
+    if target_provider_key == ELEGANTHOME_PROVIDER_KEY:
+        source.app_install_id = app_install.id if app_install else source.app_install_id
+    elif "provider_key" in changes:
+        source.app_install_id = None
     credentials = changes.pop("credentials", None)
     if credentials is not None:
         source.credentials = {**(source.credentials or {}), **credentials}
@@ -382,6 +454,70 @@ async def run_inventory_sync(
 ) -> IntegrationSyncRun:
     source = await _get_source(db, source_id, current_user.company_id)
     return await _enqueue_manual_sync(db, source, current_user, "INVENTORY")
+
+
+@router.post(
+    "/sources/{source_id}/sync/orders",
+    response_model=schemas.IntegrationSyncRunOut,
+    status_code=202,
+)
+async def run_orders_sync(
+    source_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> IntegrationSyncRun:
+    source = await _get_source(db, source_id, current_user.company_id)
+    return await _enqueue_manual_sync(db, source, current_user, "ORDERS")
+
+
+@router.get("/sources/{source_id}/orders", response_model=list[schemas.IntegrationOrderLinkOut])
+async def list_external_orders(
+    source_id: UUID,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> list[Any]:
+    await _get_source(db, source_id, current_user.company_id)
+    result = await db.execute(
+        select(IntegrationOrderLink)
+        .where(
+            IntegrationOrderLink.source_id == source_id,
+            IntegrationOrderLink.company_id == current_user.company_id,
+        )
+        .order_by(IntegrationOrderLink.created_at.desc())
+        .limit(max(1, min(limit, 200)))
+    )
+    return list(result.scalars().all())
+
+
+@router.post("/sources/{source_id}/orders/export/{sale_id}", response_model=schemas.IntegrationOrderLinkOut)
+async def export_external_order(
+    source_id: UUID,
+    sale_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    source = await _get_source(db, source_id, current_user.company_id)
+    result = await db.execute(
+        select(Sale)
+        .options(
+            selectinload(Sale.items).selectinload(SaleItem.product),
+            selectinload(Sale.items).selectinload(SaleItem.variant),
+            selectinload(Sale.client),
+        )
+        .where(Sale.id == sale_id, Sale.company_id == current_user.company_id)
+    )
+    sale = result.scalars().first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
+    try:
+        link = await export_sale_to_source(db, source, sale)
+        await db.commit()
+        await db.refresh(link)
+        return link
+    except IntegrationRequestError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=exc.status_code or 422, detail=str(exc)) from exc
 
 
 @router.post(

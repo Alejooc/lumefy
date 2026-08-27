@@ -456,9 +456,20 @@ def _read_limited(response: Any, *, limit: int, too_large_message: str) -> bytes
     return body
 
 
-def _request_json_sync(url: str, headers: dict[str, str]) -> tuple[int, Any]:
+def _request_json_sync(
+    url: str,
+    headers: dict[str, str],
+    *,
+    method: str = "GET",
+    json_body: Any = None,
+) -> tuple[int, Any]:
     _validate_outbound_url(url)
-    request = urlrequest.Request(url, headers=headers, method="GET")
+    request_headers = dict(headers)
+    request_data = None
+    if json_body is not None:
+        request_data = json.dumps(json_body, ensure_ascii=False).encode("utf-8")
+        request_headers.setdefault("Content-Type", "application/json")
+    request = urlrequest.Request(url, headers=request_headers, data=request_data, method=method.upper())
     opener = urlrequest.build_opener(_SafeRedirectHandler(_origin(_validate_url_syntax(url))))
     last_error: IntegrationRequestError | None = None
     retry_attempts = settings.INTEGRATION_RETRY_ATTEMPTS
@@ -513,8 +524,14 @@ def _request_json_sync(url: str, headers: dict[str, str]) -> tuple[int, Any]:
     raise last_error or IntegrationRequestError("No se pudo completar la petición al proveedor.")
 
 
-async def _request_json(url: str, headers: dict[str, str]) -> tuple[int, Any]:
-    return await asyncio.to_thread(_request_json_sync, url, headers)
+async def _request_json(
+    url: str,
+    headers: dict[str, str],
+    *,
+    method: str = "GET",
+    json_body: Any = None,
+) -> tuple[int, Any]:
+    return await asyncio.to_thread(_request_json_sync, url, headers, method=method, json_body=json_body)
 
 
 MAX_PROXY_ASSET_BYTES = 10 * 1024 * 1024
@@ -922,6 +939,30 @@ def _endpoint_config(source: IntegrationSource, entity: str) -> dict[str, Any]:
     endpoint = endpoints.get(entity) or configuration.get(f"{entity}_endpoint") or {}
     if isinstance(endpoint, str):
         return {"path": endpoint}
+    if isinstance(endpoint, dict) and endpoint:
+        return endpoint
+    # Existing ElegantHome connections created before order support was added
+    # may not have an ``orders`` block yet. Keep them compatible with the
+    # Postman/API contract while allowing an explicit per-source override.
+    if entity == "orders" and source.provider_key == "eleganthome":
+        return {
+            "path": "/api/external/orders",
+            "data_path": "data",
+            "pagination": {
+                "enabled": True,
+                "type": "page",
+                "page_param": "page",
+                "per_page_param": "per_page",
+                "per_page": 20,
+                "start_page": 1,
+                "max_pages": 1000,
+                "last_page_path": "pagination.pages",
+                "total_path": "pagination.total",
+            },
+            "detail_path": "/api/external/orders/{id}",
+            "detail_data_path": "data",
+            "id_path": "id",
+        }
     return endpoint if isinstance(endpoint, dict) else {}
 
 
@@ -1153,6 +1194,71 @@ def _field_map(source: IntegrationSource) -> dict[str, Any]:
     return (source.configuration or {}).get("field_map") or {}
 
 
+def _catalog_transform_config(source: IntegrationSource) -> dict[str, Any]:
+    transform = (source.configuration or {}).get("catalog_transform") or {}
+    return transform if isinstance(transform, dict) else {}
+
+
+def _normalize_catalog_rows(source: IntegrationSource, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Normalize providers that expose one flat row per product variant.
+
+    ElegantHome returns ``item`` as the parent product code and repeats the
+    product name for every SKU.  The core catalog synchronizer expects nested
+    variants, so this transform keeps one product per ``item`` and places each
+    SKU row under ``variants``.  The behavior is opt-in and therefore remains
+    compatible with providers that already return nested catalog payloads.
+    """
+
+    config = _catalog_transform_config(source)
+    if str(config.get("mode") or "").strip().lower() != "flat_variants":
+        return rows
+
+    parent_path = str(config.get("parent_path") or "item").strip()
+    variant_id_path = str(config.get("variant_external_id_path") or "id").strip()
+    variant_sku_path = str(config.get("variant_sku_path") or "sku").strip()
+    name_paths = [str(path).strip() for path in (config.get("variant_name_paths") or []) if str(path).strip()]
+    attribute_paths = [str(path).strip() for path in (config.get("variant_attribute_paths") or []) if str(path).strip()]
+
+    grouped: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    passthrough: list[dict[str, Any]] = []
+    for index, raw_row in enumerate(rows):
+        row = dict(raw_row)
+        parent_value = _value(row, parent_path)
+        parent_key = _as_text(parent_value, "id", "code", "value")
+        if not parent_key:
+            passthrough.append(row)
+            continue
+
+        if parent_key not in grouped:
+            parent = dict(row)
+            parent["id"] = parent_key
+            parent["external_id"] = parent_key
+            parent["sku"] = parent_key
+            parent["variants"] = []
+            grouped[parent_key] = parent
+            order.append(parent_key)
+
+        variant = dict(row)
+        variant_id = _as_text(_value(row, variant_id_path), "id", "code", "value")
+        variant_sku = _as_text(_value(row, variant_sku_path), "id", "code", "value")
+        variant["id"] = variant_id or variant_sku or f"{parent_key}:{index}"
+        variant["sku"] = variant_sku or variant["id"]
+        name_parts = [_as_text(_value(row, path), "name", "title", "label", "value") for path in name_paths]
+        name_parts = [part for part in name_parts if part]
+        variant["name"] = " / ".join(name_parts) or variant["sku"]
+        attributes = {
+            path.rsplit(".", 1)[-1]: _value(row, path)
+            for path in attribute_paths
+            if _value(row, path) not in (None, "")
+        }
+        if attributes:
+            variant["attributes"] = attributes
+        grouped[parent_key]["variants"].append(variant)
+
+    return passthrough + [grouped[key] for key in order]
+
+
 def _mapped(item: dict[str, Any], mapping: dict[str, Any], key: str, *fallbacks: str) -> Any:
     path = mapping.get(key)
     if isinstance(path, dict):
@@ -1375,7 +1481,7 @@ async def suggest_mapping_source(source: IntegrationSource) -> dict[str, Any]:
     if not request_url:
         raise IntegrationRequestError("Configura primero el endpoint de productos.")
     status_code, payload = await _request_json(request_url, _build_headers(source))
-    rows = _extract_entity_rows(payload, endpoint, "products", status_code)
+    rows = _normalize_catalog_rows(source, _extract_entity_rows(payload, endpoint, "products", status_code))
     if not rows:
         raise IntegrationRequestError("La API respondió sin registros para detectar el mapeo.", status_code)
     suggestion = _suggest_mapping_from_sample(rows[0])
@@ -2175,6 +2281,8 @@ async def _preview_entity(source: IntegrationSource, entity: str, sample_limit: 
 
     status_code, payload = await _request_json(request_url, _build_headers(source))
     rows = _extract_entity_rows(payload, endpoint, entity, status_code)
+    if entity == "products":
+        rows = _normalize_catalog_rows(source, rows)
     mapping = _field_map(source)
     variants_count = sum(len(_as_list(item.get("variants"))) for item in rows)
     images_count = sum(len(_as_list(item.get("images"))) for item in rows)
@@ -2525,7 +2633,7 @@ async def _fetch_cursor_entity(
     page = 1
     pages_total: int | None = None
     total_items: int | None = None
-    entity_label = "catálogo" if entity == "products" else "inventario"
+    entity_label = "catálogo" if entity == "products" else ("órdenes" if entity == "orders" else "inventario")
 
     for _ in range(cursor_config["max_pages"]):
         if cursor in (None, ""):
@@ -2584,6 +2692,9 @@ async def _fetch_cursor_entity(
             f"La sincronización de {entity} superó el máximo de {cursor_config['max_pages']} páginas configurado."
         )
 
+    if entity == "products":
+        all_items = _normalize_catalog_rows(source, all_items)
+
     await _report_progress(
         progress_callback,
         stage="FETCHING",
@@ -2613,7 +2724,7 @@ async def _fetch_entity(
     url, incremental_value = _incremental_request_url(source, entity, endpoint, url)
     headers = _build_headers(source)
     pagination = _pagination_config(endpoint)
-    entity_label = "catálogo" if entity == "products" else "inventario"
+    entity_label = "catálogo" if entity == "products" else ("órdenes" if entity == "orders" else "inventario")
     if not pagination.get("enabled", False):
         await _report_progress(
             progress_callback,
@@ -2633,6 +2744,7 @@ async def _fetch_entity(
         status_code, payload = await _request_json(url, headers)
         rows = _extract_entity_rows(payload, endpoint, entity, status_code)
         if entity == "products":
+            rows = _normalize_catalog_rows(source, rows)
             _validate_catalog_identities(source, rows, set(), page=1)
         await _report_progress(
             progress_callback,
@@ -2687,7 +2799,7 @@ async def _fetch_entity(
                     "la sincronización se detuvo para no actualizar repetidamente los mismos registros."
                 )
             seen_page_fingerprints.add(fingerprint)
-        if entity == "products":
+        if entity == "products" and str(_catalog_transform_config(source).get("mode") or "").lower() != "flat_variants":
             _validate_catalog_identities(
                 source,
                 page_items,
@@ -2753,6 +2865,10 @@ async def _fetch_entity(
         raise IntegrationRequestError(
             f"La sincronización de {entity} superó el máximo de {max_pages} páginas configurado."
         )
+
+    if entity == "products":
+        all_items = _normalize_catalog_rows(source, all_items)
+        _validate_catalog_identities(source, all_items, set(), page=1)
 
     await _report_progress(
         progress_callback,
@@ -3874,7 +3990,7 @@ async def enqueue_sync(
 ) -> IntegrationSyncRun:
     normalized_sync_type = sync_type.upper()
     normalized_trigger_type = trigger_type.upper()
-    if normalized_sync_type not in {"CATALOG", "INVENTORY", "FULL"}:
+    if normalized_sync_type not in {"CATALOG", "INVENTORY", "FULL", "ORDERS"}:
         raise ValueError("Tipo de sincronización no soportado")
     if normalized_trigger_type not in {"MANUAL", "SCHEDULED", "WEBHOOK"}:
         raise ValueError("Tipo de ejecución no soportado")
@@ -3983,6 +4099,10 @@ async def execute_sync_run(db: AsyncSession, run: IntegrationSyncRun) -> Integra
             await _sync_inventory(
                 db, source, run, products, variants, embedded_inventory, persist_progress
             )
+        if run.sync_type == "ORDERS":
+            from app.services.integration_orders import sync_external_orders
+
+            await sync_external_orders(db, source, run, persist_progress)
         run.status = "PARTIAL" if run.items_failed else "SUCCESS"
         run.finished_at = datetime.utcnow()
         run.details = {
@@ -3991,8 +4111,8 @@ async def execute_sync_run(db: AsyncSession, run: IntegrationSyncRun) -> Integra
                 "stage": "COMPLETED",
                 "message": "Sincronización completada." if run.status == "SUCCESS" else "Sincronización completada con alertas.",
                 "percent": 100,
-                "current": run.products_processed or run.inventory_processed,
-                "total": run.products_processed or run.inventory_processed,
+                "current": run.products_processed or run.inventory_processed or int((run.details or {}).get("orders_processed") or 0),
+                "total": run.products_processed or run.inventory_processed or int((run.details or {}).get("orders_processed") or 0),
                 "items_failed": run.items_failed,
                 "created": run.products_created,
                 "updated": run.products_updated or run.inventory_updated,
@@ -4022,8 +4142,8 @@ async def execute_sync_run(db: AsyncSession, run: IntegrationSyncRun) -> Integra
                     "stage": "FAILED",
                     "message": "La sincronización falló.",
                     "percent": 100,
-                    "current": failed_run.products_processed or failed_run.inventory_processed,
-                    "total": failed_run.products_processed or failed_run.inventory_processed,
+                    "current": failed_run.products_processed or failed_run.inventory_processed or int((failed_run.details or {}).get("orders_processed") or 0),
+                    "total": failed_run.products_processed or failed_run.inventory_processed or int((failed_run.details or {}).get("orders_processed") or 0),
                     "items_failed": failed_run.items_failed,
                     "created": failed_run.products_created,
                     "updated": failed_run.products_updated or failed_run.inventory_updated,

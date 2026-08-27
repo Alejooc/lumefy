@@ -65,6 +65,8 @@ class SaleCreate(SaleBase):
 class Sale(SaleBase):
     id: UUID
     user_id: UUID
+    origin_channel: Optional[str] = None
+    integration_source_id: Optional[UUID] = None
     status: str
     subtotal: float
     tax: float
@@ -115,6 +117,8 @@ class SaleTimelineEvent(BaseModel):
 class SaleSummary(SaleBase):
     id: UUID
     user_id: UUID
+    origin_channel: Optional[str] = None
+    integration_source_id: Optional[UUID] = None
     status: str
     subtotal: float
     tax: float

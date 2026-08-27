@@ -74,6 +74,11 @@
                           <button ngbDropdownItem [routerLink]="['/sales/view', sale.id]">
                             <i class="ti ti-eye text-info"></i> Ver Detalle
                           </button>
+                          @if (canManageCompany && sale.origin_channel !== 'EXTERNAL_APP') {
+                            <button ngbDropdownItem (click)="exportToElegantHome(sale)">
+                              <i class="ti ti-upload text-primary"></i> Crear orden en ElegantHome
+                            </button>
+                          }
                           <!-- PDF Options -->
                           <button ngbDropdownItem (click)="downloadPdf(sale.id, 'invoice')">
                             <i class="ti ti-file-text text-primary"></i> Ver Factura

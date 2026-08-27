@@ -10,18 +10,33 @@ import Image from "next/image";
 import Link from "next/link";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
 import { CartItem } from "@/redux/features/cart-slice";
+import type { CartTemplateContent } from "@/lib/cart-template";
 
-const SingleItem = ({ item }: { item: CartItem }) => {
+const SingleItem = ({
+  item,
+  content,
+  interactive = true,
+  showVariant = true,
+  showStockNotice = true,
+}: {
+  item: CartItem;
+  content?: Partial<CartTemplateContent>;
+  interactive?: boolean;
+  showVariant?: boolean;
+  showStockNotice?: boolean;
+}) => {
   const quantity = item.quantity;
   const { format } = useStorefrontCurrency();
 
   const dispatch = useDispatch<AppDispatch>();
 
   const handleRemoveFromCart = () => {
+    if (!interactive) return;
     dispatch(removeItemFromCart(item.id));
   };
 
   const handleIncreaseQuantity = () => {
+    if (!interactive) return;
     if (item.stockQuantity !== undefined && quantity >= item.stockQuantity) {
       return;
     }
@@ -29,6 +44,7 @@ const SingleItem = ({ item }: { item: CartItem }) => {
   };
 
   const handleDecreaseQuantity = () => {
+    if (!interactive) return;
     if (quantity > 1) {
       dispatch(updateCartItemQuantity({ id: item.id, quantity: quantity - 1 }));
     } else {
@@ -55,7 +71,10 @@ const SingleItem = ({ item }: { item: CartItem }) => {
               <h3 className="line-clamp-2 break-words text-sm text-dark ease-out duration-200 hover:text-blue sm:text-base">
                 <Link href={item.href || "/products"}> {item.title} </Link>
               </h3>
-              {item.variantName ? <p className="mt-1 break-words text-xs text-dark-3 sm:text-sm">{item.variantName}</p> : null}
+              {showVariant && item.variantName ? <p className="mt-1 break-words text-xs text-dark-3 sm:text-sm">{item.variantName}</p> : null}
+              {showStockNotice && item.stockQuantity !== undefined && item.stockQuantity > 0 && item.stockQuantity < 5 ? (
+                <p className="mt-1 text-xs text-orange">Quedan pocas unidades</p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -63,16 +82,17 @@ const SingleItem = ({ item }: { item: CartItem }) => {
 
       <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4 md:mt-0 md:contents">
         <div className="min-w-0 md:min-w-[180px]">
-          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-dark-3 md:hidden">Precio</span>
+          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-dark-3 md:hidden">{content?.price_label || "Precio"}</span>
           <p className="text-dark">{format(item.discountedPrice)}</p>
         </div>
 
         <div className="min-w-0 md:min-w-[275px]">
-          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-dark-3 md:hidden">Cantidad</span>
+          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-dark-3 md:hidden">{content?.quantity_label || "Cantidad"}</span>
           <div className="w-max max-w-full flex items-center rounded-md border border-gray-3">
             <button
               onClick={() => handleDecreaseQuantity()}
-              aria-label="button for remove product"
+              aria-label={`${content?.quantity_label || "Cantidad"}: disminuir`}
+              disabled={!interactive}
               className="flex h-11.5 w-11.5 items-center justify-center ease-out duration-200 hover:text-blue"
             >
               <svg
@@ -96,8 +116,8 @@ const SingleItem = ({ item }: { item: CartItem }) => {
 
             <button
               onClick={() => handleIncreaseQuantity()}
-              aria-label="button for add product"
-              disabled={item.stockQuantity !== undefined && quantity >= item.stockQuantity}
+              aria-label={`${content?.quantity_label || "Cantidad"}: aumentar`}
+              disabled={!interactive || (item.stockQuantity !== undefined && quantity >= item.stockQuantity)}
               className="flex h-11.5 w-11.5 items-center justify-center ease-out duration-200 hover:text-blue"
             >
               <svg
@@ -122,15 +142,16 @@ const SingleItem = ({ item }: { item: CartItem }) => {
         </div>
 
         <div className="min-w-0 md:min-w-[200px]">
-          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-dark-3 md:hidden">Subtotal</span>
+          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-dark-3 md:hidden">{content?.subtotal_label || "Subtotal"}</span>
           <p className="text-dark">{format(item.discountedPrice * quantity)}</p>
         </div>
 
         <div className="flex min-w-0 items-end justify-end md:min-w-[50px] md:justify-end">
-          <span className="sr-only">Eliminar producto</span>
+          <span className="sr-only">{content?.action_label || "Acción"}: eliminar producto</span>
           <button
             onClick={() => handleRemoveFromCart()}
-            aria-label="button for remove product from cart"
+            aria-label={`${content?.action_label || "Acción"}: eliminar producto`}
+            disabled={!interactive}
             className="flex h-9.5 w-full max-w-[38px] items-center justify-center rounded-lg border border-gray-3 bg-gray-2 text-dark ease-out duration-200 hover:border-red-light-4 hover:bg-red-light-6 hover:text-red"
           >
           <svg
@@ -164,7 +185,7 @@ const SingleItem = ({ item }: { item: CartItem }) => {
         </div>
       </div>
 
-      {item.stockQuantity === 0 ? (
+      {showStockNotice && item.stockQuantity === 0 ? (
         <p className="sr-only">Este producto ya no tiene existencias disponibles.</p>
       ) : null}
     </div>

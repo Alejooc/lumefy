@@ -86,7 +86,7 @@ export default function SiteShell({
     const handlePreviewMessage = (event: MessageEvent) => {
       if (!isTrustedPreviewMessage(event)) return;
       const message = event.data;
-      if (!message || message.type !== "lumefy:preview:apply" || !["home", "product"].includes(message.template)) return;
+      if (!message || message.type !== "lumefy:preview:apply" || !["home", "product", "collection", "search", "cart", "pages"].includes(message.template)) return;
       const document = message.document && typeof message.document === "object"
         ? message.document as Record<string, unknown>
         : {};
@@ -125,7 +125,7 @@ export default function SiteShell({
       active = false;
       window.removeEventListener("message", handlePreviewMessage);
     };
-  }, []);
+  }, [initialStorefront]);
 
   return (
     <html lang="es-CO" suppressHydrationWarning={true}>

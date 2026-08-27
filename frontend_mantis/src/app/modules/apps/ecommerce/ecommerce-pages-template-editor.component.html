@@ -1,0 +1,77 @@
+<div class="pages-editor-shell">
+  @if (loading && !theme) {
+    <div class="pages-editor-loading" aria-label="Cargando editor"><div class="pages-editor-loading__top"></div><div class="pages-editor-loading__body"><span></span><span></span><span></span></div></div>
+  } @else if (!storefront) {
+    <section class="pages-editor-empty"><i class="ti ti-file-text"></i><span class="pages-editor-kicker">Editor visual</span><h4>Elige una tienda para empezar</h4><p>Activa una tienda para personalizar tus páginas informativas.</p>@if (errorMessage) { <div class="alert alert-warning mt-3">{{ errorMessage }}</div> }</section>
+  } @else {
+    <header class="pages-editor-topbar">
+      <div class="pages-editor-topbar__left">
+        <a class="pages-editor-icon-button" routerLink="/commerce" aria-label="Volver al ecommerce" title="Volver al ecommerce"><i class="ti ti-arrow-left"></i></a>
+        <span class="pages-editor-divider"></span>
+        <button class="pages-editor-mode-button" type="button" [class.active]="sidebarOpen && sidebarMode === 'sections'" (click)="showSections()" aria-label="Secciones" title="Secciones"><i class="ti ti-layout-list"></i></button>
+        <button class="pages-editor-mode-button" type="button" [class.active]="sidebarOpen && sidebarMode === 'settings'" (click)="showSettings()" aria-label="Contenido de la página" title="Contenido de la página"><i class="ti ti-settings"></i></button>
+        <button class="pages-editor-mode-button" type="button" (click)="openAddSections()" aria-label="Añadir sección" title="Añadir sección"><i class="ti ti-layout-grid-add"></i></button>
+      </div>
+      <div class="pages-editor-topbar__context">
+        <div class="pages-editor-store-context">
+          @if (storefronts.length > 1) { <select class="form-select form-select-sm" [(ngModel)]="selectedStorefrontId" (ngModelChange)="onStorefrontChange()" aria-label="Tienda seleccionada">@for (item of storefronts; track item.id) { <option [value]="item.id">{{ item.name }}</option> }</select> } @else { <strong>{{ storefront.name }}</strong> }
+          <span class="pages-editor-live-pill"><span></span>{{ storefront.is_enabled ? 'Activa' : 'Borrador' }}</span>
+        </div>
+        <details class="pages-editor-page-picker">
+          <summary><i class="ti ti-file-text"></i><span>Páginas</span><i class="ti ti-chevron-down"></i></summary>
+          <div class="pages-editor-page-picker__menu">
+            <a routerLink="/commerce/design"><i class="ti ti-home"></i><span>Página de inicio</span></a>
+            <a routerLink="/commerce/design/product"><i class="ti ti-shopping-bag"></i><span>Producto</span></a>
+            <a routerLink="/commerce/design/collection"><i class="ti ti-category"></i><span>Colecciones</span></a>
+            <a routerLink="/commerce/design/search"><i class="ti ti-search"></i><span>Resultados de búsqueda</span></a>
+            <a routerLink="/commerce/design/cart"><i class="ti ti-shopping-cart"></i><span>Carrito</span></a>
+            <button type="button" class="active"><i class="ti ti-file-text"></i><span>Páginas informativas</span><i class="ti ti-check"></i></button>
+          </div>
+        </details>
+      </div>
+      <div class="pages-editor-topbar__right">
+        <span class="pages-editor-save-state" [class.pages-editor-save-state--dirty]="dirty"><span></span>{{ saving ? 'Guardando...' : dirty ? 'Sin guardar' : 'Guardado' }}</span>
+        <div class="pages-editor-viewport-switcher" role="group" aria-label="Tamaño de vista previa"><button type="button" [class.active]="previewViewport === 'desktop'" (click)="setViewport('desktop')" title="Escritorio"><i class="ti ti-device-desktop"></i></button><button type="button" [class.active]="previewViewport === 'tablet'" (click)="setViewport('tablet')" title="Tablet"><i class="ti ti-device-tablet"></i></button><button type="button" [class.active]="previewViewport === 'mobile'" (click)="setViewport('mobile')" title="Móvil"><i class="ti ti-device-mobile"></i></button></div>
+        <button class="pages-editor-icon-button pages-editor-selector" type="button" [class.active]="selectionMode" (click)="toggleSelectionMode()" aria-label="Seleccionar elemento" title="Seleccionar elemento"><i class="ti ti-pointer"></i></button>
+        @if (previewUrl) { <a class="pages-editor-icon-button" [href]="previewUrl" target="_blank" rel="noopener noreferrer" aria-label="Abrir preview" title="Abrir preview"><i class="ti ti-external-link"></i></a> }
+        <button class="btn btn-outline-primary btn-sm pages-editor-save" type="button" (click)="saveDraft()" [disabled]="saving || publishing || !dirty" aria-label="Guardar cambios" title="Guardar cambios"><i class="ti" [class.ti-device-floppy]="!saving" [class.ti-loader]="saving" [class.icon-spin]="saving"></i><span class="visually-hidden">Guardar</span></button>
+        <button class="btn btn-primary btn-sm pages-editor-publish" type="button" (click)="publish()" [disabled]="!canPublish">{{ publishing ? 'Publicando...' : 'Publicar' }}</button>
+      </div>
+    </header>
+
+    @if (errorMessage) { <div class="alert alert-warning pages-editor-alert" role="alert">{{ errorMessage }}</div> }
+
+    <main class="pages-editor-workspace">
+      @if (sidebarOpen && (sidebarMode === 'sections' || sidebarMode === 'add')) {
+        <aside class="pages-editor-panel pages-editor-structure-panel">
+          @if (sidebarMode === 'sections') {
+            <div class="pages-editor-panel-header"><div><span class="pages-editor-kicker">Páginas informativas</span><h5>{{ selectedPage.label }}</h5><p>{{ selectedPage.description }}</p></div><button class="pages-editor-icon-button" type="button" (click)="toggleSidebar()" aria-label="Ocultar panel" title="Ocultar panel"><i class="ti ti-layout-sidebar-left-collapse"></i></button></div>
+            <label class="pages-editor-page-select"><span>Página que estás editando</span><select class="form-select" [(ngModel)]="selectedPageSlug" (ngModelChange)="onPageChange()">@for (page of pageOptions; track page.slug) { <option [value]="page.slug">{{ page.label }}</option> }</select></label>
+            <div class="pages-editor-preview-note"><span><i class="ti ti-eye"></i></span><div><small>Vista previa</small><strong>{{ selectedPage.label }}</strong></div><em>Editable</em></div>
+            <div class="pages-editor-section-heading"><strong>Estructura</strong><span>{{ sectionCountLabel }}</span></div>
+            <div class="pages-editor-structure-list" cdkDropList [cdkDropListData]="document.sections" (cdkDropListDropped)="drop($event)">@for (section of document.sections; track section.id) { <div class="pages-editor-section-row" cdkDrag [class.selected]="selectedSectionId === section.id" [class.disabled]="!section.enabled" (click)="selectSection(section)"><button class="pages-editor-drag-handle" type="button" cdkDragHandle aria-label="Mover sección" title="Arrastrar">⠿</button><span class="pages-editor-section-icon"><i [class]="componentIcon(section.type)"></i></span><span class="pages-editor-section-copy"><strong>{{ sectionLabel(section) }}</strong><small>{{ section.enabled ? 'Visible' : 'Oculta' }}</small></span><label class="pages-editor-switch" (click)="$event.stopPropagation()"><input type="checkbox" [checked]="section.enabled" (change)="toggleSection(section, $event)" [attr.aria-label]="'Mostrar ' + sectionLabel(section)" /><span></span></label><button class="pages-editor-more" type="button" (click)="removeSection(section, $event)" [attr.aria-label]="'Eliminar ' + sectionLabel(section)" [attr.title]="'Eliminar ' + sectionLabel(section)"><i class="ti ti-trash"></i></button></div> }</div>
+            <button class="pages-editor-add-trigger" type="button" (click)="openAddSections()" [disabled]="!canAddSection || !availableComponents.length"><i class="ti ti-circle-plus"></i>Añadir sección</button>
+          } @else {
+            <div class="pages-editor-panel-header pages-editor-panel-header--picker"><button class="pages-editor-icon-button" type="button" (click)="showSections()" aria-label="Volver"><i class="ti ti-arrow-left"></i></button><div><span class="pages-editor-kicker">Biblioteca</span><h5>Añadir sección</h5></div></div>
+            <p class="pages-editor-panel-hint">Elige una sección para añadirla a esta página.</p>
+            <div class="pages-editor-component-list">@for (component of availableComponents; track component.type) { <button class="pages-editor-component-card" type="button" (click)="addSection(component.type)"><span><i [class]="componentIcon(component.type)"></i></span><strong>{{ component.label }}</strong><small>{{ component.description }}</small><i class="ti ti-plus"></i></button> }</div>
+          }
+        </aside>
+      }
+
+      <section class="pages-editor-canvas-panel" aria-label="Vista previa de la página"><div class="pages-editor-canvas-stage"><div class="pages-editor-device" [class.tablet]="previewViewport === 'tablet'" [class.mobile]="previewViewport === 'mobile'">@if (safePreviewUrl) { <iframe #previewFrame class="pages-editor-preview-frame" [src]="safePreviewUrl" (load)="onPreviewLoad()" title="Vista previa de páginas informativas"></iframe> } @else { <div class="pages-editor-preview-empty"><i class="ti ti-file-text"></i><strong>Prepara tu página</strong><span>La vista previa se abrirá en unos segundos.</span></div> }</div></div></section>
+
+      @if (sidebarOpen && (sidebarMode === 'settings' || sidebarMode === 'section')) {
+        <aside class="pages-editor-panel pages-editor-inspector-panel">
+          @if (sidebarMode === 'settings') {
+            <div class="pages-editor-inspector-header"><div><span class="pages-editor-kicker">Contenido global</span><h5>{{ selectedPage.label }}</h5><p>Personaliza el contenido que verán tus clientes.</p></div><button class="pages-editor-icon-button" type="button" (click)="showSections()" aria-label="Volver"><i class="ti ti-arrow-left"></i></button></div>
+            <div class="pages-editor-inspector-scroll"><div class="pages-editor-form-section"><div class="pages-editor-field-heading"><strong>Contenido de la página</strong><span>{{ selectedPage.label }}</span></div><label class="pages-editor-field"><span>Texto superior</span><input class="form-control" [ngModel]="pageCopy.eyebrow" (ngModelChange)="updatePageField('eyebrow', $event)" /></label><label class="pages-editor-field"><span>Título</span><input class="form-control" [ngModel]="pageCopy.title" (ngModelChange)="updatePageField('title', $event)" /></label><label class="pages-editor-field"><span>Introducción</span><textarea class="form-control" rows="3" [ngModel]="pageCopy.description" (ngModelChange)="updatePageField('description', $event)"></textarea></label><label class="pages-editor-field"><span>Contenido principal</span><textarea class="form-control" rows="9" [ngModel]="pageCopy.body" (ngModelChange)="updatePageField('body', $event)"></textarea></label><p class="pages-editor-help">Puedes separar ideas con una línea en blanco para crear varios párrafos.</p></div></div>
+          } @else if (selectedSection) {
+            <div class="pages-editor-inspector-header"><div><span class="pages-editor-kicker">Sección</span><h5>{{ sectionLabel(selectedSection) }}</h5><p>Configura qué se muestra en esta zona.</p></div><button class="pages-editor-icon-button" type="button" (click)="showSections()" aria-label="Volver"><i class="ti ti-arrow-left"></i></button></div>
+            <div class="pages-editor-inspector-scroll"><div class="pages-editor-visibility-card"><div><strong>Mostrar sección</strong><small>{{ selectedSection.enabled ? 'Visible para tus clientes' : 'Oculta en la tienda' }}</small></div><label class="pages-editor-switch"><input type="checkbox" [checked]="selectedSection.enabled" (change)="toggleSection(selectedSection, $event)" /><span></span></label></div><div class="pages-editor-section-explainer"><i [class]="componentIcon(selectedSection.type)"></i><span>{{ selectedSection.type === 'page_contact_form' ? 'Esta sección solo aparece en la página de Contacto.' : 'Su contenido se toma de la página informativa seleccionada.' }}</span></div><button class="pages-editor-delete" type="button" (click)="removeSection(selectedSection)" [attr.aria-label]="'Eliminar ' + sectionLabel(selectedSection)"><i class="ti ti-trash"></i><span>Eliminar sección</span></button></div>
+          }
+        </aside>
+      }
+    </main>
+  }
+</div>

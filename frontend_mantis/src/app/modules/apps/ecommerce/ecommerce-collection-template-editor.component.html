@@ -1,0 +1,108 @@
+<div class="collection-editor-shell">
+  <header class="collection-editor-topbar">
+    <a class="collection-editor-back" routerLink="/commerce/design" aria-label="Volver al editor de inicio">
+      <i class="ti ti-arrow-left"></i>
+    </a>
+    <div class="collection-editor-tool-divider"></div>
+    <button class="collection-editor-tool-button" type="button" [class.is-active]="sidebarMode === 'sections'" (click)="showSections()" aria-label="Estructura de la página">
+      <i class="ti ti-layout-list"></i>
+    </button>
+    <button class="collection-editor-tool-button" type="button" [class.is-active]="sidebarMode === 'settings'" (click)="showSettings()" aria-label="Ajustes de la plantilla">
+      <i class="ti ti-settings"></i>
+    </button>
+    <div class="collection-editor-brand">
+      <strong>{{ storefront?.name || 'Tienda' }}</strong>
+      <span class="collection-editor-status"><i></i> {{ dirty ? 'Cambios pendientes' : 'Guardado' }}</span>
+    </div>
+    <div class="collection-editor-page-picker">
+      <span class="collection-editor-page-icon"><i [class]="isSearchTemplate ? 'ti ti-search' : 'ti ti-layout-dashboard'"></i></span>
+      <span>{{ templateTitle }}</span>
+      <i class="ti ti-chevron-down"></i>
+      <div class="collection-editor-page-menu">
+        <a routerLink="/commerce/design"><i class="ti ti-home"></i><span>Inicio</span></a>
+        <a routerLink="/commerce/design/product"><i class="ti ti-shopping-bag"></i><span>Producto</span></a>
+        <a [class.is-active]="!isSearchTemplate" routerLink="/commerce/design/collection"><i class="ti ti-layout-dashboard"></i><span>Colección</span></a>
+        <a [class.is-active]="isSearchTemplate" routerLink="/commerce/design/search"><i class="ti ti-search"></i><span>Resultados de búsqueda</span></a>
+        <a routerLink="/commerce/design/cart"><i class="ti ti-shopping-cart"></i><span>Carrito</span></a>
+        <a routerLink="/commerce/design/pages"><i class="ti ti-file-text"></i><span>Páginas informativas</span></a>
+      </div>
+    </div>
+    <div class="collection-editor-spacer"></div>
+    <div class="collection-editor-viewport-picker" aria-label="Vista previa responsive">
+      <button type="button" [class.is-active]="previewViewport === 'desktop'" (click)="setViewport('desktop')" aria-label="Vista escritorio"><i class="ti ti-device-desktop"></i></button>
+      <button type="button" [class.is-active]="previewViewport === 'tablet'" (click)="setViewport('tablet')" aria-label="Vista tablet"><i class="ti ti-device-tablet"></i></button>
+      <button type="button" [class.is-active]="previewViewport === 'mobile'" (click)="setViewport('mobile')" aria-label="Vista móvil"><i class="ti ti-device-mobile"></i></button>
+    </div>
+    <button class="collection-editor-select-button" type="button" [class.is-active]="selectionMode" (click)="toggleSelectionMode()" aria-label="Seleccionar elementos en la vista previa">
+      <i class="ti ti-pointer"></i>
+    </button>
+    <button class="collection-editor-icon-button" type="button" aria-label="Más opciones"><i class="ti ti-dots"></i></button>
+    <button class="collection-editor-save-button" type="button" [disabled]="saving || publishing || !theme" (click)="saveDraft()">
+      <i class="ti ti-device-floppy"></i>
+      <span>{{ saving ? 'Guardando…' : 'Guardar' }}</span>
+    </button>
+    <button class="collection-editor-publish-button" type="button" [disabled]="!canPublish" (click)="publish()">{{ publishing ? 'Publicando…' : 'Publicar' }}</button>
+  </header>
+
+  <main class="collection-editor-workspace">
+    @if (sidebarOpen) {
+      <aside class="collection-editor-sidebar">
+        @if (loading) {
+          <div class="collection-editor-loading"><span class="spinner-border spinner-border-sm"></span><p>Cargando editor…</p></div>
+        } @else if (errorMessage) {
+          <div class="collection-editor-error"><i class="ti ti-alert-circle"></i><p>{{ errorMessage }}</p></div>
+        } @else {
+          @if (sidebarMode === 'sections' || sidebarMode === 'add') {
+            <div class="collection-editor-sidebar-heading">
+              <div><span class="collection-editor-kicker">Página</span><h4>{{ templateTitle }}</h4><p>{{ templateDescription }}</p></div>
+              <span class="collection-editor-count">{{ sectionCountLabel }}</span>
+            </div>
+            @if (!isSearchTemplate) { <label class="collection-editor-select-field"><span>Colección de ejemplo</span><select class="form-select" [(ngModel)]="selectedCollectionId" (ngModelChange)="onCollectionChange()"><option value="">Sin colecciones disponibles</option>@for (collection of collections; track collection.id) {<option [value]="collection.id">{{ collection.name }}</option>}</select></label> }
+            <div class="collection-editor-section-label"><span>Estructura</span><button type="button" (click)="openAddSections()" [disabled]="!canAddSection || !availableComponents.length"><i class="ti ti-plus"></i> Añadir sección</button></div>
+            <div class="collection-editor-section-list" cdkDropList (cdkDropListDropped)="drop($event)">
+              @for (section of document.sections; track section.id) {
+                <div class="collection-editor-section-card" cdkDrag [class.is-selected]="selectedSectionId === section.id" (click)="selectSection(section)">
+                  <span class="collection-editor-drag" cdkDragHandle><i class="ti ti-grip-vertical"></i></span>
+                  <span class="collection-editor-section-icon"><i [class]="componentIcon(section.type)"></i></span>
+                  <span class="collection-editor-section-copy"><strong>{{ sectionLabel(section) }}</strong><small>{{ section.enabled ? 'Visible' : 'Oculta' }}</small></span>
+                  <label class="collection-editor-switch" (click)="$event.stopPropagation()"><input type="checkbox" [checked]="section.enabled" (change)="toggleSection(section, $event)" /><span></span></label>
+                  <button class="collection-editor-more" type="button" (click)="removeSection(section, $event)" [attr.aria-label]="'Eliminar ' + sectionLabel(section)"><i class="ti ti-trash"></i></button>
+                </div>
+              }
+            </div>
+            @if (sidebarMode === 'add') {
+              <div class="collection-editor-add-panel"><div class="collection-editor-panel-title"><strong>Añadir sección</strong><button type="button" (click)="showSections()" aria-label="Cerrar"><i class="ti ti-x"></i></button></div>@if (!availableComponents.length) {<p class="collection-editor-empty">Ya añadiste todas las secciones disponibles.</p>} @else {@for (component of availableComponents; track component.type) {<button type="button" class="collection-editor-add-option" (click)="addSection(component.type)"><i [class]="componentIcon(component.type)"></i><span><strong>{{ component.label }}</strong><small>{{ component.description }}</small></span><i class="ti ti-plus"></i></button>}}</div>
+            }
+          }
+
+          @if (sidebarMode === 'settings') {
+            <div class="collection-editor-inspector-header"><div><span class="collection-editor-kicker">Ajustes generales</span><h4>Contenido de {{ templateTitle.toLowerCase() }}</h4><p>Define los textos que aparecen en la página.</p></div><button type="button" class="collection-editor-icon-button" (click)="showSections()" aria-label="Volver"><i class="ti ti-arrow-left"></i></button></div>
+            <div class="collection-editor-inspector-scroll">
+              <div class="collection-editor-form-section"><div class="collection-editor-field-heading"><strong>Textos principales</strong><span>Contenido</span></div><label class="collection-editor-field"><span>Título del breadcrumb</span><input class="form-control" [ngModel]="content.breadcrumb_title" (ngModelChange)="updateContentSetting('breadcrumb_title', $event)" /></label><label class="collection-editor-field"><span>Texto para productos</span><input class="form-control" [ngModel]="content.products_label" (ngModelChange)="updateContentSetting('products_label', $event)" /></label><label class="collection-editor-field"><span>Texto de filtros</span><input class="form-control" [ngModel]="content.filters_label" (ngModelChange)="updateContentSetting('filters_label', $event)" /></label><label class="collection-editor-field"><span>Texto de ordenar</span><input class="form-control" [ngModel]="content.sort_label" (ngModelChange)="updateContentSetting('sort_label', $event)" /></label><label class="collection-editor-field"><span>Limpiar filtros</span><input class="form-control" [ngModel]="content.clear_filters_label" (ngModelChange)="updateContentSetting('clear_filters_label', $event)" /></label></div>
+              <div class="collection-editor-form-section"><div class="collection-editor-field-heading"><strong>Estado vacío</strong><span>Catálogo</span></div><label class="collection-editor-field"><span>Título</span><input class="form-control" [ngModel]="content.empty_title" (ngModelChange)="updateContentSetting('empty_title', $event)" /></label><label class="collection-editor-field"><span>Descripción</span><textarea class="form-control" rows="3" [ngModel]="content.empty_description" (ngModelChange)="updateContentSetting('empty_description', $event)"></textarea></label></div>
+            </div>
+          }
+
+          @if (sidebarMode === 'section' && selectedSection) {
+            <div class="collection-editor-inspector-header"><div><span class="collection-editor-kicker">Sección</span><h4>{{ sectionLabel(selectedSection) }}</h4><p>Configura qué se muestra en esta zona.</p></div><button type="button" class="collection-editor-icon-button" (click)="showSections()" aria-label="Volver"><i class="ti ti-arrow-left"></i></button></div>
+            <div class="collection-editor-inspector-scroll">
+              <div class="collection-editor-visibility-card"><div><strong>Mostrar sección</strong><small>{{ selectedSection.enabled ? 'Visible para tus clientes' : 'Oculta en la tienda' }}</small></div><label class="collection-editor-switch"><input type="checkbox" [checked]="selectedSection.enabled" (change)="toggleSection(selectedSection, $event)" /><span></span></label></div>
+              @if (selectedSection.type === 'collection_header' || selectedSection.type === 'search_header') {<div class="collection-editor-form-section"><div class="collection-editor-field-heading"><strong>Encabezado</strong><span>Presentación</span></div><label class="collection-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_description', true)" (change)="updateSectionSetting('show_description', $any($event.target).checked)" /><span>Mostrar descripción</span></label><label class="collection-editor-field"><span>Alineación</span><select class="form-select" [ngModel]="getSectionSetting('alignment', 'left')" (ngModelChange)="updateSectionSetting('alignment', $event)"><option value="left">A la izquierda</option><option value="center">Centrada</option></select></label></div>}
+              @else if (selectedSection.type === 'collection_filters' || selectedSection.type === 'search_filters') {<div class="collection-editor-form-section"><div class="collection-editor-field-heading"><strong>Filtros y orden</strong><span>Navegación</span></div><label class="collection-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_sort', true)" (change)="updateSectionSetting('show_sort', $any($event.target).checked)" /><span>Mostrar ordenamiento</span></label><label class="collection-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_active_filters', true)" (change)="updateSectionSetting('show_active_filters', $any($event.target).checked)" /><span>Mostrar filtros activos</span></label><label class="collection-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_mobile_button', true)" (change)="updateSectionSetting('show_mobile_button', $any($event.target).checked)" /><span>Mostrar botón de filtros en móvil</span></label></div>}
+              @else {<div class="collection-editor-form-section"><div class="collection-editor-field-heading"><strong>Grilla</strong><span>Productos</span></div><label class="collection-editor-field"><span>Columnas en escritorio</span><input class="form-control" type="number" min="2" max="4" step="1" [ngModel]="getSectionSetting('columns', 3)" (ngModelChange)="updateSectionSetting('columns', $event)" /></label><label class="collection-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_count', true)" (change)="updateSectionSetting('show_count', $any($event.target).checked)" /><span>Mostrar cantidad de productos</span></label><label class="collection-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_layout_toggle', true)" (change)="updateSectionSetting('show_layout_toggle', $any($event.target).checked)" /><span>Permitir cambiar vista grilla/lista</span></label></div>}
+              <button class="collection-editor-delete" type="button" (click)="removeSection(selectedSection)" [attr.aria-label]="'Eliminar ' + sectionLabel(selectedSection)"><i class="ti ti-trash"></i><span>Eliminar sección</span></button>
+            </div>
+          }
+        }
+      </aside>
+    }
+
+    <section class="collection-editor-preview-area">
+      @if (!safePreviewUrl) {
+        <div class="collection-editor-preview-empty"><i [class]="isSearchTemplate ? 'ti ti-search' : 'ti ti-layout-dashboard'"></i><h4>Prepara tu página de {{ templateTitle.toLowerCase() }}</h4><p>{{ isSearchTemplate ? 'La vista previa mostrará los resultados del catálogo.' : 'Selecciona una colección visible para abrir la vista previa.' }}</p></div>
+      } @else {
+        <div class="collection-editor-preview-frame" [class.is-tablet]="previewViewport === 'tablet'" [class.is-mobile]="previewViewport === 'mobile'"><iframe #previewFrame [src]="safePreviewUrl" [title]="'Vista previa de ' + templateTitle.toLowerCase()" (load)="onPreviewLoad()"></iframe></div>
+      }
+    </section>
+  </main>
+</div>

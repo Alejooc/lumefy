@@ -254,7 +254,7 @@ export class NavContentComponent implements OnInit {
             id: `app-installed-${app.slug}`,
             title: app.name,
             type: 'item' as const,
-            url: `/apps/installed/${app.slug}`,
+            url: app.setup_url || `/apps/installed/${app.slug}`,
             classes: 'nav-item',
             icon: 'appstore',
             breadcrumbs: false,

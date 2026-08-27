@@ -79,7 +79,8 @@ export class AppStoreComponent implements OnInit {
   }
 
   openInstalled(slug: string): void {
-    this.router.navigate(['/apps/installed', slug]);
+    const app = this.catalog.find((item) => item.slug === slug);
+    this.router.navigateByUrl(app?.setup_url || `/apps/installed/${slug}`);
   }
 
   async install(slug: string): Promise<void> {
@@ -121,7 +122,8 @@ export class AppStoreComponent implements OnInit {
               this.appService.notifyInstalledChanged();
               this.swal.success('Instalacion completa');
               this.reload();
-              this.router.navigate(['/apps/installed', slug]);
+              const destination = this.catalog.find((item) => item.slug === slug)?.setup_url || `/apps/installed/${slug}`;
+              this.router.navigateByUrl(destination);
             }, 350);
           },
           error: (err) => {

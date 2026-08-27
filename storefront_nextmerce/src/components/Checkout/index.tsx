@@ -25,11 +25,17 @@ import { useStorefrontAuth } from "@/lib/storefront-auth";
 import { useStorefrontUi } from "@/lib/storefront-ui";
 import { storefrontImageUrl } from "@/lib/storefront-image";
 import { formatMoney } from "@/lib/money";
+import {
+  checkoutAppearanceVariables,
+  normalizeCheckoutAppearance,
+} from "@/lib/checkout-appearance";
 
 type Props = {
   storefrontId: string;
   currency: string;
   checkoutSettings?: Record<string, unknown>;
+  storefrontName?: string;
+  logoUrl?: string | null;
 };
 
 type CheckoutSettings = {
@@ -241,7 +247,7 @@ function paymentPresentation(option: PublicStorePaymentGateway): PaymentPresenta
   };
 }
 
-const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
+const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, logoUrl }: Props) => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const cartItems = useAppSelector((state) => state.cartReducer.items);
@@ -250,6 +256,14 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   const settings = useMemo(
     () => normalizeCheckoutSettings(checkoutSettings),
     [checkoutSettings],
+  );
+  const appearance = useMemo(
+    () => normalizeCheckoutAppearance(checkoutSettings?.appearance),
+    [checkoutSettings],
+  );
+  const appearanceStyle = useMemo(
+    () => checkoutAppearanceVariables(appearance),
+    [appearance],
   );
   const requiresAccount =
     settings.checkout_mode === "required_account" || !settings.allow_guest_checkout;
@@ -678,7 +692,10 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
     return (
       <>
         <Breadcrumb title="Pago" pages={["Pago"]} />
-        <section className="overflow-hidden py-20 bg-gray-2">
+        <section
+          className={`checkout-theme checkout-page-surface checkout-layout--${appearance.layout} overflow-hidden py-20 bg-gray-2`}
+          style={appearanceStyle}
+        >
           <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
             <div className="bg-white rounded-xl shadow-1 px-4 py-10 sm:py-15 lg:py-20 xl:py-25 text-center">
               <h2 className="font-medium text-dark text-2xl mb-3">
@@ -698,11 +715,31 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
     );
   }
 
+  const resolvedLogoUrl = storefrontImageUrl(logoUrl);
+
   return (
     <>
       <Breadcrumb title="Pago" pages={["Pago"]} />
-      <section className="overflow-hidden py-20 bg-gray-2">
+      <section
+        className={`checkout-theme checkout-page-surface checkout-layout--${appearance.layout} overflow-hidden py-20 bg-gray-2`}
+        style={appearanceStyle}
+      >
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
+          <div className="checkout-brand-header mb-7.5">
+            <div className="checkout-brand-header__identity">
+              {appearance.show_logo && resolvedLogoUrl ? (
+                <img src={resolvedLogoUrl} alt={storefrontName || "Tienda"} className="checkout-brand-header__logo" />
+              ) : null}
+              {appearance.show_brand_name ? (
+                <div>
+                  <p className="checkout-brand-header__name">{storefrontName || "Tu tienda"}</p>
+                  <p className="checkout-brand-header__caption">Compra segura y acompañada</p>
+                </div>
+              ) : null}
+            </div>
+            <span className="checkout-brand-header__trust">Compra segura</span>
+          </div>
+
           {error ? (
             <div className="mb-7.5 rounded-md border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
               {error}
@@ -710,7 +747,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
           ) : null}
 
           <form onSubmit={handleSubmit}>
-            <div className="flex flex-col lg:flex-row gap-7.5 xl:gap-11">
+            <div className="checkout-form-layout flex flex-col lg:flex-row gap-7.5 xl:gap-11">
               <div className="lg:max-w-[670px] w-full">
                 <div className="mt-0">
                   <h2 className="font-medium text-dark text-xl sm:text-2xl mb-5.5">

@@ -11,6 +11,7 @@ export interface JsonObject {
 export interface IntegrationSource {
   id: string;
   company_id: string | null;
+  app_install_id: string | null;
   name: string;
   provider_key: string;
   source_type: string;
@@ -125,7 +126,7 @@ export interface IntegrationMapping {
 export interface IntegrationSyncRun {
   id: string;
   source_id: string;
-  sync_type: 'CATALOG' | 'INVENTORY' | 'FULL';
+  sync_type: 'CATALOG' | 'INVENTORY' | 'ORDERS' | 'FULL';
   trigger_type: 'MANUAL' | 'SCHEDULED' | 'WEBHOOK';
   status: string;
   queued_at: string;
@@ -140,6 +141,21 @@ export interface IntegrationSyncRun {
   details: JsonObject;
   error_message: string | null;
   created_at: string;
+}
+
+export interface IntegrationOrderLink {
+  id: string;
+  source_id: string;
+  sale_id: string | null;
+  external_order_id: string;
+  external_number: string | null;
+  direction: 'INBOUND' | 'OUTBOUND';
+  status: string;
+  provider_status: string | null;
+  error_message: string | null;
+  imported_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface IntegrationSyncProgress {
@@ -213,7 +229,19 @@ export class IntegrationService {
     return this.api.post<IntegrationSyncRun>(`/integrations/sources/${id}/sync/inventory`, {});
   }
 
+  syncOrders(id: string): Observable<IntegrationSyncRun> {
+    return this.api.post<IntegrationSyncRun>(`/integrations/sources/${id}/sync/orders`, {});
+  }
+
   listRuns(id: string): Observable<IntegrationSyncRun[]> {
     return this.api.get<IntegrationSyncRun[]>(`/integrations/sources/${id}/runs`);
+  }
+
+  listExternalOrders(id: string): Observable<IntegrationOrderLink[]> {
+    return this.api.get<IntegrationOrderLink[]>(`/integrations/sources/${id}/orders`);
+  }
+
+  exportSale(id: string, saleId: string): Observable<IntegrationOrderLink> {
+    return this.api.post<IntegrationOrderLink>(`/integrations/sources/${id}/orders/export/${saleId}`, {});
   }
 }

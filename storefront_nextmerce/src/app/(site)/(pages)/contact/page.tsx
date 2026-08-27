@@ -1,4 +1,5 @@
-import Contact from "@/components/Contact";
+import InformativePage from "@/components/InformativePage";
+import { resolveStorefront } from "@/lib/storefront-api";
 import { buildStorefrontPageMetadata } from "@/lib/seo";
 
 export async function generateMetadata() {
@@ -9,10 +10,14 @@ export async function generateMetadata() {
   });
 }
 
-const ContactPage = () => {
+export const dynamic = "force-dynamic";
+
+const ContactPage = async () => {
+  const storefront = await resolveStorefront();
+
   return (
     <main>
-      <Contact />
+      <InformativePage pageSlug="contact" pageTemplate={storefront.theme_documents?.pages || {}} />
     </main>
   );
 };

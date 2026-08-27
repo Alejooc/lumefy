@@ -63,6 +63,48 @@ class AuthTokenTests(unittest.TestCase):
             (storefront_id, company_id, "product"),
         )
 
+        search_token = create_access_token(
+            {
+                "scope": "storefront_theme_preview",
+                "storefront_id": str(storefront_id),
+                "company_id": str(company_id),
+                "template_key": "search",
+            },
+            expires_delta=timedelta(minutes=5),
+        )
+        self.assertEqual(
+            get_storefront_preview_claims(search_token),
+            (storefront_id, company_id, "search"),
+        )
+
+        cart_token = create_access_token(
+            {
+                "scope": "storefront_theme_preview",
+                "storefront_id": str(storefront_id),
+                "company_id": str(company_id),
+                "template_key": "cart",
+            },
+            expires_delta=timedelta(minutes=5),
+        )
+        self.assertEqual(
+            get_storefront_preview_claims(cart_token),
+            (storefront_id, company_id, "cart"),
+        )
+
+        pages_token = create_access_token(
+            {
+                "scope": "storefront_theme_preview",
+                "storefront_id": str(storefront_id),
+                "company_id": str(company_id),
+                "template_key": "pages",
+            },
+            expires_delta=timedelta(minutes=5),
+        )
+        self.assertEqual(
+            get_storefront_preview_claims(pages_token),
+            (storefront_id, company_id, "pages"),
+        )
+
         wrong_scope = create_access_token(
             {"scope": "storefront", "storefront_id": str(storefront_id), "company_id": str(company_id), "template_key": "home"},
             expires_delta=timedelta(minutes=5),

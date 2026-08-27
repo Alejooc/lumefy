@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Preview sessions are intentionally limited to templates that have a public
 # renderer. Keeping this allow-list here prevents a signed token from opening
 # an arbitrary theme document through the public storefront endpoints.
-SUPPORTED_STOREFRONT_PREVIEW_TEMPLATES = {"home", "product"}
+SUPPORTED_STOREFRONT_PREVIEW_TEMPLATES = {"home", "product", "collection", "search", "cart", "pages"}
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/login/access-token")
 optional_oauth2_scheme = OAuth2PasswordBearer(

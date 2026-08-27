@@ -6,12 +6,24 @@ from fastapi import HTTPException
 
 from app.api.v1.endpoints.storefront import _storefront_preview_url, _theme_template_or_422
 from app.services.storefront_theme import (
+    CART_SECTION_REGISTRY,
+    COLLECTION_SECTION_REGISTRY,
     HOME_SECTION_REGISTRY,
+    PAGES_SECTION_REGISTRY,
     PRODUCT_SECTION_REGISTRY,
+    SEARCH_SECTION_REGISTRY,
+    build_cart_document,
+    build_collection_document,
     build_home_document,
+    build_pages_document,
     build_product_document,
+    build_search_document,
+    normalize_cart_document,
     normalize_home_document,
+    normalize_pages_document,
+    normalize_collection_document,
     normalize_product_document,
+    normalize_search_document,
 )
 
 
@@ -208,6 +220,75 @@ class StorefrontThemeContractTests(unittest.TestCase):
                 }
             )
 
+    def test_collection_document_has_registered_sections_and_rejects_product_sections(self):
+        normalized = normalize_collection_document(build_collection_document())
+
+        self.assertEqual(normalized["template"], "collection")
+        self.assertEqual(
+            [section["type"] for section in normalized["sections"]],
+            [item["type"] for item in COLLECTION_SECTION_REGISTRY],
+        )
+        self.assertEqual(normalized["settings"]["content"]["products_label"], "productos")
+
+        with self.assertRaisesRegex(ValueError, "no permitida"):
+            normalize_collection_document(
+                {"template": "collection", "sections": [{"id": "product", "type": "product_gallery"}]}
+            )
+
+    def test_search_document_has_own_registered_sections_and_rejects_collection_sections(self):
+        normalized = normalize_search_document(build_search_document())
+
+        self.assertEqual(normalized["template"], "search")
+        self.assertEqual(
+            [section["type"] for section in normalized["sections"]],
+            [item["type"] for item in SEARCH_SECTION_REGISTRY],
+        )
+        self.assertEqual(normalized["settings"]["content"]["products_label"], "resultados")
+
+        with self.assertRaisesRegex(ValueError, "no permitida"):
+            normalize_search_document(
+                {"template": "search", "sections": [{"id": "collection", "type": "collection_grid"}]}
+            )
+
+    def test_cart_document_has_own_registered_sections_and_rejects_catalog_sections(self):
+        normalized = normalize_cart_document(build_cart_document())
+
+        self.assertEqual(normalized["template"], "cart")
+        self.assertEqual(
+            [section["type"] for section in normalized["sections"]],
+            [item["type"] for item in CART_SECTION_REGISTRY],
+        )
+        self.assertEqual(normalized["settings"]["content"]["checkout_label"], "Ir al checkout")
+
+        with self.assertRaisesRegex(ValueError, "no permitida"):
+            normalize_cart_document(
+                {"template": "cart", "sections": [{"id": "grid", "type": "collection_grid"}]}
+            )
+
+    def test_pages_document_normalizes_informational_content_and_rejects_cart_sections(self):
+        normalized = normalize_pages_document(build_pages_document())
+
+        self.assertEqual(normalized["template"], "pages")
+        self.assertEqual(
+            [section["type"] for section in normalized["sections"]],
+            [item["type"] for item in PAGES_SECTION_REGISTRY],
+        )
+        self.assertEqual(normalized["settings"]["pages"]["contact"]["title"], "Contacto")
+
+        custom = normalize_pages_document(
+            {
+                "template": "pages",
+                "settings": {"pages": {"about": {"title": "Nuestra historia"}}},
+            }
+        )
+        self.assertEqual(custom["settings"]["pages"]["about"]["title"], "Nuestra historia")
+        self.assertEqual(custom["settings"]["pages"]["terms"]["title"], "Términos y condiciones")
+
+        with self.assertRaisesRegex(ValueError, "no permitida"):
+            normalize_pages_document(
+                {"template": "pages", "sections": [{"id": "cart", "type": "cart_items"}]}
+            )
+
     def test_preview_url_is_built_from_platform_domain_and_storefront_subdomain(self):
         from app.api.v1.endpoints import storefront as storefront_endpoint
 
@@ -233,6 +314,10 @@ class StorefrontThemeContractTests(unittest.TestCase):
     def test_template_registry_exposes_supported_templates(self):
         self.assertEqual(_theme_template_or_422("HOME"), "home")
         self.assertEqual(_theme_template_or_422("PRODUCT"), "product")
+        self.assertEqual(_theme_template_or_422("COLLECTION"), "collection")
+        self.assertEqual(_theme_template_or_422("SEARCH"), "search")
+        self.assertEqual(_theme_template_or_422("CART"), "cart")
+        self.assertEqual(_theme_template_or_422("PAGES"), "pages")
         with self.assertRaises(HTTPException):
             _theme_template_or_422("custom")
 

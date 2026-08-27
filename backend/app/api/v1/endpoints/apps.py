@@ -7,7 +7,7 @@ from urllib import error as urlerror
 from urllib import request as urlrequest
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import auth
@@ -28,6 +28,7 @@ from app.models.app_definition import AppDefinition
 from app.models.app_install_event import AppInstallEvent
 from app.models.app_webhook_delivery import AppWebhookDelivery
 from app.models.company_app_install import CompanyAppInstall
+from app.models.integration import IntegrationSource
 from app.models.user import User
 from app.schemas import app_marketplace as schemas
 
@@ -82,6 +83,7 @@ def _serialize_install(
         "app_id": app.id,
         "slug": app.slug,
         "name": app.name,
+        "setup_url": app.setup_url,
         "is_enabled": install.is_enabled,
         "installed_version": install.installed_version,
         "granted_scopes": install.granted_scopes or [],
@@ -820,6 +822,30 @@ async def install_app(
         triggered_by_user_id=current_user.id,
         payload={"granted_scopes": granted_scopes, "installed_version": installed_version},
     )
+    await db.flush()
+    if app.slug == "eleganthome":
+        # Existing data sources were created by the legacy ElegantHome flow,
+        # which used custom_rest before the connector became an installable app.
+        # Adopt them without deleting or changing their sync configuration.
+        legacy_sources = (
+            await db.execute(
+                select(IntegrationSource).where(
+                    IntegrationSource.company_id == current_user.company_id,
+                    IntegrationSource.app_install_id.is_(None),
+                    or_(
+                        IntegrationSource.provider_key == "eleganthome",
+                        and_(
+                            IntegrationSource.provider_key == "custom_rest",
+                            IntegrationSource.base_url.ilike("%tuhogaronline.com%"),
+                        ),
+                    ),
+                )
+            )
+        ).scalars().all()
+        for source in legacy_sources:
+            source.app_install_id = install.id
+            source.provider_key = "eleganthome"
+            source.updated_by_id = current_user.id
     await db.commit()
     await db.refresh(install)
 

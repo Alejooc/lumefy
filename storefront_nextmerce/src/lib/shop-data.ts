@@ -9,6 +9,8 @@ import {
 } from "./storefront-api";
 import { toTemplateProduct } from "./product-view-model";
 import { ProductTemplateDocument } from "./product-template";
+import { CollectionTemplateDocument } from "./collection-template";
+import { SearchTemplateDocument } from "./search-template";
 
 export { toTemplateProduct } from "./product-view-model";
 
@@ -59,6 +61,8 @@ export type ShopViewModel = {
   activeTypes: string[];
   activeSizes: string[];
   activeColors: string[];
+  collectionTemplate: CollectionTemplateDocument;
+  searchTemplate: SearchTemplateDocument;
 };
 
 export type ShopDetailsViewModel = {
@@ -196,6 +200,8 @@ export async function loadShopViewModel(options?: {
     activeTypes: normalizedTypes,
     activeSizes: parseMultiValue(options?.size),
     activeColors: parseMultiValue(options?.color),
+    collectionTemplate: (storefront.theme_documents?.collection || {}) as CollectionTemplateDocument,
+    searchTemplate: (storefront.theme_documents?.search || {}) as SearchTemplateDocument,
   };
 }
 

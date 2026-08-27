@@ -57,6 +57,9 @@ export default async function CollectionPage({
           sizes={data.sizes}
           colors={data.colors}
           selectedCollectionName={collection.name}
+          selectedCollectionDescription={collection.description || undefined}
+          collectionTemplate={data.collectionTemplate}
+          templateKey="collection"
           breadcrumbPages={["Productos", collection.name]}
           searchTerm={data.searchTerm}
           priceRangeMin={data.priceRangeMin}

@@ -16,6 +16,9 @@ class IntegrationSource(BaseModel):
 
     __tablename__ = "integration_sources"
 
+    app_install_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("company_app_installs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String, nullable=False)
     provider_key: Mapped[str] = mapped_column(String(100), nullable=False, default="custom_rest")
     source_type: Mapped[str] = mapped_column(String(50), nullable=False, default="REST")
@@ -45,6 +48,12 @@ class IntegrationSource(BaseModel):
         back_populates="source",
         cascade="all, delete-orphan",
     )
+    order_links = relationship(
+        "IntegrationOrderLink",
+        back_populates="source",
+        cascade="all, delete-orphan",
+    )
+    app_install = relationship("CompanyAppInstall")
 
 
 class IntegrationSyncRun(BaseModel):
@@ -113,6 +122,39 @@ class IntegrationRecordLink(BaseModel):
     raw_payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     source = relationship("IntegrationSource", back_populates="record_links")
+
+
+class IntegrationOrderLink(BaseModel):
+    """Idempotent link between one external order and an internal sale."""
+
+    __tablename__ = "integration_order_links"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_id",
+            "external_order_id",
+            name="uq_integration_order_external",
+        ),
+        Index("ix_integration_order_links_sale_id", "sale_id"),
+    )
+
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("integration_sources.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sale_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sales.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    external_order_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    external_number: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    direction: Mapped[str] = mapped_column(String(20), nullable=False, default="INBOUND")
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="PENDING_MAPPING")
+    provider_status: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    raw_payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    imported_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    source = relationship("IntegrationSource", back_populates="order_links")
+    sale = relationship("Sale")
 
 
 class IntegrationProductPrice(BaseModel):

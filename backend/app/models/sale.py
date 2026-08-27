@@ -29,6 +29,10 @@ class Sale(BaseModel):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), index=True)
     pos_session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("pos_sessions.id"), nullable=True, index=True)
     client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id"), nullable=True)
+    origin_channel: Mapped[str | None] = mapped_column(String(30), nullable=True, default="MANUAL", index=True)
+    integration_source_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("integration_sources.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     
     status: Mapped[SaleStatus] = mapped_column(Enum(SaleStatus), default=SaleStatus.DRAFT)
     
@@ -59,6 +63,7 @@ class Sale(BaseModel):
     items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="sale", cascade="all, delete-orphan")
     storefront_order = relationship("StorefrontOrder", back_populates="sale", uselist=False)
+    integration_source = relationship("IntegrationSource")
 
     @property
     def payment_status(self) -> str | None:

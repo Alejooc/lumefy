@@ -6,4 +6,46 @@
   .checkout-switches {
     min-height: 100%;
   }
+
+  .checkout-appearance-panel {
+    padding: 1.25rem;
+    border: 1px solid var(--bs-border-color, #e5e7eb);
+    border-radius: 0.75rem;
+    background: #fbfcfe;
+  }
+
+  .checkout-color-control {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+
+    .form-control-color {
+      flex: 0 0 2.6rem;
+      width: 2.6rem;
+      height: 2.6rem;
+      padding: 0.2rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+    }
+
+    .form-control:not(.form-control-color) {
+      min-width: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-transform: uppercase;
+    }
+  }
+
+  .checkout-appearance-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--bs-border-color, #e5e7eb);
+  }
+
+  @media (max-width: 575.98px) {
+    .checkout-appearance-options {
+      grid-template-columns: 1fr;
+    }
+  }
 }

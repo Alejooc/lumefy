@@ -151,7 +151,7 @@ export interface StorefrontThemeDocument {
   preview_url?: string | null;
 }
 
-export type StorefrontThemeTemplateKey = 'home' | 'product';
+export type StorefrontThemeTemplateKey = 'home' | 'product' | 'collection' | 'search' | 'cart' | 'pages';
 
 export interface StorefrontThemePreviewSession {
   token: string;

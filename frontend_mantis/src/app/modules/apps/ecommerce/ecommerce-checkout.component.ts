@@ -18,6 +18,20 @@ type CheckoutSettings = {
   tax_rate: number;
   tax_included: boolean;
   tax_shipping: boolean;
+  appearance: CheckoutAppearance;
+};
+
+type CheckoutAppearance = {
+  background_color: string;
+  card_background_color: string;
+  accent_color: string;
+  accent_text_color: string;
+  field_background_color: string;
+  border_color: string;
+  radius: number;
+  layout: 'split' | 'stacked';
+  show_logo: boolean;
+  show_brand_name: boolean;
 };
 
 @Component({
@@ -44,6 +58,11 @@ export class EcommerceCheckoutComponent implements OnInit {
     { value: 'guest', label: 'Invitados' },
     { value: 'optional_account', label: 'Cuenta opcional' },
     { value: 'required_account', label: 'Cuenta obligatoria' }
+  ];
+
+  readonly checkoutLayoutOptions = [
+    { value: 'split', label: 'Formulario y resumen lado a lado' },
+    { value: 'stacked', label: 'Formulario y resumen uno debajo del otro' }
   ];
 
   ngOnInit(): void {
@@ -104,6 +123,9 @@ export class EcommerceCheckoutComponent implements OnInit {
   }
 
   private normalizeSettings(settings: Record<string, unknown> | undefined): CheckoutSettings {
+    const appearance = (settings?.['appearance'] && typeof settings['appearance'] === 'object'
+      ? settings['appearance']
+      : {}) as Record<string, unknown>;
     return {
       allow_guest_checkout: true,
       checkout_mode: 'guest',
@@ -115,7 +137,20 @@ export class EcommerceCheckoutComponent implements OnInit {
       tax_rate: 0,
       tax_included: false,
       tax_shipping: false,
-      ...(settings || {})
+      ...(settings || {}),
+      appearance: {
+        background_color: '#F4F6FB',
+        card_background_color: '#FFFFFF',
+        accent_color: '#3C50E0',
+        accent_text_color: '#FFFFFF',
+        field_background_color: '#F8FAFC',
+        border_color: '#D9E1EC',
+        radius: 12,
+        layout: 'split',
+        show_logo: true,
+        show_brand_name: true,
+        ...(appearance || {})
+      } as CheckoutAppearance,
     } as CheckoutSettings;
   }
 

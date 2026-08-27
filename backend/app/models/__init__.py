@@ -63,5 +63,12 @@ from .storefront_customer import StorefrontCustomerAccount
 from .storefront_newsletter import StorefrontNewsletterSubscription
 from .storefront_theme import StorefrontThemeDocument, StorefrontThemeRevision
 from .storefront_media import StorefrontMediaAsset
-from .integration import IntegrationSource, IntegrationSyncRun, IntegrationRecordLink, IntegrationWebhookEvent, IntegrationProductPrice
+from .integration import (
+    IntegrationSource,
+    IntegrationSyncRun,
+    IntegrationRecordLink,
+    IntegrationOrderLink,
+    IntegrationWebhookEvent,
+    IntegrationProductPrice,
+)
 

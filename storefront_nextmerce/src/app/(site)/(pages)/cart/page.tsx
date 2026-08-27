@@ -1,6 +1,9 @@
 import React from "react";
 import Cart from "@/components/Cart";
 import { buildStorefrontPageMetadata } from "@/lib/seo";
+import { resolveStorefront } from "@/lib/storefront-api";
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
   return buildStorefrontPageMetadata({
@@ -11,10 +14,12 @@ export async function generateMetadata() {
   });
 }
 
-const CartPage = () => {
+const CartPage = async () => {
+  const storefront = await resolveStorefront();
+
   return (
     <>
-      <Cart />
+      <Cart cartTemplate={storefront.theme_documents?.cart || {}} />
     </>
   );
 };

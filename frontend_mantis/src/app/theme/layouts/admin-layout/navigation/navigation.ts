@@ -466,16 +466,6 @@ export const NavigationItems: NavigationItem[] = [
         permissions: ['manage_company']
       },
       {
-        id: 'integrations',
-        title: 'Orígenes de datos',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/integrations',
-        icon: 'cloud-download',
-        breadcrumbs: false,
-        permissions: ['manage_company']
-      },
-      {
         id: 'apps-installed',
         title: 'Apps Instaladas',
         type: 'collapse',

@@ -35,6 +35,8 @@ export interface SaleTimelineEvent {
 
 export interface Sale {
     id: string;
+    origin_channel?: string | null;
+    integration_source_id?: string | null;
     branch_id: string;
     client_id?: string;
     user_id: string;

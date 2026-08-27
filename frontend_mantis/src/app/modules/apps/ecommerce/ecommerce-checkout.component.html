@@ -91,6 +91,88 @@
           </div>
         </div>
 
+        <div class="checkout-appearance-panel mt-4">
+          <div class="settings-block__header">
+            <div>
+              <h5 class="mb-1">Apariencia del checkout</h5>
+              <small class="text-muted">Personaliza la pantalla de pago de esta tienda sin cambiar sus reglas de compra.</small>
+            </div>
+            <span class="settings-pill">Vista del cliente</span>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Fondo de la pantalla</label>
+              <div class="checkout-color-control">
+                <input class="form-control form-control-color" type="color" [(ngModel)]="form.appearance.background_color" title="Fondo de la pantalla" />
+                <input class="form-control" [(ngModel)]="form.appearance.background_color" maxlength="7" aria-label="Código del fondo de la pantalla" />
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Fondo de los bloques</label>
+              <div class="checkout-color-control">
+                <input class="form-control form-control-color" type="color" [(ngModel)]="form.appearance.card_background_color" title="Fondo de los bloques" />
+                <input class="form-control" [(ngModel)]="form.appearance.card_background_color" maxlength="7" aria-label="Código del fondo de los bloques" />
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Color principal</label>
+              <div class="checkout-color-control">
+                <input class="form-control form-control-color" type="color" [(ngModel)]="form.appearance.accent_color" title="Color principal" />
+                <input class="form-control" [(ngModel)]="form.appearance.accent_color" maxlength="7" aria-label="Código del color principal" />
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Color del texto principal</label>
+              <div class="checkout-color-control">
+                <input class="form-control form-control-color" type="color" [(ngModel)]="form.appearance.accent_text_color" title="Color del texto principal" />
+                <input class="form-control" [(ngModel)]="form.appearance.accent_text_color" maxlength="7" aria-label="Código del texto principal" />
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Fondo de los campos</label>
+              <div class="checkout-color-control">
+                <input class="form-control form-control-color" type="color" [(ngModel)]="form.appearance.field_background_color" title="Fondo de los campos" />
+                <input class="form-control" [(ngModel)]="form.appearance.field_background_color" maxlength="7" aria-label="Código del fondo de los campos" />
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Bordes</label>
+              <div class="checkout-color-control">
+                <input class="form-control form-control-color" type="color" [(ngModel)]="form.appearance.border_color" title="Color de los bordes" />
+                <input class="form-control" [(ngModel)]="form.appearance.border_color" maxlength="7" aria-label="Código de los bordes" />
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Radio de las esquinas</label>
+              <div class="input-group">
+                <input type="number" min="0" max="24" step="1" class="form-control" [(ngModel)]="form.appearance.radius" />
+                <span class="input-group-text">px</span>
+              </div>
+              <small class="text-muted">De 0 a 24 px.</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Distribución</label>
+              <select class="form-select" [(ngModel)]="form.appearance.layout">
+                @for (layout of checkoutLayoutOptions; track layout.value) {
+                  <option [value]="layout.value">{{ layout.label }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <div class="checkout-appearance-options mt-3">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" [(ngModel)]="form.appearance.show_logo" />
+              <label class="form-check-label">Mostrar el logo de la tienda</label>
+            </div>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" [(ngModel)]="form.appearance.show_brand_name" />
+              <label class="form-check-label">Mostrar el nombre de la tienda</label>
+            </div>
+          </div>
+        </div>
+
         <div class="d-flex justify-content-end mt-3">
           <button class="btn btn-primary" (click)="save()" [disabled]="saving">Guardar checkout</button>
         </div>

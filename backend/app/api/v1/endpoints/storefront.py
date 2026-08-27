@@ -73,13 +73,22 @@ from app.models.storefront_media import StorefrontMediaAsset
 from app.services.image_upload import save_image_upload, upload_root
 from app.schemas import storefront as schemas
 from app.services.storefront_theme import (
+    build_cart_document,
+    build_collection_document,
     build_home_document,
+    build_pages_document,
     build_product_document,
+    build_search_document,
     component_registry,
+    normalize_collection_document,
+    normalize_cart_document,
     normalize_home_document,
+    normalize_pages_document,
     normalize_product_document,
+    normalize_search_document,
     validate_template_key,
 )
+from app.services.storefront_checkout import normalize_checkout_settings
 from app.services.storefront_shipping import (
     calculate_shipping,
     ensure_default_shipping_configuration,
@@ -1439,7 +1448,18 @@ def _normalize_theme_document(
     document: Any,
     theme_settings: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    normalizer = normalize_product_document if template_key == "product" else normalize_home_document
+    if template_key == "product":
+        normalizer = normalize_product_document
+    elif template_key == "cart":
+        normalizer = normalize_cart_document
+    elif template_key == "pages":
+        normalizer = normalize_pages_document
+    elif template_key == "collection":
+        normalizer = normalize_collection_document
+    elif template_key == "search":
+        normalizer = normalize_search_document
+    else:
+        normalizer = normalize_home_document
     return normalizer(document, theme_settings)
 
 
@@ -1497,11 +1517,18 @@ async def _get_theme_document(
     if document or not create:
         return document
 
-    initial = (
-        build_product_document(storefront.theme_settings)
-        if template_key == "product"
-        else build_home_document(storefront.theme_settings)
-    )
+    if template_key == "product":
+        initial = build_product_document(storefront.theme_settings)
+    elif template_key == "cart":
+        initial = build_cart_document(storefront.theme_settings)
+    elif template_key == "pages":
+        initial = build_pages_document(storefront.theme_settings)
+    elif template_key == "collection":
+        initial = build_collection_document(storefront.theme_settings)
+    elif template_key == "search":
+        initial = build_search_document(storefront.theme_settings)
+    else:
+        initial = build_home_document(storefront.theme_settings)
     document = StorefrontThemeDocumentModel(
         storefront_id=storefront.id,
         company_id=storefront.company_id,
@@ -1602,7 +1629,18 @@ def _serialize_theme_document(
     theme_settings: dict[str, Any] | None,
     storefront: Storefront | None = None,
 ) -> schemas.StorefrontThemeDocument:
-    normalizer = normalize_product_document if document.template_key == "product" else normalize_home_document
+    if document.template_key == "product":
+        normalizer = normalize_product_document
+    elif document.template_key == "cart":
+        normalizer = normalize_cart_document
+    elif document.template_key == "pages":
+        normalizer = normalize_pages_document
+    elif document.template_key == "collection":
+        normalizer = normalize_collection_document
+    elif document.template_key == "search":
+        normalizer = normalize_search_document
+    else:
+        normalizer = normalize_home_document
     return schemas.StorefrontThemeDocument(
         id=document.id,
         storefront_id=document.storefront_id,
@@ -1624,12 +1662,29 @@ async def _published_theme_document(
 ) -> dict[str, Any]:
     document = await _get_theme_document(db, storefront, template_key)
     if not document:
-        return (
-            build_product_document(storefront.theme_settings)
-            if template_key == "product"
-            else build_home_document(storefront.theme_settings)
-        )
-    normalizer = normalize_product_document if template_key == "product" else normalize_home_document
+        if template_key == "product":
+            return build_product_document(storefront.theme_settings)
+        if template_key == "cart":
+            return build_cart_document(storefront.theme_settings)
+        if template_key == "pages":
+            return build_pages_document(storefront.theme_settings)
+        if template_key == "collection":
+            return build_collection_document(storefront.theme_settings)
+        if template_key == "search":
+            return build_search_document(storefront.theme_settings)
+        return build_home_document(storefront.theme_settings)
+    if template_key == "product":
+        normalizer = normalize_product_document
+    elif template_key == "cart":
+        normalizer = normalize_cart_document
+    elif template_key == "pages":
+        normalizer = normalize_pages_document
+    elif template_key == "collection":
+        normalizer = normalize_collection_document
+    elif template_key == "search":
+        normalizer = normalize_search_document
+    else:
+        normalizer = normalize_home_document
     return normalizer(document.published_document, storefront.theme_settings)
 
 
@@ -1640,6 +1695,10 @@ async def _published_theme_documents(
     return {
         "home": await _published_theme_document(db, storefront, "home"),
         "product": await _published_theme_document(db, storefront, "product"),
+        "cart": await _published_theme_document(db, storefront, "cart"),
+        "pages": await _published_theme_document(db, storefront, "pages"),
+        "collection": await _published_theme_document(db, storefront, "collection"),
+        "search": await _published_theme_document(db, storefront, "search"),
     }
 
 
@@ -3929,7 +3988,7 @@ async def read_public_storefront_by_subdomain(
         theme_settings=storefront.theme_settings or {},
         theme_document=await _published_theme_document(db, storefront),
         theme_documents=await _published_theme_documents(db, storefront),
-        checkout_settings=storefront.checkout_settings or {},
+        checkout_settings=normalize_checkout_settings(storefront.checkout_settings, storefront.theme_settings),
         seo_settings=storefront.seo_settings or {},
         currency=storefront.currency,
         language=storefront.language,
@@ -3954,7 +4013,7 @@ async def read_public_storefront_by_domain(
         theme_settings=storefront.theme_settings or {},
         theme_document=await _published_theme_document(db, storefront),
         theme_documents=await _published_theme_documents(db, storefront),
-        checkout_settings=storefront.checkout_settings or {},
+        checkout_settings=normalize_checkout_settings(storefront.checkout_settings, storefront.theme_settings),
         seo_settings=storefront.seo_settings or {},
         currency=storefront.currency,
         language=storefront.language,
@@ -3999,7 +4058,7 @@ async def read_public_storefront(
         theme_settings=storefront.theme_settings or {},
         theme_document=await _published_theme_document(db, storefront),
         theme_documents=await _published_theme_documents(db, storefront),
-        checkout_settings=storefront.checkout_settings or {},
+        checkout_settings=normalize_checkout_settings(storefront.checkout_settings, storefront.theme_settings),
         seo_settings=storefront.seo_settings or {},
         currency=storefront.currency,
         language=storefront.language,

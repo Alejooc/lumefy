@@ -1,120 +1,226 @@
 "use client";
-import React from "react";
-import OrderSummary from "./OrderSummary";
-import { useAppSelector } from "@/redux/store";
-import SingleItem from "./SingleItem";
-import Breadcrumb from "../Common/Breadcrumb";
-import Link from "next/link";
-import { useDispatch } from "react-redux";
-import { AppDispatch } from "@/redux/store";
-import { removeAllItemsFromCart } from "@/redux/features/cart-slice";
 
-const Cart = () => {
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import Breadcrumb from "../Common/Breadcrumb";
+import OrderSummary from "./OrderSummary";
+import SingleItem from "./SingleItem";
+import { useDispatch } from "react-redux";
+import { AppDispatch, useAppSelector } from "@/redux/store";
+import { removeAllItemsFromCart, type CartItem } from "@/redux/features/cart-slice";
+import { isTrustedPreviewMessage } from "@/lib/preview";
+import {
+  cartTemplateContent,
+  cartTemplateSection,
+  normalizeCartTemplate,
+  type CartTemplateDocument,
+  type CartTemplateSection,
+  type CartTemplateSectionType,
+} from "@/lib/cart-template";
+
+const previewCartItems: CartItem[] = [
+  {
+    id: 900001,
+    title: "Producto de muestra",
+    price: 89000,
+    discountedPrice: 79000,
+    quantity: 1,
+    href: "/products",
+    imgs: {
+      thumbnails: ["/images/products/product-1-sm-1.png"],
+      previews: ["/images/products/product-1-sm-1.png"],
+    },
+  },
+  {
+    id: 900002,
+    title: "Producto destacado",
+    price: 125000,
+    discountedPrice: 109000,
+    quantity: 2,
+    href: "/products",
+    imgs: {
+      thumbnails: ["/images/products/product-2-sm-1.png"],
+      previews: ["/images/products/product-2-sm-1.png"],
+    },
+  },
+];
+
+function settingBoolean(section: CartTemplateSection, key: string, fallback: boolean): boolean {
+  return typeof section.settings[key] === "boolean" ? section.settings[key] as boolean : fallback;
+}
+
+function emptyCartIcon() {
+  return (
+    <svg className="mx-auto" width="88" height="88" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="44" cy="44" r="44" fill="#F3F4F6" />
+      <path d="M25.8 27.6C25.3 27.4 24.8 27.7 24.6 28.2C24.4 28.7 24.7 29.2 25.2 29.4L25.5 29.5C27.1 30 27.8 30.3 28.2 30.7C28.6 31 28.7 31.4 28.8 32.3C28.9 33.2 28.9 34.3 28.9 36V42.2C28.9 44.1 28.9 45.5 29.1 46.6C29.3 47.8 29.6 48.8 30.4 49.6C31.2 50.4 32.2 50.7 33.4 50.9C34.5 51.1 35.9 51.1 37.8 51.1H48.1C48.6 51.1 49 50.7 49 50.2C49 49.7 48.6 49.3 48.1 49.3H37.9C35.8 49.3 34.6 49.3 33.7 49.2C32.8 49 32.4 48.8 32 48.4C31.8 48.2 31.6 47.9 31.5 47.6H43.9C44.6 47.6 45.2 47.6 45.7 47.5C46.3 47.4 46.8 47.3 47.2 46.9C47.7 46.6 47.9 46.1 48.2 45.6C48.4 45.1 48.7 44.6 48.9 44L49.5 42.6C50 41.4 50.5 40.4 50.7 39.5C51 38.6 50.8 37.8 50.3 37.2C49.8 36.5 49 36.2 48.1 36.1C47.2 36 46.1 36 44.7 36H30.8C30.8 35.9 30.8 35.8 30.8 35.7C30.7 34.5 30.7 33.3 30.5 32.1C30.4 31.3 30.2 30.5 29.6 29.8C29 29.1 28.3 28.8 27.4 28.5L25.8 27.6Z" fill="#8D93A5" />
+      <circle cx="33.9" cy="55.8" r="2.8" fill="#8D93A5" />
+      <circle cx="45.1" cy="55.8" r="2.8" fill="#8D93A5" />
+    </svg>
+  );
+}
+
+const Cart = ({ cartTemplate = {} }: { cartTemplate?: CartTemplateDocument | Record<string, unknown> }) => {
   const cartItems = useAppSelector((state) => state.cartReducer.items);
   const dispatch = useDispatch<AppDispatch>();
+  const [previewTemplate, setPreviewTemplate] = useState<unknown>(cartTemplate);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedSectionId, setSelectedSectionId] = useState("");
+
+  const normalizedTemplate = useMemo(() => normalizeCartTemplate(previewTemplate), [previewTemplate]);
+  const content = useMemo(() => cartTemplateContent(normalizedTemplate), [normalizedTemplate]);
+  const headerSection = useMemo(() => cartTemplateSection(normalizedTemplate, "cart_header"), [normalizedTemplate]);
+  const itemsSection = useMemo(() => cartTemplateSection(normalizedTemplate, "cart_items"), [normalizedTemplate]);
+  const summarySection = useMemo(() => cartTemplateSection(normalizedTemplate, "cart_summary"), [normalizedTemplate]);
+  const emptySection = useMemo(() => cartTemplateSection(normalizedTemplate, "cart_empty"), [normalizedTemplate]);
+  const hasRealItems = cartItems.length > 0;
+  const displayedItems = previewMode && !hasRealItems ? previewCartItems : cartItems;
+  const showFilledCart = displayedItems.length > 0;
+  const showClearAction = settingBoolean(headerSection, "show_clear_action", true);
+  const showVariant = settingBoolean(itemsSection, "show_variant", true);
+  const showStockNotice = settingBoolean(itemsSection, "show_stock_notice", true);
+  const showSummaryItems = settingBoolean(summarySection, "show_items", true);
+  const showCheckoutButton = settingBoolean(summarySection, "show_checkout_button", true);
+  const showContinueShopping = settingBoolean(emptySection, "show_continue_shopping", true);
+
+  useEffect(() => {
+    setPreviewTemplate(cartTemplate);
+  }, [cartTemplate]);
+
+  useEffect(() => {
+    const handlePreviewMessage = (event: MessageEvent) => {
+      if (!isTrustedPreviewMessage(event)) return;
+      const message = event.data;
+      if (!message || message.type !== "lumefy:preview:apply" || message.template !== "cart") return;
+
+      setPreviewMode(true);
+      if (message.document && typeof message.document === "object") setPreviewTemplate(message.document);
+      if (typeof message.selectedSectionId === "string") setSelectedSectionId(message.selectedSectionId);
+      if (typeof message.selectionMode === "boolean") setSelectionMode(message.selectionMode);
+      window.parent.postMessage(
+        { type: "lumefy:preview:ack", requestId: message.requestId || null },
+        event.origin || "*",
+      );
+    };
+
+    setPreviewMode(window.parent !== window);
+    window.addEventListener("message", handlePreviewMessage);
+    if (window.parent !== window) window.parent.postMessage({ type: "lumefy:preview:ready" }, "*");
+    return () => window.removeEventListener("message", handlePreviewMessage);
+  }, []);
+
+  const handlePreviewSectionClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (!previewMode) return;
+    const target = event.target as HTMLElement;
+    const section = target.closest<HTMLElement>("[data-lumefy-cart-section]");
+    if (!section) return;
+    if (!selectionMode && target.closest("a,button,input,textarea,select")) return;
+    const sectionId = section.dataset.lumefyCartSection;
+    if (!sectionId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedSectionId(sectionId);
+    window.parent.postMessage({ type: "lumefy:preview:select", sectionId }, "*");
+  };
+
+  const sectionOrder = (type: CartTemplateSectionType) => {
+    const index = normalizedTemplate.sections.findIndex((section) => section.type === type);
+    return index < 0 ? 99 : index;
+  };
+  const sectionClass = (section: CartTemplateSection) =>
+    `lumefy-cart-preview-section ${previewMode && selectedSectionId === section.id ? "lumefy-cart-preview-section--selected" : ""}`;
 
   return (
-    <>
-      <section>
-        <Breadcrumb title={"Carrito"} pages={["Carrito"]} />
-      </section>
-      {cartItems.length > 0 ? (
-        <section className="overflow-hidden py-20 bg-gray-2">
-          <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
-            <div className="flex flex-wrap items-center justify-between gap-5 mb-7.5">
-              <h2 className="font-medium text-dark text-2xl">Tu carrito</h2>
-              <button className="text-blue" onClick={() => dispatch(removeAllItemsFromCart())}>
-                Vaciar carrito
-              </button>
+    <div className={previewMode && selectionMode ? "lumefy-preview--selecting" : undefined}>
+      <section className="overflow-hidden bg-gray-2 pb-20 pt-5 lg:pt-16">
+        <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
+          <div className="cart-template-sections flex flex-col gap-7.5">
+            <div
+              className={sectionClass(headerSection)}
+              data-lumefy-cart-section="cart_header"
+              onClick={handlePreviewSectionClick}
+              style={{ display: headerSection.enabled ? undefined : "none", order: sectionOrder("cart_header") }}
+            >
+              <Breadcrumb title={content.breadcrumb_title} pages={[content.breadcrumb_title]} />
+              <div className="flex flex-wrap items-center justify-between gap-5 px-1 pt-7.5">
+                <h2 className="font-medium text-dark text-2xl">{content.title}</h2>
+                {showClearAction ? (
+                  <button className="text-blue transition hover:text-blue-dark" onClick={() => { if (!previewMode) dispatch(removeAllItemsFromCart()); }}>
+                    {content.clear_cart_label}
+                  </button>
+                ) : null}
+              </div>
             </div>
 
-            <div className="overflow-hidden rounded-[10px] bg-white shadow-1">
-              <div className="w-full overflow-x-auto md:overflow-visible">
-                <div className="md:min-w-[1170px]">
-                  {/* <!-- table header --> */}
-                  <div className="hidden items-center px-7.5 py-5.5 md:flex">
-                    <div className="min-w-[400px]">
-                      <p className="text-dark">Producto</p>
+            <div
+              className={sectionClass(itemsSection)}
+              data-lumefy-cart-section="cart_items"
+              onClick={handlePreviewSectionClick}
+              style={{ display: itemsSection.enabled && showFilledCart ? undefined : "none", order: sectionOrder("cart_items") }}
+            >
+              <div className="overflow-hidden rounded-[10px] bg-white shadow-1">
+                <div className="w-full overflow-x-auto md:overflow-visible">
+                  <div className="md:min-w-[1170px]">
+                    <div className="hidden items-center px-7.5 py-5.5 md:flex">
+                      <div className="min-w-[400px]"><p className="text-dark">{content.product_label}</p></div>
+                      <div className="min-w-[180px]"><p className="text-dark">{content.price_label}</p></div>
+                      <div className="min-w-[275px]"><p className="text-dark">{content.quantity_label}</p></div>
+                      <div className="min-w-[200px]"><p className="text-dark">{content.subtotal_label}</p></div>
+                      <div className="min-w-[50px]"><p className="text-dark text-right">{content.action_label}</p></div>
                     </div>
-
-                    <div className="min-w-[180px]">
-                      <p className="text-dark">Precio</p>
-                    </div>
-
-                    <div className="min-w-[275px]">
-                      <p className="text-dark">Cantidad</p>
-                    </div>
-
-                    <div className="min-w-[200px]">
-                      <p className="text-dark">Subtotal</p>
-                    </div>
-
-                    <div className="min-w-[50px]">
-                      <p className="text-dark text-right">Acción</p>
-                    </div>
-                  </div>
-
-                  {/* <!-- cart item --> */}
-                  {cartItems.length > 0 &&
-                    cartItems.map((item, key) => (
-                      <SingleItem item={item} key={key} />
+                    {displayedItems.map((item) => (
+                      <SingleItem
+                        item={item}
+                        key={item.id}
+                        content={content}
+                        interactive={!previewMode}
+                        showVariant={showVariant}
+                        showStockNotice={showStockNotice}
+                      />
                     ))}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-7.5 xl:gap-11 mt-9">
-              <OrderSummary />
-            </div>
-          </div>
-        </section>
-      ) : (
-        <>
-          <div className="text-center mt-8">
-            <div className="mx-auto pb-7.5">
-              <svg
-                className="mx-auto"
-                width="100"
-                height="100"
-                viewBox="0 0 100 100"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <circle cx="50" cy="50" r="50" fill="#F3F4F6" />
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M36.1693 36.2421C35.6126 36.0565 35.0109 36.3574 34.8253 36.9141C34.6398 37.4707 34.9406 38.0725 35.4973 38.258L35.8726 38.3831C36.8308 38.7025 37.4644 38.9154 37.9311 39.1325C38.373 39.3381 38.5641 39.5036 38.6865 39.6734C38.809 39.8433 38.9055 40.0769 38.9608 40.5612C39.0192 41.0726 39.0208 41.7409 39.0208 42.751L39.0208 46.5361C39.0208 48.4735 39.0207 50.0352 39.1859 51.2634C39.3573 52.5385 39.7241 53.6122 40.5768 54.4649C41.4295 55.3176 42.5032 55.6844 43.7783 55.8558C45.0065 56.0209 46.5681 56.0209 48.5055 56.0209H59.9166C60.5034 56.0209 60.9791 55.5452 60.9791 54.9584C60.9791 54.3716 60.5034 53.8959 59.9166 53.8959H48.5833C46.5498 53.8959 45.1315 53.8936 44.0615 53.7498C43.022 53.61 42.4715 53.3544 42.0794 52.9623C41.9424 52.8253 41.8221 52.669 41.7175 52.4792H55.7495C56.3846 52.4792 56.9433 52.4793 57.4072 52.4292C57.9093 52.375 58.3957 52.2546 58.8534 51.9528C59.3111 51.651 59.6135 51.2513 59.8611 50.8111C60.0898 50.4045 60.3099 49.891 60.56 49.3072L61.2214 47.7641C61.766 46.4933 62.2217 45.4302 62.4498 44.5655C62.6878 43.6634 62.7497 42.7216 62.1884 41.8704C61.627 41.0191 60.737 40.705 59.8141 40.5684C58.9295 40.4374 57.7729 40.4375 56.3903 40.4375L41.0845 40.4375C41.0806 40.3979 41.0765 40.3588 41.0721 40.3201C40.9937 39.6333 40.8228 39.0031 40.4104 38.4309C39.998 37.8588 39.4542 37.4974 38.8274 37.2058C38.2377 36.9315 37.4879 36.6816 36.6005 36.3858L36.1693 36.2421ZM41.1458 42.5625C41.1458 42.6054 41.1458 42.6485 41.1458 42.692L41.1458 46.4584C41.1458 48.1187 41.1473 49.3688 41.2262 50.3542H55.6975C56.4 50.3542 56.8429 50.3528 57.1791 50.3165C57.4896 50.2829 57.6091 50.2279 57.6836 50.1787C57.7582 50.1296 57.8559 50.0415 58.009 49.7692C58.1748 49.4745 58.3506 49.068 58.6273 48.4223L59.2344 47.0057C59.8217 45.6355 60.2119 44.7177 60.3951 44.0235C60.5731 43.3488 60.4829 43.1441 60.4143 43.0401C60.3458 42.9362 60.1931 42.7727 59.5029 42.6705C58.7927 42.5653 57.7954 42.5625 56.3047 42.5625H41.1458Z"
-                  fill="#8D93A5"
-                />
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M40.4375 60.625C40.4375 62.3855 41.8646 63.8125 43.625 63.8125C45.3854 63.8125 46.8125 62.3855 46.8125 60.625C46.8125 58.8646 45.3854 57.4375 43.625 57.4375C41.8646 57.4375 40.4375 58.8646 40.4375 60.625ZM43.625 61.6875C43.0382 61.6875 42.5625 61.2118 42.5625 60.625C42.5625 60.0382 43.0382 59.5625 43.625 59.5625C44.2118 59.5625 44.6875 60.0382 44.6875 60.625C44.6875 61.2118 44.2118 61.6875 43.625 61.6875Z"
-                  fill="#8D93A5"
-                />
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M56.375 63.8126C54.6146 63.8126 53.1875 62.3856 53.1875 60.6251C53.1875 58.8647 54.6146 57.4376 56.375 57.4376C58.1354 57.4376 59.5625 58.8647 59.5625 60.6251C59.5625 62.3856 58.1354 63.8126 56.375 63.8126ZM55.3125 60.6251C55.3125 61.212 55.7882 61.6876 56.375 61.6876C56.9618 61.6876 57.4375 61.212 57.4375 60.6251C57.4375 60.0383 56.9618 59.5626 56.375 59.5626C55.7882 59.5626 55.3125 60.0383 55.3125 60.6251Z"
-                  fill="#8D93A5"
-                />
-              </svg>
-            </div>
-
-            <p className="pb-2 text-xl font-medium text-dark">Tu carrito está vacío</p>
-            <p className="pb-6">Agrega productos para continuar con tu compra.</p>
-
-            <Link
-              href="/products"
-              className="w-full max-w-sm mx-auto flex justify-center font-medium text-white bg-dark py-[13px] px-6 rounded-md ease-out duration-200 hover:bg-opacity-95"
+            <div
+              className={sectionClass(summarySection)}
+              data-lumefy-cart-section="cart_summary"
+              onClick={handlePreviewSectionClick}
+              style={{ display: summarySection.enabled && showFilledCart ? undefined : "none", order: sectionOrder("cart_summary") }}
             >
-              Seguir comprando
-            </Link>
+              <div className="flex flex-col items-end lg:flex-row">
+                <OrderSummary
+                  previewItems={previewMode ? displayedItems : undefined}
+                  content={content}
+                  showItems={showSummaryItems}
+                  showCheckoutButton={showCheckoutButton}
+                />
+              </div>
+            </div>
+
+            <div
+              className={sectionClass(emptySection)}
+              data-lumefy-cart-section="cart_empty"
+              onClick={handlePreviewSectionClick}
+              style={{ display: emptySection.enabled && (!hasRealItems || previewMode) ? undefined : "none", order: sectionOrder("cart_empty") }}
+            >
+              <div className="rounded-[10px] bg-white px-5 py-12 text-center shadow-1 sm:px-8">
+                <div className="mx-auto pb-7.5">{emptyCartIcon()}</div>
+                <p className="pb-2 text-xl font-medium text-dark">{content.empty_title}</p>
+                <p className="pb-6 text-dark-3">{content.empty_description}</p>
+                {showContinueShopping ? (
+                  <Link href="/products" className="mx-auto flex w-full max-w-sm justify-center rounded-md bg-dark px-6 py-[13px] font-medium text-white ease-out duration-200 hover:bg-opacity-95">
+                    {content.continue_shopping_label}
+                  </Link>
+                ) : null}
+              </div>
+            </div>
           </div>
-        </>
-      )}
-    </>
+        </div>
+      </section>
+    </div>
   );
 };
 

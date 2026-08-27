@@ -63,6 +63,34 @@ const routes: Routes = [
       import('./modules/apps/ecommerce/ecommerce-product-template-editor.component').then((c) => c.EcommerceProductTemplateEditorComponent)
   },
   {
+    path: 'commerce/design/collection',
+    canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
+    data: { appSlug: 'ecommerce', requiredPermission: 'manage_company' },
+    loadComponent: () =>
+      import('./modules/apps/ecommerce/ecommerce-collection-template-editor.component').then((c) => c.EcommerceCollectionTemplateEditorComponent)
+  },
+  {
+    path: 'commerce/design/search',
+    canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
+    data: { appSlug: 'ecommerce', requiredPermission: 'manage_company', templateKey: 'search' },
+    loadComponent: () =>
+      import('./modules/apps/ecommerce/ecommerce-collection-template-editor.component').then((c) => c.EcommerceCollectionTemplateEditorComponent)
+  },
+  {
+    path: 'commerce/design/cart',
+    canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
+    data: { appSlug: 'ecommerce', requiredPermission: 'manage_company', templateKey: 'cart' },
+    loadComponent: () =>
+      import('./modules/apps/ecommerce/ecommerce-cart-template-editor.component').then((c) => c.EcommerceCartTemplateEditorComponent)
+  },
+  {
+    path: 'commerce/design/pages',
+    canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
+    data: { appSlug: 'ecommerce', requiredPermission: 'manage_company', templateKey: 'pages' },
+    loadComponent: () =>
+      import('./modules/apps/ecommerce/ecommerce-pages-template-editor.component').then((c) => c.EcommercePagesTemplateEditorComponent)
+  },
+  {
     path: 'commerce/design',
     canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
     data: { appSlug: 'ecommerce', requiredPermission: 'manage_company' },
@@ -75,6 +103,34 @@ const routes: Routes = [
     data: { appSlug: 'ecommerce', requiredPermission: 'manage_company' },
     loadComponent: () =>
       import('./modules/apps/ecommerce/ecommerce-product-template-editor.component').then((c) => c.EcommerceProductTemplateEditorComponent)
+  },
+  {
+    path: 'apps/ecommerce/design/collection',
+    canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
+    data: { appSlug: 'ecommerce', requiredPermission: 'manage_company' },
+    loadComponent: () =>
+      import('./modules/apps/ecommerce/ecommerce-collection-template-editor.component').then((c) => c.EcommerceCollectionTemplateEditorComponent)
+  },
+  {
+    path: 'apps/ecommerce/design/search',
+    canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
+    data: { appSlug: 'ecommerce', requiredPermission: 'manage_company', templateKey: 'search' },
+    loadComponent: () =>
+      import('./modules/apps/ecommerce/ecommerce-collection-template-editor.component').then((c) => c.EcommerceCollectionTemplateEditorComponent)
+  },
+  {
+    path: 'apps/ecommerce/design/cart',
+    canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
+    data: { appSlug: 'ecommerce', requiredPermission: 'manage_company', templateKey: 'cart' },
+    loadComponent: () =>
+      import('./modules/apps/ecommerce/ecommerce-cart-template-editor.component').then((c) => c.EcommerceCartTemplateEditorComponent)
+  },
+  {
+    path: 'apps/ecommerce/design/pages',
+    canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
+    data: { appSlug: 'ecommerce', requiredPermission: 'manage_company', templateKey: 'pages' },
+    loadComponent: () =>
+      import('./modules/apps/ecommerce/ecommerce-pages-template-editor.component').then((c) => c.EcommercePagesTemplateEditorComponent)
   },
   {
     path: 'apps/ecommerce/design',
@@ -220,7 +276,13 @@ const routes: Routes = [
       },
       {
         path: 'integrations',
-        canActivate: [TenantGuard],
+        redirectTo: 'apps/installed/eleganthome/connections',
+        pathMatch: 'full'
+      },
+      {
+        path: 'apps/installed/eleganthome/connections',
+        canActivate: [TenantGuard, AppAccessGuard],
+        data: { appSlug: 'eleganthome', requiredPermission: 'manage_company' },
         loadComponent: () => import('./modules/integrations/integration-list.component').then((c) => c.IntegrationListComponent)
       },
       {

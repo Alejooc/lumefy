@@ -33,6 +33,7 @@ class IntegrationSourceOut(BaseModel):
 
     id: UUID
     company_id: UUID | None
+    app_install_id: UUID | None = None
     name: str
     provider_key: str
     source_type: str
@@ -165,6 +166,23 @@ class IntegrationSyncRunOut(BaseModel):
     details: dict[str, Any] = Field(default_factory=dict)
     error_message: str | None
     created_at: datetime
+
+
+class IntegrationOrderLinkOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    source_id: UUID
+    sale_id: UUID | None
+    external_order_id: str
+    external_number: str | None
+    direction: str
+    status: str
+    provider_status: str | None
+    error_message: str | None
+    imported_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
 
 
 class IntegrationWebhookOut(BaseModel):

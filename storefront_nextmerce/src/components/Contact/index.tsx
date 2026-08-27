@@ -11,7 +11,7 @@ import {
   StorefrontApiError,
 } from "@/lib/storefront-api";
 
-const Contact = () => {
+const Contact = ({ embedded = false }: { embedded?: boolean }) => {
   const { session } = useStorefrontAuth();
   const [supportName, setSupportName] = useState("Tienda");
   const [supportPhone, setSupportPhone] = useState("");
@@ -97,7 +97,7 @@ const Contact = () => {
 
   return (
     <>
-      <Breadcrumb title={"Contacto"} pages={["Contacto"]} />
+      {!embedded ? <Breadcrumb title={"Contacto"} pages={["Contacto"]} /> : null}
 
       <section className="overflow-hidden py-20 bg-gray-2">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">

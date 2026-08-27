@@ -101,10 +101,104 @@ PRODUCT_SECTION_REGISTRY: tuple[dict[str, Any], ...] = (
     },
 )
 
+COLLECTION_SECTION_REGISTRY: tuple[dict[str, Any], ...] = (
+    {
+        "type": "collection_header",
+        "label": "Encabezado de colección",
+        "description": "Nombre, descripción y contexto de la colección.",
+        "icon": "heading",
+    },
+    {
+        "type": "collection_filters",
+        "label": "Filtros y orden",
+        "description": "Filtros, ordenamiento y navegación del catálogo.",
+        "icon": "adjustments",
+    },
+    {
+        "type": "collection_grid",
+        "label": "Grilla de productos",
+        "description": "Productos, cantidad de columnas y estado vacío.",
+        "icon": "layout-grid",
+    },
+)
+
+SEARCH_SECTION_REGISTRY: tuple[dict[str, Any], ...] = (
+    {
+        "type": "search_header",
+        "label": "Encabezado de búsqueda",
+        "description": "Título y contexto de los resultados.",
+        "icon": "search",
+    },
+    {
+        "type": "search_filters",
+        "label": "Filtros y orden",
+        "description": "Filtros, ordenamiento y navegación.",
+        "icon": "adjustments",
+    },
+    {
+        "type": "search_grid",
+        "label": "Grilla de resultados",
+        "description": "Resultados, columnas y estado vacío.",
+        "icon": "layout-grid",
+    },
+)
+
+CART_SECTION_REGISTRY: tuple[dict[str, Any], ...] = (
+    {
+        "type": "cart_header",
+        "label": "Encabezado del carrito",
+        "description": "Título y acción para vaciar el carrito.",
+        "icon": "shopping-cart",
+    },
+    {
+        "type": "cart_items",
+        "label": "Productos del carrito",
+        "description": "Listado, cantidades y subtotales.",
+        "icon": "list-details",
+    },
+    {
+        "type": "cart_summary",
+        "label": "Resumen del pedido",
+        "description": "Totales y acceso al checkout.",
+        "icon": "receipt",
+    },
+    {
+        "type": "cart_empty",
+        "label": "Carrito vacío",
+        "description": "Mensaje y llamada a seguir comprando.",
+        "icon": "shopping-cart-off",
+    },
+)
+
+PAGES_SECTION_REGISTRY: tuple[dict[str, Any], ...] = (
+    {
+        "type": "page_header",
+        "label": "Encabezado de la página",
+        "description": "Título, introducción y contexto de la página.",
+        "icon": "heading",
+    },
+    {
+        "type": "page_content",
+        "label": "Contenido informativo",
+        "description": "Texto principal para explicar tus condiciones o historia.",
+        "icon": "article",
+    },
+    {
+        "type": "page_contact_form",
+        "label": "Formulario de contacto",
+        "description": "Permite que tus clientes se comuniquen contigo.",
+        "icon": "mail",
+    },
+)
+
 _SECTION_TYPES = {item["type"] for item in HOME_SECTION_REGISTRY}
 _DEFAULT_SECTION_TYPES = _SECTION_TYPES - {"custom_embed"}
 _PRODUCT_SECTION_TYPES = {item["type"] for item in PRODUCT_SECTION_REGISTRY}
-_SUPPORTED_TEMPLATE_KEYS = {"home", "product"}
+_COLLECTION_SECTION_TYPES = {item["type"] for item in COLLECTION_SECTION_REGISTRY}
+_SEARCH_SECTION_TYPES = {item["type"] for item in SEARCH_SECTION_REGISTRY}
+_CART_SECTION_TYPES = {item["type"] for item in CART_SECTION_REGISTRY}
+_PAGES_SECTION_TYPES = {item["type"] for item in PAGES_SECTION_REGISTRY}
+_SUPPORTED_TEMPLATE_KEYS = {"home", "product", "collection", "search", "cart", "pages"}
 _ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _TEMPLATE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,79}$")
 _FORBIDDEN_KEYS = {
@@ -124,6 +218,45 @@ _FORBIDDEN_PROTOCOL = re.compile(r"^\s*(?:javascript|vbscript|data):", re.IGNORE
 _EVENT_HANDLER_KEY = re.compile(r"^on[a-z][a-z0-9_:-]*$", re.IGNORECASE)
 _HEX_COLOR = re.compile(r"^#[0-9a-f]{6}$", re.IGNORECASE)
 MAX_DOCUMENT_BYTES = 512_000
+
+_DEFAULT_INFORMATIONAL_PAGES: dict[str, dict[str, str]] = {
+    "contact": {
+        "eyebrow": "Estamos para ayudarte",
+        "title": "Contacto",
+        "description": "Cuéntanos cómo podemos ayudarte y te responderemos lo antes posible.",
+        "body": "Nuestro equipo está disponible para resolver tus dudas sobre productos, pedidos y entregas.",
+    },
+    "about": {
+        "eyebrow": "Conoce nuestra tienda",
+        "title": "Sobre nosotros",
+        "description": "Una experiencia de compra pensada para ti.",
+        "body": "Aquí puedes contar la historia de tu negocio, tus valores y lo que hace especial a tu marca.",
+    },
+    "shipping": {
+        "eyebrow": "Compra con tranquilidad",
+        "title": "Envíos y entregas",
+        "description": "Información clara para recibir tu pedido.",
+        "body": "Agrega aquí las zonas de cobertura, tiempos estimados y condiciones de entrega de tu tienda.",
+    },
+    "returns": {
+        "eyebrow": "Tu compra está respaldada",
+        "title": "Cambios y devoluciones",
+        "description": "Consulta las condiciones para solicitar un cambio o devolución.",
+        "body": "Describe aquí los plazos, requisitos y pasos que deben seguir tus clientes.",
+    },
+    "privacy": {
+        "eyebrow": "Tu información importa",
+        "title": "Política de privacidad",
+        "description": "Conoce cómo cuidamos y utilizamos tus datos.",
+        "body": "Escribe aquí la política de privacidad de tu tienda y la forma en que gestionas la información de tus clientes.",
+    },
+    "terms": {
+        "eyebrow": "Condiciones de uso",
+        "title": "Términos y condiciones",
+        "description": "Las reglas que aplican a las compras en esta tienda.",
+        "body": "Escribe aquí los términos y condiciones que deben conocer tus clientes antes de comprar.",
+    },
+}
 
 _CUSTOM_HTML_ALLOWED_TAGS = {
     "a",
@@ -407,6 +540,58 @@ def _default_product_sections() -> list[dict[str, Any]]:
     ]
 
 
+def _default_collection_sections() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": item["type"],
+            "type": item["type"],
+            "enabled": True,
+            "settings": {},
+            "blocks": [],
+        }
+        for item in COLLECTION_SECTION_REGISTRY
+    ]
+
+
+def _default_search_sections() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": item["type"],
+            "type": item["type"],
+            "enabled": True,
+            "settings": {},
+            "blocks": [],
+        }
+        for item in SEARCH_SECTION_REGISTRY
+    ]
+
+
+def _default_cart_sections() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": item["type"],
+            "type": item["type"],
+            "enabled": True,
+            "settings": {},
+            "blocks": [],
+        }
+        for item in CART_SECTION_REGISTRY
+    ]
+
+
+def _default_pages_sections() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": item["type"],
+            "type": item["type"],
+            "enabled": True,
+            "settings": {},
+            "blocks": [],
+        }
+        for item in PAGES_SECTION_REGISTRY
+    ]
+
+
 def build_home_document(theme_settings: Any = None) -> dict[str, Any]:
     """Create a visual document while preserving the current home payload."""
     return {
@@ -440,6 +625,83 @@ def build_product_document(theme_settings: Any = None) -> dict[str, Any]:
             },
         },
         "sections": _default_product_sections(),
+    }
+
+
+def build_collection_document(theme_settings: Any = None) -> dict[str, Any]:
+    """Create the first collection listing template for one storefront."""
+    return {
+        "schema_version": 1,
+        "template": "collection",
+        "settings": {
+            "content": {
+                "breadcrumb_title": "Colección",
+                "products_label": "productos",
+                "filters_label": "Filtros",
+                "sort_label": "Ordenar por",
+                "clear_filters_label": "Limpiar filtros",
+                "empty_title": "No encontramos productos",
+                "empty_description": "Prueba cambiar los filtros o explorar otra colección.",
+            },
+        },
+        "sections": _default_collection_sections(),
+    }
+
+
+def build_search_document(theme_settings: Any = None) -> dict[str, Any]:
+    """Create the tenant-scoped search results template."""
+    return {
+        "schema_version": 1,
+        "template": "search",
+        "settings": {
+            "content": {
+                "breadcrumb_title": "Resultados de búsqueda",
+                "products_label": "resultados",
+                "filters_label": "Filtros",
+                "sort_label": "Ordenar por",
+                "clear_filters_label": "Limpiar filtros",
+                "empty_title": "No encontramos resultados",
+                "empty_description": "Prueba con otra búsqueda o ajusta los filtros.",
+            },
+        },
+        "sections": _default_search_sections(),
+    }
+
+
+def build_cart_document(theme_settings: Any = None) -> dict[str, Any]:
+    """Create the tenant-scoped shopping cart template."""
+    return {
+        "schema_version": 1,
+        "template": "cart",
+        "settings": {
+            "content": {
+                "breadcrumb_title": "Carrito",
+                "title": "Tu carrito",
+                "clear_cart_label": "Vaciar carrito",
+                "product_label": "Producto",
+                "price_label": "Precio",
+                "quantity_label": "Cantidad",
+                "subtotal_label": "Subtotal",
+                "action_label": "Acción",
+                "summary_title": "Resumen del pedido",
+                "total_label": "Total",
+                "checkout_label": "Ir al checkout",
+                "empty_title": "Tu carrito está vacío",
+                "empty_description": "Agrega productos para continuar con tu compra.",
+                "continue_shopping_label": "Seguir comprando",
+            },
+        },
+        "sections": _default_cart_sections(),
+    }
+
+
+def build_pages_document(theme_settings: Any = None) -> dict[str, Any]:
+    """Create the tenant-scoped document for informational storefront pages."""
+    return {
+        "schema_version": 1,
+        "template": "pages",
+        "settings": {"pages": deepcopy(_DEFAULT_INFORMATIONAL_PAGES)},
+        "sections": _default_pages_sections(),
     }
 
 
@@ -584,8 +846,226 @@ def normalize_product_document(document: Any, theme_settings: Any = None) -> dic
     }
 
 
+def normalize_collection_document(document: Any, theme_settings: Any = None) -> dict[str, Any]:
+    """Validate and normalize the tenant-scoped collection listing template."""
+    if not isinstance(document, dict):
+        raise ValueError("El documento visual debe ser un objeto")
+    _validate_safe_value(document)
+    _validate_document_size(document)
+
+    template = str(document.get("template") or "collection").strip().lower()
+    if template != "collection":
+        raise ValueError("El documento no corresponde a la plantilla de colección")
+
+    raw_sections = document.get("sections")
+    if raw_sections is None or raw_sections == []:
+        sections = _default_collection_sections()
+    elif not isinstance(raw_sections, list):
+        raise ValueError("Las secciones deben ser una lista")
+    else:
+        if len(raw_sections) > 20:
+            raise ValueError("La plantilla de colección no puede tener más de 20 secciones")
+        sections = []
+        seen_ids: set[str] = set()
+        for index, raw_section in enumerate(raw_sections):
+            section = _normalize_section(raw_section, index, _COLLECTION_SECTION_TYPES)
+            if section is None:
+                raise ValueError(f"Sección inválida en la posición {index + 1}")
+            if section["id"] in seen_ids:
+                raise ValueError(f"ID de sección repetido: {section['id']}")
+            seen_ids.add(section["id"])
+            sections.append(section)
+
+    settings = document.get("settings")
+    if settings is None:
+        settings = {}
+    if not isinstance(settings, dict):
+        raise ValueError("La configuración global debe ser un objeto")
+    content = settings.get("content")
+    if content is not None and not isinstance(content, dict):
+        raise ValueError("La configuración de contenido debe ser un objeto")
+
+    return {
+        "schema_version": 1,
+        "template": "collection",
+        "settings": deepcopy(settings),
+        "sections": sections,
+    }
+
+
+def normalize_search_document(document: Any, theme_settings: Any = None) -> dict[str, Any]:
+    """Validate and normalize the tenant-scoped search results template."""
+    if not isinstance(document, dict):
+        raise ValueError("El documento visual debe ser un objeto")
+    _validate_safe_value(document)
+    _validate_document_size(document)
+
+    template = str(document.get("template") or "search").strip().lower()
+    if template != "search":
+        raise ValueError("El documento no corresponde a la plantilla de búsqueda")
+
+    raw_sections = document.get("sections")
+    if raw_sections is None or raw_sections == []:
+        sections = _default_search_sections()
+    elif not isinstance(raw_sections, list):
+        raise ValueError("Las secciones deben ser una lista")
+    else:
+        if len(raw_sections) > 20:
+            raise ValueError("La plantilla de búsqueda no puede tener más de 20 secciones")
+        sections = []
+        seen_ids: set[str] = set()
+        for index, raw_section in enumerate(raw_sections):
+            section = _normalize_section(raw_section, index, _SEARCH_SECTION_TYPES)
+            if section is None:
+                raise ValueError(f"Sección inválida en la posición {index + 1}")
+            if section["id"] in seen_ids:
+                raise ValueError(f"ID de sección repetido: {section['id']}")
+            seen_ids.add(section["id"])
+            sections.append(section)
+
+    settings = document.get("settings")
+    if settings is None:
+        settings = {}
+    if not isinstance(settings, dict):
+        raise ValueError("La configuración global debe ser un objeto")
+    content = settings.get("content")
+    if content is not None and not isinstance(content, dict):
+        raise ValueError("La configuración de contenido debe ser un objeto")
+
+    return {
+        "schema_version": 1,
+        "template": "search",
+        "settings": deepcopy(settings),
+        "sections": sections,
+    }
+
+
+def normalize_cart_document(document: Any, theme_settings: Any = None) -> dict[str, Any]:
+    """Validate and normalize the tenant-scoped shopping cart template."""
+    if not isinstance(document, dict):
+        raise ValueError("El documento visual debe ser un objeto")
+    _validate_safe_value(document)
+    _validate_document_size(document)
+
+    template = str(document.get("template") or "cart").strip().lower()
+    if template != "cart":
+        raise ValueError("El documento no corresponde a la plantilla de carrito")
+
+    raw_sections = document.get("sections")
+    if raw_sections is None or raw_sections == []:
+        sections = _default_cart_sections()
+    elif not isinstance(raw_sections, list):
+        raise ValueError("Las secciones deben ser una lista")
+    else:
+        if len(raw_sections) > 20:
+            raise ValueError("La plantilla de carrito no puede tener más de 20 secciones")
+        sections = []
+        seen_ids: set[str] = set()
+        for index, raw_section in enumerate(raw_sections):
+            section = _normalize_section(raw_section, index, _CART_SECTION_TYPES)
+            if section is None:
+                raise ValueError(f"Sección inválida en la posición {index + 1}")
+            if section["id"] in seen_ids:
+                raise ValueError(f"ID de sección repetido: {section['id']}")
+            seen_ids.add(section["id"])
+            sections.append(section)
+
+    settings = document.get("settings")
+    if settings is None:
+        settings = {}
+    if not isinstance(settings, dict):
+        raise ValueError("La configuración global debe ser un objeto")
+    content = settings.get("content")
+    if content is not None and not isinstance(content, dict):
+        raise ValueError("La configuración de contenido debe ser un objeto")
+
+    return {
+        "schema_version": 1,
+        "template": "cart",
+        "settings": deepcopy(settings),
+        "sections": sections,
+    }
+
+
+def normalize_pages_document(document: Any, theme_settings: Any = None) -> dict[str, Any]:
+    """Validate and normalize the tenant-scoped informational pages document."""
+    if not isinstance(document, dict):
+        raise ValueError("El documento visual debe ser un objeto")
+    _validate_safe_value(document)
+    _validate_document_size(document)
+
+    template = str(document.get("template") or "pages").strip().lower()
+    if template != "pages":
+        raise ValueError("El documento no corresponde a las páginas informativas")
+
+    raw_sections = document.get("sections")
+    if raw_sections is None or raw_sections == []:
+        sections = _default_pages_sections()
+    elif not isinstance(raw_sections, list):
+        raise ValueError("Las secciones deben ser una lista")
+    else:
+        if len(raw_sections) > 20:
+            raise ValueError("Las páginas informativas no pueden tener más de 20 secciones")
+        sections = []
+        seen_ids: set[str] = set()
+        for index, raw_section in enumerate(raw_sections):
+            section = _normalize_section(raw_section, index, _PAGES_SECTION_TYPES)
+            if section is None:
+                raise ValueError(f"Sección inválida en la posición {index + 1}")
+            if section["id"] in seen_ids:
+                raise ValueError(f"ID de sección repetido: {section['id']}")
+            seen_ids.add(section["id"])
+            sections.append(section)
+
+    settings = document.get("settings")
+    if settings is None:
+        settings = {}
+    if not isinstance(settings, dict):
+        raise ValueError("La configuración global debe ser un objeto")
+
+    raw_pages = settings.get("pages")
+    if raw_pages is None:
+        raw_pages = {}
+    if not isinstance(raw_pages, dict):
+        raise ValueError("El contenido de las páginas debe ser un objeto")
+
+    pages: dict[str, dict[str, str]] = {}
+    for slug, defaults in _DEFAULT_INFORMATIONAL_PAGES.items():
+        raw_page = raw_pages.get(slug)
+        if not isinstance(raw_page, dict):
+            raw_page = {}
+        pages[slug] = {
+            field: (
+                raw_page.get(field)[:10000]
+                if isinstance(raw_page.get(field), str) and raw_page.get(field).strip()
+                else default
+            )
+            for field, default in defaults.items()
+        }
+
+    normalized_settings = deepcopy(settings)
+    normalized_settings["pages"] = pages
+    return {
+        "schema_version": 1,
+        "template": "pages",
+        "settings": normalized_settings,
+        "sections": sections,
+    }
+
+
 def component_registry(template_key: str = "home") -> list[dict[str, Any]]:
-    registry = PRODUCT_SECTION_REGISTRY if template_key == "product" else HOME_SECTION_REGISTRY
+    if template_key == "product":
+        registry = PRODUCT_SECTION_REGISTRY
+    elif template_key == "collection":
+        registry = COLLECTION_SECTION_REGISTRY
+    elif template_key == "search":
+        registry = SEARCH_SECTION_REGISTRY
+    elif template_key == "cart":
+        registry = CART_SECTION_REGISTRY
+    elif template_key == "pages":
+        registry = PAGES_SECTION_REGISTRY
+    else:
+        registry = HOME_SECTION_REGISTRY
     return deepcopy(list(registry))
 
 

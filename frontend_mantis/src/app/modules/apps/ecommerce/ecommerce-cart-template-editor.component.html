@@ -1,0 +1,88 @@
+<div class="cart-editor-shell">
+  @if (loading && !theme) {
+    <div class="cart-editor-loading" aria-label="Cargando editor"><div class="cart-editor-loading__top"></div><div class="cart-editor-loading__body"><span></span><span></span><span></span></div></div>
+  } @else if (!storefront) {
+    <section class="cart-editor-empty"><i class="ti ti-shopping-cart"></i><span class="cart-editor-kicker">Editor visual</span><h4>Elige una tienda para empezar</h4><p>Activa una tienda para personalizar el carrito.</p>@if (errorMessage) { <div class="alert alert-warning mt-3">{{ errorMessage }}</div> }</section>
+  } @else {
+    <header class="cart-editor-topbar">
+      <div class="cart-editor-topbar__left">
+        <a class="cart-editor-icon-button" routerLink="/commerce" aria-label="Volver al ecommerce" title="Volver al ecommerce"><i class="ti ti-arrow-left"></i></a>
+        <span class="cart-editor-divider"></span>
+        <button class="cart-editor-mode-button" type="button" [class.active]="sidebarOpen && sidebarMode === 'sections'" (click)="showSections()" aria-label="Secciones" title="Secciones"><i class="ti ti-layout-list"></i></button>
+        <button class="cart-editor-mode-button" type="button" [class.active]="sidebarOpen && sidebarMode === 'settings'" (click)="showSettings()" aria-label="Contenido de la plantilla" title="Contenido de la plantilla"><i class="ti ti-settings"></i></button>
+        <button class="cart-editor-mode-button" type="button" (click)="openAddSections()" aria-label="Añadir sección" title="Añadir sección"><i class="ti ti-layout-grid-add"></i></button>
+      </div>
+      <div class="cart-editor-topbar__context">
+        <div class="cart-editor-store-context">
+          @if (storefronts.length > 1) { <select class="form-select form-select-sm" [(ngModel)]="selectedStorefrontId" (ngModelChange)="onStorefrontChange()" aria-label="Tienda seleccionada">@for (item of storefronts; track item.id) { <option [value]="item.id">{{ item.name }}</option> }</select> } @else { <strong>{{ storefront.name }}</strong> }
+          <span class="cart-editor-live-pill"><span></span>{{ storefront.is_enabled ? 'Activa' : 'Borrador' }}</span>
+        </div>
+        <details class="cart-editor-page-picker">
+          <summary><i class="ti ti-shopping-cart"></i><span>Carrito</span><i class="ti ti-chevron-down"></i></summary>
+          <div class="cart-editor-page-picker__menu">
+            <a routerLink="/commerce/design"><i class="ti ti-home"></i><span>Página de inicio</span></a>
+            <a routerLink="/commerce/design/product"><i class="ti ti-shopping-bag"></i><span>Producto</span></a>
+            <a routerLink="/commerce/design/collection"><i class="ti ti-category"></i><span>Colecciones</span></a>
+            <a routerLink="/commerce/design/search"><i class="ti ti-search"></i><span>Resultados de búsqueda</span></a>
+            <button type="button" class="active"><i class="ti ti-shopping-cart"></i><span>Carrito</span><i class="ti ti-check"></i></button>
+            <a routerLink="/commerce/design/pages"><i class="ti ti-file-text"></i><span>Páginas informativas</span><small>Editar plantilla</small></a>
+          </div>
+        </details>
+      </div>
+      <div class="cart-editor-topbar__right">
+        <span class="cart-editor-save-state" [class.cart-editor-save-state--dirty]="dirty"><span></span>{{ saving ? 'Guardando...' : dirty ? 'Sin guardar' : 'Guardado' }}</span>
+        <div class="cart-editor-viewport-switcher" role="group" aria-label="Tamaño de vista previa"><button type="button" [class.active]="previewViewport === 'desktop'" (click)="setViewport('desktop')" title="Escritorio"><i class="ti ti-device-desktop"></i></button><button type="button" [class.active]="previewViewport === 'tablet'" (click)="setViewport('tablet')" title="Tablet"><i class="ti ti-device-tablet"></i></button><button type="button" [class.active]="previewViewport === 'mobile'" (click)="setViewport('mobile')" title="Móvil"><i class="ti ti-device-mobile"></i></button></div>
+        <button class="cart-editor-icon-button cart-editor-selector" type="button" [class.active]="selectionMode" (click)="toggleSelectionMode()" aria-label="Seleccionar elemento" title="Seleccionar elemento"><i class="ti ti-pointer"></i></button>
+        @if (previewUrl) { <a class="cart-editor-icon-button" [href]="previewUrl" target="_blank" rel="noopener noreferrer" aria-label="Abrir preview" title="Abrir preview"><i class="ti ti-external-link"></i></a> }
+        <button class="btn btn-outline-primary btn-sm cart-editor-save" type="button" (click)="saveDraft()" [disabled]="saving || publishing || !dirty" aria-label="Guardar cambios" title="Guardar cambios"><i class="ti" [class.ti-device-floppy]="!saving" [class.ti-loader]="saving" [class.icon-spin]="saving"></i><span class="visually-hidden">Guardar</span></button>
+        <button class="btn btn-primary btn-sm cart-editor-publish" type="button" (click)="publish()" [disabled]="!canPublish">{{ publishing ? 'Publicando...' : 'Publicar' }}</button>
+      </div>
+    </header>
+
+    @if (errorMessage) { <div class="alert alert-warning cart-editor-alert" role="alert">{{ errorMessage }}</div> }
+
+    <main class="cart-editor-workspace">
+      @if (sidebarOpen && (sidebarMode === 'sections' || sidebarMode === 'add')) {
+        <aside class="cart-editor-panel cart-editor-structure-panel">
+          @if (sidebarMode === 'sections') {
+            <div class="cart-editor-panel-header"><div><span class="cart-editor-kicker">Página del carrito</span><h5>{{ content.title }}</h5><p>Ordena la experiencia antes del checkout.</p></div><button class="cart-editor-icon-button" type="button" (click)="toggleSidebar()" aria-label="Ocultar panel" title="Ocultar panel"><i class="ti ti-layout-sidebar-left-collapse"></i></button></div>
+            <div class="cart-editor-preview-note"><span><i class="ti ti-eye"></i></span><div><small>Vista previa</small><strong>Carrito de muestra</strong></div><em>Editable</em></div>
+            <div class="cart-editor-section-heading"><strong>Plantilla</strong><span>{{ sectionCountLabel }}</span></div>
+            <div class="cart-editor-structure-list" cdkDropList [cdkDropListData]="document.sections" (cdkDropListDropped)="drop($event)">
+              @for (section of document.sections; track section.id) { <div class="cart-editor-section-row" cdkDrag [class.selected]="selectedSectionId === section.id" [class.disabled]="!section.enabled" (click)="selectSection(section)"><button class="cart-editor-drag-handle" type="button" cdkDragHandle aria-label="Mover sección" title="Arrastrar">⠿</button><span class="cart-editor-section-icon"><i [class]="componentIcon(section.type)"></i></span><span class="cart-editor-section-copy"><strong>{{ sectionLabel(section) }}</strong><small>{{ section.enabled ? 'Visible' : 'Oculta' }}</small></span><label class="cart-editor-switch" (click)="$event.stopPropagation()"><input type="checkbox" [checked]="section.enabled" (change)="toggleSection(section, $event)" [attr.aria-label]="'Mostrar ' + sectionLabel(section)" /><span></span></label><button class="cart-editor-more" type="button" (click)="removeSection(section, $event)" [attr.aria-label]="'Eliminar ' + sectionLabel(section)" [attr.title]="'Eliminar ' + sectionLabel(section)"><i class="ti ti-trash"></i></button></div> }
+            </div>
+            <button class="cart-editor-add-trigger" type="button" (click)="openAddSections()" [disabled]="!canAddSection || !availableComponents.length"><i class="ti ti-circle-plus"></i>Añadir sección</button>
+          } @else {
+            <div class="cart-editor-panel-header cart-editor-panel-header--picker"><button class="cart-editor-icon-button" type="button" (click)="showSections()" aria-label="Volver"><i class="ti ti-arrow-left"></i></button><div><span class="cart-editor-kicker">Biblioteca</span><h5>Añadir sección</h5></div></div>
+            <p class="cart-editor-panel-hint">Elige una sección para añadirla al carrito.</p>
+            <div class="cart-editor-component-list">@for (component of availableComponents; track component.type) { <button class="cart-editor-component-card" type="button" (click)="addSection(component.type)"><span><i [class]="componentIcon(component.type)"></i></span><strong>{{ component.label }}</strong><small>{{ component.description }}</small><i class="ti ti-plus"></i></button> }</div>
+          }
+        </aside>
+      }
+
+      <section class="cart-editor-canvas-panel" aria-label="Vista previa del carrito"><div class="cart-editor-canvas-stage"><div class="cart-editor-device" [class.tablet]="previewViewport === 'tablet'" [class.mobile]="previewViewport === 'mobile'">@if (safePreviewUrl) { <iframe #previewFrame class="cart-editor-preview-frame" [src]="safePreviewUrl" (load)="onPreviewLoad()" title="Vista previa del carrito"></iframe> } @else { <div class="cart-editor-preview-empty"><i class="ti ti-shopping-cart"></i><strong>Prepara tu carrito</strong><span>La vista previa se abrirá en unos segundos.</span></div> }</div></div></section>
+
+      @if (sidebarOpen && (sidebarMode === 'settings' || sidebarMode === 'section')) {
+        <aside class="cart-editor-panel cart-editor-inspector-panel">
+          @if (sidebarMode === 'settings') {
+            <div class="cart-editor-inspector-header"><div><span class="cart-editor-kicker">Contenido global</span><h5>Textos del carrito</h5><p>Define las etiquetas que verán tus clientes.</p></div><button class="cart-editor-icon-button" type="button" (click)="showSections()" aria-label="Volver"><i class="ti ti-arrow-left"></i></button></div>
+            <div class="cart-editor-inspector-scroll">
+              <div class="cart-editor-form-section"><div class="cart-editor-field-heading"><strong>Encabezado</strong><span>Contenido</span></div><label class="cart-editor-field"><span>Título del breadcrumb</span><input class="form-control" [ngModel]="content.breadcrumb_title" (ngModelChange)="updateContentSetting('breadcrumb_title', $event)" /></label><label class="cart-editor-field"><span>Título del carrito</span><input class="form-control" [ngModel]="content.title" (ngModelChange)="updateContentSetting('title', $event)" /></label><label class="cart-editor-field"><span>Vaciar carrito</span><input class="form-control" [ngModel]="content.clear_cart_label" (ngModelChange)="updateContentSetting('clear_cart_label', $event)" /></label></div>
+              <div class="cart-editor-form-section"><div class="cart-editor-field-heading"><strong>Productos</strong><span>Tabla</span></div><div class="cart-editor-field-grid"><label class="cart-editor-field"><span>Producto</span><input class="form-control" [ngModel]="content.product_label" (ngModelChange)="updateContentSetting('product_label', $event)" /></label><label class="cart-editor-field"><span>Precio</span><input class="form-control" [ngModel]="content.price_label" (ngModelChange)="updateContentSetting('price_label', $event)" /></label></div><div class="cart-editor-field-grid"><label class="cart-editor-field"><span>Cantidad</span><input class="form-control" [ngModel]="content.quantity_label" (ngModelChange)="updateContentSetting('quantity_label', $event)" /></label><label class="cart-editor-field"><span>Subtotal</span><input class="form-control" [ngModel]="content.subtotal_label" (ngModelChange)="updateContentSetting('subtotal_label', $event)" /></label></div><label class="cart-editor-field"><span>Acción</span><input class="form-control" [ngModel]="content.action_label" (ngModelChange)="updateContentSetting('action_label', $event)" /></label></div>
+              <div class="cart-editor-form-section"><div class="cart-editor-field-heading"><strong>Resumen y carrito vacío</strong><span>Checkout</span></div><label class="cart-editor-field"><span>Título del resumen</span><input class="form-control" [ngModel]="content.summary_title" (ngModelChange)="updateContentSetting('summary_title', $event)" /></label><label class="cart-editor-field"><span>Total</span><input class="form-control" [ngModel]="content.total_label" (ngModelChange)="updateContentSetting('total_label', $event)" /></label><label class="cart-editor-field"><span>Botón de checkout</span><input class="form-control" [ngModel]="content.checkout_label" (ngModelChange)="updateContentSetting('checkout_label', $event)" /></label><label class="cart-editor-field"><span>Título sin productos</span><input class="form-control" [ngModel]="content.empty_title" (ngModelChange)="updateContentSetting('empty_title', $event)" /></label><label class="cart-editor-field"><span>Mensaje sin productos</span><textarea class="form-control" rows="2" [ngModel]="content.empty_description" (ngModelChange)="updateContentSetting('empty_description', $event)"></textarea></label><label class="cart-editor-field"><span>Seguir comprando</span><input class="form-control" [ngModel]="content.continue_shopping_label" (ngModelChange)="updateContentSetting('continue_shopping_label', $event)" /></label></div>
+            </div>
+          } @else if (selectedSection) {
+            <div class="cart-editor-inspector-header"><div><span class="cart-editor-kicker">Sección</span><h5>{{ sectionLabel(selectedSection) }}</h5><p>Configura qué se muestra en esta zona.</p></div><button class="cart-editor-icon-button" type="button" (click)="showSections()" aria-label="Volver"><i class="ti ti-arrow-left"></i></button></div>
+            <div class="cart-editor-inspector-scroll"><div class="cart-editor-visibility-card"><div><strong>Mostrar sección</strong><small>{{ selectedSection.enabled ? 'Visible para tus clientes' : 'Oculta en la tienda' }}</small></div><label class="cart-editor-switch"><input type="checkbox" [checked]="selectedSection.enabled" (change)="toggleSection(selectedSection, $event)" /><span></span></label></div>
+              @if (selectedSection.type === 'cart_header') { <div class="cart-editor-form-section"><div class="cart-editor-field-heading"><strong>Encabezado</strong><span>Presentación</span></div><label class="cart-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_clear_action', true)" (change)="updateSectionSetting('show_clear_action', $any($event.target).checked)" /><span>Mostrar acción de vaciar</span></label></div> }
+              @else if (selectedSection.type === 'cart_items') { <div class="cart-editor-form-section"><div class="cart-editor-field-heading"><strong>Productos</strong><span>Listado</span></div><label class="cart-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_variant', true)" (change)="updateSectionSetting('show_variant', $any($event.target).checked)" /><span>Mostrar variantes</span></label><label class="cart-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_stock_notice', true)" (change)="updateSectionSetting('show_stock_notice', $any($event.target).checked)" /><span>Mostrar aviso de inventario</span></label></div> }
+              @else if (selectedSection.type === 'cart_summary') { <div class="cart-editor-form-section"><div class="cart-editor-field-heading"><strong>Resumen</strong><span>Checkout</span></div><label class="cart-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_items', true)" (change)="updateSectionSetting('show_items', $any($event.target).checked)" /><span>Mostrar productos en el resumen</span></label><label class="cart-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_checkout_button', true)" (change)="updateSectionSetting('show_checkout_button', $any($event.target).checked)" /><span>Mostrar botón de checkout</span></label></div> }
+              @else { <div class="cart-editor-form-section"><div class="cart-editor-field-heading"><strong>Carrito vacío</strong><span>Mensaje</span></div><label class="cart-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_continue_shopping', true)" (change)="updateSectionSetting('show_continue_shopping', $any($event.target).checked)" /><span>Mostrar botón seguir comprando</span></label></div> }
+              <button class="cart-editor-delete" type="button" (click)="removeSection(selectedSection)" [attr.aria-label]="'Eliminar ' + sectionLabel(selectedSection)"><i class="ti ti-trash"></i><span>Eliminar sección</span></button>
+            </div>
+          }
+        </aside>
+      }
+    </main>
+  }
+</div>
