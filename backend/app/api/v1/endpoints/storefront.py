@@ -2398,8 +2398,8 @@ async def update_storefront(
             action="THEME_LEGACY_HOME_SYNCED",
             entity_type="StorefrontThemeDocument",
             entity_id=str(theme_document.id),
-            user_id=str(current_user.id),
-            company_id=str(current_user.company_id),
+            user_id=current_user.id,
+            company_id=current_user.company_id,
             details={"storefront_id": str(storefront.id), "template_key": "home", "published_version": next_published_version},
         )
     await db.commit()
@@ -2622,8 +2622,8 @@ async def save_theme_draft(
         action="THEME_DRAFT_SAVED",
         entity_type="StorefrontThemeDocument",
         entity_id=str(document.id),
-        user_id=str(current_user.id),
-        company_id=str(current_user.company_id),
+        user_id=current_user.id,
+        company_id=current_user.company_id,
         details={"storefront_id": str(storefront.id), "template_key": template_key, "draft_version": document.draft_version},
     )
     await db.commit()
@@ -2685,8 +2685,8 @@ async def publish_theme_document(
         action="THEME_PUBLISHED",
         entity_type="StorefrontThemeDocument",
         entity_id=str(document.id),
-        user_id=str(current_user.id),
-        company_id=str(current_user.company_id),
+        user_id=current_user.id,
+        company_id=current_user.company_id,
         details={"storefront_id": str(storefront.id), "template_key": template_key, "published_version": next_version},
     )
     await db.commit()
@@ -2769,8 +2769,8 @@ async def restore_theme_revision(
         action="THEME_REVISION_RESTORED",
         entity_type="StorefrontThemeDocument",
         entity_id=str(document.id),
-        user_id=str(current_user.id),
-        company_id=str(current_user.company_id),
+        user_id=current_user.id,
+        company_id=current_user.company_id,
         details={
             "storefront_id": str(storefront.id),
             "template_key": template_key,

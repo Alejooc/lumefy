@@ -1,7 +1,10 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import RangeSlider from "react-range-slider-input";
 import "react-range-slider-input/dist/style.css";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
+import { useStorefrontUi } from "@/lib/storefront-ui";
 
 const PriceDropdown = ({
   min,
@@ -19,6 +22,7 @@ const PriceDropdown = ({
   const [toggleDropdown, setToggleDropdown] = useState(true);
   const [range, setRange] = useState<[number, number]>([selectedMin, selectedMax || max]);
   const { format } = useStorefrontCurrency();
+  const { buttonLabels } = useStorefrontUi();
 
   useEffect(() => {
     setRange([selectedMin, selectedMax || max]);
@@ -74,7 +78,7 @@ const PriceDropdown = ({
             onClick={() => onApply(range[0], range[1])}
             className="mt-4 inline-flex font-medium text-white bg-blue py-2 px-5 rounded-md ease-out duration-200 hover:bg-blue-dark"
           >
-            Aplicar precio
+            {buttonLabels.applyPrice}
           </button>
         </div>
       </div>

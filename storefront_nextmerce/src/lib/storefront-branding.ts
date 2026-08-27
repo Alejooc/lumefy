@@ -61,6 +61,25 @@ export type StorefrontBrandingViewModel = {
     href: string;
   }>;
   promoBanners: PublicStorefrontBrandingPromo[];
+  buttonLabels: StorefrontButtonLabels;
+};
+
+export type StorefrontButtonLabels = {
+  addToCart: string;
+  selectOptions: string;
+  soldOut: string;
+  viewCart: string;
+  goToCheckout: string;
+  applyCoupon: string;
+  updateCoupon: string;
+  checkout: string;
+  signIn: string;
+  clearFilters: string;
+  applyPrice: string;
+  applyCode: string;
+  quickView: string;
+  addToWishlist: string;
+  loginToWishlist: string;
 };
 
 export type StorefrontThemeStyleViewModel = {
@@ -108,6 +127,23 @@ const DEFAULT_BODY_FONT = '"Euclid Circular A", sans-serif';
 const DEFAULT_HEADING_FONT = '"Euclid Circular A", sans-serif';
 const DEFAULT_CONTENT_WIDTH = 1170;
 const DEFAULT_CORNER_RADIUS = "0.75rem";
+const DEFAULT_BUTTON_LABELS: StorefrontButtonLabels = {
+  addToCart: "Agregar al carrito",
+  selectOptions: "Elegir opciones",
+  soldOut: "Agotado",
+  viewCart: "Ver carrito",
+  goToCheckout: "Ir al pago",
+  applyCoupon: "Aplicar cupón",
+  updateCoupon: "Actualizar cupón",
+  checkout: "Finalizar compra",
+  signIn: "Iniciar sesión",
+  clearFilters: "Limpiar filtros",
+  applyPrice: "Aplicar precio",
+  applyCode: "Aplicar código",
+  quickView: "Vista rápida",
+  addToWishlist: "Agregar a favoritos",
+  loginToWishlist: "Inicia sesión para guardar favoritos",
+};
 
 function nonEmpty(value: string | null | undefined): string | undefined {
   const normalized = value?.trim();
@@ -166,6 +202,42 @@ function fontFamily(value: unknown, fallback: string): string {
     default:
       return fallback;
   }
+}
+
+function normalizeButtonLabels(sources: Record<string, unknown>[]): StorefrontButtonLabels {
+  const valueFor = (key: string, fallback: string): string => {
+    const setting = explicitSetting(sources, key);
+    return setting.present && typeof setting.value === "string" && setting.value.trim()
+      ? setting.value.trim()
+      : fallback;
+  };
+
+  return {
+    addToCart: valueFor("add_to_cart", DEFAULT_BUTTON_LABELS.addToCart),
+    selectOptions: valueFor("select_options", DEFAULT_BUTTON_LABELS.selectOptions),
+    soldOut: valueFor("sold_out", DEFAULT_BUTTON_LABELS.soldOut),
+    viewCart: valueFor("view_cart", DEFAULT_BUTTON_LABELS.viewCart),
+    goToCheckout: valueFor("go_to_checkout", DEFAULT_BUTTON_LABELS.goToCheckout),
+    applyCoupon: valueFor("apply_coupon", DEFAULT_BUTTON_LABELS.applyCoupon),
+    updateCoupon: valueFor("update_coupon", DEFAULT_BUTTON_LABELS.updateCoupon),
+    checkout: valueFor("checkout", DEFAULT_BUTTON_LABELS.checkout),
+    signIn: valueFor("sign_in", DEFAULT_BUTTON_LABELS.signIn),
+    clearFilters: valueFor("clear_filters", DEFAULT_BUTTON_LABELS.clearFilters),
+    applyPrice: valueFor("apply_price", DEFAULT_BUTTON_LABELS.applyPrice),
+    applyCode: valueFor("apply_code", DEFAULT_BUTTON_LABELS.applyCode),
+    quickView: valueFor("quick_view", DEFAULT_BUTTON_LABELS.quickView),
+    addToWishlist: valueFor("add_to_wishlist", DEFAULT_BUTTON_LABELS.addToWishlist),
+    loginToWishlist: valueFor("login_to_wishlist", DEFAULT_BUTTON_LABELS.loginToWishlist),
+  };
+}
+
+export function getStorefrontButtonLabelsFromSettings(value: unknown): StorefrontButtonLabels {
+  const settings = objectValue(value);
+  const globalSettings = objectValue(settings["global"]);
+  return normalizeButtonLabels([
+    objectValue(settings["buttons"]),
+    objectValue(globalSettings["buttons"]),
+  ]);
 }
 
 function cornerRadius(value: unknown): string {
@@ -278,6 +350,12 @@ export function getStorefrontBranding(
   const documentSettings = objectValue(themeDocument["settings"]);
   const legacyGlobalSettings = objectValue(themeSettings["global"]);
   const documentGlobalSettings = objectValue(documentSettings["global"]);
+  const buttonSettings = [
+    objectValue(themeSettings["buttons"]),
+    objectValue(legacyGlobalSettings["buttons"]),
+    objectValue(documentSettings["buttons"]),
+    objectValue(documentGlobalSettings["buttons"]),
+  ];
   const brandingSettings = {
     ...objectValue(themeSettings["branding"]),
     ...objectValue(legacyGlobalSettings["branding"]),
@@ -307,7 +385,14 @@ export function getStorefrontBranding(
   const documentSocialSettings = documentFooterSettings.map((footer) =>
     objectValue(footer["social_links"]),
   );
-  const legacySocialLinks = objectValue(themeSettings["social_links"]);
+  const legacySocialLinks = {
+    ...objectValue(themeSettings["social_links"]),
+    ...objectValue(legacyGlobalSettings["social_links"]),
+    ...objectValue(objectValue(themeSettings["branding"])["social_links"]),
+    ...objectValue(objectValue(legacyGlobalSettings["branding"])["social_links"]),
+    ...objectValue(objectValue(themeSettings["footer"])["social_links"]),
+    ...objectValue(objectValue(legacyGlobalSettings["footer"])["social_links"]),
+  };
   const socialSetting = (key: string): { present: boolean; value: unknown } =>
     explicitSetting(documentSocialSettings, key);
   const social = {
@@ -474,5 +559,6 @@ export function getStorefrontBranding(
         ...banner,
         image_url: storefrontImageUrl(banner.image_url),
       })),
+    buttonLabels: normalizeButtonLabels(buttonSettings),
   };
 }

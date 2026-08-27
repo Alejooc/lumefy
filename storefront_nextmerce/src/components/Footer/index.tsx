@@ -1,17 +1,62 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
+import type { PublicStorefront } from "@/types/storefront";
 import { resolveStorefront } from "@/lib/storefront-api";
 import { getStorefrontBranding } from "@/lib/storefront-branding";
+import { storefrontImageUrl } from "@/lib/storefront-image";
 import { isTrustedPreviewMessage, previewParentOrigin } from "@/lib/preview";
 
-const socialLabels: Record<string, string> = {
-  facebook: "Fb",
-  twitter: "Tw",
-  instagram: "Ig",
-  linkedin: "In",
+type SocialKey = "facebook" | "twitter" | "instagram" | "linkedin";
+
+function SocialIcon({ name }: { name: string }) {
+  const commonProps = {
+    width: 17,
+    height: 17,
+    viewBox: "0 0 16 16",
+    fill: "none",
+    "aria-hidden": true,
+  } as const;
+
+  switch (name) {
+    case "facebook":
+      return (
+        <svg {...commonProps}>
+          <path d="M9.35 14V8.7h1.8l.27-2.07H9.35V5.31c0-.6.17-1.01 1.04-1.01h1.12V2.45a15 15 0 0 0-1.63-.08c-1.62 0-2.73.99-2.73 2.8v1.46H5.32V8.7h1.83V14h2.2Z" fill="currentColor" />
+        </svg>
+      );
+    case "instagram":
+      return (
+        <svg {...commonProps}>
+          <rect x="2" y="2" width="12" height="12" rx="3" stroke="currentColor" strokeWidth="1.45" />
+          <circle cx="8" cy="8" r="2.85" stroke="currentColor" strokeWidth="1.45" />
+          <circle cx="11.65" cy="4.35" r=".85" fill="currentColor" />
+        </svg>
+      );
+    case "twitter":
+      return (
+        <svg {...commonProps}>
+          <path d="M2.25 2h2.94l2.84 3.8L11.42 2h2.33l-4.65 5.35L14 14h-2.94L8.1 9.99 4.46 14H2.13l4.67-5.56L2.25 2Zm3.42 1.54h-.88l6.35 8.92h.88L5.67 3.54Z" fill="currentColor" />
+        </svg>
+      );
+    case "linkedin":
+      return (
+        <svg {...commonProps}>
+          <path d="M3.45 5.95H1.08V14h2.37V5.95ZM2.26 2a1.38 1.38 0 1 0 0 2.76A1.38 1.38 0 0 0 2.26 2ZM14.92 9.39c0-2.43-1.3-3.56-3.04-3.56-1.4 0-2.03.77-2.38 1.31V5.95H7.13V14H9.5V10.01c0-1.05.2-2.07 1.5-2.07 1.29 0 1.3 1.2 1.3 2.14V14h2.37l.25-4.61Z" fill="currentColor" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+const socialNames: Record<SocialKey, string> = {
+  facebook: "Facebook",
+  twitter: "Twitter",
+  instagram: "Instagram",
+  linkedin: "LinkedIn",
 };
 
 function previewObject(value: unknown): Record<string, unknown> {
@@ -30,39 +75,79 @@ function previewText(value: unknown, fallback: string): string {
   return normalized || fallback;
 }
 
-const Footer = () => {
+function previewHref(value: unknown): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return /^\/(?!\/)/.test(normalized) || /^https?:\/\//i.test(normalized)
+    ? normalized
+    : "";
+}
+
+function previewLinkList(value: unknown): Array<{ href: string; label: string }> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    .map((item) => ({
+      href: previewHref(item["href"]),
+      label: typeof item["label"] === "string" ? item["label"].trim() : "",
+    }))
+    .filter((item) => item.href && item.label);
+}
+
+function previewPaymentList(
+  value: unknown,
+): Array<{ label: string; href?: string; iconUrl?: string }> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    .map((item) => ({
+      label: typeof item["label"] === "string" ? item["label"].trim() : "",
+      href: previewHref(item["href"]) || undefined,
+      iconUrl: storefrontImageUrl(
+        typeof item["icon_url"] === "string" ? item["icon_url"].trim() : "",
+      ),
+    }))
+    .filter((item) => item.label || item.iconUrl);
+}
+
+type FooterProps = {
+  initialStorefront?: PublicStorefront | null;
+};
+
+const Footer = ({ initialStorefront }: FooterProps) => {
+  const initialBranding = initialStorefront ? getStorefrontBranding(initialStorefront) : null;
   const year = new Date().getFullYear();
-  const [supportPhone, setSupportPhone] = useState("");
-  const [supportEmail, setSupportEmail] = useState("");
-  const [supportAddress, setSupportAddress] = useState("");
-  const [footerText, setFooterText] = useState("Todos los derechos reservados.");
-  const [footerBackgroundColor, setFooterBackgroundColor] = useState("#FFFFFF");
-  const [footerTextColor, setFooterTextColor] = useState("#1C274C");
-  const [footerBottomBackgroundColor, setFooterBottomBackgroundColor] = useState("#F3F4F6");
-  const [socialLinks, setSocialLinks] = useState<Array<{ key: string; href: string }>>([]);
-  const [helpTitle, setHelpTitle] = useState("Ayuda y contacto");
-  const [accountTitle, setAccountTitle] = useState("Cuenta");
-  const [quickLinksTitle, setQuickLinksTitle] = useState("Enlaces");
-  const [appTitle, setAppTitle] = useState("App móvil");
-  const [appDescription, setAppDescription] = useState("Compra desde cualquier lugar");
-  const [appStoreSubtitle, setAppStoreSubtitle] = useState("Disponible en");
-  const [appStoreLabel, setAppStoreLabel] = useState("App Store");
-  const [appStoreUrl, setAppStoreUrl] = useState<string | undefined>(undefined);
-  const [playStoreSubtitle, setPlayStoreSubtitle] = useState("Disponible en");
-  const [playStoreLabel, setPlayStoreLabel] = useState("Google Play");
-  const [playStoreUrl, setPlayStoreUrl] = useState<string | undefined>(undefined);
-  const [paymentTitle, setPaymentTitle] = useState("Medios de pago:");
-  const [showSocialLinks, setShowSocialLinks] = useState(false);
-  const [showAppDownloads, setShowAppDownloads] = useState(false);
-  const [showPaymentMethods, setShowPaymentMethods] = useState(false);
-  const [accountLinks, setAccountLinks] = useState<Array<{ href: string; label: string }>>([]);
-  const [quickLinks, setQuickLinks] = useState<Array<{ href: string; label: string }>>([]);
+  const [supportPhone, setSupportPhone] = useState(initialBranding?.supportPhone || "");
+  const [supportEmail, setSupportEmail] = useState(initialBranding?.supportEmail || "");
+  const [supportAddress, setSupportAddress] = useState(initialBranding?.supportAddress || "");
+  const [footerText, setFooterText] = useState(initialBranding?.footerText || "Todos los derechos reservados.");
+  const [footerBackgroundColor, setFooterBackgroundColor] = useState(initialBranding?.footer.backgroundColor || "#FFFFFF");
+  const [footerTextColor, setFooterTextColor] = useState(initialBranding?.footer.textColor || "#1C274C");
+  const [footerBottomBackgroundColor, setFooterBottomBackgroundColor] = useState(initialBranding?.footer.bottomBackgroundColor || "#F3F4F6");
+  const [socialLinks, setSocialLinks] = useState<Array<{ key: string; href: string }>>(initialBranding?.socialLinks || []);
+  const [helpTitle, setHelpTitle] = useState(initialBranding?.footer.helpTitle || "Ayuda y contacto");
+  const [accountTitle, setAccountTitle] = useState(initialBranding?.footer.accountTitle || "Cuenta");
+  const [quickLinksTitle, setQuickLinksTitle] = useState(initialBranding?.footer.quickLinksTitle || "Enlaces");
+  const [appTitle, setAppTitle] = useState(initialBranding?.footer.appTitle || "App móvil");
+  const [appDescription, setAppDescription] = useState(initialBranding?.footer.appDescription || "Compra desde cualquier lugar");
+  const [appStoreSubtitle, setAppStoreSubtitle] = useState(initialBranding?.footer.appStoreSubtitle || "Disponible en");
+  const [appStoreLabel, setAppStoreLabel] = useState(initialBranding?.footer.appStoreLabel || "App Store");
+  const [appStoreUrl, setAppStoreUrl] = useState<string | undefined>(initialBranding?.footer.appStoreUrl);
+  const [playStoreSubtitle, setPlayStoreSubtitle] = useState(initialBranding?.footer.playStoreSubtitle || "Disponible en");
+  const [playStoreLabel, setPlayStoreLabel] = useState(initialBranding?.footer.playStoreLabel || "Google Play");
+  const [playStoreUrl, setPlayStoreUrl] = useState<string | undefined>(initialBranding?.footer.playStoreUrl);
+  const [paymentTitle, setPaymentTitle] = useState(initialBranding?.footer.paymentTitle || "Medios de pago:");
+  const [showSocialLinks, setShowSocialLinks] = useState(initialBranding?.footer.showSocialLinks || false);
+  const [showAppDownloads, setShowAppDownloads] = useState(initialBranding?.footer.showAppDownloads || false);
+  const [showPaymentMethods, setShowPaymentMethods] = useState(initialBranding?.footer.showPaymentMethods || false);
+  const [accountLinks, setAccountLinks] = useState<Array<{ href: string; label: string }>>(initialBranding?.footer.accountLinks || []);
+  const [quickLinks, setQuickLinks] = useState<Array<{ href: string; label: string }>>(initialBranding?.footer.quickLinks || []);
   const [paymentMethods, setPaymentMethods] = useState<
     Array<{ label: string; href?: string; iconUrl?: string }>
-  >([]);
+  >(initialBranding?.footer.paymentMethods || []);
   const [previewMode, setPreviewMode] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedPreviewArea, setSelectedPreviewArea] = useState("");
+  const previewDocumentApplied = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -72,7 +157,7 @@ const Footer = () => {
         const storefront = await resolveStorefront();
         const branding = getStorefrontBranding(storefront);
 
-        if (!active) {
+        if (!active || previewDocumentApplied.current) {
           return;
         }
 
@@ -123,7 +208,12 @@ const Footer = () => {
 
       const document = previewObject(message.document);
       const settings = previewObject(document["settings"]);
-      const footer = previewObject(settings["footer"]);
+      const globalSettings = previewObject(settings["global"]);
+      const footer = {
+        ...previewObject(globalSettings["footer"]),
+        ...previewObject(settings["footer"]),
+      };
+      previewDocumentApplied.current = true;
       setPreviewMode(true);
 
       if (typeof message.selectionMode === "boolean") {
@@ -153,6 +243,30 @@ const Footer = () => {
       if ("payment_title" in footer) {
         setPaymentTitle(previewText(footer["payment_title"], "Medios de pago:"));
       }
+      if ("app_title" in footer) {
+        setAppTitle(previewText(footer["app_title"], "App móvil"));
+      }
+      if ("app_description" in footer) {
+        setAppDescription(previewText(footer["app_description"], "Compra desde cualquier lugar"));
+      }
+      if ("app_store_subtitle" in footer) {
+        setAppStoreSubtitle(previewText(footer["app_store_subtitle"], "Disponible en"));
+      }
+      if ("app_store_label" in footer) {
+        setAppStoreLabel(previewText(footer["app_store_label"], "App Store"));
+      }
+      if ("app_store_url" in footer) {
+        setAppStoreUrl(previewHref(footer["app_store_url"]) || undefined);
+      }
+      if ("play_store_subtitle" in footer) {
+        setPlayStoreSubtitle(previewText(footer["play_store_subtitle"], "Disponible en"));
+      }
+      if ("play_store_label" in footer) {
+        setPlayStoreLabel(previewText(footer["play_store_label"], "Google Play"));
+      }
+      if ("play_store_url" in footer) {
+        setPlayStoreUrl(previewHref(footer["play_store_url"]) || undefined);
+      }
       if (typeof footer["support_phone"] === "string") {
         setSupportPhone(footer["support_phone"].trim().slice(0, 80));
       }
@@ -164,6 +278,21 @@ const Footer = () => {
       }
       if ("show_social_links" in footer && typeof footer["show_social_links"] === "boolean") {
         setShowSocialLinks(footer["show_social_links"] === true);
+      }
+      if ("show_app_downloads" in footer && typeof footer["show_app_downloads"] === "boolean") {
+        setShowAppDownloads(footer["show_app_downloads"] === true);
+      }
+      if ("show_payment_methods" in footer && typeof footer["show_payment_methods"] === "boolean") {
+        setShowPaymentMethods(footer["show_payment_methods"] === true);
+      }
+      if ("account_links" in footer) {
+        setAccountLinks(previewLinkList(footer["account_links"]));
+      }
+      if ("quick_links" in footer) {
+        setQuickLinks(previewLinkList(footer["quick_links"]));
+      }
+      if ("payment_methods" in footer) {
+        setPaymentMethods(previewPaymentList(footer["payment_methods"]));
       }
       if ("social_links" in footer) {
         const social = previewObject(footer["social_links"]);
@@ -249,12 +378,12 @@ const Footer = () => {
                   <a
                     key={social.key}
                     href={social.href}
-                    aria-label={`${social.key} Social Link`}
+                    aria-label={socialNames[social.key as SocialKey] || social.key}
                     className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-3 ease-out duration-200 hover:border-blue hover:text-blue"
                     target="_blank"
                     rel="noreferrer"
                   >
-                    {socialLabels[social.key] || social.key.slice(0, 2)}
+                    <SocialIcon name={social.key} />
                   </a>
                 ))}
               </div>

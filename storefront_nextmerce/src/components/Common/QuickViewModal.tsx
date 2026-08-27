@@ -13,6 +13,7 @@ import { updateproductDetails } from "@/redux/features/product-details";
 import { addItemToWishlist } from "@/redux/features/wishlist-slice";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
+import { useStorefrontUi } from "@/lib/storefront-ui";
 
 function stripHtml(value: string | undefined): string {
   return (value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -23,6 +24,7 @@ const QuickViewModal = () => {
   const { openPreviewModal } = usePreviewSlider();
   const { format } = useStorefrontCurrency();
   const { session, loading: authLoading } = useStorefrontAuth();
+  const { buttonLabels } = useStorefrontUi();
   const router = useRouter();
   const [quantity, setQuantity] = useState(1);
 
@@ -363,14 +365,14 @@ const QuickViewModal = () => {
                   className={`inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark
                   `}
                 >
-                  {product.variants?.length ? "Seleccionar opciones" : "Agregar al carrito"}
+                  {product.variants?.length ? buttonLabels.selectOptions : buttonLabels.addToCart}
                 </button>
 
                 <button
                   type="button"
                   disabled={!session || authLoading}
-                  title={session ? "Guardar en favoritos" : "Inicia sesión para guardar favoritos"}
-                  aria-label={session ? "Guardar en favoritos" : "Inicia sesión para guardar favoritos"}
+                  title={session ? buttonLabels.addToWishlist : buttonLabels.loginToWishlist}
+                  aria-label={session ? buttonLabels.addToWishlist : buttonLabels.loginToWishlist}
                   className={`inline-flex items-center gap-2 font-medium text-white bg-dark py-3 px-6 rounded-md ease-out duration-200 hover:bg-opacity-95 disabled:cursor-not-allowed disabled:opacity-50`}
                   onClick={handleAddToWishlist}
                 >

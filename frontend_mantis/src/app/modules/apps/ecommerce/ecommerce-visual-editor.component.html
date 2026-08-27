@@ -205,10 +205,58 @@
             @if (!selectedGlobalArea) {
             <div class="visual-editor-global-settings__group">
               <div class="visual-editor-field-heading"><strong>Identidad</strong><span>Marca visible</span></div>
-              <div class="visual-editor-field"><span>Logo</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="globalSettings.branding.logo_url" (ngModelChange)="globalSettings.branding.logo_url = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('branding_logo')" aria-label="Elegir logo desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
-              <div class="visual-editor-field"><span>Logo para móvil</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="globalSettings.branding.mobile_logo_url" (ngModelChange)="globalSettings.branding.mobile_logo_url = $event; markDirty()" placeholder="Opcional: versión compacta" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('branding_mobile_logo')" aria-label="Elegir logo móvil desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
+              <div class="visual-editor-field visual-editor-branding-media-field">
+                <span>Logo</span>
+                <div class="visual-editor-branding-media">
+                  <div class="visual-editor-branding-media__preview" [class.visual-editor-branding-media__preview--empty]="!brandingMediaPreviewUrl(globalSettings.branding.logo_url)">
+                    @if (brandingMediaPreviewUrl(globalSettings.branding.logo_url); as previewUrl) {
+                      <img [src]="previewUrl" alt="Vista previa del logo" />
+                    } @else {
+                      <i class="ti ti-photo-off" aria-hidden="true"></i>
+                      <small>{{ globalSettings.branding.logo_url ? 'Cargando imagen' : 'Sin logo' }}</small>
+                    }
+                  </div>
+                  <div class="visual-editor-branding-media__actions">
+                    <small>{{ globalSettings.branding.logo_url ? 'Imagen seleccionada' : 'Añade el logo de tu tienda' }}</small>
+                    <button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('branding_logo')" aria-label="Elegir logo desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button>
+                  </div>
+                </div>
+              </div>
+              <div class="visual-editor-field visual-editor-branding-media-field">
+                <span>Logo para móvil</span>
+                <div class="visual-editor-branding-media">
+                  <div class="visual-editor-branding-media__preview" [class.visual-editor-branding-media__preview--empty]="!brandingMediaPreviewUrl(globalSettings.branding.mobile_logo_url)">
+                    @if (brandingMediaPreviewUrl(globalSettings.branding.mobile_logo_url); as previewUrl) {
+                      <img [src]="previewUrl" alt="Vista previa del logo móvil" />
+                    } @else {
+                      <i class="ti ti-photo-off" aria-hidden="true"></i>
+                      <small>{{ globalSettings.branding.mobile_logo_url ? 'Cargando imagen' : 'Sin logo móvil' }}</small>
+                    }
+                  </div>
+                  <div class="visual-editor-branding-media__actions">
+                    <small>{{ globalSettings.branding.mobile_logo_url ? 'Imagen seleccionada' : 'Opcional para pantallas pequeñas' }}</small>
+                    <button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('branding_mobile_logo')" aria-label="Elegir logo móvil desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button>
+                  </div>
+                </div>
+              </div>
               <label class="visual-editor-field"><span>Texto alternativo del logo</span><input class="form-control" [ngModel]="globalSettings.branding.logo_alt" (ngModelChange)="globalSettings.branding.logo_alt = $event; markDirty()" placeholder="Nombre de la tienda" /></label>
-              <div class="visual-editor-field"><span>Favicon</span><div class="visual-editor-media-input"><input class="form-control" list="visual-editor-media-assets" [ngModel]="globalSettings.branding.favicon_url" (ngModelChange)="globalSettings.branding.favicon_url = $event; markDirty()" placeholder="Pega una ruta si lo necesitas" /><button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('branding_favicon')" aria-label="Elegir favicon desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button></div></div>
+              <div class="visual-editor-field visual-editor-branding-media-field">
+                <span>Favicon</span>
+                <div class="visual-editor-branding-media">
+                  <div class="visual-editor-branding-media__preview visual-editor-branding-media__preview--favicon" [class.visual-editor-branding-media__preview--empty]="!brandingMediaPreviewUrl(globalSettings.branding.favicon_url)">
+                    @if (brandingMediaPreviewUrl(globalSettings.branding.favicon_url); as previewUrl) {
+                      <img [src]="previewUrl" alt="Vista previa del favicon" />
+                    } @else {
+                      <i class="ti ti-photo-off" aria-hidden="true"></i>
+                      <small>{{ globalSettings.branding.favicon_url ? 'Cargando imagen' : 'Sin favicon' }}</small>
+                    }
+                  </div>
+                  <div class="visual-editor-branding-media__actions">
+                    <small>{{ globalSettings.branding.favicon_url ? 'Imagen seleccionada' : 'Se verá al publicar' }}</small>
+                    <button class="visual-editor-media-picker-trigger" type="button" (click)="openMediaPicker('branding_favicon')" aria-label="Elegir favicon desde multimedia" title="Elegir desde multimedia"><i class="ti ti-photo"></i><span>Elegir</span></button>
+                  </div>
+                </div>
+              </div>
               <p class="visual-editor-help">El logo móvil se activa en pantallas pequeñas y el favicon se verá después de publicar.</p>
             </div>
 
@@ -238,6 +286,45 @@
               <label class="visual-editor-field"><span>Estilo de enlaces</span><select class="form-select" [ngModel]="globalSettings.styles.navigation_variant" (ngModelChange)="globalSettings.styles.navigation_variant = $event; markDirty()"><option value="underline">Línea superior</option><option value="pill">Cápsulas</option><option value="plain">Limpio</option></select></label>
               <label class="visual-editor-field"><span>Espaciado base de secciones</span><select class="form-select" [ngModel]="globalSettings.section_spacing" (ngModelChange)="globalSettings.section_spacing = $event; markDirty()"><option value="theme">Predeterminado del tema</option><option value="compact">Compacto</option><option value="balanced">Equilibrado</option><option value="airy">Amplio</option></select></label>
               <p class="visual-editor-help">Los cambios se aplican en vivo en la página de inicio.</p>
+            </div>
+
+            }
+
+            @if (!selectedGlobalArea) {
+            <div id="visual-editor-settings-buttons" class="visual-editor-global-settings__group">
+              <div class="visual-editor-field-heading"><strong>Textos de botones</strong><span>Acciones de la tienda</span></div>
+              <p class="visual-editor-help">Personaliza las acciones que verán tus clientes en productos, carrito, filtros y checkout.</p>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Agregar al carrito</span><input class="form-control" [ngModel]="globalSettings.buttons.add_to_cart" (ngModelChange)="globalSettings.buttons.add_to_cart = $event; markDirty()" /></label>
+                <label class="visual-editor-field"><span>Elegir opciones</span><input class="form-control" [ngModel]="globalSettings.buttons.select_options" (ngModelChange)="globalSettings.buttons.select_options = $event; markDirty()" /></label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Producto agotado</span><input class="form-control" [ngModel]="globalSettings.buttons.sold_out" (ngModelChange)="globalSettings.buttons.sold_out = $event; markDirty()" /></label>
+                <label class="visual-editor-field"><span>Ver carrito</span><input class="form-control" [ngModel]="globalSettings.buttons.view_cart" (ngModelChange)="globalSettings.buttons.view_cart = $event; markDirty()" /></label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Ir al pago</span><input class="form-control" [ngModel]="globalSettings.buttons.go_to_checkout" (ngModelChange)="globalSettings.buttons.go_to_checkout = $event; markDirty()" /></label>
+                <label class="visual-editor-field"><span>Aplicar cupón</span><input class="form-control" [ngModel]="globalSettings.buttons.apply_coupon" (ngModelChange)="globalSettings.buttons.apply_coupon = $event; markDirty()" /></label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Actualizar cupón</span><input class="form-control" [ngModel]="globalSettings.buttons.update_coupon" (ngModelChange)="globalSettings.buttons.update_coupon = $event; markDirty()" /></label>
+                <label class="visual-editor-field"><span>Aplicar código</span><input class="form-control" [ngModel]="globalSettings.buttons.apply_code" (ngModelChange)="globalSettings.buttons.apply_code = $event; markDirty()" /></label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Aplicar precio</span><input class="form-control" [ngModel]="globalSettings.buttons.apply_price" (ngModelChange)="globalSettings.buttons.apply_price = $event; markDirty()" /></label>
+                <label class="visual-editor-field"><span>Finalizar compra</span><input class="form-control" [ngModel]="globalSettings.buttons.checkout" (ngModelChange)="globalSettings.buttons.checkout = $event; markDirty()" /></label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Iniciar sesión</span><input class="form-control" [ngModel]="globalSettings.buttons.sign_in" (ngModelChange)="globalSettings.buttons.sign_in = $event; markDirty()" /></label>
+                <label class="visual-editor-field"><span>Limpiar filtros</span><input class="form-control" [ngModel]="globalSettings.buttons.clear_filters" (ngModelChange)="globalSettings.buttons.clear_filters = $event; markDirty()" /></label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Vista rápida</span><input class="form-control" [ngModel]="globalSettings.buttons.quick_view" (ngModelChange)="globalSettings.buttons.quick_view = $event; markDirty()" /></label>
+                <label class="visual-editor-field"><span>Agregar a favoritos</span><input class="form-control" [ngModel]="globalSettings.buttons.add_to_wishlist" (ngModelChange)="globalSettings.buttons.add_to_wishlist = $event; markDirty()" /></label>
+              </div>
+              <div class="visual-editor-field-grid">
+                <label class="visual-editor-field"><span>Favoritos sin sesión</span><input class="form-control" [ngModel]="globalSettings.buttons.login_to_wishlist" (ngModelChange)="globalSettings.buttons.login_to_wishlist = $event; markDirty()" /></label>
+              </div>
             </div>
 
             }
@@ -311,6 +398,22 @@
                 </label>
               </div>
               <div class="visual-editor-field-grid">
+                <div class="visual-editor-visibility-card">
+                  <div><strong>Mostrar aplicaciones</strong><small>Usa los enlaces App Store y Google Play configurados en la tienda.</small></div>
+                  <label class="visual-editor-switch">
+                    <input type="checkbox" [checked]="globalSettings.footer.show_app_downloads" (change)="globalSettings.footer.show_app_downloads = $any($event.target).checked; markDirty()" aria-label="Mostrar aplicaciones en el footer" />
+                    <span></span>
+                  </label>
+                </div>
+                <div class="visual-editor-visibility-card">
+                  <div><strong>Mostrar medios de pago</strong><small>Muestra los métodos configurados en la franja inferior.</small></div>
+                  <label class="visual-editor-switch">
+                    <input type="checkbox" [checked]="globalSettings.footer.show_payment_methods" (change)="globalSettings.footer.show_payment_methods = $any($event.target).checked; markDirty()" aria-label="Mostrar medios de pago en el footer" />
+                    <span></span>
+                  </label>
+                </div>
+              </div>
+              <div class="visual-editor-field-grid">
                 <label class="visual-editor-field"><span>Facebook</span><input class="form-control" type="url" [ngModel]="globalSettings.footer.social_links.facebook" (ngModelChange)="globalSettings.footer.social_links.facebook = $event; markDirty()" placeholder="https://facebook.com/..." /></label>
                 <label class="visual-editor-field"><span>Instagram</span><input class="form-control" type="url" [ngModel]="globalSettings.footer.social_links.instagram" (ngModelChange)="globalSettings.footer.social_links.instagram = $event; markDirty()" placeholder="https://instagram.com/..." /></label>
               </div>
@@ -320,6 +423,7 @@
               </div>
               <div class="visual-editor-field-grid visual-editor-field-grid--colors">
                 <label class="visual-editor-field"><span>Fondo</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.footer.background_color" (ngModelChange)="globalSettings.footer.background_color = $event; markDirty()" title="Color de fondo del footer" /></label>
+                <label class="visual-editor-field"><span>Texto</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.footer.text_color" (ngModelChange)="globalSettings.footer.text_color = $event; markDirty()" title="Color del texto del footer" /></label>
                 <label class="visual-editor-field"><span>Franja inferior</span><input class="form-control form-control-color" type="color" [ngModel]="globalSettings.footer.bottom_background_color" (ngModelChange)="globalSettings.footer.bottom_background_color = $event; markDirty()" title="Color de la franja inferior del footer" /></label>
               </div>
             </div>

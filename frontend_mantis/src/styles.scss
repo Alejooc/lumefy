@@ -38,6 +38,16 @@ Lumefy application styles
 .visual-editor-media-picker-trigger { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; gap: 0.3rem; padding: 0 0.62rem; border: 1px solid rgba(var(--bs-primary-rgb, 70, 128, 255), 0.3); border-radius: 8px; background: var(--editor-accent-soft); color: var(--editor-accent); font-size: 0.62rem; font-weight: 750; white-space: nowrap; transition: 120ms ease; }
 .visual-editor-media-picker-trigger:hover { border-color: var(--editor-accent); background: rgba(var(--bs-primary-rgb, 70, 128, 255), 0.16); color: var(--editor-accent-hover); }
 .visual-editor-media-picker-trigger i { font-size: 0.9rem; }
+.visual-editor-branding-media-field { margin-bottom: 14px; }
+.visual-editor-branding-media { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.visual-editor-branding-media__preview { display: grid; width: 74px; height: 52px; flex: 0 0 74px; place-items: center; overflow: hidden; border: 1px solid var(--editor-line); border-radius: 9px; background: var(--editor-paper); }
+.visual-editor-branding-media__preview img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.visual-editor-branding-media__preview--favicon { width: 52px; height: 52px; flex-basis: 52px; }
+.visual-editor-branding-media__preview--empty { padding: 5px; background: var(--editor-soft); color: var(--editor-muted); text-align: center; }
+.visual-editor-branding-media__preview--empty i { font-size: 16px; }
+.visual-editor-branding-media__preview--empty small { display: block; margin-top: 2px; font-size: 7px; line-height: 1.1; }
+.visual-editor-branding-media__actions { display: flex; min-width: 0; flex: 1 1 auto; align-items: center; justify-content: space-between; gap: 8px; }
+.visual-editor-branding-media__actions > small { overflow: hidden; color: var(--editor-muted); font-size: 9px; line-height: 1.3; text-overflow: ellipsis; }
 .visual-editor-media-library-trigger { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 0.55rem; padding: 0.55rem 0.7rem; border: 1px solid rgba(var(--bs-primary-rgb, 70, 128, 255), 0.25); border-radius: 8px; background: var(--editor-accent-soft); color: var(--editor-accent); font-size: 0.68rem; font-weight: 750; text-align: left; transition: 120ms ease; }
 .visual-editor-media-library-trigger:hover { border-color: var(--editor-accent); background: rgba(var(--bs-primary-rgb, 70, 128, 255), 0.16); }
 .visual-editor-media-library-trigger > i:last-child { margin-left: auto; font-size: 0.8rem; }

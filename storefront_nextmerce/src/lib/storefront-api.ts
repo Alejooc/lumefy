@@ -135,15 +135,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function getPublicStorefrontBySubdomain(subdomain: string): Promise<PublicStorefront> {
   return request<PublicStorefront>(`/storefront/public/by-subdomain/${encodeURIComponent(subdomain)}`, {
-    // Storefront identity changes rarely. Keeping it for one minute avoids a
-    // second lookup during Next metadata + page rendering on every navigation.
-    cache: "force-cache",
+    // Branding and metadata can change from the admin panel. Do not let a
+    // cached response keep serving an old logo or favicon after publishing.
+    cache: "no-store",
   });
 }
 
 export async function getPublicStorefrontByDomain(domain: string): Promise<PublicStorefront> {
   return request<PublicStorefront>(`/storefront/public/by-domain/${encodeURIComponent(domain)}`, {
-    cache: "force-cache",
+    cache: "no-store",
   });
 }
 

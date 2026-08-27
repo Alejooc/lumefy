@@ -11,11 +11,13 @@ import Link from "next/link";
 import { addItemToWishlist } from "@/redux/features/wishlist-slice";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
+import { useStorefrontUi } from "@/lib/storefront-ui";
 
 const SingleItem = ({ item }: { item: Product }) => {
   const { openModal } = useModalContext();
   const { format } = useStorefrontCurrency();
   const { session, loading: authLoading } = useStorefrontAuth();
+  const { buttonLabels } = useStorefrontUi();
   const dispatch = useDispatch<AppDispatch>();
 
   // update the QuickView state
@@ -101,15 +103,15 @@ const SingleItem = ({ item }: { item: Product }) => {
           <Image src={item.imgs?.previews?.[0] || "/images/products/product-1-bg-1.png"} alt={item.title} width={280} height={280} />
         </div>
 
-        <div className="absolute right-0 bottom-0 translate-x-full u-w-full flex flex-col gap-2 p-5.5 ease-linear duration-300 group-hover:translate-x-0">
+        <div className="pointer-events-none absolute inset-0 z-20">
           <button
             onClick={() => {
               handleQuickViewUpdate();
               openModal();
             }}
-            aria-label="Vista rápida"
+            aria-label={buttonLabels.quickView}
             id="bestOne"
-            className="flex items-center justify-center w-9 h-9 rounded-[5px] shadow-1 ease-out duration-200 text-dark bg-white hover:text-white hover:bg-blue"
+            className="pointer-events-auto absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-[5px] bg-white text-dark shadow-1 ease-out duration-200 hover:bg-blue hover:text-white"
           >
             <svg
               className="fill-current"
@@ -136,9 +138,9 @@ const SingleItem = ({ item }: { item: Product }) => {
 
           <button
             onClick={() => handleAddToCart()}
-            aria-label="Agregar al carrito"
+            aria-label={buttonLabels.addToCart}
             id="addCartOne"
-            className="flex items-center justify-center w-9 h-9 rounded-[5px] shadow-1 ease-out duration-200 text-dark bg-white hover:text-white hover:bg-blue"
+            className="pointer-events-auto absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-[5px] bg-white text-dark shadow-1 ease-out duration-200 hover:bg-blue hover:text-white"
           >
             <svg
               className="fill-current"
@@ -174,11 +176,11 @@ const SingleItem = ({ item }: { item: Product }) => {
             onClick={() => {
               handleItemToWishList();
             }}
-            aria-label={session ? "Agregar a favoritos" : "Inicia sesión para guardar favoritos"}
-            title={session ? "Agregar a favoritos" : "Inicia sesión para guardar favoritos"}
+            aria-label={session ? buttonLabels.addToWishlist : buttonLabels.loginToWishlist}
+            title={session ? buttonLabels.addToWishlist : buttonLabels.loginToWishlist}
             disabled={!session || authLoading}
             id="addFavOne"
-            className="flex items-center justify-center w-9 h-9 rounded-[5px] shadow-1 ease-out duration-200 text-dark bg-white hover:text-white hover:bg-blue disabled:cursor-not-allowed disabled:opacity-50"
+            className="pointer-events-auto absolute right-3 top-[3.75rem] flex h-9 w-9 items-center justify-center rounded-[5px] bg-white text-dark shadow-1 ease-out duration-200 hover:bg-blue hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             <svg
               className="fill-current"

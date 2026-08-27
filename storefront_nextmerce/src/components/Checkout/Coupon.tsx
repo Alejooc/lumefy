@@ -1,6 +1,10 @@
+"use client";
+
 import React from "react";
+import { useStorefrontUi } from "@/lib/storefront-ui";
 
 const Coupon = () => {
+  const { buttonLabels } = useStorefrontUi();
   return (
     <div className="bg-white shadow-1 rounded-[10px] mt-7.5">
       <div className="border-b border-gray-3 py-5 px-4 sm:px-8.5">
@@ -21,7 +25,7 @@ const Coupon = () => {
             type="submit"
             className="inline-flex font-medium text-white bg-blue py-3 px-6 rounded-md ease-out duration-200 hover:bg-blue-dark"
           >
-            Aplicar
+            {buttonLabels.applyCoupon}
           </button>
         </div>
       </div>

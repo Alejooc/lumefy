@@ -23,8 +23,9 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  let storefront;
   try {
-    await resolveStorefront();
+    storefront = await resolveStorefront();
   } catch (error) {
     if (error instanceof StorefrontApiError && error.status === 404) {
       notFound();
@@ -32,5 +33,5 @@ export default async function RootLayout({
     throw error;
   }
 
-  return <SiteShell>{children}</SiteShell>;
+  return <SiteShell initialStorefront={storefront}>{children}</SiteShell>;
 }

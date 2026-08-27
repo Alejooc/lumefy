@@ -14,6 +14,7 @@ import { addItemToCart } from "@/redux/features/cart-slice";
 import { addItemToWishlist } from "@/redux/features/wishlist-slice";
 import { updateproductDetails } from "@/redux/features/product-details";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
+import { useStorefrontUi } from "@/lib/storefront-ui";
 
 function toSwatchColor(value: string): string {
   const normalized = value.trim().toLowerCase();
@@ -134,6 +135,7 @@ const ShopDetails = ({
   const { format } = useStorefrontCurrency();
   const { openPreviewModal } = usePreviewSlider();
   const { session, loading: authLoading } = useStorefrontAuth();
+  const { buttonLabels } = useStorefrontUi();
   const [previewImg, setPreviewImg] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const sizeOptions = useMemo(
@@ -201,7 +203,7 @@ const ShopDetails = ({
   const isInStock = selectedVariant ? selectedVariant.inStock : product.inStock !== false;
   const stockQuantity = selectedVariant?.stockQuantity ?? product.stockQuantity;
   const stockLabel = !isInStock
-    ? "Agotado"
+    ? buttonLabels.soldOut
     : stockQuantity !== undefined
       ? `${stockQuantity} disponibles`
       : "Disponible";
@@ -440,16 +442,16 @@ const ShopDetails = ({
                       disabled={!isInStock || (Boolean(product.variants?.length) && !selectedVariant)}
                       className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:cursor-not-allowed disabled:bg-gray-4"
                     >
-                      {isInStock ? "Agregar al carrito" : "Agotado"}
+                      {isInStock ? buttonLabels.addToCart : buttonLabels.soldOut}
                     </button>
 
                     <button
                       type="button"
                       onClick={handleAddToWishlist}
                       disabled={!session || authLoading}
-                      title={session ? "Guardar en favoritos" : "Inicia sesión para guardar favoritos"}
+                      title={session ? buttonLabels.addToWishlist : buttonLabels.loginToWishlist}
                       className="inline-flex items-center justify-center w-12 h-12 rounded-md border border-gray-3 ease-out duration-200 hover:text-white hover:bg-dark hover:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label={session ? "Guardar en favoritos" : "Inicia sesión para guardar favoritos"}
+                      aria-label={session ? buttonLabels.addToWishlist : buttonLabels.loginToWishlist}
                     >
                       <svg className="fill-current" width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <path

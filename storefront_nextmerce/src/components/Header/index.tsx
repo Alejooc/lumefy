@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { menuData } from "./menuData";
 import Dropdown from "./Dropdown";
@@ -9,6 +9,7 @@ import { selectTotalPrice } from "@/redux/features/cart-slice";
 import { useCartModalContext } from "@/app/context/CartSidebarModalContext";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import type { PublicStorefront } from "@/types/storefront";
 import {
   getPublicCollections,
   getPublicNavigation,
@@ -52,7 +53,12 @@ function previewImage(value: unknown): string | undefined {
   return storefrontImageUrl(normalized);
 }
 
-const Header = () => {
+type HeaderProps = {
+  initialStorefront?: PublicStorefront | null;
+};
+
+const Header = ({ initialStorefront }: HeaderProps) => {
+  const initialBranding = initialStorefront ? getStorefrontBranding(initialStorefront) : null;
   const router = useRouter();
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,9 +67,12 @@ const Header = () => {
   const [mobileOpenSubmenu, setMobileOpenSubmenu] = useState<number | null>(null);
   const [stickyMenu, setStickyMenu] = useState(false);
   const [menuItems, setMenuItems] = useState<Menu[]>(menuData);
-  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
-  const [mobileLogoUrl, setMobileLogoUrl] = useState<string | undefined>(undefined);
-  const [logoAlt, setLogoAlt] = useState("Lumefy");
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(initialBranding?.logoUrl);
+  const [mobileLogoUrl, setMobileLogoUrl] = useState<string | undefined>(initialBranding?.mobileLogoUrl);
+  const [logoAlt, setLogoAlt] = useState(initialBranding?.logoAlt || "");
+  const [brandingLoaded, setBrandingLoaded] = useState(Boolean(initialStorefront));
+  const [loadedLogoKey, setLoadedLogoKey] = useState("");
+  const [failedLogoKey, setFailedLogoKey] = useState("");
   const [navigationStyle, setNavigationStyle] = useState<"standard" | "minimal">("standard");
   const [navigationVariant, setNavigationVariant] = useState<"underline" | "pill" | "plain">("underline");
   const [announcementEnabled, setAnnouncementEnabled] = useState(false);
@@ -83,6 +92,7 @@ const Header = () => {
   const [previewMode, setPreviewMode] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedPreviewArea, setSelectedPreviewArea] = useState("");
+  const previewDocumentApplied = useRef(false);
   const { openCartModal } = useCartModalContext();
   const { session, signOut } = useStorefrontAuth();
   const { format } = useStorefrontCurrency();
@@ -90,6 +100,9 @@ const Header = () => {
   const product = useAppSelector((state) => state.cartReducer.items);
   const lastAddedAt = useAppSelector((state) => state.cartReducer.lastAdded?.timestamp ?? 0);
   const totalPrice = useSelector(selectTotalPrice);
+  const logoKey = `${logoUrl || ""}|${mobileLogoUrl || ""}`;
+  const logoImageLoaded = Boolean(logoUrl && loadedLogoKey === logoKey);
+  const logoImageFailed = Boolean(logoUrl && failedLogoKey === logoKey);
 
   const handleOpenCartModal = () => {
     openCartModal();
@@ -175,13 +188,14 @@ const Header = () => {
           getPublicCollections(storefront.id),
         ]);
 
-        if (!active) {
+        if (!active || previewDocumentApplied.current) {
           return;
         }
 
         setLogoUrl(branding.logoUrl);
         setMobileLogoUrl(branding.mobileLogoUrl);
         setLogoAlt(branding.logoAlt);
+        setBrandingLoaded(true);
         const themeStyles = getStorefrontThemeStyles(storefront);
         setNavigationStyle(themeStyles.navigationStyle);
         setNavigationVariant(themeStyles.navigationVariant);
@@ -206,7 +220,7 @@ const Header = () => {
 
         setMenuItems(buildHeaderMenu(navigation, collections));
       } catch {
-        // keep template fallback menu when backend navigation is not available
+        if (active) setBrandingLoaded(true);
       }
     }
 
@@ -223,6 +237,7 @@ const Header = () => {
       if (!isTrustedPreviewMessage(event)) return;
       const message = event.data;
       if (!message || message.type !== "lumefy:preview:apply" || message.template !== "home") return;
+      previewDocumentApplied.current = true;
       setPreviewMode(true);
 
       const document = previewObject(message.document);
@@ -231,6 +246,7 @@ const Header = () => {
       const styles = previewObject(settings["styles"]);
       const announcement = previewObject(settings["announcement"]);
       const header = previewObject(settings["header"]);
+      setBrandingLoaded(true);
 
       if (typeof message.selectionMode === "boolean") {
         setSelectionMode(message.selectionMode);
@@ -630,16 +646,41 @@ const Header = () => {
           <div className="w-full flex flex-col gap-4 lg:grid lg:grid-cols-[auto_minmax(420px,560px)] lg:items-center lg:gap-8 xl:grid-cols-[auto_minmax(500px,620px)]">
             <div className="flex w-full items-center justify-between gap-2 lg:w-auto lg:justify-start lg:min-w-[182px] sm:gap-3">
               <Link className="flex-shrink-0" href="/">
-                <picture className="block">
-                  {mobileLogoUrl ? <source media="(max-width: 639px)" srcSet={mobileLogoUrl} /> : null}
-                  <Image
-                    src={logoUrl || "/images/logo/logo.svg"}
-                    alt={logoAlt}
-                    width={182}
-                    height={30}
-                    className="h-auto w-[132px] sm:w-[170px] lg:w-[182px]"
+                {!brandingLoaded ? (
+                  <span
+                    className="storefront-logo-skeleton block h-[30px] w-[132px] sm:w-[170px] lg:w-[182px]"
+                    aria-hidden="true"
                   />
-                </picture>
+                ) : logoUrl && !logoImageFailed ? (
+                  <span className="relative block h-[30px] w-[132px] sm:w-[170px] lg:w-[182px]">
+                    {!logoImageLoaded ? (
+                      <span className="storefront-logo-skeleton absolute inset-0" aria-hidden="true" />
+                    ) : null}
+                    <picture className={`relative z-10 block transition-opacity duration-200 ${logoImageLoaded ? "opacity-100" : "opacity-0"}`}>
+                      {mobileLogoUrl ? <source media="(max-width: 639px)" srcSet={mobileLogoUrl} /> : null}
+                      <Image
+                        src={logoUrl}
+                        alt={logoAlt || "Logo de la tienda"}
+                        width={182}
+                        height={30}
+                        className="h-auto w-[132px] sm:w-[170px] lg:w-[182px]"
+                        onLoad={() => setLoadedLogoKey(logoKey)}
+                        onError={() => {
+                          setFailedLogoKey(logoKey);
+                        }}
+                      />
+                    </picture>
+                  </span>
+                ) : logoAlt ? (
+                  <span className="block max-w-[182px] truncate text-lg font-semibold text-dark">
+                    {logoAlt}
+                  </span>
+                ) : (
+                  <span
+                    className="storefront-logo-skeleton block h-[30px] w-[132px] sm:w-[170px] lg:w-[182px]"
+                    aria-hidden="true"
+                  />
+                )}
               </Link>
 
               <div className="flex shrink-0 items-center gap-2 lg:hidden sm:gap-3">

@@ -22,6 +22,7 @@ import { removeAllItemsFromCart } from "@/redux/features/cart-slice";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
+import { useStorefrontUi } from "@/lib/storefront-ui";
 import { storefrontImageUrl } from "@/lib/storefront-image";
 import { formatMoney } from "@/lib/money";
 
@@ -245,6 +246,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   const dispatch = useDispatch<AppDispatch>();
   const cartItems = useAppSelector((state) => state.cartReducer.items);
   const { session, loading: authLoading } = useStorefrontAuth();
+  const { buttonLabels } = useStorefrontUi();
   const settings = useMemo(
     () => normalizeCheckoutSettings(checkoutSettings),
     [checkoutSettings],
@@ -1188,7 +1190,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                         disabled={previewLoading}
                         className="inline-flex min-h-[46px] shrink-0 items-center justify-center font-medium text-white bg-blue py-3 px-6 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:opacity-60"
                       >
-                        {appliedCoupon ? "Actualizar cupón" : "Aplicar cupón"}
+                        {appliedCoupon ? buttonLabels.updateCoupon : buttonLabels.applyCoupon}
                       </button>
                     </div>
                     {appliedCoupon && preview?.discount ? (
@@ -1293,7 +1295,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                     <p className="font-medium">Necesitas una cuenta para comprar</p>
                     <p className="mt-1 text-dark-5">Inicia sesión o regístrate para continuar con tu compra.</p>
                     <Link href="/login" className="mt-3 inline-flex font-medium text-blue hover:text-blue-dark">
-                      Iniciar sesión
+                      {buttonLabels.signIn}
                     </Link>
                   </div>
                 ) : null}
@@ -1313,7 +1315,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                     disabled={!canSubmit || submitLoading || previewLoading || authLoading}
                     className="w-full min-h-[48px] flex justify-center items-center font-medium text-white bg-blue py-3 px-6 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:opacity-60"
                   >
-                    {submitLoading ? "Procesando..." : "Finalizar compra"}
+                    {submitLoading ? "Procesando..." : buttonLabels.checkout}
                   </button>
                 </div>
               </div>

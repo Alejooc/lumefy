@@ -6,6 +6,7 @@ import { useDispatch } from "react-redux";
 
 import { useModalContext } from "@/app/context/QuickViewModalContext";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
+import { useStorefrontUi } from "@/lib/storefront-ui";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
 import { addItemToCart } from "@/redux/features/cart-slice";
 import { updateproductDetails } from "@/redux/features/product-details";
@@ -18,6 +19,7 @@ const ProductItem = ({ item }: { item: Product }) => {
   const { openModal } = useModalContext();
   const { format } = useStorefrontCurrency();
   const { session, loading: authLoading } = useStorefrontAuth();
+  const { buttonLabels } = useStorefrontUi();
   const dispatch = useDispatch<AppDispatch>();
   const hasVariants = Boolean(item.variants?.length);
   const productHref = item.href || "/products";
@@ -55,11 +57,11 @@ const ProductItem = ({ item }: { item: Product }) => {
           </span>
         ) : null}
 
-        <div className="absolute right-3 top-3 flex flex-col gap-2 opacity-100 transition sm:translate-x-3 sm:opacity-0 sm:group-hover:translate-x-0 sm:group-hover:opacity-100">
+        <div className="absolute right-3 top-3 z-20 flex flex-col gap-2">
           <button
             type="button"
             onClick={openQuickView}
-            aria-label="Vista rápida"
+            aria-label={buttonLabels.quickView}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#17233f] shadow-[0_6px_20px_rgba(15,23,42,.14)] transition hover:bg-[#17233f] hover:text-white"
           >
             <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true">
@@ -70,8 +72,8 @@ const ProductItem = ({ item }: { item: Product }) => {
           <button
             type="button"
             onClick={addToWishlist}
-            aria-label={session ? "Agregar a favoritos" : "Inicia sesión para guardar favoritos"}
-            title={session ? "Agregar a favoritos" : "Inicia sesión para guardar favoritos"}
+            aria-label={session ? buttonLabels.addToWishlist : buttonLabels.loginToWishlist}
+            title={session ? buttonLabels.addToWishlist : buttonLabels.loginToWishlist}
             disabled={!session || authLoading}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#17233f] shadow-[0_6px_20px_rgba(15,23,42,.14)] transition hover:bg-[#b65332] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -88,7 +90,7 @@ const ProductItem = ({ item }: { item: Product }) => {
               onClick={rememberProduct}
               className="flex w-full items-center justify-center rounded-full bg-[#17233f] px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(15,23,42,.2)] transition hover:bg-[#b65332]"
             >
-              Elegir opciones
+              {buttonLabels.selectOptions}
             </Link>
           ) : (
             <button
@@ -97,7 +99,7 @@ const ProductItem = ({ item }: { item: Product }) => {
               disabled={item.inStock === false}
               className="flex w-full items-center justify-center rounded-full bg-[#17233f] px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(15,23,42,.2)] transition hover:bg-[#b65332] disabled:cursor-not-allowed disabled:bg-[#7d8491]"
             >
-              {item.inStock === false ? "Agotado" : "Agregar al carrito"}
+              {item.inStock === false ? buttonLabels.soldOut : buttonLabels.addToCart}
             </button>
           )}
         </div>

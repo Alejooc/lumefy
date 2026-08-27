@@ -12,11 +12,13 @@ import SingleItem from "./SingleItem";
 import Link from "next/link";
 import EmptyCart from "./EmptyCart";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
+import { useStorefrontUi } from "@/lib/storefront-ui";
 
 const CartSidebarModal = () => {
   const { isCartModalOpen, closeCartModal } = useCartModalContext();
   const cartItems = useAppSelector((state) => state.cartReducer.items);
   const { format } = useStorefrontCurrency();
+  const { buttonLabels } = useStorefrontUi();
 
   const totalPrice = useSelector(selectTotalPrice);
 
@@ -112,7 +114,7 @@ const CartSidebarModal = () => {
                 href="/cart"
                 className="flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-md bg-blue px-3 py-3 text-center text-sm font-medium leading-5 text-white ease-out duration-200 hover:bg-blue-dark sm:px-6"
               >
-                Ver carrito
+                {buttonLabels.viewCart}
               </Link>
 
               <Link
@@ -120,7 +122,7 @@ const CartSidebarModal = () => {
                 href="/checkout"
                 className="flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-md bg-dark px-3 py-3 text-center text-sm font-medium leading-5 text-white ease-out duration-200 hover:bg-opacity-95 sm:px-6"
               >
-                Ir al pago
+                {buttonLabels.goToCheckout}
               </Link>
             </div>
           </div>

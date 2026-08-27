@@ -14,6 +14,7 @@ import { Product } from "@/types/product";
 import { ShopFilterCategory, ShopFilterFacet, ShopFilterType } from "@/lib/shop-data";
 import { toTemplateProduct } from "@/lib/product-view-model";
 import { PublicCatalogResponse } from "@/types/storefront";
+import { useStorefrontUi } from "@/lib/storefront-ui";
 
 const PRODUCTS_PER_BATCH = 12;
 
@@ -104,6 +105,7 @@ const ShopWithSidebar = ({
   const [hasMoreItems, setHasMoreItems] = useState(hasNextPage);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const { buttonLabels } = useStorefrontUi();
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const startProduct = loadedItems.length ? (currentPage - 1) * PRODUCTS_PER_BATCH + 1 : 0;
   const endProduct = loadedItems.length ? startProduct + loadedItems.length - 1 : 0;
@@ -472,7 +474,7 @@ const ShopWithSidebar = ({
                       onClick={clearAllFilters}
                       className="shrink-0 text-xs font-medium text-dark-4 underline-offset-4 transition hover:text-dark hover:underline sm:text-sm"
                     >
-                      Limpiar filtros
+                      {buttonLabels.clearFilters}
                     </button>
                   </div>
 

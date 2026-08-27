@@ -182,6 +182,24 @@ interface VisualThemeHeaderSettings {
   text_color: string;
 }
 
+interface VisualThemeButtonSettings {
+  add_to_cart: string;
+  select_options: string;
+  sold_out: string;
+  view_cart: string;
+  go_to_checkout: string;
+  apply_coupon: string;
+  update_coupon: string;
+  checkout: string;
+  sign_in: string;
+  clear_filters: string;
+  apply_price: string;
+  apply_code: string;
+  quick_view: string;
+  add_to_wishlist: string;
+  login_to_wishlist: string;
+}
+
 interface VisualThemeFooterSettings {
   footer_text: string;
   help_title: string;
@@ -192,6 +210,8 @@ interface VisualThemeFooterSettings {
   support_email: string;
   support_address: string;
   show_social_links: boolean;
+  show_app_downloads: boolean;
+  show_payment_methods: boolean;
   social_links: {
     facebook: string;
     instagram: string;
@@ -209,6 +229,7 @@ interface VisualThemeSettings {
   section_spacing: VisualSectionSpacing;
   announcement: VisualAnnouncementSettings;
   header: VisualThemeHeaderSettings;
+  buttons: VisualThemeButtonSettings;
   footer: VisualThemeFooterSettings;
   [key: string]: unknown;
 }
@@ -817,6 +838,19 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
 
   mediaAssetPreviewUrl(asset: StorefrontMediaAsset): string {
     return this.mediaPreviewUrls.get(asset.id) || '';
+  }
+
+  brandingMediaPreviewUrl(value: string | null | undefined): string {
+    const normalized = (value || '').trim();
+    if (!normalized) return '';
+
+    const matchingAsset = this.mediaAssets.find((asset) => asset.url.trim() === normalized);
+    if (matchingAsset) return this.mediaAssetPreviewUrl(matchingAsset);
+
+    // Keep manually configured public URLs previewable without exposing the
+    // value in the editor UI. Local media uses the authenticated blob above.
+    if (/^(https?:\/\/|data:image\/)/i.test(normalized)) return normalized;
+    return '';
   }
 
   private loadMediaPreviews(assets: StorefrontMediaAsset[], storefrontId: string): void {
@@ -1827,13 +1861,39 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
 
   private normalizeThemeSettings(value: unknown): VisualThemeSettings {
     const raw = this.asObject(value);
+    const rawGlobal = this.asObject(raw['global']);
     const base = this.createThemeSettings();
     const legacy = this.legacyThemeSettings();
-    const branding = { ...legacy.branding, ...this.asObject(raw['branding']) };
-    const styles = { ...legacy.styles, ...this.asObject(raw['styles']) };
-    const announcement = { ...legacy.announcement, ...this.asObject(raw['announcement']) };
-    const header = { ...legacy.header, ...this.asObject(raw['header']) };
-    const footer = { ...legacy.footer, ...this.asObject(raw['footer']) };
+    const branding = {
+      ...legacy.branding,
+      ...this.asObject(raw['branding']),
+      ...this.asObject(rawGlobal['branding'])
+    };
+    const styles = {
+      ...legacy.styles,
+      ...this.asObject(raw['styles']),
+      ...this.asObject(rawGlobal['styles'])
+    };
+    const announcement = {
+      ...legacy.announcement,
+      ...this.asObject(raw['announcement']),
+      ...this.asObject(rawGlobal['announcement'])
+    };
+    const header = {
+      ...legacy.header,
+      ...this.asObject(raw['header']),
+      ...this.asObject(rawGlobal['header'])
+    };
+    const buttons = {
+      ...legacy.buttons,
+      ...this.asObject(raw['buttons']),
+      ...this.asObject(rawGlobal['buttons'])
+    };
+    const footer = {
+      ...legacy.footer,
+      ...this.asObject(raw['footer']),
+      ...this.asObject(rawGlobal['footer'])
+    };
     const socialLinks = this.asObject(footer['social_links']);
 
     return {
@@ -1889,6 +1949,25 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         background_color: String(header['background_color'] || base.header.background_color),
         text_color: String(header['text_color'] || base.header.text_color)
       },
+      buttons: {
+        ...base.buttons,
+        ...buttons,
+        add_to_cart: String(buttons['add_to_cart'] || base.buttons.add_to_cart),
+        select_options: String(buttons['select_options'] || base.buttons.select_options),
+        sold_out: String(buttons['sold_out'] || base.buttons.sold_out),
+        view_cart: String(buttons['view_cart'] || base.buttons.view_cart),
+        go_to_checkout: String(buttons['go_to_checkout'] || base.buttons.go_to_checkout),
+        apply_coupon: String(buttons['apply_coupon'] || base.buttons.apply_coupon),
+        update_coupon: String(buttons['update_coupon'] || base.buttons.update_coupon),
+        checkout: String(buttons['checkout'] || base.buttons.checkout),
+        sign_in: String(buttons['sign_in'] || base.buttons.sign_in),
+        clear_filters: String(buttons['clear_filters'] || base.buttons.clear_filters),
+        apply_price: String(buttons['apply_price'] || base.buttons.apply_price),
+        apply_code: String(buttons['apply_code'] || base.buttons.apply_code),
+        quick_view: String(buttons['quick_view'] || base.buttons.quick_view),
+        add_to_wishlist: String(buttons['add_to_wishlist'] || base.buttons.add_to_wishlist),
+        login_to_wishlist: String(buttons['login_to_wishlist'] || base.buttons.login_to_wishlist)
+      },
       footer: {
         ...base.footer,
         ...footer,
@@ -1901,6 +1980,8 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         support_email: String(footer['support_email'] || ''),
         support_address: String(footer['support_address'] || ''),
         show_social_links: footer['show_social_links'] === true,
+        show_app_downloads: footer['show_app_downloads'] === true,
+        show_payment_methods: footer['show_payment_methods'] === true,
         social_links: {
           ...base.footer.social_links,
           ...socialLinks,
@@ -1951,37 +2032,57 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
     section_spacing: unknown;
     announcement: Record<string, unknown>;
     header: Record<string, unknown>;
+    buttons: Record<string, unknown>;
     footer: Record<string, unknown>;
   } {
     const themeSettings = this.asObject(this.storefront?.theme_settings);
     const branding = this.asObject(themeSettings['branding']);
     const footer = this.asObject(themeSettings['footer']);
+    const legacyGlobal = this.asObject(themeSettings['global']);
+    const globalBranding = this.asObject(legacyGlobal['branding']);
+    const globalFooter = this.asObject(legacyGlobal['footer']);
+    const buttons = {
+      ...this.asObject(themeSettings['buttons']),
+      ...this.asObject(legacyGlobal['buttons'])
+    };
     const legacySocialLinks = {
       ...this.asObject(themeSettings['social_links']),
       ...this.asObject(branding['social_links']),
-      ...this.asObject(footer['social_links'])
+      ...this.asObject(legacyGlobal['social_links']),
+      ...this.asObject(globalBranding['social_links']),
+      ...this.asObject(footer['social_links']),
+      ...this.asObject(globalFooter['social_links'])
     };
     return {
       section_spacing: themeSettings['section_spacing'],
       branding: {
         ...branding,
-        logo_url: branding['logo_url'] || themeSettings['logo_url'] || '',
-        mobile_logo_url: branding['mobile_logo_url'] || themeSettings['mobile_logo_url'] || '',
-        logo_alt: branding['logo_alt'] || this.storefront?.name || 'Tienda online',
-        favicon_url: branding['favicon_url'] || themeSettings['favicon_url'] || ''
+        ...globalBranding,
+        logo_url: branding['logo_url'] || globalBranding['logo_url'] || themeSettings['logo_url'] || '',
+        mobile_logo_url: branding['mobile_logo_url'] || globalBranding['mobile_logo_url'] || themeSettings['mobile_logo_url'] || '',
+        logo_alt: branding['logo_alt'] || globalBranding['logo_alt'] || this.storefront?.name || 'Tienda online',
+        favicon_url: branding['favicon_url'] || globalBranding['favicon_url'] || themeSettings['favicon_url'] || ''
       },
       styles: {
         ...this.asObject(themeSettings['styles']),
-        ...this.asObject(this.asObject(themeSettings['global'])['styles'])
+        ...this.asObject(legacyGlobal['styles'])
       },
-      announcement: this.asObject(themeSettings['announcement']),
-      header: this.asObject(themeSettings['header']),
+      announcement: {
+        ...this.asObject(themeSettings['announcement']),
+        ...this.asObject(legacyGlobal['announcement'])
+      },
+      header: {
+        ...this.asObject(themeSettings['header']),
+        ...this.asObject(legacyGlobal['header'])
+      },
+      buttons,
       footer: {
         ...footer,
-        footer_text: footer['footer_text'] || branding['footer_text'] || themeSettings['footer_text'] || '',
-        support_phone: footer['support_phone'] || branding['support_phone'] || themeSettings['support_phone'] || '',
-        support_email: footer['support_email'] || branding['support_email'] || themeSettings['support_email'] || '',
-        support_address: footer['support_address'] || branding['support_address'] || themeSettings['support_address'] || '',
+        ...globalFooter,
+        footer_text: footer['footer_text'] || globalFooter['footer_text'] || branding['footer_text'] || globalBranding['footer_text'] || themeSettings['footer_text'] || '',
+        support_phone: footer['support_phone'] || globalFooter['support_phone'] || branding['support_phone'] || globalBranding['support_phone'] || themeSettings['support_phone'] || '',
+        support_email: footer['support_email'] || globalFooter['support_email'] || branding['support_email'] || globalBranding['support_email'] || themeSettings['support_email'] || '',
+        support_address: footer['support_address'] || globalFooter['support_address'] || branding['support_address'] || globalBranding['support_address'] || themeSettings['support_address'] || '',
         social_links: legacySocialLinks
       }
     };
@@ -2179,6 +2280,23 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         background_color: '#FFFFFF',
         text_color: '#1C274C'
       },
+      buttons: {
+        add_to_cart: 'Agregar al carrito',
+        select_options: 'Elegir opciones',
+        sold_out: 'Agotado',
+        view_cart: 'Ver carrito',
+        go_to_checkout: 'Ir al pago',
+        apply_coupon: 'Aplicar cupón',
+        update_coupon: 'Actualizar cupón',
+        checkout: 'Finalizar compra',
+        sign_in: 'Iniciar sesión',
+        clear_filters: 'Limpiar filtros',
+        apply_price: 'Aplicar precio',
+        apply_code: 'Aplicar código',
+        quick_view: 'Vista rápida',
+        add_to_wishlist: 'Agregar a favoritos',
+        login_to_wishlist: 'Inicia sesión para guardar favoritos'
+      },
       footer: {
         footer_text: '',
         help_title: 'Ayuda y contacto',
@@ -2189,6 +2307,8 @@ export class EcommerceVisualEditorComponent implements OnInit, OnDestroy {
         support_email: '',
         support_address: '',
         show_social_links: false,
+        show_app_downloads: false,
+        show_payment_methods: false,
         social_links: {
           facebook: '',
           instagram: '',
