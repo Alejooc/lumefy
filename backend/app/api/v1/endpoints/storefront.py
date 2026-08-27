@@ -4,6 +4,7 @@ import asyncio
 import secrets
 import base64
 import json
+import logging
 import mimetypes
 from pathlib import Path
 from html import escape
@@ -69,7 +70,7 @@ from app.models.storefront_theme import (
     StorefrontThemeRevision as StorefrontThemeRevisionModel,
 )
 from app.models.storefront_media import StorefrontMediaAsset
-from app.services.image_upload import save_image_upload
+from app.services.image_upload import save_image_upload, upload_root
 from app.schemas import storefront as schemas
 from app.services.storefront_theme import (
     build_home_document,
@@ -86,6 +87,7 @@ from app.services.pricing import ProductPricing, load_price_list_context, resolv
 from app.core.credential_crypto import SENSITIVE_GATEWAY_CONFIG_KEYS
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Providers that have a complete checkout path in this application. New
 # providers must add a signed intent and payment-status verification before
@@ -94,7 +96,9 @@ SUPPORTED_PUBLIC_PAYMENT_PROVIDERS = {
     "wompi", "payu", "mercadopago", "addi", "sistecredito",
     "whatsapp", "cod", "manual_transfer",
 }
-STATIC_ASSET_ROOT = Path(__file__).resolve().parents[4] / "static"
+# Keep authenticated media reads/deletes aligned with the same shared static
+# volume used by the upload service (/app/static in production).
+STATIC_ASSET_ROOT = upload_root().parent
 RESERVED_STOREFRONT_SUBDOMAINS = {
     "www", "api", "admin", "app", "panel", "mail", "static", "cdn", "support", "help",
 }
@@ -2504,8 +2508,8 @@ async def upload_storefront_media(
             action="STOREFRONT_MEDIA_UPLOADED",
             entity_type="StorefrontMediaAsset",
             entity_id=str(asset.id),
-            user_id=str(current_user.id),
-            company_id=str(current_user.company_id),
+            user_id=current_user.id,
+            company_id=current_user.company_id,
             details={
                 "storefront_id": str(storefront.id),
                 "content_type": asset.content_type,
@@ -2515,6 +2519,13 @@ async def upload_storefront_media(
         await db.commit()
     except Exception as exc:
         await db.rollback()
+        logger.exception(
+            "Failed to register storefront media asset",
+            extra={
+                "storefront_id": str(storefront.id),
+                "company_id": str(current_user.company_id),
+            },
+        )
         try:
             Path(str(stored["file_path"])).unlink(missing_ok=True)
         except OSError:

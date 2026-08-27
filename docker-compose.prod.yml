@@ -53,11 +53,28 @@ services:
       db:
         condition: service_healthy
 
+  static-init:
+    <<: *backend-service
+    restart: "no"
+    # Named volumes are created by Docker as root-owned. Prepare the shared
+    # volume before the non-root API and integration worker start writing to it.
+    user: "0:0"
+    command: >-
+      sh -c "mkdir -p /app/static/uploads && chown -R 10001:10001 /app/static"
+    volumes:
+      - type: volume
+        source: backend_static
+        target: /app/static
+        volume:
+          nocopy: true
+
   backend:
     <<: *backend-service
     restart: unless-stopped
     depends_on:
       migrate:
+        condition: service_completed_successfully
+      static-init:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
@@ -125,6 +142,8 @@ services:
       INTEGRATION_SYNC_STALE_MINUTES: "60"
     depends_on:
       migrate:
+        condition: service_completed_successfully
+      static-init:
         condition: service_completed_successfully
     volumes:
       - type: volume
