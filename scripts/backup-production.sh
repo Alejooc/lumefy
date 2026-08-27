@@ -83,8 +83,12 @@ absolute_temporary=$(cd "$temporary" && pwd)
 if command -v cygpath >/dev/null 2>&1; then
   absolute_temporary=$(cygpath -w "$absolute_temporary")
 fi
+# The shared volume contains files created by the non-root API user and
+# legacy uploads may have stricter ownership or mode bits. The backup
+# helper is read-only and only receives the static volume, so it must read
+# as root to produce a complete archive instead of silently losing media.
 docker run --rm --read-only \
-  --user "$(id -u):$(id -g)" \
+  --user 0:0 \
   --volume "$STATIC_VOLUME:/source:ro" \
   --volume "$absolute_temporary:/backup" \
   "$BACKUP_HELPER_IMAGE" \
