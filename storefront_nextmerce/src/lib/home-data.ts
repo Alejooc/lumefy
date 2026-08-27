@@ -258,7 +258,14 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
   const selectedProductIds = Array.from(new Set([...selectedNewArrivalIds, ...selectedBestSellerIds]));
   const [collections, catalog] = await Promise.all([
     getPublicCollections(storefront.id),
-    getPublicProducts(storefront.id, { page: 1, page_size: 24, sort: "latest" }),
+    // The home page only needs product cards. Facets trigger a full-catalog
+    // pass in the API, but the home never renders them.
+    getPublicProducts(storefront.id, {
+      page: 1,
+      page_size: 24,
+      sort: "latest",
+      include_facets: "false",
+    }),
   ]);
   const selectedCatalog = selectedProductIds.length
     ? await getPublicProducts(storefront.id, {

@@ -18,7 +18,7 @@ from typing import Any, List
 import requests
 import dns.resolver
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -4660,9 +4660,191 @@ async def read_public_collection_detail(
     )
 
 
+async def _read_simple_public_catalog(
+    db: AsyncSession,
+    storefront: Storefront,
+    fulfillment_warehouse: Warehouse,
+    *,
+    page: int,
+    page_size: int,
+    sort: str,
+) -> schemas.PublicCatalogResponse:
+    """Load an unfiltered catalog page without materializing the full catalog."""
+    published_product_columns = [
+        PublishedProduct.id,
+        PublishedProduct.product_id,
+        PublishedProduct.custom_title,
+        PublishedProduct.slug,
+        PublishedProduct.price_override,
+        PublishedProduct.compare_at_price,
+        PublishedProduct.is_featured,
+        PublishedProduct.show_stock,
+        PublishedProduct.sort_order,
+        PublishedProduct.created_at,
+    ]
+    product_columns = [
+        Product.id,
+        Product.name,
+        Product.image_url,
+        Product.product_type,
+        Product.price,
+        Product.track_inventory,
+        Product.category_id,
+        Product.brand_id,
+    ]
+    available_inventory = (
+        select(Inventory.id)
+        .where(
+            Inventory.warehouse_id == fulfillment_warehouse.id,
+            Inventory.product_id == Product.id,
+            Inventory.quantity > Inventory.reserved_quantity,
+        )
+        .correlate(Product)
+        .exists()
+    )
+    catalog_filters = [
+        PublishedProduct.storefront_id == storefront.id,
+        PublishedProduct.is_active == True,
+        PublishedProduct.is_published == True,
+        Product.is_active == True,
+        or_(
+            Product.track_inventory.is_(False),
+            Product.track_inventory.is_(None),
+            available_inventory,
+        ),
+    ]
+    total_products = int(
+        await db.scalar(
+            select(func.count(PublishedProduct.id))
+            .join(Product, PublishedProduct.product_id == Product.id)
+            .where(*catalog_filters)
+        )
+        or 0
+    )
+    total_pages = max(1, (total_products + page_size - 1) // page_size)
+    current_page = min(max(1, page), total_pages)
+    order_by = (
+        [PublishedProduct.created_at.asc(), PublishedProduct.id.asc()]
+        if sort == "oldest"
+        else [PublishedProduct.created_at.desc(), PublishedProduct.id.desc()]
+    )
+    result = await db.execute(
+        select(PublishedProduct, Product)
+        .options(
+            load_only(*published_product_columns),
+            load_only(*product_columns),
+        )
+        .join(Product, PublishedProduct.product_id == Product.id)
+        .where(*catalog_filters)
+        .order_by(*order_by)
+        .offset((current_page - 1) * page_size)
+        .limit(page_size)
+    )
+    rows = result.all()
+    published_products: list[PublishedProduct] = []
+    products_by_id: dict[uuid.UUID, Product] = {}
+    for published_product, product in rows:
+        set_committed_value(published_product, "product", product)
+        published_products.append(published_product)
+        products_by_id[product.id] = product
+
+    product_ids = list(products_by_id)
+    variant_by_product: dict[uuid.UUID, list[ProductVariant]] = {}
+    if product_ids:
+        variants_result = await db.execute(
+            select(ProductVariant)
+            .options(
+                load_only(
+                    ProductVariant.id,
+                    ProductVariant.product_id,
+                    ProductVariant.name,
+                    ProductVariant.sku,
+                    ProductVariant.barcode,
+                    ProductVariant.price_extra,
+                    ProductVariant.cost_extra,
+                    ProductVariant.price,
+                    ProductVariant.cost,
+                    ProductVariant.attributes,
+                )
+            )
+            .where(ProductVariant.product_id.in_(product_ids))
+        )
+        for variant in variants_result.scalars().all():
+            variant_by_product.setdefault(variant.product_id, []).append(variant)
+
+    category_ids = {product.category_id for product in products_by_id.values() if product.category_id}
+    if category_ids:
+        categories_result = await db.execute(
+            select(Category)
+            .options(load_only(Category.id, Category.name))
+            .where(Category.id.in_(category_ids))
+        )
+        categories_by_id = {category.id: category for category in categories_result.scalars().all()}
+    else:
+        categories_by_id = {}
+
+    brand_ids = {product.brand_id for product in products_by_id.values() if product.brand_id}
+    if brand_ids:
+        brands_result = await db.execute(
+            select(Brand)
+            .options(load_only(Brand.id, Brand.name))
+            .where(Brand.id.in_(brand_ids))
+        )
+        brands_by_id = {brand.id: brand for brand in brands_result.scalars().all()}
+    else:
+        brands_by_id = {}
+
+    for product in products_by_id.values():
+        set_committed_value(product, "variants", variant_by_product.get(product.id, []))
+        set_committed_value(product, "category", categories_by_id.get(product.category_id))
+        set_committed_value(product, "brand", brands_by_id.get(product.brand_id))
+
+    pricing_context = await load_price_list_context(db, storefront.price_list_id, product_ids)
+    pricing_by_product = {
+        product_id: resolve_product_pricing(pricing_context, product)
+        for product_id, product in products_by_id.items()
+    }
+    if product_ids:
+        images_result = await db.execute(
+            select(ProductImage)
+            .where(ProductImage.product_id.in_(product_ids))
+            .order_by(ProductImage.product_id.asc(), ProductImage.order.asc(), ProductImage.created_at.asc())
+        )
+        images_by_product: dict[uuid.UUID, list[ProductImage]] = {}
+        for image in images_result.scalars().all():
+            images_by_product.setdefault(image.product_id, []).append(image)
+        for product in products_by_id.values():
+            set_committed_value(product, "images", images_by_product.get(product.id, []))
+
+    stock_map = await _get_storefront_stock_map(
+        db,
+        storefront,
+        product_ids,
+        warehouse=fulfillment_warehouse,
+    )
+    return schemas.PublicCatalogResponse(
+        items=[
+            _serialize_public_product(
+                published_product,
+                published_product.product,
+                stock_map,
+                compact=True,
+                pricing=pricing_by_product.get(published_product.product_id),
+            )
+            for published_product in published_products
+            if published_product.product
+        ],
+        total_products=total_products,
+        current_page=current_page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
 @router.get("/public/{storefront_id}/products", response_model=schemas.PublicCatalogResponse)
 async def read_public_products(
     storefront_id: uuid.UUID,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     collection: str | None = None,
     category: str | None = None,
@@ -4680,6 +4862,9 @@ async def read_public_products(
     product_ids: str | None = None,
     preview_token: str | None = None,
 ) -> Any:
+    response.headers["Cache-Control"] = (
+        "private, no-store" if preview_token else "public, max-age=15, s-maxage=15, stale-while-revalidate=30"
+    )
     storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     # Resolve the warehouse once and let PostgreSQL discard tracked products
     # with no available stock before loading variants, facets and collections.
@@ -4698,6 +4883,30 @@ async def read_public_products(
     normalized_sort = _normalize_catalog_sort(sort)
     current_page = max(1, page)
     safe_page_size = max(1, min(page_size, 48))
+
+    simple_catalog_request = (
+        not include_facets
+        and not requested_product_ids
+        and not selected_collections
+        and not selected_categories
+        and not selected_brands
+        and not normalized_search
+        and not selected_types
+        and not selected_sizes
+        and not selected_colors
+        and min_price is None
+        and max_price is None
+        and normalized_sort in {"latest", "oldest"}
+    )
+    if simple_catalog_request:
+        return await _read_simple_public_catalog(
+            db,
+            storefront,
+            fulfillment_warehouse,
+            page=current_page,
+            page_size=safe_page_size,
+            sort=normalized_sort,
+        )
 
     # Facets are useful for the first render, but recalculating them for every
     # infinite-scroll page adds several full-catalog passes. A continuation

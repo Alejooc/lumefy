@@ -30,11 +30,18 @@ export async function GET(request: NextRequest) {
     }
 
     const catalog = await getPublicProducts(storefront.id, params);
+    const isPreviewRequest = Boolean(
+      request.nextUrl.searchParams.get("preview_token") ||
+      request.cookies.get("lumefy_preview_token")?.value,
+    );
     return NextResponse.json(catalog, {
       headers: {
         // Inventory is checked again when an order is created. This lets the
-        // browser reuse a page briefly while avoiding stale catalog screens.
-        "Cache-Control": "private, max-age=15, stale-while-revalidate=30",
+        // public catalog responses be reused briefly at the edge while
+        // preview responses remain isolated from the public cache.
+        "Cache-Control": isPreviewRequest
+          ? "private, no-store"
+          : "public, max-age=15, s-maxage=15, stale-while-revalidate=30",
       },
     });
   } catch (error) {
