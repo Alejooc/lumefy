@@ -164,6 +164,9 @@ const ShopWithSidebar = ({
     const index = normalizedCatalogTemplate.sections.findIndex((section) => section.type === type);
     return index >= 0 ? index : 999;
   };
+  const catalogPreviewClass = (sectionId: string) => previewMode
+    ? `lumefy-catalog-preview-section ${selectedSectionId === sectionId ? "lumefy-catalog-preview-section--selected" : ""}`
+    : "";
   const gridColumns = Number(gridSection.settings["columns"] || 3);
   const gridColumnClass = gridColumns === 4 ? "lg:grid-cols-4" : gridColumns === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3";
   const showSort = filtersSection.settings["show_sort"] !== false;
@@ -452,16 +455,16 @@ const ShopWithSidebar = ({
           <div className="flex gap-7.5">
             {/* <!-- Sidebar Start --> */}
             <div
-              className={`sidebar-content lumefy-catalog-preview-section fixed xl:z-1 z-9999 left-0 top-0 xl:translate-x-0 xl:static max-w-[310px] xl:max-w-[270px] w-full ease-out duration-200 ${
+              className={`sidebar-content ${catalogPreviewClass(filtersSection.id)} fixed xl:z-1 z-9999 left-0 top-0 xl:translate-x-0 xl:static max-w-[310px] xl:max-w-[270px] w-full ease-out duration-200 ${
                 productSidebar
                   ? "translate-x-0 bg-white p-5 h-screen overflow-y-auto"
                   : "-translate-x-full"
               }`}
-              data-lumefy-catalog-section={filtersSectionType}
+              data-lumefy-catalog-section={previewMode ? filtersSectionType : undefined}
               style={{
                 display: filtersEnabled ? undefined : "none",
               }}
-              onClick={handlePreviewSectionClick}
+              onClick={previewMode ? handlePreviewSectionClick : undefined}
             >
               <div className="mb-5 flex items-center justify-between xl:hidden">
                 <p className="font-medium text-dark">{templateContent.filters_label}</p>
@@ -577,9 +580,9 @@ const ShopWithSidebar = ({
             <div className="catalog-template-content xl:max-w-[870px] w-full">
               {headerEnabled ? (
                 <div
-                  className={`lumefy-catalog-preview-section mb-6 rounded-lg bg-white px-6 py-7 shadow-1 sm:px-8 sm:py-9 ${previewMode && selectedSectionId === headerSection.id ? "lumefy-catalog-preview-section--selected" : ""}`}
-                  data-lumefy-catalog-section={headerSectionType}
-                  onClick={handlePreviewSectionClick}
+                  className={`${catalogPreviewClass(headerSection.id)} mb-6 rounded-lg bg-white px-6 py-7 shadow-1 sm:px-8 sm:py-9`}
+                  data-lumefy-catalog-section={previewMode ? headerSectionType : undefined}
+                  onClick={previewMode ? handlePreviewSectionClick : undefined}
                   style={{ order: sectionOrder(headerSectionType), textAlign: headerSection.settings["alignment"] === "center" ? "center" : "left" }}
                 >
                   <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue">
@@ -630,9 +633,9 @@ const ShopWithSidebar = ({
               )}
 
               <div
-                className={`lumefy-catalog-preview-section rounded-lg bg-white shadow-1 pl-3 pr-2.5 py-2.5 mb-6 ${previewMode && selectedSectionId === gridSection.id ? "lumefy-catalog-preview-section--selected" : ""}`}
-                data-lumefy-catalog-section={gridSectionType}
-                onClick={handlePreviewSectionClick}
+                className={`${catalogPreviewClass(gridSection.id)} rounded-lg bg-white shadow-1 pl-3 pr-2.5 py-2.5 mb-6`}
+                data-lumefy-catalog-section={previewMode ? gridSectionType : undefined}
+                onClick={previewMode ? handlePreviewSectionClick : undefined}
                 style={{ display: gridEnabled ? undefined : "none", order: sectionOrder(gridSectionType) }}
               >
                 <div className="flex items-center justify-between">

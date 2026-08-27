@@ -169,6 +169,9 @@ const ShopDetails = ({
     const index = normalizedProductTemplate.sections.findIndex((section) => section.type === type);
     return index >= 0 ? index : 999;
   };
+  const productPreviewClass = (sectionId: string) => previewMode
+    ? `lumefy-product-preview-section ${selectedSectionId === sectionId ? "lumefy-product-preview-section--selected" : ""}`
+    : "";
   const mainSectionOrder = Math.min(
     productSectionOrder("product_gallery"),
     productSectionOrder("product_information"),
@@ -338,7 +341,7 @@ const ShopDetails = ({
         <div className="product-template-sections">
           <section
             className="overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28"
-            onClick={handlePreviewSectionClick}
+            onClick={previewMode ? handlePreviewSectionClick : undefined}
             style={{
               display: galleryEnabled || informationEnabled ? undefined : "none",
               order: mainSectionOrder,
@@ -347,8 +350,8 @@ const ShopDetails = ({
             <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
               <div className="flex flex-col lg:flex-row gap-7.5 xl:gap-17.5">
                 <div
-                  className={`lg:max-w-[570px] w-full lumefy-product-preview-section ${previewMode && selectedSectionId === gallerySection.id ? "lumefy-product-preview-section--selected" : ""}`}
-                  data-lumefy-product-section="product_gallery"
+                  className={`lg:max-w-[570px] w-full ${productPreviewClass(gallerySection.id)}`}
+                  data-lumefy-product-section={previewMode ? "product_gallery" : undefined}
                   style={{
                     display: galleryEnabled ? undefined : "none",
                     order: productSectionOrder("product_gallery"),
@@ -408,8 +411,8 @@ const ShopDetails = ({
                 </div>
 
                 <div
-                  className={`max-w-[539px] w-full lumefy-product-preview-section ${previewMode && selectedSectionId === informationSection.id ? "lumefy-product-preview-section--selected" : ""}`}
-                  data-lumefy-product-section="product_information"
+                  className={`max-w-[539px] w-full ${productPreviewClass(informationSection.id)}`}
+                  data-lumefy-product-section={previewMode ? "product_information" : undefined}
                   style={{
                     display: informationEnabled ? undefined : "none",
                     order: productSectionOrder("product_information"),
@@ -575,9 +578,9 @@ const ShopDetails = ({
           </section>
 
           <section
-            className={`overflow-hidden bg-gray-2 py-20 lumefy-product-preview-section ${previewMode && selectedSectionId === descriptionSection.id ? "lumefy-product-preview-section--selected" : ""}`}
-            data-lumefy-product-section="product_description"
-            onClick={handlePreviewSectionClick}
+            className={`overflow-hidden bg-gray-2 py-20 ${productPreviewClass(descriptionSection.id)}`}
+            data-lumefy-product-section={previewMode ? "product_description" : undefined}
+            onClick={previewMode ? handlePreviewSectionClick : undefined}
             style={{
               display: descriptionEnabled ? undefined : "none",
               order: productSectionOrder("product_description"),
@@ -642,9 +645,9 @@ const ShopDetails = ({
 
           {relatedEnabled ? (
             <div
-              className={`lumefy-product-preview-section ${previewMode && selectedSectionId === relatedSection.id ? "lumefy-product-preview-section--selected" : ""}`}
-              data-lumefy-product-section="product_related"
-              onClick={handlePreviewSectionClick}
+              className={productPreviewClass(relatedSection.id)}
+              data-lumefy-product-section={previewMode ? "product_related" : undefined}
+              onClick={previewMode ? handlePreviewSectionClick : undefined}
               style={{ order: productSectionOrder("product_related") }}
             >
               <RecentlyViewdItems

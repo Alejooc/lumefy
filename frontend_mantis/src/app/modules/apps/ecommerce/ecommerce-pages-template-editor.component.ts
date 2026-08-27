@@ -139,6 +139,17 @@ export class EcommercePagesTemplateEditorComponent implements OnInit, OnDestroy 
   get canPublish(): boolean { return Boolean(this.theme && !this.saving && !this.publishing); }
 
   pageLabel(slug: string): string { return PAGE_OPTIONS.find((page) => page.slug === slug)?.label || 'Página informativa'; }
+  pageIcon(slug: PageSlug): string {
+    const icons: Record<PageSlug, string> = {
+      contact: 'ti ti-message-circle',
+      about: 'ti ti-building-store',
+      shipping: 'ti ti-truck-delivery',
+      returns: 'ti ti-receipt-refund',
+      privacy: 'ti ti-shield-lock',
+      terms: 'ti ti-file-description',
+    };
+    return icons[slug];
+  }
   sectionLabel(section: PageSection): string { return this.components.find((component) => component.type === section.type)?.label || 'Sección informativa'; }
   componentIcon(type: string): string { return `ti ti-${this.components.find((component) => component.type === type)?.icon || 'article'}`; }
 
@@ -147,6 +158,12 @@ export class EcommercePagesTemplateEditorComponent implements OnInit, OnDestroy 
   openAddSections(): void { this.sidebarOpen = true; this.sidebarMode = 'add'; this.pushPreview(); }
   selectSection(section: PageSection): void { this.selectedSectionId = section.id; this.sidebarOpen = true; this.sidebarMode = 'section'; this.pushPreview(); }
   toggleSidebar(): void { this.sidebarOpen = !this.sidebarOpen; }
+
+  selectPage(slug: PageSlug): void {
+    if (this.selectedPageSlug === slug) return;
+    this.selectedPageSlug = slug;
+    this.onPageChange();
+  }
 
   onPageChange(): void { this.selectedSectionId = ''; this.sidebarMode = 'sections'; this.updatePreviewUrl(); this.pushPreview(); }
   updatePageField(key: keyof PageCopy, value: string): void { this.pageCopy[key] = value; this.markDirty(); }

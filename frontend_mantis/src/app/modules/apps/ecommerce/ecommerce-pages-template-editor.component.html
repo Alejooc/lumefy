@@ -20,12 +20,12 @@
         <details class="pages-editor-page-picker">
           <summary><i class="ti ti-file-text"></i><span>Páginas</span><i class="ti ti-chevron-down"></i></summary>
           <div class="pages-editor-page-picker__menu">
-            <a routerLink="/commerce/design"><i class="ti ti-home"></i><span>Página de inicio</span></a>
-            <a routerLink="/commerce/design/product"><i class="ti ti-shopping-bag"></i><span>Producto</span></a>
-            <a routerLink="/commerce/design/collection"><i class="ti ti-category"></i><span>Colecciones</span></a>
-            <a routerLink="/commerce/design/search"><i class="ti ti-search"></i><span>Resultados de búsqueda</span></a>
-            <a routerLink="/commerce/design/cart"><i class="ti ti-shopping-cart"></i><span>Carrito</span></a>
-            <button type="button" class="active"><i class="ti ti-file-text"></i><span>Páginas informativas</span><i class="ti ti-check"></i></button>
+            <a routerLink="/commerce/design"><i class="ti ti-home"></i><span><strong>Página de inicio</strong><small>Secciones principales</small></span></a>
+            <a routerLink="/commerce/design/product"><i class="ti ti-shopping-bag"></i><span><strong>Producto</strong><small>Ficha y galería</small></span></a>
+            <a routerLink="/commerce/design/collection"><i class="ti ti-category"></i><span><strong>Colecciones</strong><small>Catálogo y filtros</small></span></a>
+            <a routerLink="/commerce/design/search"><i class="ti ti-search"></i><span><strong>Resultados de búsqueda</strong><small>Resultados y estado vacío</small></span></a>
+            <a routerLink="/commerce/design/cart"><i class="ti ti-shopping-cart"></i><span><strong>Carrito</strong><small>Productos y resumen</small></span></a>
+            <button type="button" class="active"><i class="ti ti-file-text"></i><span><strong>Páginas informativas</strong><small>Editando ahora</small></span><i class="ti ti-check"></i></button>
           </div>
         </details>
       </div>
@@ -46,7 +46,25 @@
         <aside class="pages-editor-panel pages-editor-structure-panel">
           @if (sidebarMode === 'sections') {
             <div class="pages-editor-panel-header"><div><span class="pages-editor-kicker">Páginas informativas</span><h5>{{ selectedPage.label }}</h5><p>{{ selectedPage.description }}</p></div><button class="pages-editor-icon-button" type="button" (click)="toggleSidebar()" aria-label="Ocultar panel" title="Ocultar panel"><i class="ti ti-layout-sidebar-left-collapse"></i></button></div>
-            <label class="pages-editor-page-select"><span>Página que estás editando</span><select class="form-select" [(ngModel)]="selectedPageSlug" (ngModelChange)="onPageChange()">@for (page of pageOptions; track page.slug) { <option [value]="page.slug">{{ page.label }}</option> }</select></label>
+            <div class="pages-editor-page-browser">
+              <div class="pages-editor-page-browser__heading"><strong>Páginas disponibles</strong><span>{{ pageOptions.length }}</span></div>
+              <div class="pages-editor-page-list" role="list" aria-label="Páginas informativas">
+                @for (page of pageOptions; track page.slug) {
+                  <button
+                    type="button"
+                    class="pages-editor-page-card"
+                    [class.active]="selectedPageSlug === page.slug"
+                    [attr.aria-pressed]="selectedPageSlug === page.slug"
+                    [attr.title]="page.description"
+                    (click)="selectPage(page.slug)"
+                  >
+                    <span class="pages-editor-page-card__icon"><i [class]="pageIcon(page.slug)"></i></span>
+                    <span class="pages-editor-page-card__copy"><strong>{{ page.label }}</strong><small>{{ page.description }}</small></span>
+                    <i class="ti" [class.ti-check]="selectedPageSlug === page.slug" [class.ti-chevron-right]="selectedPageSlug !== page.slug"></i>
+                  </button>
+                }
+              </div>
+            </div>
             <div class="pages-editor-preview-note"><span><i class="ti ti-eye"></i></span><div><small>Vista previa</small><strong>{{ selectedPage.label }}</strong></div><em>Editable</em></div>
             <div class="pages-editor-section-heading"><strong>Estructura</strong><span>{{ sectionCountLabel }}</span></div>
             <div class="pages-editor-structure-list" cdkDropList [cdkDropListData]="document.sections" (cdkDropListDropped)="drop($event)">@for (section of document.sections; track section.id) { <div class="pages-editor-section-row" cdkDrag [class.selected]="selectedSectionId === section.id" [class.disabled]="!section.enabled" (click)="selectSection(section)"><button class="pages-editor-drag-handle" type="button" cdkDragHandle aria-label="Mover sección" title="Arrastrar">⠿</button><span class="pages-editor-section-icon"><i [class]="componentIcon(section.type)"></i></span><span class="pages-editor-section-copy"><strong>{{ sectionLabel(section) }}</strong><small>{{ section.enabled ? 'Visible' : 'Oculta' }}</small></span><label class="pages-editor-switch" (click)="$event.stopPropagation()"><input type="checkbox" [checked]="section.enabled" (change)="toggleSection(section, $event)" [attr.aria-label]="'Mostrar ' + sectionLabel(section)" /><span></span></label><button class="pages-editor-more" type="button" (click)="removeSection(section, $event)" [attr.aria-label]="'Eliminar ' + sectionLabel(section)" [attr.title]="'Eliminar ' + sectionLabel(section)"><i class="ti ti-trash"></i></button></div> }</div>

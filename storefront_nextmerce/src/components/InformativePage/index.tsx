@@ -83,8 +83,9 @@ const InformativePage = ({
     window.parent.postMessage({ type: "lumefy:preview:select", sectionId }, "*");
   };
 
-  const sectionClass = (section: PagesTemplateSection) =>
-    `lumefy-pages-preview-section ${previewMode && selectedSectionId === section.id ? "lumefy-pages-preview-section--selected" : ""}`;
+  const sectionClass = (section: PagesTemplateSection) => previewMode
+    ? `lumefy-pages-preview-section ${selectedSectionId === section.id ? "lumefy-pages-preview-section--selected" : ""}`
+    : "";
   const contactPageVisible = pageSlug === "contact" && contactSection.enabled;
 
   return (
@@ -94,8 +95,8 @@ const InformativePage = ({
           <div className="pages-template-sections flex flex-col gap-7.5">
             <div
               className={sectionClass(headerSection)}
-              data-lumefy-pages-section="page_header"
-              onClick={handlePreviewSectionClick}
+              data-lumefy-pages-section={previewMode ? "page_header" : undefined}
+              onClick={previewMode ? handlePreviewSectionClick : undefined}
               style={{ display: headerSection.enabled ? undefined : "none", order: sectionOrder(normalizedTemplate.sections, "page_header") }}
             >
               <Breadcrumb title={page.title} pages={[page.title]} />
@@ -110,8 +111,8 @@ const InformativePage = ({
 
             <article
               className={sectionClass(contentSection)}
-              data-lumefy-pages-section="page_content"
-              onClick={handlePreviewSectionClick}
+              data-lumefy-pages-section={previewMode ? "page_content" : undefined}
+              onClick={previewMode ? handlePreviewSectionClick : undefined}
               style={{ display: contentSection.enabled ? undefined : "none", order: sectionOrder(normalizedTemplate.sections, "page_content") }}
             >
               <div className="rounded-[18px] bg-white px-6 py-8 shadow-1 sm:px-10 sm:py-10">
@@ -123,8 +124,8 @@ const InformativePage = ({
 
             <div
               className={sectionClass(contactSection)}
-              data-lumefy-pages-section="page_contact_form"
-              onClick={handlePreviewSectionClick}
+              data-lumefy-pages-section={previewMode ? "page_contact_form" : undefined}
+              onClick={previewMode ? handlePreviewSectionClick : undefined}
               style={{ display: contactPageVisible ? undefined : "none", order: sectionOrder(normalizedTemplate.sections, "page_contact_form") }}
             >
               <Contact embedded />

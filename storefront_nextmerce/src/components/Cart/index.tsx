@@ -128,8 +128,9 @@ const Cart = ({ cartTemplate = {} }: { cartTemplate?: CartTemplateDocument | Rec
     const index = normalizedTemplate.sections.findIndex((section) => section.type === type);
     return index < 0 ? 99 : index;
   };
-  const sectionClass = (section: CartTemplateSection) =>
-    `lumefy-cart-preview-section ${previewMode && selectedSectionId === section.id ? "lumefy-cart-preview-section--selected" : ""}`;
+  const sectionClass = (section: CartTemplateSection) => previewMode
+    ? `lumefy-cart-preview-section ${selectedSectionId === section.id ? "lumefy-cart-preview-section--selected" : ""}`
+    : "";
 
   return (
     <div className={previewMode && selectionMode ? "lumefy-preview--selecting" : undefined}>
@@ -138,8 +139,8 @@ const Cart = ({ cartTemplate = {} }: { cartTemplate?: CartTemplateDocument | Rec
           <div className="cart-template-sections flex flex-col gap-7.5">
             <div
               className={sectionClass(headerSection)}
-              data-lumefy-cart-section="cart_header"
-              onClick={handlePreviewSectionClick}
+              data-lumefy-cart-section={previewMode ? "cart_header" : undefined}
+              onClick={previewMode ? handlePreviewSectionClick : undefined}
               style={{ display: headerSection.enabled ? undefined : "none", order: sectionOrder("cart_header") }}
             >
               <Breadcrumb title={content.breadcrumb_title} pages={[content.breadcrumb_title]} />
@@ -155,8 +156,8 @@ const Cart = ({ cartTemplate = {} }: { cartTemplate?: CartTemplateDocument | Rec
 
             <div
               className={sectionClass(itemsSection)}
-              data-lumefy-cart-section="cart_items"
-              onClick={handlePreviewSectionClick}
+              data-lumefy-cart-section={previewMode ? "cart_items" : undefined}
+              onClick={previewMode ? handlePreviewSectionClick : undefined}
               style={{ display: itemsSection.enabled && showFilledCart ? undefined : "none", order: sectionOrder("cart_items") }}
             >
               <div className="overflow-hidden rounded-[10px] bg-white shadow-1">
@@ -186,8 +187,8 @@ const Cart = ({ cartTemplate = {} }: { cartTemplate?: CartTemplateDocument | Rec
 
             <div
               className={sectionClass(summarySection)}
-              data-lumefy-cart-section="cart_summary"
-              onClick={handlePreviewSectionClick}
+              data-lumefy-cart-section={previewMode ? "cart_summary" : undefined}
+              onClick={previewMode ? handlePreviewSectionClick : undefined}
               style={{ display: summarySection.enabled && showFilledCart ? undefined : "none", order: sectionOrder("cart_summary") }}
             >
               <div className="flex flex-col items-end lg:flex-row">
@@ -202,8 +203,8 @@ const Cart = ({ cartTemplate = {} }: { cartTemplate?: CartTemplateDocument | Rec
 
             <div
               className={sectionClass(emptySection)}
-              data-lumefy-cart-section="cart_empty"
-              onClick={handlePreviewSectionClick}
+              data-lumefy-cart-section={previewMode ? "cart_empty" : undefined}
+              onClick={previewMode ? handlePreviewSectionClick : undefined}
               style={{ display: emptySection.enabled && (!hasRealItems || previewMode) ? undefined : "none", order: sectionOrder("cart_empty") }}
             >
               <div className="rounded-[10px] bg-white px-5 py-12 text-center shadow-1 sm:px-8">
