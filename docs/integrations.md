@@ -138,7 +138,9 @@ docker compose --env-file .env.production -f docker-compose.prod.yml exec -T bac
 
 También puedes limitarla con `--source-id`. Las referencias que no puedan
 descargarse se retiran de la imagen visible del producto para que ninguna
-tienda dependa directamente del servidor externo.
+tienda dependa directamente del servidor externo. Las URLs originales se
+conservan como referencia interna de reintento, por lo que el reparador puede
+reconstruir la galería después de corregir los permisos del proveedor.
 
 Cuando `pagination.enabled` es `false`, Lumefy hace una sola solicitud. Con `type: "page"`, reemplaza o agrega los parámetros de página en cada solicitud y continúa hasta encontrar una página vacía, una página menor al tamaño configurado, metadatos de páginas/total devueltos por el proveedor, `last_page`/`total` configurados o el límite `max_pages`. Con `type: "cursor"`, envía el token en `cursor_param` y lee el siguiente token desde `next_cursor_path` (por defecto `meta.next_cursor`); si el proveedor devuelve una URL absoluta, solo se acepta si mantiene el mismo origen configurado. Los cursores repetidos y los recorridos que superan `max_pages` se detienen con error para evitar bucles.
 

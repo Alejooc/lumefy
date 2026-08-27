@@ -1913,6 +1913,13 @@ async def repair_external_integration_images(
         image_rows = image_result.scalars().all()
         changed = False
         cache_results: dict[tuple[uuid.UUID, str], str | None] = {}
+        known_local_urls = {
+            str(row.image_url).strip()
+            for row in image_rows
+            if _is_local_image_url(row.image_url)
+        }
+        if _is_local_image_url(product.image_url):
+            known_local_urls.add(str(product.image_url).strip())
 
         def matching_source(value: str) -> IntegrationSource | None:
             for candidate in sources:
@@ -1944,6 +1951,7 @@ async def repair_external_integration_images(
                     row.image_url = cached_url
                     changed = True
                 local_rows.append(row)
+                known_local_urls.add(cached_url)
                 stats["assets_repaired"] += 1
                 continue
 
@@ -1960,6 +1968,7 @@ async def repair_external_integration_images(
                 if not dry_run:
                     product.image_url = cached_primary
                     changed = True
+                known_local_urls.add(cached_primary)
                 stats["assets_repaired"] += 1
             else:
                 stats["assets_pending"] += 1
@@ -1967,6 +1976,60 @@ async def repair_external_integration_images(
                     product.image_url = None
                     stats["assets_removed"] += 1
                     changed = True
+
+        # Earlier repair executions may have removed the visible external
+        # fields after a failed download. The original provider URLs remain in
+        # this internal retry list, so use it to rebuild the local gallery once
+        # the provider grants access again.
+        attributes = product.attributes if isinstance(product.attributes, dict) else {}
+        raw_legacy_urls = attributes.get("external_image_urls") or []
+        legacy_urls: list[str] = []
+        seen_legacy_urls: set[str] = set()
+        if isinstance(raw_legacy_urls, list):
+            for value in raw_legacy_urls:
+                normalized_url = str(value or "").strip()
+                url_key = normalized_url.casefold()
+                if (
+                    normalized_url
+                    and url_key not in seen_legacy_urls
+                    and _is_remote_image_url(normalized_url)
+                ):
+                    seen_legacy_urls.add(url_key)
+                    legacy_urls.append(normalized_url)
+
+        used_orders = {
+            int(row.order or 0)
+            for row in local_rows
+            if getattr(row, "order", None) is not None
+        }
+        for index, legacy_url in enumerate(legacy_urls):
+            cached_url = await cache_legacy_url(legacy_url)
+            if not cached_url or not _is_local_image_url(cached_url):
+                stats["assets_pending"] += 1
+                continue
+            if cached_url in known_local_urls:
+                continue
+            if dry_run:
+                stats["assets_pending"] += 1
+                continue
+
+            order = index
+            while order in used_orders:
+                order += 1
+            restored = ProductImage(
+                id=uuid.uuid4(),
+                product_id=product.id,
+                image_url=cached_url,
+                order=order,
+            )
+            db.add(restored)
+            local_rows.append(restored)
+            known_local_urls.add(cached_url)
+            used_orders.add(order)
+            if not _is_local_image_url(product.image_url):
+                product.image_url = cached_url
+            stats["assets_repaired"] += 1
+            changed = True
 
         if not dry_run and not _is_local_image_url(product.image_url):
             first_local = next(

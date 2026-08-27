@@ -313,6 +313,52 @@ class IntegrationImageSyncTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(stats["assets_removed"], 0)
         db.delete.assert_not_awaited()
 
+    async def test_repair_recovers_urls_saved_for_retry_after_visible_reference_removed(self):
+        company_id = uuid.uuid4()
+        source = SimpleNamespace(
+            id=uuid.uuid4(),
+            company_id=company_id,
+            base_url="https://provider.example/api",
+            configuration={"asset_base_url": "https://cdn.example/media"},
+        )
+        product = SimpleNamespace(
+            id=uuid.uuid4(),
+            company_id=company_id,
+            is_active=True,
+            image_url=None,
+            attributes={
+                "external_image_urls": [
+                    "https://cdn.example/media/products/1/a.jpg",
+                    "https://cdn.example/media/products/1/b.jpg",
+                ]
+            },
+        )
+        linked_result = Mock()
+        linked_result.all.return_value = [(SimpleNamespace(), source, product)]
+        image_result = Mock()
+        image_result.scalars.return_value.all.return_value = []
+        db = SimpleNamespace(
+            execute=AsyncMock(side_effect=[linked_result, image_result]),
+            add=Mock(),
+            delete=AsyncMock(),
+        )
+
+        with patch(
+            "app.services.integration_service._cache_provider_asset",
+            new=AsyncMock(
+                side_effect=[
+                    "/static/uploads/integrations/source/a.jpg",
+                    "/static/uploads/integrations/source/b.jpg",
+                ]
+            ),
+        ):
+            stats = await repair_external_integration_images(db)
+
+        self.assertEqual(product.image_url, "/static/uploads/integrations/source/a.jpg")
+        self.assertEqual(db.add.call_count, 2)
+        self.assertEqual(stats["assets_repaired"], 2)
+        self.assertEqual(stats["assets_pending"], 0)
+
 
 class IntegrationSupplierHomologationTests(unittest.IsolatedAsyncioTestCase):
     async def test_reuses_supplier_by_external_id(self):
