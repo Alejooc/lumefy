@@ -1,77 +1,121 @@
-<div class="apps-page">
-  <div class="apps-header d-flex justify-content-between align-items-start flex-wrap gap-2">
-    <div>
-      <h4 class="mb-1">Tienda de Apps</h4>
-      <p class="text-muted mb-0">Instala apps por empresa con permisos explicitos y configuracion independiente.</p>
-    </div>
-    <button class="btn btn-outline-secondary btn-sm" (click)="reload()" [disabled]="loading">
-      {{ loading ? 'Actualizando...' : 'Actualizar' }}
+<div class="market-shell">
+  <header class="market-nav">
+    <button class="market-brand" type="button" (click)="selectCategory('Todas')" aria-label="Ir a la tienda de apps">
+      <span class="brand-mark"><i class="ti ti-sparkles"></i></span>
+      <span class="brand-name">lumefy <strong>apps</strong></span>
     </button>
-  </div>
 
-  <div class="row g-3 mt-1">
-    @for (app of catalog; track app) {
-      <div class="col-12 col-lg-6">
-        <div class="card app-card">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-              <div>
-                <h5 class="mb-1">{{ app.name }}</h5>
-                <small class="text-muted">{{ app.slug }} | v{{ app.version }} | {{ app.category || 'General' }}</small>
-              </div>
-              <span class="badge" [class.bg-success]="isInstalled(app.slug)" [class.bg-secondary]="!isInstalled(app.slug)">
-                {{ isInstalled(app.slug) ? 'Instalada' : 'No instalada' }}
-              </span>
-            </div>
-            <p class="mb-2">{{ app.description }}</p>
-            <div class="mb-2">
-              <span class="badge bg-light text-dark me-2">{{ pricingLabel(app) }}</span>
-              @if (app.capabilities.length > 0) {
-                <span class="badge bg-light text-dark">
-                  {{ app.capabilities.length }} capacidades
-                </span>
-              }
-            </div>
-            @if (app.requested_scopes.length > 0) {
-              <small class="d-block text-muted mb-3">
-                Scopes: {{ app.requested_scopes.join(', ') }}
-              </small>
-            }
-            @if (installingSlug === app.slug) {
-              <div class="mb-3">
-                <div class="progress">
-                  <div class="progress-bar progress-bar-striped progress-bar-animated" [style.width.%]="installProgress[app.slug] || 0">
-                    {{ installProgress[app.slug] || 0 }}%
-                  </div>
-                </div>
-                <small class="text-muted">Instalando app...</small>
-              </div>
-            }
-            <div class="d-flex gap-2 flex-wrap">
-              @if (!isInstalled(app.slug)) {
-                <button class="btn btn-sm btn-primary" (click)="install(app.slug)">
-                  Instalar y configurar
-                </button>
-              }
-              @if (isInstalled(app.slug)) {
-                <button class="btn btn-sm btn-outline-primary" (click)="openInstalled(app.slug)">
-                  Abrir configuracion
-                </button>
-              }
-              @if (isInstalled(app.slug)) {
-                <button class="btn btn-sm btn-outline-danger" (click)="uninstall(app.slug)">
-                  Desactivar
-                </button>
-              }
-              @if (app.docs_url) {
-                <a class="btn btn-sm btn-outline-secondary" [href]="app.docs_url" target="_blank" rel="noopener">
-                  Docs
-                </a>
-              }
+    <label class="market-search" for="app-store-search">
+      <i class="ti ti-search"></i>
+      <input id="app-store-search" type="search" [(ngModel)]="searchQuery" placeholder="Busca apps, herramientas y más" autocomplete="off" />
+      @if (searchQuery) {
+        <button type="button" class="search-clear" (click)="clearSearch()" aria-label="Limpiar búsqueda"><i class="ti ti-x"></i></button>
+      }
+    </label>
+
+    <div class="market-nav-actions">
+      <button class="browse-button" type="button" (click)="browseOpen = !browseOpen" [attr.aria-expanded]="browseOpen">
+        Explorar apps <i class="ti" [class.ti-chevron-down]="!browseOpen" [class.ti-chevron-up]="browseOpen"></i>
+      </button>
+      <button class="account-chip" type="button" aria-label="Cuenta de empresa"><i class="ti ti-building-store"></i></button>
+    </div>
+  </header>
+
+  @if (browseOpen) {
+    <div class="browse-panel">
+      <div class="browse-panel-inner">
+        <div>
+          <span class="eyebrow">Explora por necesidad</span>
+          <h2>Encuentra la pieza que falta.</h2>
+          <p>Conecta ventas, operación y crecimiento en un solo lugar.</p>
+        </div>
+        <div class="browse-categories">
+          <button type="button" [class.active]="selectedCategory === 'Todas'" (click)="selectCategory('Todas')">
+            <i class="ti ti-layout-grid"></i><span><strong>Todas las apps</strong><small>Ver el catálogo completo</small></span>
+          </button>
+          @for (category of categories; track category) {
+            <button type="button" [class.active]="selectedCategory === category" (click)="selectCategory(category)">
+              <i class="ti ti-arrow-up-right"></i><span><strong>{{ category }}</strong><small>Apps para {{ category.toLowerCase() }}</small></span>
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  <main class="market-main">
+    <section class="market-hero">
+      <div class="hero-copy">
+        <span class="eyebrow hero-eyebrow"><i class="ti ti-point-filled"></i> El espacio de trabajo crece contigo</span>
+        <h1>Tu negocio.<br /><em>Más conectado.</em></h1>
+        <p class="hero-description">Descubre aplicaciones que convierten tareas sueltas en flujos de trabajo que avanzan solos.</p>
+        <div class="hero-actions">
+          <button type="button" class="button button-dark" (click)="selectCategory('Todas')">Explorar catálogo <i class="ti ti-arrow-down-right"></i></button>
+          <button type="button" class="button button-quiet" (click)="setViewMode('installed')">Ver mis apps <span>{{ installedCount }}</span></button>
+        </div>
+        <div class="hero-proof">
+          <span><i class="ti ti-shield-check"></i> Instalación por empresa</span>
+          <span><i class="ti ti-lock-check"></i> Permisos transparentes</span>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <div class="hero-spark hero-spark-one"></div><div class="hero-spark hero-spark-two"></div>
+        <div class="hero-orbit hero-orbit-one"></div><div class="hero-orbit hero-orbit-two"></div>
+        <div class="hero-dashboard">
+          <div class="dashboard-topbar"><span class="dashboard-dot"></span><span class="dashboard-dot"></span><span class="dashboard-dot"></span><span class="dashboard-label">lumefy workspace</span></div>
+          <div class="dashboard-body">
+            <div class="dashboard-sidebar"><span class="dashboard-side-logo"><i class="ti ti-sparkles"></i></span><span class="dashboard-side-line is-active"></span><span class="dashboard-side-line"></span><span class="dashboard-side-line"></span><span class="dashboard-side-line"></span></div>
+            <div class="dashboard-content">
+              <div class="dashboard-heading"><span>Todo en movimiento</span><i class="ti ti-dots"></i></div>
+              <div class="dashboard-metrics"><div><small>Apps activas</small><strong>{{ installedCount | number:'2.0-0' }}</strong><b>+12%</b></div><div><small>Flujos conectados</small><strong>08</strong><b>+24%</b></div></div>
+              <div class="dashboard-chart"><div class="chart-label"><span>Actividad semanal</span><small>Últimos 7 días</small></div><svg viewBox="0 0 300 88" preserveAspectRatio="none"><path d="M0 70 C22 68 24 52 44 56 S75 72 92 48 S115 57 130 42 S153 15 171 33 S193 45 211 28 S237 35 253 20 S278 32 300 8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" /><path d="M0 70 C22 68 24 52 44 56 S75 72 92 48 S115 57 130 42 S153 15 171 33 S193 45 211 28 S237 35 253 20 S278 32 300 8 V88 H0 Z" fill="currentColor" opacity=".09" /></svg></div>
             </div>
           </div>
         </div>
+        <div class="hero-sticker"><i class="ti ti-sparkles"></i><span>made for<br /><strong>momentum</strong></span></div>
+        @if (featuredApp) {
+          <div class="hero-feature-card"><span class="feature-mini-icon" [style.background]="metaFor(featuredApp).accent"><i [class]="iconClass(featuredApp)"></i></span><span><small>App destacada</small><strong>{{ featuredApp.name }}</strong></span><i class="ti ti-arrow-up-right"></i></div>
+        }
       </div>
-    }
-  </div>
+    </section>
+
+    <section class="market-body">
+      <aside class="category-rail">
+        <span class="rail-label">Catálogo</span>
+        <button type="button" [class.active]="selectedCategory === 'Todas'" (click)="selectCategory('Todas')"><span><i class="ti ti-layout-grid"></i> Todas las apps</span><small>{{ catalog.length }}</small></button>
+        @for (category of categories; track category) {
+          <button type="button" [class.active]="selectedCategory === category" (click)="selectCategory(category)"><span><i class="ti ti-arrow-up-right"></i> {{ category }}</span><small>{{ categoryCount(category) }}</small></button>
+        }
+        <div class="rail-note"><span class="rail-note-mark"><i class="ti ti-plus"></i></span><strong>¿Eres desarrollador?</strong><p>Publica una app para empresas que ya están creciendo.</p><button type="button" (click)="openDeveloperCatalog()">Conoce el proceso <i class="ti ti-arrow-up-right"></i></button></div>
+      </aside>
+
+      <section class="market-results" aria-live="polite">
+        <div class="results-heading"><div><span class="eyebrow">{{ selectedCategory === 'Todas' ? 'Para cada etapa' : selectedCategory }}</span><h2>{{ viewMode === 'installed' ? 'Tus apps instaladas' : 'Aplicaciones para avanzar' }}</h2></div><div class="result-controls"><div class="view-switch" role="tablist" aria-label="Filtrar aplicaciones"><button type="button" [class.active]="viewMode === 'all'" (click)="setViewMode('all')">Todas</button><button type="button" [class.active]="viewMode === 'installed'" (click)="setViewMode('installed')">Instaladas</button></div><button type="button" class="refresh-button" (click)="reload()" [disabled]="loading" aria-label="Actualizar catálogo"><i class="ti ti-refresh" [class.is-spinning]="loading"></i></button></div></div>
+
+        @if (searchQuery || selectedCategory !== 'Todas' || viewMode === 'installed') {
+          <div class="active-filters"><span>{{ filteredCatalog.length }} resultado{{ filteredCatalog.length === 1 ? '' : 's' }}</span>@if (searchQuery) { <button type="button" (click)="clearSearch()">“{{ searchQuery }}” <i class="ti ti-x"></i></button> }@if (selectedCategory !== 'Todas') { <button type="button" (click)="selectCategory('Todas')">{{ selectedCategory }} <i class="ti ti-x"></i></button> }</div>
+        }
+
+        @if (loading) {
+          <div class="apps-grid apps-grid-skeleton">@for (item of [1, 2, 3, 4]; track item) { <div class="app-tile skeleton-tile"><div class="skeleton-block skeleton-art"></div><div class="skeleton-block skeleton-line"></div><div class="skeleton-block skeleton-line short"></div></div> }</div>
+        } @else if (filteredCatalog.length === 0) {
+          <div class="empty-catalog"><span><i class="ti ti-search-off"></i></span><h3>No encontramos esa app.</h3><p>Prueba otra búsqueda o vuelve a ver todo el catálogo.</p><button type="button" class="button button-dark" (click)="searchQuery = ''; selectedCategory = 'Todas'; viewMode = 'all'">Ver todas las apps</button></div>
+        } @else {
+          <div class="apps-grid">
+            @for (app of filteredCatalog; track app.slug; let index = $index) {
+              <article class="app-tile" [class.app-tile-featured]="index === 0 && !searchQuery && selectedCategory === 'Todas'" (click)="openDetails(app)">
+                <div class="tile-art" [style.background]="metaFor(app).soft"><span class="tile-orb tile-orb-one" [style.background]="metaFor(app).accent"></span><span class="tile-orb tile-orb-two"></span><span class="tile-icon" [style.background]="metaFor(app).accent"><i [class]="iconClass(app)"></i></span>@if (isInstalled(app.slug)) { <span class="installed-pill"><i class="ti ti-check"></i> Instalada</span> }<button type="button" class="tile-open" (click)="$event.stopPropagation(); openDetails(app)" aria-label="Ver detalles"><i class="ti ti-arrow-up-right"></i></button></div>
+                <div class="tile-content"><div class="tile-kicker">{{ metaFor(app).eyebrow }}</div><h3>{{ app.name }}</h3><p>{{ metaFor(app).tagline }}</p><div class="tile-footer"><span class="price-label">{{ pricingLabel(app) }}</span><span class="tile-capability">{{ (app.capabilities || []).length }} funciones</span></div></div>
+              </article>
+            }
+          </div>
+        }
+      </section>
+    </section>
+  </main>
+
+  @if (selectedApp) {
+    <div class="detail-backdrop" (click)="closeDetails()"><article class="detail-drawer" (click)="$event.stopPropagation()" [style.--detail-accent]="metaFor(selectedApp).accent"><button type="button" class="detail-close" (click)="closeDetails()" aria-label="Cerrar detalles"><i class="ti ti-x"></i></button><div class="detail-visual" [style.background]="metaFor(selectedApp).soft"><span class="detail-visual-orb"></span><span class="detail-icon" [style.background]="metaFor(selectedApp).accent"><i [class]="iconClass(selectedApp)"></i></span><span class="detail-visual-word">lumefy<br /><strong>apps</strong></span></div><div class="detail-content"><span class="eyebrow">{{ metaFor(selectedApp).eyebrow }}</span><div class="detail-title-row"><div><h2>{{ selectedApp.name }}</h2><span>v{{ selectedApp.version }}</span></div>@if (isInstalled(selectedApp.slug)) { <span class="detail-status"><i class="ti ti-check"></i> Instalada</span> }</div><p class="detail-tagline">{{ metaFor(selectedApp).tagline }}</p><p class="detail-description">{{ selectedApp.description || metaFor(selectedApp).note }}</p><div class="detail-meta"><span><i class="ti ti-tag"></i>{{ selectedApp.category || 'General' }}</span><span><i class="ti ti-bolt"></i>{{ (selectedApp.capabilities || []).length }} funciones</span><span><i class="ti ti-shield-check"></i>{{ pricingLabel(selectedApp) }}</span></div>@if (selectedApp.requested_scopes?.length) { <div class="detail-permissions"><strong>Permisos que solicita</strong><div>@for (scope of selectedApp.requested_scopes; track scope) { <span>{{ scope }}</span> }</div></div> }@if (installingSlug === selectedApp.slug) { <div class="detail-progress"><div><span>Instalando app</span><strong>{{ installProgress[selectedApp.slug] || 0 }}%</strong></div><div class="progress-track"><span [style.width.%]="installProgress[selectedApp.slug] || 0"></span></div></div> }<div class="detail-actions">@if (isInstalled(selectedApp.slug)) { <button type="button" class="button button-dark" (click)="openInstalled(selectedApp.slug)">Abrir configuración <i class="ti ti-arrow-up-right"></i></button><button type="button" class="button button-danger" (click)="uninstall(selectedApp.slug); closeDetails()">Desactivar</button> } @else { <button type="button" class="button button-dark" (click)="install(selectedApp.slug)">Instalar app <i class="ti ti-arrow-up-right"></i></button> }</div><small class="detail-footnote"><i class="ti ti-lock"></i> La instalación es independiente para cada empresa y sus permisos se pueden revisar.</small></div></article></div>
+  }
 </div>

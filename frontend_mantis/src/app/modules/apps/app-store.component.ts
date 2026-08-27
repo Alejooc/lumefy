@@ -1,5 +1,6 @@
-
+import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from 'src/app/core/services/auth.service';
 import {
@@ -11,10 +12,19 @@ import {
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
 
+interface AppMarketMeta {
+  eyebrow: string;
+  tagline: string;
+  accent: string;
+  soft: string;
+  icon: string;
+  note: string;
+}
+
 @Component({
   selector: 'app-app-store',
   standalone: true,
-  imports: [],
+  imports: [CommonModule, FormsModule],
   templateUrl: './app-store.component.html',
   styleUrl: './app-store.component.scss'
 })
@@ -26,11 +36,68 @@ export class AppStoreComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private swal = inject(SweetAlertService);
 
+  private readonly curatedMeta: Record<string, AppMarketMeta> = {
+    eleganthome: {
+      eyebrow: 'Canal de venta',
+      tagline: 'Conecta tu catálogo con el mundo mayorista.',
+      accent: '#c9f146',
+      soft: '#eff7d8',
+      icon: 'package-export',
+      note: 'Productos, inventario y órdenes en un solo flujo.'
+    },
+    ecommerce: {
+      eyebrow: 'Canal digital',
+      tagline: 'Lleva tu tienda online a una experiencia propia.',
+      accent: '#ff7559',
+      soft: '#fff0eb',
+      icon: 'world-www',
+      note: 'Diseña, publica y vende desde Lumefy.'
+    },
+    pos_module: {
+      eyebrow: 'Operación en tienda',
+      tagline: 'Una caja rápida para cada momento de venta.',
+      accent: '#75cbd1',
+      soft: '#e7f7f6',
+      icon: 'device-desktop-analytics',
+      note: 'Cobros, sesiones y existencias conectadas.'
+    }
+  };
+
   loading = false;
   catalog: AppCatalogItem[] = [];
   installedMap: Record<string, InstalledApp> = {};
   installProgress: Record<string, number> = {};
   installingSlug: string | null = null;
+  selectedApp: AppCatalogItem | null = null;
+  searchQuery = '';
+  selectedCategory = 'Todas';
+  viewMode: 'all' | 'installed' = 'all';
+  browseOpen = false;
+
+  get categories(): string[] {
+    return Array.from(new Set(this.catalog.map((app) => app.category).filter((category): category is string => !!category)));
+  }
+
+  get filteredCatalog(): AppCatalogItem[] {
+    const query = this.searchQuery.trim().toLowerCase();
+    return this.catalog.filter((app) => {
+      const matchesCategory = this.selectedCategory === 'Todas' || app.category === this.selectedCategory;
+      const matchesView = this.viewMode === 'all' || this.isInstalled(app.slug);
+      const searchable = [app.name, app.description, app.category, ...(app.capabilities || [])]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return matchesCategory && matchesView && (!query || searchable.includes(query));
+    });
+  }
+
+  get featuredApp(): AppCatalogItem | null {
+    return this.catalog.find((app) => app.slug === 'eleganthome') || this.catalog[0] || null;
+  }
+
+  get installedCount(): number {
+    return Object.values(this.installedMap).filter((app) => app.is_enabled).length;
+  }
 
   ngOnInit(): void {
     if (this.authService.currentUserValue?.is_superuser) {
@@ -69,13 +136,43 @@ export class AppStoreComponent implements OnInit {
       },
       error: () => {
         this.loading = false;
-        this.swal.error('Error', 'No se pudo cargar el catalogo de apps.');
+        this.swal.error('Error', 'No se pudo cargar el catálogo de apps.');
       }
     });
   }
 
   isInstalled(slug: string): boolean {
     return !!this.installedMap[slug]?.is_enabled;
+  }
+
+  selectCategory(category: string): void {
+    this.selectedCategory = category;
+    this.browseOpen = false;
+  }
+
+  setViewMode(mode: 'all' | 'installed'): void {
+    this.viewMode = mode;
+  }
+
+  categoryCount(category: string): number {
+    return this.catalog.filter((app) => app.category === category).length;
+  }
+
+  openDeveloperCatalog(): void {
+    this.router.navigate(['/apps/admin']);
+  }
+
+  clearSearch(): void {
+    this.searchQuery = '';
+  }
+
+  openDetails(app: AppCatalogItem): void {
+    this.selectedApp = app;
+    this.browseOpen = false;
+  }
+
+  closeDetails(): void {
+    this.selectedApp = null;
   }
 
   openInstalled(slug: string): void {
@@ -88,15 +185,13 @@ export class AppStoreComponent implements OnInit {
     if (!app) return;
 
     const requestedScopes = app.requested_scopes || [];
-    const scopeText = requestedScopes.length > 0 ? requestedScopes.join(', ') : 'Sin scopes especiales';
+    const scopeText = requestedScopes.length > 0 ? requestedScopes.join(', ') : 'Sin permisos especiales';
     const confirmResult = await this.swal.confirm(
       `Instalar ${app.name}`,
       `La app solicita estos permisos: ${scopeText}`
     );
 
-    if (!confirmResult?.isConfirmed) {
-      return;
-    }
+    if (!confirmResult?.isConfirmed) return;
 
     const payload: AppInstallRequest = {
       granted_scopes: requestedScopes,
@@ -120,7 +215,7 @@ export class AppStoreComponent implements OnInit {
             setTimeout(() => {
               this.installingSlug = null;
               this.appService.notifyInstalledChanged();
-              this.swal.success('Instalacion completa');
+              this.swal.success('Instalación completa');
               this.reload();
               const destination = this.catalog.find((item) => item.slug === slug)?.setup_url || `/apps/installed/${slug}`;
               this.router.navigateByUrl(destination);
@@ -130,7 +225,7 @@ export class AppStoreComponent implements OnInit {
             clearInterval(timer);
             this.installingSlug = null;
             this.installProgress[slug] = 0;
-            this.swal.error('Error de instalacion', err?.error?.detail || 'No se pudo instalar la app.');
+            this.swal.error('Error de instalación', err?.error?.detail || 'No se pudo instalar la app.');
           }
         });
         return;
@@ -153,8 +248,24 @@ export class AppStoreComponent implements OnInit {
   }
 
   pricingLabel(app: AppCatalogItem): string {
-    if (app.pricing_model === 'included') return 'Incluida en plan';
+    if (app.pricing_model === 'included') return 'Incluida en tu plan';
     if (app.monthly_price <= 0) return 'Gratis';
     return `$${app.monthly_price}/mes`;
+  }
+
+  metaFor(app: AppCatalogItem): AppMarketMeta {
+    return this.curatedMeta[app.slug] || {
+      eyebrow: app.category || 'Aplicación',
+      tagline: app.description || 'Amplía las capacidades de tu operación.',
+      accent: '#9276e8',
+      soft: '#f0ecff',
+      icon: app.icon || 'apps',
+      note: 'Una herramienta lista para trabajar contigo.'
+    };
+  }
+
+  iconClass(app: AppCatalogItem): string {
+    const icon = this.metaFor(app).icon.replace(/^ti-/, '');
+    return `ti ti-${icon}`;
   }
 }
