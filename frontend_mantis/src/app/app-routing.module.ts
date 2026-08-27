@@ -56,11 +56,25 @@ const routes: Routes = [
     loadComponent: () => import('./modules/pos/pos.component').then((c) => c.PosComponent)
   },
   {
+    path: 'commerce/design/product',
+    canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
+    data: { appSlug: 'ecommerce', requiredPermission: 'manage_company' },
+    loadComponent: () =>
+      import('./modules/apps/ecommerce/ecommerce-product-template-editor.component').then((c) => c.EcommerceProductTemplateEditorComponent)
+  },
+  {
     path: 'commerce/design',
     canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
     data: { appSlug: 'ecommerce', requiredPermission: 'manage_company' },
     loadComponent: () =>
       import('./modules/apps/ecommerce/ecommerce-visual-editor.component').then((c) => c.EcommerceVisualEditorComponent)
+  },
+  {
+    path: 'apps/ecommerce/design/product',
+    canActivate: [AuthGuard, TenantGuard, AppAccessGuard],
+    data: { appSlug: 'ecommerce', requiredPermission: 'manage_company' },
+    loadComponent: () =>
+      import('./modules/apps/ecommerce/ecommerce-product-template-editor.component').then((c) => c.EcommerceProductTemplateEditorComponent)
   },
   {
     path: 'apps/ecommerce/design',

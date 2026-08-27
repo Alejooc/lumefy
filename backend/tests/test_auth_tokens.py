@@ -49,6 +49,20 @@ class AuthTokenTests(unittest.TestCase):
             (storefront_id, company_id, "home"),
         )
 
+        product_token = create_access_token(
+            {
+                "scope": "storefront_theme_preview",
+                "storefront_id": str(storefront_id),
+                "company_id": str(company_id),
+                "template_key": "product",
+            },
+            expires_delta=timedelta(minutes=5),
+        )
+        self.assertEqual(
+            get_storefront_preview_claims(product_token),
+            (storefront_id, company_id, "product"),
+        )
+
         wrong_scope = create_access_token(
             {"scope": "storefront", "storefront_id": str(storefront_id), "company_id": str(company_id), "template_key": "home"},
             expires_delta=timedelta(minutes=5),
@@ -65,6 +79,17 @@ class AuthTokenTests(unittest.TestCase):
             expires_delta=timedelta(seconds=-1),
         )
         self.assertIsNone(get_storefront_preview_claims(expired))
+
+        unsupported_template = create_access_token(
+            {
+                "scope": "storefront_theme_preview",
+                "storefront_id": str(storefront_id),
+                "company_id": str(company_id),
+                "template_key": "checkout",
+            },
+            expires_delta=timedelta(minutes=5),
+        )
+        self.assertIsNone(get_storefront_preview_claims(unsupported_template))
 
 
 if __name__ == "__main__":

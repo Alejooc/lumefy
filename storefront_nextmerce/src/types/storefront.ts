@@ -29,6 +29,7 @@ export type PublicStorefront = {
   theme_key: string;
   theme_settings: Record<string, unknown>;
   theme_document?: Record<string, unknown>;
+  theme_documents?: Record<string, Record<string, unknown>>;
   checkout_settings: Record<string, unknown>;
   seo_settings: Record<string, unknown>;
   currency: string;

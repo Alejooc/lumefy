@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useDispatch } from "react-redux";
 
@@ -15,6 +15,14 @@ import { addItemToWishlist } from "@/redux/features/wishlist-slice";
 import { updateproductDetails } from "@/redux/features/product-details";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
 import { useStorefrontUi } from "@/lib/storefront-ui";
+import { isTrustedPreviewMessage } from "@/lib/preview";
+import {
+  normalizeProductTemplate,
+  productTemplateContent,
+  productTemplateSection,
+  productTemplateSectionEnabled,
+  ProductTemplateDocument,
+} from "@/lib/product-template";
 
 function toSwatchColor(value: string): string {
   const normalized = value.trim().toLowerCase();
@@ -127,17 +135,87 @@ function numericVariantId(value: string): number {
 const ShopDetails = ({
   product,
   relatedItems,
+  productTemplate,
 }: {
   product: Product;
   relatedItems: Product[];
+  productTemplate?: ProductTemplateDocument;
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { format } = useStorefrontCurrency();
   const { openPreviewModal } = usePreviewSlider();
   const { session, loading: authLoading } = useStorefrontAuth();
   const { buttonLabels } = useStorefrontUi();
+  const [previewTemplate, setPreviewTemplate] = useState<unknown>(productTemplate);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedSectionId, setSelectedSectionId] = useState("");
   const [previewImg, setPreviewImg] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const normalizedProductTemplate = useMemo(
+    () => normalizeProductTemplate(previewTemplate),
+    [previewTemplate],
+  );
+  const content = productTemplateContent(previewTemplate);
+  const gallerySection = productTemplateSection(previewTemplate, "product_gallery");
+  const informationSection = productTemplateSection(previewTemplate, "product_information");
+  const descriptionSection = productTemplateSection(previewTemplate, "product_description");
+  const relatedSection = productTemplateSection(previewTemplate, "product_related");
+  const galleryEnabled = productTemplateSectionEnabled(previewTemplate, "product_gallery");
+  const informationEnabled = productTemplateSectionEnabled(previewTemplate, "product_information");
+  const descriptionEnabled = productTemplateSectionEnabled(previewTemplate, "product_description");
+  const relatedEnabled = productTemplateSectionEnabled(previewTemplate, "product_related");
+  const productSectionOrder = (type: "product_gallery" | "product_information" | "product_description" | "product_related") => {
+    const index = normalizedProductTemplate.sections.findIndex((section) => section.type === type);
+    return index >= 0 ? index : 999;
+  };
+  const mainSectionOrder = Math.min(
+    productSectionOrder("product_gallery"),
+    productSectionOrder("product_information"),
+  );
+
+  useEffect(() => {
+    setPreviewTemplate(productTemplate);
+  }, [productTemplate]);
+
+  useEffect(() => {
+    const handlePreviewMessage = (event: MessageEvent) => {
+      if (!isTrustedPreviewMessage(event)) return;
+      const message = event.data;
+      if (!message || message.type !== "lumefy:preview:apply" || message.template !== "product") return;
+      setPreviewMode(true);
+      if (message.document && typeof message.document === "object") {
+        setPreviewTemplate(message.document as ProductTemplateDocument);
+      }
+      if (typeof message.selectedSectionId === "string") setSelectedSectionId(message.selectedSectionId);
+      if (typeof message.selectionMode === "boolean") setSelectionMode(message.selectionMode);
+      window.parent.postMessage(
+        { type: "lumefy:preview:ack", requestId: message.requestId || null },
+        event.origin || "*",
+      );
+    };
+
+    setPreviewMode(window.parent !== window);
+    window.addEventListener("message", handlePreviewMessage);
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "lumefy:preview:ready" }, "*");
+    }
+    return () => window.removeEventListener("message", handlePreviewMessage);
+  }, []);
+
+  const handlePreviewSectionClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (!previewMode) return;
+    const target = event.target as HTMLElement;
+    const section = target.closest<HTMLElement>("[data-lumefy-product-section]");
+    if (!section) return;
+    if (!selectionMode && target.closest("a,button,input,textarea,select")) return;
+    const sectionId = section.dataset.lumefyProductSection;
+    if (!sectionId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedSectionId(sectionId);
+    window.parent.postMessage({ type: "lumefy:preview:select", sectionId }, "*");
+  };
   const sizeOptions = useMemo(
     () => variantFacetOptions(product.variants, product.availableSizes, ["size", "talla", "medida"], true),
     [product.availableSizes, product.variants],
@@ -185,9 +263,10 @@ const ShopDetails = ({
     ? product.imgs.thumbnails
     : previewImages;
 
+  const showBrand = informationSection.settings["show_brand"] !== false;
   const metadata = [
-    product.brandName ? { label: "Marca", value: product.brandName } : null,
-    product.categoryName ? { label: "Categoría", value: product.categoryName } : null,
+    showBrand && product.brandName ? { label: "Marca", value: product.brandName } : null,
+    showBrand && product.categoryName ? { label: "Categoría", value: product.categoryName } : null,
     product.productType ? { label: "Tipo", value: product.productType } : null,
     sizeOptions.length
       ? { label: "Medidas", value: sizeOptions.join(", ") }
@@ -203,17 +282,18 @@ const ShopDetails = ({
   const isInStock = selectedVariant ? selectedVariant.inStock : product.inStock !== false;
   const stockQuantity = selectedVariant?.stockQuantity ?? product.stockQuantity;
   const stockLabel = !isInStock
-    ? buttonLabels.soldOut
+    ? content.stock_out_label || buttonLabels.soldOut
     : stockQuantity !== undefined
       ? `${stockQuantity} disponibles`
-      : "Disponible";
+      : content.stock_in_label || "Disponible";
   const descriptionText = stripHtml(product.description);
 
   const tabs = [
-    { id: "description", title: "Descripción" },
-    { id: "details", title: "Información adicional" },
-    { id: "reviews", title: "Reseñas" },
-  ];
+    { id: "description", title: content.description_tab_label, enabled: descriptionSection.settings["show_description_tab"] !== false },
+    { id: "details", title: content.details_tab_label, enabled: descriptionSection.settings["show_details_tab"] !== false },
+    { id: "reviews", title: content.reviews_tab_label, enabled: descriptionSection.settings["show_reviews_tab"] !== false },
+  ].filter((tab) => tab.enabled);
+  const activeContentTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : tabs[0]?.id;
 
   const handleAddToCart = () => {
     if (!isInStock || (product.variants?.length && !selectedVariant)) return;
@@ -249,23 +329,38 @@ const ShopDetails = ({
   };
 
   return (
-    <>
-      <Breadcrumb title={"Detalle del producto"} pages={["Detalle del producto"]} />
+    <div className={previewMode && selectionMode ? "lumefy-preview--selecting" : undefined}>
+      <Breadcrumb title={content.breadcrumb_title} pages={[content.breadcrumb_title]} />
 
       {!product?.title ? (
         "Producto no disponible"
       ) : (
-        <>
-          <section className="overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28">
+        <div className="product-template-sections">
+          <section
+            className="overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28"
+            onClick={handlePreviewSectionClick}
+            style={{
+              display: galleryEnabled || informationEnabled ? undefined : "none",
+              order: mainSectionOrder,
+            }}
+          >
             <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
               <div className="flex flex-col lg:flex-row gap-7.5 xl:gap-17.5">
-                <div className="lg:max-w-[570px] w-full">
-                  <div className="relative aspect-square w-full overflow-hidden rounded-lg shadow-1 bg-gray-2">
+                <div
+                  className={`lg:max-w-[570px] w-full lumefy-product-preview-section ${previewMode && selectedSectionId === gallerySection.id ? "lumefy-product-preview-section--selected" : ""}`}
+                  data-lumefy-product-section="product_gallery"
+                  style={{
+                    display: galleryEnabled ? undefined : "none",
+                    order: productSectionOrder("product_gallery"),
+                  }}
+                >
+                  <div className="lumefy-product-gallery-main relative aspect-square w-full overflow-hidden rounded-lg shadow-1 bg-gray-2">
                     <button
                       onClick={handleOpenGallery}
                       aria-label="Ver todas las imágenes"
                       title="Ver todas las imágenes"
                       className="gallery__Image w-11 h-11 rounded-[5px] bg-gray-1 shadow-1 flex items-center justify-center ease-out duration-200 text-dark hover:text-blue absolute top-4 lg:top-6 right-4 lg:right-6 z-50"
+                      style={{ display: gallerySection.settings["open_gallery"] === false ? "none" : undefined }}
                     >
                       <svg className="fill-current" width="22" height="22" viewBox="0 0 22 22" fill="none">
                         <path
@@ -287,7 +382,10 @@ const ShopDetails = ({
                     />
                   </div>
 
-                  <div className="flex flex-wrap sm:flex-nowrap gap-4.5 mt-6">
+                  <div
+                    className={`flex flex-wrap sm:flex-nowrap gap-4.5 mt-6 ${gallerySection.settings["gallery_layout"] === "grid" ? "lumefy-product-gallery-thumbnails--grid" : ""}`}
+                    style={{ display: gallerySection.settings["show_thumbnails"] === false ? "none" : undefined }}
+                  >
                     {thumbnailImages.map((item, key) => (
                       <button
                         onClick={() => setPreviewImg(key)}
@@ -309,13 +407,20 @@ const ShopDetails = ({
                   </div>
                 </div>
 
-                <div className="max-w-[539px] w-full">
+                <div
+                  className={`max-w-[539px] w-full lumefy-product-preview-section ${previewMode && selectedSectionId === informationSection.id ? "lumefy-product-preview-section--selected" : ""}`}
+                  data-lumefy-product-section="product_information"
+                  style={{
+                    display: informationEnabled ? undefined : "none",
+                    order: productSectionOrder("product_information"),
+                  }}
+                >
                   <div className="flex items-start justify-between gap-4 mb-3">
                     <h2 className="font-semibold text-xl sm:text-2xl xl:text-custom-3 text-dark">
                       {product.title}
                     </h2>
 
-                    {hasComparePrice ? (
+                    {hasComparePrice && informationSection.settings["show_badge"] !== false ? (
                       <div className="inline-flex font-medium text-custom-sm text-white bg-blue rounded py-0.5 px-2.5">
                         {Math.round(((product.price - product.discountedPrice) / product.price) * 100)}% OFF
                       </div>
@@ -327,7 +432,7 @@ const ShopDetails = ({
                       <span>{product.reviews ? `(${product.reviews} reseñas)` : "Reseñas próximamente"}</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    {informationSection.settings["show_stock"] !== false ? <div className="flex items-center gap-1.5">
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                         <path
                           d="M10 0.5625C4.78125 0.5625 0.5625 4.78125 0.5625 10C0.5625 15.2188 4.78125 19.4688 10 19.4688C15.2188 19.4688 19.4688 15.2188 19.4688 10C19.4688 4.78125 15.2188 0.5625 10 0.5625ZM10 18.0625C5.5625 18.0625 1.96875 14.4375 1.96875 10C1.96875 5.5625 5.5625 1.96875 10 1.96875C14.4375 1.96875 18.0625 5.59375 18.0625 10.0312C18.0625 14.4375 14.4375 18.0625 10 18.0625Z"
@@ -335,12 +440,12 @@ const ShopDetails = ({
                         />
                       </svg>
                       <span className="text-green">{stockLabel}</span>
-                    </div>
+                    </div> : null}
                   </div>
 
                   <h3 className="font-medium text-custom-1 mb-4.5">
                     <span className="text-sm sm:text-base text-dark">
-                      Precio: {format(displayedPrice)}
+                      {content.price_label}: {format(displayedPrice)}
                     </span>
                     {hasComparePrice ? (
                         <span className="line-through"> {format(displayedComparePrice)} </span>
@@ -348,12 +453,12 @@ const ShopDetails = ({
                   </h3>
 
                   <ul className="flex flex-col gap-2">
-                    <li className="flex items-center gap-2.5">Entrega disponible según cobertura</li>
-                    <li className="flex items-center gap-2.5">Compra segura y atención personalizada</li>
+                    <li className="flex items-center gap-2.5">{content.free_delivery_text}</li>
+                    <li className="flex items-center gap-2.5">{content.promo_text}</li>
                   </ul>
 
                   <div className="flex flex-col gap-4.5 border-y border-gray-3 mt-7.5 mb-9 py-9">
-                    {colorOptions.length ? (
+                    {colorOptions.length && informationSection.settings["show_variants"] !== false ? (
                       <div className="flex items-center gap-4">
                         <div className="min-w-[65px]">
                           <h4 className="font-medium text-dark">Color:</h4>
@@ -379,7 +484,7 @@ const ShopDetails = ({
                       </div>
                     ) : null}
 
-                    {sizeOptions.length ? (
+                    {sizeOptions.length && informationSection.settings["show_variants"] !== false ? (
                       <div className="flex items-start gap-4">
                         <div className="min-w-[65px] pt-2">
                           <h4 className="font-medium text-dark">Medida:</h4>
@@ -406,7 +511,7 @@ const ShopDetails = ({
                     ) : null}
                   </div>
 
-                  {selectedVariant?.sku ? (
+                  {selectedVariant?.sku && informationSection.settings["show_sku"] !== false ? (
                     <div className="mb-5 rounded-md bg-blue/5 px-4 py-3 text-sm text-dark">
                       <span className="font-medium">SKU:</span>{" "}
                       <strong>{selectedVariant.sku}</strong>
@@ -414,7 +519,7 @@ const ShopDetails = ({
                   ) : null}
 
                   <div className="flex flex-wrap items-center gap-4.5">
-                    <div className="flex items-center rounded-md border border-gray-3">
+                    {informationSection.settings["show_quantity"] !== false ? <div className="flex items-center rounded-md border border-gray-3">
                       <button
                         type="button"
                         aria-label="disminuir cantidad"
@@ -434,7 +539,7 @@ const ShopDetails = ({
                       >
                         +
                       </button>
-                    </div>
+                    </div> : null}
 
                     <button
                       type="button"
@@ -445,7 +550,7 @@ const ShopDetails = ({
                       {isInStock ? buttonLabels.addToCart : buttonLabels.soldOut}
                     </button>
 
-                    <button
+                    {informationSection.settings["show_wishlist"] !== false ? <button
                       type="button"
                       onClick={handleAddToWishlist}
                       disabled={!session || authLoading}
@@ -461,7 +566,7 @@ const ShopDetails = ({
                           fill=""
                         />
                       </svg>
-                    </button>
+                    </button> : null}
 
                   </div>
                 </div>
@@ -469,7 +574,15 @@ const ShopDetails = ({
             </div>
           </section>
 
-          <section className="overflow-hidden bg-gray-2 py-20">
+          <section
+            className={`overflow-hidden bg-gray-2 py-20 lumefy-product-preview-section ${previewMode && selectedSectionId === descriptionSection.id ? "lumefy-product-preview-section--selected" : ""}`}
+            data-lumefy-product-section="product_description"
+            onClick={handlePreviewSectionClick}
+            style={{
+              display: descriptionEnabled ? undefined : "none",
+              order: productSectionOrder("product_description"),
+            }}
+          >
             <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
               <div className="flex flex-wrap items-center bg-white rounded-[10px] shadow-1 gap-5 xl:gap-12.5 py-4.5 px-4 sm:px-6">
                 {tabs.map((item) => (
@@ -477,7 +590,7 @@ const ShopDetails = ({
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
                     className={`font-medium lg:text-lg ease-out duration-200 hover:text-blue relative before:h-0.5 before:bg-blue before:absolute before:left-0 before:bottom-0 before:ease-out before:duration-200 hover:before:w-full ${
-                      activeTab === item.id ? "text-blue before:w-full" : "text-dark before:w-0"
+                      activeContentTab === item.id ? "text-blue before:w-full" : "text-dark before:w-0"
                     }`}
                   >
                     {item.title}
@@ -485,13 +598,13 @@ const ShopDetails = ({
                 ))}
               </div>
 
-              <div className={activeTab === "description" ? "mt-12.5" : "hidden"}>
+              <div className={activeContentTab === "description" ? "mt-12.5" : "hidden"}>
                 <div className="rounded-xl bg-white shadow-1 p-4 sm:p-8">
                   <p className="text-dark">{descriptionText || "Este producto aún no tiene descripción detallada."}</p>
                 </div>
               </div>
 
-              <div className={activeTab === "details" ? "mt-10" : "hidden"}>
+              <div className={activeContentTab === "details" ? "mt-10" : "hidden"}>
                 <div className="rounded-xl bg-white shadow-1 p-4 sm:p-6">
                   {metadata.length ? (
                     metadata.map((item) => (
@@ -512,25 +625,38 @@ const ShopDetails = ({
                 </div>
               </div>
 
-              <div className={activeTab === "reviews" ? "mt-12.5" : "hidden"}>
+              <div className={activeContentTab === "reviews" ? "mt-12.5" : "hidden"}>
                 <div className="rounded-xl bg-white shadow-1 p-6 sm:p-8 text-center">
-                  <h2 className="font-medium text-2xl text-dark mb-3">Reseñas próximamente</h2>
-                  <p className="mb-6 text-dark-3">Aún no hay reseñas publicadas para este producto.</p>
+                  <h2 className="font-medium text-2xl text-dark mb-3">{content.reviews_empty_title}</h2>
+                  <p className="mb-6 text-dark-3">{content.reviews_empty_description}</p>
                   <button
                     type="button"
                     className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark"
                   >
-                    Escribir resena
+                    {content.submit_review_label}
                   </button>
                 </div>
               </div>
             </div>
           </section>
 
-          <RecentlyViewdItems items={relatedItems} />
-        </>
+          {relatedEnabled ? (
+            <div
+              className={`lumefy-product-preview-section ${previewMode && selectedSectionId === relatedSection.id ? "lumefy-product-preview-section--selected" : ""}`}
+              data-lumefy-product-section="product_related"
+              onClick={handlePreviewSectionClick}
+              style={{ order: productSectionOrder("product_related") }}
+            >
+              <RecentlyViewdItems
+                items={relatedItems}
+                title={typeof relatedSection.settings["title"] === "string" ? relatedSection.settings["title"] : undefined}
+                limit={Number(relatedSection.settings["count"] || 4)}
+              />
+            </div>
+          ) : null}
+        </div>
       )}
-    </>
+    </div>
   );
 };
 

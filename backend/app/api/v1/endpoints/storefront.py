@@ -74,8 +74,10 @@ from app.services.image_upload import save_image_upload, upload_root
 from app.schemas import storefront as schemas
 from app.services.storefront_theme import (
     build_home_document,
+    build_product_document,
     component_registry,
     normalize_home_document,
+    normalize_product_document,
     validate_template_key,
 )
 from app.services.storefront_shipping import (
@@ -1432,6 +1434,15 @@ def _theme_template_or_422(template_key: str) -> str:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+def _normalize_theme_document(
+    template_key: str,
+    document: Any,
+    theme_settings: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    normalizer = normalize_product_document if template_key == "product" else normalize_home_document
+    return normalizer(document, theme_settings)
+
+
 def _storefront_preview_url(storefront: Storefront) -> str | None:
     platform_domain, platform_port = _platform_storefront_host_and_port()
     subdomain = (storefront.subdomain or "").strip().lower().strip(".")
@@ -1448,6 +1459,7 @@ def _storefront_preview_url(storefront: Storefront) -> str | None:
 def _create_storefront_theme_preview_session(
     storefront: Storefront,
     user_id: uuid.UUID,
+    template_key: str = "home",
 ) -> tuple[str, datetime]:
     expires_delta = timedelta(minutes=15)
     expires_at = datetime.now(timezone.utc) + expires_delta
@@ -1457,7 +1469,7 @@ def _create_storefront_theme_preview_session(
             "scope": "storefront_theme_preview",
             "storefront_id": str(storefront.id),
             "company_id": str(storefront.company_id),
-            "template_key": "home",
+            "template_key": template_key,
             "jti": secrets.token_urlsafe(16),
         },
         expires_delta=expires_delta,
@@ -1485,7 +1497,11 @@ async def _get_theme_document(
     if document or not create:
         return document
 
-    initial = build_home_document(storefront.theme_settings)
+    initial = (
+        build_product_document(storefront.theme_settings)
+        if template_key == "product"
+        else build_home_document(storefront.theme_settings)
+    )
     document = StorefrontThemeDocumentModel(
         storefront_id=storefront.id,
         company_id=storefront.company_id,
@@ -1586,13 +1602,14 @@ def _serialize_theme_document(
     theme_settings: dict[str, Any] | None,
     storefront: Storefront | None = None,
 ) -> schemas.StorefrontThemeDocument:
+    normalizer = normalize_product_document if document.template_key == "product" else normalize_home_document
     return schemas.StorefrontThemeDocument(
         id=document.id,
         storefront_id=document.storefront_id,
         company_id=document.company_id,
         template_key=document.template_key,
-        draft_document=normalize_home_document(document.draft_document, theme_settings),
-        published_document=normalize_home_document(document.published_document, theme_settings),
+        draft_document=normalizer(document.draft_document, theme_settings),
+        published_document=normalizer(document.published_document, theme_settings),
         draft_version=document.draft_version,
         published_version=document.published_version,
         published_at=document.published_at,
@@ -1603,11 +1620,27 @@ def _serialize_theme_document(
 async def _published_theme_document(
     db: AsyncSession,
     storefront: Storefront,
+    template_key: str = "home",
 ) -> dict[str, Any]:
-    document = await _get_theme_document(db, storefront, "home")
+    document = await _get_theme_document(db, storefront, template_key)
     if not document:
-        return build_home_document(storefront.theme_settings)
-    return normalize_home_document(document.published_document, storefront.theme_settings)
+        return (
+            build_product_document(storefront.theme_settings)
+            if template_key == "product"
+            else build_home_document(storefront.theme_settings)
+        )
+    normalizer = normalize_product_document if template_key == "product" else normalize_home_document
+    return normalizer(document.published_document, storefront.theme_settings)
+
+
+async def _published_theme_documents(
+    db: AsyncSession,
+    storefront: Storefront,
+) -> dict[str, dict[str, Any]]:
+    return {
+        "home": await _published_theme_document(db, storefront, "home"),
+        "product": await _published_theme_document(db, storefront, "product"),
+    }
 
 
 async def _validate_storefront_price_list(db: AsyncSession, price_list_id: uuid.UUID | None, company_id: uuid.UUID) -> None:
@@ -2410,12 +2443,14 @@ async def update_storefront(
 @router.get("/{storefront_id}/theme/components")
 async def read_theme_component_registry(
     storefront_id: uuid.UUID,
+    template_key: str = "home",
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_company")),
 ) -> dict[str, Any]:
     """Return the safe component palette available to the current tenant."""
     await _get_storefront_or_404(db, storefront_id, current_user.company_id)
-    return {"template_key": "home", "components": component_registry()}
+    template_key = _theme_template_or_422(template_key)
+    return {"template_key": template_key, "components": component_registry(template_key)}
 
 
 @router.get("/{storefront_id}/media", response_model=List[schemas.StorefrontMediaAsset])
@@ -2553,7 +2588,7 @@ async def create_theme_preview_session(
             status_code=422,
             detail="La tienda no tiene un subdominio de plataforma válido para previsualizar.",
         )
-    token, expires_at = _create_storefront_theme_preview_session(storefront, current_user.id)
+    token, expires_at = _create_storefront_theme_preview_session(storefront, current_user.id, template_key)
     return schemas.StorefrontThemePreviewSession(
         token=token,
         expires_at=expires_at,
@@ -2607,7 +2642,7 @@ async def save_theme_draft(
             detail="El borrador cambió mientras lo editabas. Recarga la tienda antes de guardar.",
         )
     try:
-        normalized = normalize_home_document(draft_in.document, storefront.theme_settings)
+        normalized = _normalize_theme_document(template_key, draft_in.document, storefront.theme_settings)
         await _validate_theme_references(db, storefront, normalized)
     except ValueError as exc:
         await db.rollback()
@@ -2656,7 +2691,7 @@ async def publish_theme_document(
             detail="El borrador cambió mientras lo editabas. Recarga la tienda antes de publicar.",
         )
     try:
-        published = normalize_home_document(document.draft_document, storefront.theme_settings)
+        published = _normalize_theme_document(template_key, document.draft_document, storefront.theme_settings)
         await _validate_theme_references(db, storefront, published)
     except ValueError as exc:
         await db.rollback()
@@ -2755,7 +2790,7 @@ async def restore_theme_revision(
     if not revision:
         raise HTTPException(status_code=404, detail="La revisión no existe en esta tienda")
     try:
-        restored = normalize_home_document(revision.document, storefront.theme_settings)
+        restored = _normalize_theme_document(template_key, revision.document, storefront.theme_settings)
         await _validate_theme_references(db, storefront, restored)
     except ValueError as exc:
         await db.rollback()
@@ -3893,6 +3928,7 @@ async def read_public_storefront_by_subdomain(
         theme_key=storefront.theme_key,
         theme_settings=storefront.theme_settings or {},
         theme_document=await _published_theme_document(db, storefront),
+        theme_documents=await _published_theme_documents(db, storefront),
         checkout_settings=storefront.checkout_settings or {},
         seo_settings=storefront.seo_settings or {},
         currency=storefront.currency,
@@ -3917,6 +3953,7 @@ async def read_public_storefront_by_domain(
         theme_key=storefront.theme_key,
         theme_settings=storefront.theme_settings or {},
         theme_document=await _published_theme_document(db, storefront),
+        theme_documents=await _published_theme_documents(db, storefront),
         checkout_settings=storefront.checkout_settings or {},
         seo_settings=storefront.seo_settings or {},
         currency=storefront.currency,
@@ -3961,6 +3998,7 @@ async def read_public_storefront(
         theme_key=storefront.theme_key,
         theme_settings=storefront.theme_settings or {},
         theme_document=await _published_theme_document(db, storefront),
+        theme_documents=await _published_theme_documents(db, storefront),
         checkout_settings=storefront.checkout_settings or {},
         seo_settings=storefront.seo_settings or {},
         currency=storefront.currency,

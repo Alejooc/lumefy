@@ -8,6 +8,7 @@ import {
   resolveStorefront,
 } from "./storefront-api";
 import { toTemplateProduct } from "./product-view-model";
+import { ProductTemplateDocument } from "./product-template";
 
 export { toTemplateProduct } from "./product-view-model";
 
@@ -63,6 +64,7 @@ export type ShopViewModel = {
 export type ShopDetailsViewModel = {
   product: Product;
   relatedItems: Product[];
+  productTemplate: ProductTemplateDocument;
 };
 
 function normalizeTypeLabel(value?: string | null): string {
@@ -222,5 +224,6 @@ export async function loadShopDetailsViewModel(slug: string): Promise<ShopDetail
   return {
     product: toTemplateProduct(product),
     relatedItems,
+    productTemplate: (storefront.theme_documents?.product || {}) as ProductTemplateDocument,
   };
 }

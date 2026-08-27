@@ -17,6 +17,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Preview sessions are intentionally limited to templates that have a public
+# renderer. Keeping this allow-list here prevents a signed token from opening
+# an arbitrary theme document through the public storefront endpoints.
+SUPPORTED_STOREFRONT_PREVIEW_TEMPLATES = {"home", "product"}
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/login/access-token")
 optional_oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token",
@@ -43,7 +48,7 @@ def get_storefront_preview_claims(token: str) -> tuple[UUID, UUID, str] | None:
         storefront_id = UUID(str(payload.get("storefront_id")))
         company_id = UUID(str(payload.get("company_id")))
         template_key = str(payload.get("template_key") or "")
-        if template_key != "home":
+        if template_key not in SUPPORTED_STOREFRONT_PREVIEW_TEMPLATES:
             return None
         return storefront_id, company_id, template_key
     except (PyJWTError, ValueError, TypeError, AttributeError):

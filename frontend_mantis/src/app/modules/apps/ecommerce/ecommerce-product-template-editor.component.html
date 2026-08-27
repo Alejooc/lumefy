@@ -1,0 +1,158 @@
+<div class="product-editor-shell">
+  @if (loading && !theme) {
+    <div class="product-editor-loading" aria-label="Cargando editor">
+      <div class="product-editor-loading__top"></div>
+      <div class="product-editor-loading__body"><span></span><span></span><span></span></div>
+    </div>
+  } @else if (!storefront) {
+    <section class="product-editor-empty">
+      <i class="ti ti-shopping-bag"></i>
+      <span class="product-editor-kicker">Editor visual</span>
+      <h4>Elige una tienda para empezar</h4>
+      <p>Activa una tienda para personalizar la página de producto.</p>
+      @if (errorMessage) { <div class="alert alert-warning mt-3">{{ errorMessage }}</div> }
+    </section>
+  } @else {
+    <header class="product-editor-topbar">
+      <div class="product-editor-topbar__left">
+        <a class="product-editor-icon-button" routerLink="/commerce" aria-label="Volver al ecommerce" title="Volver al ecommerce"><i class="ti ti-arrow-left"></i></a>
+        <span class="product-editor-divider"></span>
+        <button class="product-editor-mode-button" type="button" [class.active]="sidebarOpen && sidebarMode === 'sections'" (click)="showSections()" aria-label="Secciones" title="Secciones"><i class="ti ti-layout-list"></i></button>
+        <button class="product-editor-mode-button" type="button" [class.active]="sidebarOpen && sidebarMode === 'settings'" (click)="showSettings()" aria-label="Contenido de la plantilla" title="Contenido de la plantilla"><i class="ti ti-settings"></i></button>
+        <button class="product-editor-mode-button" type="button" (click)="openAddSections()" aria-label="Añadir sección" title="Añadir sección"><i class="ti ti-layout-grid-add"></i></button>
+      </div>
+
+      <div class="product-editor-topbar__context">
+        <div class="product-editor-store-context">
+          @if (storefronts.length > 1) {
+            <select class="form-select form-select-sm" [(ngModel)]="selectedStorefrontId" (ngModelChange)="onStorefrontChange()" aria-label="Tienda seleccionada">
+              @for (item of storefronts; track item.id) { <option [value]="item.id">{{ item.name }}</option> }
+            </select>
+          } @else { <strong>{{ storefront.name }}</strong> }
+          <span class="product-editor-live-pill"><span></span>{{ storefront.is_enabled ? 'Activa' : 'Borrador' }}</span>
+        </div>
+        <details class="product-editor-page-picker">
+          <summary><i class="ti ti-shopping-bag"></i><span>Producto</span><i class="ti ti-chevron-down"></i></summary>
+          <div class="product-editor-page-picker__menu">
+            <a routerLink="/commerce/design"><i class="ti ti-home"></i><span>Página de inicio</span></a>
+            <button type="button" class="active"><i class="ti ti-shopping-bag"></i><span>Producto</span><i class="ti ti-check"></i></button>
+            <button type="button" disabled><i class="ti ti-category"></i><span>Colecciones</span><small>Próximamente</small></button>
+            <button type="button" disabled><i class="ti ti-file-text"></i><span>Páginas informativas</span><small>Próximamente</small></button>
+          </div>
+        </details>
+      </div>
+
+      <div class="product-editor-topbar__right">
+        <span class="product-editor-save-state" [class.product-editor-save-state--dirty]="dirty"><span></span>{{ saving ? 'Guardando...' : dirty ? 'Sin guardar' : 'Guardado' }}</span>
+        <div class="product-editor-viewport-switcher" role="group" aria-label="Tamaño de vista previa">
+          <button type="button" [class.active]="previewViewport === 'desktop'" (click)="setViewport('desktop')" title="Escritorio"><i class="ti ti-device-desktop"></i></button>
+          <button type="button" [class.active]="previewViewport === 'tablet'" (click)="setViewport('tablet')" title="Tablet"><i class="ti ti-device-tablet"></i></button>
+          <button type="button" [class.active]="previewViewport === 'mobile'" (click)="setViewport('mobile')" title="Móvil"><i class="ti ti-device-mobile"></i></button>
+        </div>
+        <button class="product-editor-icon-button product-editor-selector" type="button" [class.active]="selectionMode" (click)="toggleSelectionMode()" aria-label="Seleccionar elemento" title="Seleccionar elemento"><i class="ti ti-pointer"></i></button>
+        @if (previewUrl) { <a class="product-editor-icon-button" [href]="previewUrl" target="_blank" rel="noopener noreferrer" aria-label="Abrir preview" title="Abrir preview"><i class="ti ti-external-link"></i></a> }
+        <button class="btn btn-outline-primary btn-sm product-editor-save" type="button" (click)="saveDraft()" [disabled]="saving || publishing || !dirty" [attr.aria-label]="saving ? 'Guardando cambios' : 'Guardar cambios'" title="Guardar cambios"><i class="ti" [class.ti-device-floppy]="!saving" [class.ti-loader]="saving" [class.icon-spin]="saving"></i><span class="visually-hidden">Guardar</span></button>
+        <button class="btn btn-primary btn-sm product-editor-publish" type="button" (click)="publish()" [disabled]="!canPublish">{{ publishing ? 'Publicando...' : 'Publicar' }}</button>
+      </div>
+    </header>
+
+    @if (errorMessage) { <div class="alert alert-warning product-editor-alert" role="alert">{{ errorMessage }}</div> }
+
+    <main class="product-editor-workspace">
+      @if (sidebarOpen && (sidebarMode === 'sections' || sidebarMode === 'add')) {
+        <aside class="product-editor-panel product-editor-structure-panel">
+          @if (sidebarMode === 'sections') {
+            <div class="product-editor-panel-header">
+              <div><span class="product-editor-kicker">Página de producto</span><h5>Detalle del producto</h5></div>
+              <button class="product-editor-icon-button" type="button" (click)="toggleSidebar()" aria-label="Ocultar panel" title="Ocultar panel"><i class="ti ti-layout-sidebar-left-collapse"></i></button>
+            </div>
+            <div class="product-editor-preview-product">
+              <span class="product-editor-preview-product__icon"><i class="ti ti-eye"></i></span>
+              <div><small>Vista previa con</small><strong>{{ selectedProductLabel }}</strong></div>
+              <select class="form-select form-select-sm" [(ngModel)]="selectedProductId" (ngModelChange)="onProductChange()" aria-label="Producto para la vista previa">
+                @for (product of publishedProducts; track product.id) { <option [value]="product.id">{{ product.product_name || product.slug }}</option> }
+              </select>
+            </div>
+            <div class="product-editor-global-group"><strong>Elementos globales</strong><small>Se editan desde la página de inicio</small><a routerLink="/commerce/design"><i class="ti ti-arrow-up-right"></i> Editar encabezado y pie</a></div>
+            <div class="product-editor-section-heading"><strong>Plantilla</strong><span>{{ sectionCountLabel }}</span></div>
+            <div class="product-editor-structure-list" cdkDropList [cdkDropListData]="document.sections" (cdkDropListDropped)="drop($event)">
+              @for (section of document.sections; track section.id) {
+                <div class="product-editor-section-row" cdkDrag [class.selected]="selectedSectionId === section.id" [class.disabled]="!section.enabled" (click)="selectSection(section)">
+                  <button class="product-editor-drag-handle" type="button" cdkDragHandle aria-label="Mover sección" title="Arrastrar">⠿</button>
+                  <span class="product-editor-section-icon"><i [class]="componentIcon(section.type)"></i></span>
+                  <span class="product-editor-section-copy"><strong>{{ sectionLabel(section) }}</strong><small>{{ section.enabled ? 'Visible' : 'Oculta' }}</small></span>
+                  <label class="product-editor-switch" (click)="$event.stopPropagation()"><input type="checkbox" [checked]="section.enabled" (change)="toggleSection(section, $event)" [attr.aria-label]="'Mostrar ' + sectionLabel(section)" /><span></span></label>
+                  <button class="product-editor-more" type="button" (click)="removeSection(section, $event)" [attr.aria-label]="'Eliminar ' + sectionLabel(section)" [attr.title]="'Eliminar ' + sectionLabel(section)"><i class="ti ti-trash"></i></button>
+                </div>
+              }
+            </div>
+            <button class="product-editor-add-trigger" type="button" (click)="openAddSections()" [disabled]="!canAddSection"><i class="ti ti-circle-plus"></i>Añadir sección</button>
+          } @else {
+            <div class="product-editor-panel-header product-editor-panel-header--picker"><button class="product-editor-icon-button" type="button" (click)="showSections()" aria-label="Volver"><i class="ti ti-arrow-left"></i></button><div><span class="product-editor-kicker">Biblioteca</span><h5>Añadir sección</h5></div></div>
+            <p class="product-editor-panel-hint">Elige una sección para añadirla a la página de producto.</p>
+            <div class="product-editor-component-list">
+              @for (component of components; track component.type) {
+                <button class="product-editor-component-card" type="button" (click)="addSection(component.type)" [disabled]="!canAddSection"><span><i [class]="componentIcon(component.type)"></i></span><strong>{{ component.label }}</strong><small>{{ component.description }}</small><i class="ti ti-plus"></i></button>
+              }
+            </div>
+          }
+        </aside>
+      }
+
+      <section class="product-editor-canvas-panel" aria-label="Vista previa de la página de producto">
+        @if (!sidebarOpen) { <button class="product-editor-canvas-open" type="button" (click)="showSections()"><i class="ti ti-layout-sidebar-left-expand"></i>Mostrar estructura</button> }
+        <div class="product-editor-canvas-stage">
+          <div class="product-editor-device" [class.tablet]="previewViewport === 'tablet'" [class.mobile]="previewViewport === 'mobile'">
+            @if (safePreviewUrl) { <iframe #previewFrame class="product-editor-preview-frame" [src]="safePreviewUrl" (load)="onPreviewLoad()" title="Vista previa del detalle de producto"></iframe> }
+            @else { <div class="product-editor-preview-empty"><i class="ti ti-shopping-bag"></i><strong>Selecciona un producto</strong><span>Publica al menos un producto para activar esta vista previa.</span></div> }
+          </div>
+        </div>
+      </section>
+
+      @if (sidebarOpen && (sidebarMode === 'settings' || sidebarMode === 'section')) {
+        <aside class="product-editor-panel product-editor-inspector-panel">
+          @if (sidebarMode === 'settings') {
+            <div class="product-editor-inspector-header"><div><span class="product-editor-kicker">Contenido global</span><h5>Textos de la página</h5><p>Define las etiquetas que verán tus clientes en el detalle del producto.</p></div><button class="product-editor-icon-button" type="button" (click)="showSections()" aria-label="Volver"><i class="ti ti-arrow-left"></i></button></div>
+            <div class="product-editor-inspector-scroll">
+              <div class="product-editor-form-section"><div class="product-editor-field-heading"><strong>Etiquetas principales</strong><span>Contenido</span></div>
+                <label class="product-editor-field"><span>Título del breadcrumb</span><input class="form-control" [ngModel]="productContent.breadcrumb_title" (ngModelChange)="updateContentSetting('breadcrumb_title', $event)" /></label>
+                <label class="product-editor-field"><span>Etiqueta del precio</span><input class="form-control" [ngModel]="productContent.price_label" (ngModelChange)="updateContentSetting('price_label', $event)" /></label>
+                <div class="product-editor-field-grid"><label class="product-editor-field"><span>Disponible</span><input class="form-control" [ngModel]="productContent.stock_in_label" (ngModelChange)="updateContentSetting('stock_in_label', $event)" /></label><label class="product-editor-field"><span>Agotado</span><input class="form-control" [ngModel]="productContent.stock_out_label" (ngModelChange)="updateContentSetting('stock_out_label', $event)" /></label></div>
+                <label class="product-editor-field"><span>Texto de entrega</span><input class="form-control" [ngModel]="productContent.free_delivery_text" (ngModelChange)="updateContentSetting('free_delivery_text', $event)" /></label>
+                <label class="product-editor-field"><span>Texto de confianza</span><input class="form-control" [ngModel]="productContent.promo_text" (ngModelChange)="updateContentSetting('promo_text', $event)" /></label>
+              </div>
+              <div class="product-editor-form-section"><div class="product-editor-field-heading"><strong>Pestañas inferiores</strong><span>Contenido</span></div>
+                <label class="product-editor-field"><span>Descripción</span><input class="form-control" [ngModel]="productContent.description_tab_label" (ngModelChange)="updateContentSetting('description_tab_label', $event)" /></label>
+                <label class="product-editor-field"><span>Información adicional</span><input class="form-control" [ngModel]="productContent.details_tab_label" (ngModelChange)="updateContentSetting('details_tab_label', $event)" /></label>
+                <label class="product-editor-field"><span>Reseñas</span><input class="form-control" [ngModel]="productContent.reviews_tab_label" (ngModelChange)="updateContentSetting('reviews_tab_label', $event)" /></label>
+                <label class="product-editor-field"><span>Título sin reseñas</span><input class="form-control" [ngModel]="productContent.reviews_empty_title" (ngModelChange)="updateContentSetting('reviews_empty_title', $event)" /></label>
+                <label class="product-editor-field"><span>Mensaje sin reseñas</span><textarea class="form-control" rows="2" [ngModel]="productContent.reviews_empty_description" (ngModelChange)="updateContentSetting('reviews_empty_description', $event)"></textarea></label>
+                <label class="product-editor-field"><span>Botón de reseña</span><input class="form-control" [ngModel]="productContent.submit_review_label" (ngModelChange)="updateContentSetting('submit_review_label', $event)" /></label>
+              </div>
+            </div>
+          } @else if (selectedSection) {
+            <div class="product-editor-inspector-header"><div><span class="product-editor-kicker">Sección</span><h5>{{ sectionLabel(selectedSection) }}</h5><p>Configura qué se muestra y cómo se presenta en la página.</p></div><button class="product-editor-icon-button" type="button" (click)="showSections()" aria-label="Volver"><i class="ti ti-arrow-left"></i></button></div>
+            <div class="product-editor-inspector-scroll">
+              <div class="product-editor-visibility-card"><div><strong>Mostrar sección</strong><small>{{ selectedSection.enabled ? 'Visible para tus clientes' : 'Oculta en la tienda' }}</small></div><label class="product-editor-switch"><input type="checkbox" [checked]="selectedSection.enabled" (change)="toggleSection(selectedSection, $event)" /><span></span></label></div>
+              @switch (selectedSection.type) {
+                @case ('product_gallery') {
+                  <div class="product-editor-form-section"><div class="product-editor-field-heading"><strong>Galería</strong><span>Visual</span></div><label class="product-editor-field"><span>Distribución</span><select class="form-select" [ngModel]="getSectionSetting('gallery_layout', 'split')" (ngModelChange)="updateSectionSetting('gallery_layout', $event)"><option value="split">Imagen grande y miniaturas</option><option value="grid">Cuadrícula de imágenes</option></select></label><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_thumbnails', true)" (change)="updateSectionSetting('show_thumbnails', $any($event.target).checked)" /><span>Mostrar miniaturas</span></label><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('open_gallery', true)" (change)="updateSectionSetting('open_gallery', $any($event.target).checked)" /><span>Permitir ampliar imágenes</span></label></div>
+                }
+                @case ('product_information') {
+                  <div class="product-editor-form-section"><div class="product-editor-field-heading"><strong>Contenido de compra</strong><span>Información</span></div><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_brand', true)" (change)="updateSectionSetting('show_brand', $any($event.target).checked)" /><span>Mostrar marca y categoría</span></label><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_badge', true)" (change)="updateSectionSetting('show_badge', $any($event.target).checked)" /><span>Mostrar descuento</span></label><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_stock', true)" (change)="updateSectionSetting('show_stock', $any($event.target).checked)" /><span>Mostrar disponibilidad</span></label><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_sku', true)" (change)="updateSectionSetting('show_sku', $any($event.target).checked)" /><span>Mostrar SKU</span></label><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_variants', true)" (change)="updateSectionSetting('show_variants', $any($event.target).checked)" /><span>Mostrar variantes</span></label><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_quantity', true)" (change)="updateSectionSetting('show_quantity', $any($event.target).checked)" /><span>Mostrar selector de cantidad</span></label><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_wishlist', true)" (change)="updateSectionSetting('show_wishlist', $any($event.target).checked)" /><span>Mostrar favoritos</span></label></div>
+                }
+                @case ('product_description') {
+                  <div class="product-editor-form-section"><div class="product-editor-field-heading"><strong>Descripción y detalles</strong><span>Contenido</span></div><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_description_tab', true)" (change)="updateSectionSetting('show_description_tab', $any($event.target).checked)" /><span>Mostrar descripción</span></label><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_details_tab', true)" (change)="updateSectionSetting('show_details_tab', $any($event.target).checked)" /><span>Mostrar información adicional</span></label><label class="product-editor-check"><input type="checkbox" [checked]="getSectionSetting('show_reviews_tab', true)" (change)="updateSectionSetting('show_reviews_tab', $any($event.target).checked)" /><span>Mostrar reseñas</span></label></div>
+                }
+                @case ('product_related') {
+                  <div class="product-editor-form-section"><div class="product-editor-field-heading"><strong>Recomendaciones</strong><span>Catálogo</span></div><label class="product-editor-field"><span>Título de la sección</span><input class="form-control" [ngModel]="getSectionSetting('title', 'También te puede interesar')" (ngModelChange)="updateSectionSetting('title', $event)" /></label><label class="product-editor-field"><span>Cantidad de productos</span><input class="form-control" type="number" min="2" max="8" step="1" [ngModel]="getSectionSetting('count', 4)" (ngModelChange)="updateSectionSetting('count', $event)" /></label></div>
+                }
+              }
+              <button class="product-editor-delete" type="button" (click)="removeSection(selectedSection)" [attr.aria-label]="'Eliminar ' + sectionLabel(selectedSection)"><i class="ti ti-trash"></i><span>Eliminar sección</span></button>
+            </div>
+          }
+        </aside>
+      }
+    </main>
+  }
+</div>

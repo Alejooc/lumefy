@@ -337,7 +337,7 @@ Cada componente debe incluir defaults, validación, límites, responsive y estad
 
 **Estimación:** 4–7 días.
 
-- [ ] Plantilla de producto.
+- [x] Plantilla de producto con editor visual, preview por producto, orden, visibilidad y publicación independiente.
 - [ ] Plantilla de colección.
 - [ ] Resultados de búsqueda.
 - [ ] Carrito.

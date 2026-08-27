@@ -151,6 +151,8 @@ export interface StorefrontThemeDocument {
   preview_url?: string | null;
 }
 
+export type StorefrontThemeTemplateKey = 'home' | 'product';
+
 export interface StorefrontThemePreviewSession {
   token: string;
   expires_at: string;
@@ -648,8 +650,8 @@ export class StorefrontAdminService {
     return this.api.get<StorefrontThemeDocument>(`/storefront/${storefrontId}/theme/${templateKey}`);
   }
 
-  getThemeComponents(storefrontId: string): Observable<{ template_key: string; components: StorefrontThemeComponent[] }> {
-    return this.api.get<{ template_key: string; components: StorefrontThemeComponent[] }>(`/storefront/${storefrontId}/theme/components`);
+  getThemeComponents(storefrontId: string, templateKey: StorefrontThemeTemplateKey = 'home'): Observable<{ template_key: string; components: StorefrontThemeComponent[] }> {
+    return this.api.get<{ template_key: string; components: StorefrontThemeComponent[] }>(`/storefront/${storefrontId}/theme/components`, { template_key: templateKey });
   }
 
   createThemePreviewSession(storefrontId: string, templateKey = 'home'): Observable<StorefrontThemePreviewSession> {

@@ -86,7 +86,7 @@ export default function SiteShell({
     const handlePreviewMessage = (event: MessageEvent) => {
       if (!isTrustedPreviewMessage(event)) return;
       const message = event.data;
-      if (!message || message.type !== "lumefy:preview:apply" || message.template !== "home") return;
+      if (!message || message.type !== "lumefy:preview:apply" || !["home", "product"].includes(message.template)) return;
       const document = message.document && typeof message.document === "object"
         ? message.document as Record<string, unknown>
         : {};
@@ -107,7 +107,12 @@ export default function SiteShell({
           ? settings.branding
           : {}),
       } as Record<string, unknown>;
-      setThemeStyles(getThemeStylesFromDocumentSettings(settings));
+      // Product templates only change the product page. Keep the already
+      // resolved storefront palette while previewing them so a document that
+      // contains content settings cannot reset the global theme.
+      if (message.template === "home") {
+        setThemeStyles(getThemeStylesFromDocumentSettings(settings));
+      }
       if ("favicon_url" in identity) {
         applyStorefrontFavicon(
           storefrontImageUrl(typeof identity.favicon_url === "string" ? identity.favicon_url : ""),

@@ -473,6 +473,7 @@ class PublicStorefront(BaseModel):
     theme_key: str
     theme_settings: dict = Field(default_factory=dict)
     theme_document: dict = Field(default_factory=dict)
+    theme_documents: dict[str, dict] = Field(default_factory=dict)
     checkout_settings: dict = Field(default_factory=dict)
     seo_settings: dict = Field(default_factory=dict)
     currency: str

@@ -74,8 +74,37 @@ HOME_SECTION_REGISTRY: tuple[dict[str, Any], ...] = (
     },
 )
 
+PRODUCT_SECTION_REGISTRY: tuple[dict[str, Any], ...] = (
+    {
+        "type": "product_gallery",
+        "label": "Galería del producto",
+        "description": "Imágenes, miniaturas y presentación visual del producto.",
+        "icon": "photo",
+    },
+    {
+        "type": "product_information",
+        "label": "Información del producto",
+        "description": "Título, precio, variantes, inventario y compra.",
+        "icon": "shopping-bag",
+    },
+    {
+        "type": "product_description",
+        "label": "Descripción y detalles",
+        "description": "Descripción, características y reseñas del producto.",
+        "icon": "article",
+    },
+    {
+        "type": "product_related",
+        "label": "Productos relacionados",
+        "description": "Recomendaciones para continuar la compra.",
+        "icon": "sparkles",
+    },
+)
+
 _SECTION_TYPES = {item["type"] for item in HOME_SECTION_REGISTRY}
 _DEFAULT_SECTION_TYPES = _SECTION_TYPES - {"custom_embed"}
+_PRODUCT_SECTION_TYPES = {item["type"] for item in PRODUCT_SECTION_REGISTRY}
+_SUPPORTED_TEMPLATE_KEYS = {"home", "product"}
 _ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _TEMPLATE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,79}$")
 _FORBIDDEN_KEYS = {
@@ -365,6 +394,19 @@ def _default_sections() -> list[dict[str, Any]]:
     ]
 
 
+def _default_product_sections() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": item["type"],
+            "type": item["type"],
+            "enabled": True,
+            "settings": {},
+            "blocks": [],
+        }
+        for item in PRODUCT_SECTION_REGISTRY
+    ]
+
+
 def build_home_document(theme_settings: Any = None) -> dict[str, Any]:
     """Create a visual document while preserving the current home payload."""
     return {
@@ -376,11 +418,41 @@ def build_home_document(theme_settings: Any = None) -> dict[str, Any]:
     }
 
 
-def _normalize_section(raw: Any, index: int) -> dict[str, Any] | None:
+def build_product_document(theme_settings: Any = None) -> dict[str, Any]:
+    """Create the first product-detail template for one storefront."""
+    return {
+        "schema_version": 1,
+        "template": "product",
+        "settings": {
+            "content": {
+                "breadcrumb_title": "Detalle del producto",
+                "price_label": "Precio",
+                "stock_in_label": "Disponible",
+                "stock_out_label": "Agotado",
+                "free_delivery_text": "Entrega disponible según cobertura",
+                "promo_text": "Compra segura y atención personalizada",
+                "description_tab_label": "Descripción",
+                "details_tab_label": "Información adicional",
+                "reviews_tab_label": "Reseñas",
+                "reviews_empty_title": "Reseñas próximamente",
+                "reviews_empty_description": "Aún no hay reseñas publicadas para este producto.",
+                "submit_review_label": "Escribir reseña",
+            },
+        },
+        "sections": _default_product_sections(),
+    }
+
+
+def _normalize_section(
+    raw: Any,
+    index: int,
+    allowed_types: set[str] | None = None,
+) -> dict[str, Any] | None:
     if not isinstance(raw, dict):
         return None
     section_type = str(raw.get("type") or "").strip().lower()
-    if section_type not in _SECTION_TYPES:
+    allowed_types = allowed_types or _SECTION_TYPES
+    if section_type not in allowed_types:
         raise ValueError(f"Sección no permitida: {section_type or 'sin tipo'}")
 
     raw_id = str(raw.get("id") or section_type).strip().lower()
@@ -465,14 +537,62 @@ def normalize_home_document(document: Any, theme_settings: Any = None) -> dict[s
     }
 
 
-def component_registry() -> list[dict[str, Any]]:
-    return deepcopy(list(HOME_SECTION_REGISTRY))
+def normalize_product_document(document: Any, theme_settings: Any = None) -> dict[str, Any]:
+    """Validate and normalize the tenant-scoped product detail template."""
+    if not isinstance(document, dict):
+        raise ValueError("El documento visual debe ser un objeto")
+    _validate_safe_value(document)
+    _validate_document_size(document)
+
+    template = str(document.get("template") or "product").strip().lower()
+    if template != "product":
+        raise ValueError("El documento no corresponde a la plantilla de producto")
+
+    raw_sections = document.get("sections")
+    if raw_sections is None or raw_sections == []:
+        sections = _default_product_sections()
+    elif not isinstance(raw_sections, list):
+        raise ValueError("Las secciones deben ser una lista")
+    else:
+        if len(raw_sections) > 20:
+            raise ValueError("La plantilla de producto no puede tener más de 20 secciones")
+        sections = []
+        seen_ids: set[str] = set()
+        for index, raw_section in enumerate(raw_sections):
+            section = _normalize_section(raw_section, index, _PRODUCT_SECTION_TYPES)
+            if section is None:
+                raise ValueError(f"Sección inválida en la posición {index + 1}")
+            if section["id"] in seen_ids:
+                raise ValueError(f"ID de sección repetido: {section['id']}")
+            seen_ids.add(section["id"])
+            sections.append(section)
+
+    settings = document.get("settings")
+    if settings is None:
+        settings = {}
+    if not isinstance(settings, dict):
+        raise ValueError("La configuración global debe ser un objeto")
+    content = settings.get("content")
+    if content is not None and not isinstance(content, dict):
+        raise ValueError("La configuración de contenido debe ser un objeto")
+
+    return {
+        "schema_version": 1,
+        "template": "product",
+        "settings": deepcopy(settings),
+        "sections": sections,
+    }
+
+
+def component_registry(template_key: str = "home") -> list[dict[str, Any]]:
+    registry = PRODUCT_SECTION_REGISTRY if template_key == "product" else HOME_SECTION_REGISTRY
+    return deepcopy(list(registry))
 
 
 def validate_template_key(template_key: str) -> str:
     value = (template_key or "").strip().lower()
     if not _TEMPLATE_PATTERN.fullmatch(value):
         raise ValueError("La plantilla solicitada no es válida")
-    if value != "home":
+    if value not in _SUPPORTED_TEMPLATE_KEYS:
         raise ValueError("La plantilla solicitada aún no está disponible")
     return value

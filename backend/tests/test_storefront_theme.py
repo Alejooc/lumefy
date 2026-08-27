@@ -7,8 +7,11 @@ from fastapi import HTTPException
 from app.api.v1.endpoints.storefront import _storefront_preview_url, _theme_template_or_422
 from app.services.storefront_theme import (
     HOME_SECTION_REGISTRY,
+    PRODUCT_SECTION_REGISTRY,
     build_home_document,
+    build_product_document,
     normalize_home_document,
+    normalize_product_document,
 )
 
 
@@ -175,6 +178,36 @@ class StorefrontThemeContractTests(unittest.TestCase):
         self.assertTrue(design["hide_mobile"])
         self.assertNotIn("style", design)
 
+    def test_product_document_has_registered_sections_and_content_defaults(self):
+        normalized = normalize_product_document(build_product_document())
+
+        self.assertEqual(normalized["template"], "product")
+        self.assertEqual(
+            [section["type"] for section in normalized["sections"]],
+            [item["type"] for item in PRODUCT_SECTION_REGISTRY],
+        )
+        self.assertEqual(
+            normalized["settings"]["content"]["breadcrumb_title"],
+            "Detalle del producto",
+        )
+
+    def test_product_document_rejects_home_only_sections_and_duplicate_ids(self):
+        with self.assertRaisesRegex(ValueError, "no permitida"):
+            normalize_product_document(
+                {"template": "product", "sections": [{"id": "hero", "type": "hero"}]}
+            )
+
+        with self.assertRaisesRegex(ValueError, "repetido"):
+            normalize_product_document(
+                {
+                    "template": "product",
+                    "sections": [
+                        {"id": "gallery", "type": "product_gallery"},
+                        {"id": "gallery", "type": "product_information"},
+                    ],
+                }
+            )
+
     def test_preview_url_is_built_from_platform_domain_and_storefront_subdomain(self):
         from app.api.v1.endpoints import storefront as storefront_endpoint
 
@@ -197,8 +230,9 @@ class StorefrontThemeContractTests(unittest.TestCase):
         finally:
             storefront_endpoint.settings.PLATFORM_STOREFRONT_DOMAIN = previous_domain
 
-    def test_template_registry_only_exposes_home_for_now(self):
+    def test_template_registry_exposes_supported_templates(self):
         self.assertEqual(_theme_template_or_422("HOME"), "home")
+        self.assertEqual(_theme_template_or_422("PRODUCT"), "product")
         with self.assertRaises(HTTPException):
             _theme_template_or_422("custom")
 

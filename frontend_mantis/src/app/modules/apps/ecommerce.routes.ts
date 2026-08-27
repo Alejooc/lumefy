@@ -28,6 +28,10 @@ export const routes: Routes = [
         loadComponent: () => import('./ecommerce/ecommerce-home.component').then((c) => c.EcommerceHomeComponent)
       },
       {
+        path: 'design/product',
+        loadComponent: () => import('./ecommerce/ecommerce-product-template-editor.component').then((c) => c.EcommerceProductTemplateEditorComponent)
+      },
+      {
         path: 'design',
         loadComponent: () => import('./ecommerce/ecommerce-visual-editor.component').then((c) => c.EcommerceVisualEditorComponent)
       },

@@ -69,7 +69,7 @@ const ProductDetailsPage = async ({
 
     return (
       <main>
-        <ShopDetails product={data.product} relatedItems={data.relatedItems} />
+        <ShopDetails product={data.product} relatedItems={data.relatedItems} productTemplate={data.productTemplate} />
       </main>
     );
   } catch (error) {

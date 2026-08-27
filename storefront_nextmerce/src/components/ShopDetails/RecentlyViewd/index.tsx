@@ -9,7 +9,15 @@ import { useCallback, useRef } from "react";
 import "swiper/css/navigation";
 import "swiper/css";
 
-const RecentlyViewdItems = ({ items }: { items: Product[] }) => {
+const RecentlyViewdItems = ({
+  items,
+  title,
+  limit = 8,
+}: {
+  items: Product[];
+  title?: string;
+  limit?: number;
+}) => {
   const sliderRef = useRef(null);
 
   const handlePrev = useCallback(() => {
@@ -22,7 +30,9 @@ const RecentlyViewdItems = ({ items }: { items: Product[] }) => {
     sliderRef.current.swiper.slideNext();
   }, []);
 
-  if (!items.length) {
+  const visibleItems = items.slice(0, Math.max(2, Math.min(8, limit)));
+
+  if (!visibleItems.length) {
     return null;
   }
 
@@ -43,7 +53,7 @@ const RecentlyViewdItems = ({ items }: { items: Product[] }) => {
                 Productos relacionados
               </span>
               <h2 className="font-semibold text-xl xl:text-heading-5 text-dark">
-                Más productos de esta categoría
+                {title || "Más productos de esta categoría"}
               </h2>
             </div>
 
@@ -97,7 +107,7 @@ const RecentlyViewdItems = ({ items }: { items: Product[] }) => {
             }}
             className="justify-between"
           >
-            {items.map((item, key) => (
+            {visibleItems.map((item, key) => (
               <SwiperSlide key={key}>
                 <ProductItem item={item} />
               </SwiperSlide>
