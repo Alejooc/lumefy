@@ -108,15 +108,15 @@ function variantFacetOptions(
   keys: string[],
   fallbackToMeasureName = false,
 ): string[] {
-  const provided = uniqueFacetValues(providedValues || []);
-  if (provided.length) return provided;
-
   const explicitValues = uniqueFacetValues(
     (variants || [])
       .map((variant) => variantAttribute(variant, keys))
       .filter(Boolean),
   );
   if (explicitValues.length) return explicitValues;
+
+  const provided = uniqueFacetValues(providedValues || []);
+  if (provided.length) return provided;
 
   if (!fallbackToMeasureName) return [];
   return uniqueFacetValues(
@@ -152,6 +152,7 @@ const ShopDetails = ({
   const [selectedSectionId, setSelectedSectionId] = useState("");
   const [previewImg, setPreviewImg] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [cartNotice, setCartNotice] = useState("");
   const normalizedProductTemplate = useMemo(
     () => normalizeProductTemplate(previewTemplate),
     [previewTemplate],
@@ -220,11 +221,20 @@ const ShopDetails = ({
     window.parent.postMessage({ type: "lumefy:preview:select", sectionId }, "*");
   };
   const sizeOptions = useMemo(
-    () => variantFacetOptions(product.variants, product.availableSizes, ["size", "talla", "medida"], true),
+    () => variantFacetOptions(
+      product.variants,
+      product.availableSizes,
+      ["size", "sizes", "talla", "tallas", "medida", "medidas"],
+      true,
+    ),
     [product.availableSizes, product.variants],
   );
   const colorOptions = useMemo(
-    () => variantFacetOptions(product.variants, product.availableColors, ["color", "colour", "colored"]),
+    () => variantFacetOptions(
+      product.variants,
+      product.availableColors,
+      ["color", "colors", "colour", "colours", "colored", "colores"],
+    ),
     [product.availableColors, product.variants],
   );
   const [activeColor, setActiveColor] = useState(colorOptions[0] || "");
@@ -240,15 +250,15 @@ const ShopDetails = ({
       return normalizeFacetValue(explicit || variant.name || "").includes(normalizeFacetValue(value));
     };
     const match = variants.find((variant) =>
-      matches(variant, activeColor, ["color", "colour", "colored"]) &&
-      matches(variant, activeSize, ["size", "talla", "medida"]),
+      matches(variant, activeColor, ["color", "colors", "colour", "colours", "colored", "colores"]) &&
+      matches(variant, activeSize, ["size", "sizes", "talla", "tallas", "medida", "medidas"]),
     );
     return match || (!activeColor && !activeSize ? variants[0] : undefined);
   }, [activeColor, activeSize, product.variants]);
   const selectedVariantLabel = useMemo(() => {
     if (!selectedVariant) return "";
-    const color = variantAttribute(selectedVariant, ["color", "colour", "colored"]);
-    const size = variantAttribute(selectedVariant, ["size", "talla", "medida"]);
+    const color = variantAttribute(selectedVariant, ["color", "colors", "colour", "colours", "colored", "colores"]);
+    const size = variantAttribute(selectedVariant, ["size", "sizes", "talla", "tallas", "medida", "medidas"]);
     return [color, size].filter(Boolean).join(" · ") || selectedVariant.name;
   }, [selectedVariant]);
 
@@ -282,8 +292,13 @@ const ShopDetails = ({
   const displayedPrice = selectedVariant?.price ?? product.discountedPrice;
   const displayedComparePrice = selectedVariant?.compareAtPrice ?? product.price;
   const hasComparePrice = displayedComparePrice > displayedPrice;
-  const isInStock = selectedVariant ? selectedVariant.inStock : product.inStock !== false;
+  const isInStock = selectedVariant
+    ? selectedVariant.inStock && (selectedVariant.stockQuantity === undefined || selectedVariant.stockQuantity > 0)
+    : product.inStock !== false && (product.stockQuantity === undefined || product.stockQuantity > 0);
   const stockQuantity = selectedVariant?.stockQuantity ?? product.stockQuantity;
+  const maxQuantity = stockQuantity === undefined ? undefined : Math.max(0, Math.floor(stockQuantity));
+  const hasValidVariantSelection = !product.variants?.length || Boolean(selectedVariant);
+  const canAddToCart = isInStock && hasValidVariantSelection && (maxQuantity === undefined || quantity <= maxQuantity);
   const stockLabel = !isInStock
     ? content.stock_out_label || buttonLabels.soldOut
     : stockQuantity !== undefined
@@ -299,7 +314,20 @@ const ShopDetails = ({
   const activeContentTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : tabs[0]?.id;
 
   const handleAddToCart = () => {
-    if (!isInStock || (product.variants?.length && !selectedVariant)) return;
+    if (!hasValidVariantSelection) {
+      setCartNotice("Selecciona una variante antes de agregar el producto.");
+      return;
+    }
+    if (!isInStock || maxQuantity === 0) {
+      setCartNotice("Esta variante no tiene unidades disponibles.");
+      return;
+    }
+    if (maxQuantity !== undefined && quantity > maxQuantity) {
+      setQuantity(maxQuantity);
+      setCartNotice(`Solo hay ${maxQuantity} unidad${maxQuantity === 1 ? "" : "es"} disponible${maxQuantity === 1 ? "" : "s"}.`);
+      return;
+    }
+    setCartNotice("");
     dispatch(
       addItemToCart({
         ...product,
@@ -314,6 +342,14 @@ const ShopDetails = ({
       }),
     );
   };
+
+  useEffect(() => {
+    setQuantity((currentQuantity) => {
+      if (maxQuantity === undefined) return Math.max(1, currentQuantity);
+      return Math.min(Math.max(1, currentQuantity), maxQuantity || 1);
+    });
+    setCartNotice("");
+  }, [maxQuantity, selectedVariant?.id]);
 
   const handleAddToWishlist = () => {
     if (!session) return;
@@ -521,13 +557,19 @@ const ShopDetails = ({
                     </div>
                   ) : null}
 
+                  {cartNotice ? (
+                    <p className="mb-4 text-sm text-red" role="alert">
+                      {cartNotice}
+                    </p>
+                  ) : null}
+
                   <div className="flex flex-wrap items-center gap-4.5">
                     {informationSection.settings["show_quantity"] !== false ? <div className="flex items-center rounded-md border border-gray-3">
                       <button
                         type="button"
                         aria-label="disminuir cantidad"
                         className="flex items-center justify-center w-12 h-12 ease-out duration-200 hover:text-blue"
-                        onClick={() => quantity > 1 && setQuantity(quantity - 1)}
+                        onClick={() => setQuantity((currentQuantity) => Math.max(1, currentQuantity - 1))}
                       >
                         -
                       </button>
@@ -536,9 +578,14 @@ const ShopDetails = ({
                       </span>
                       <button
                         type="button"
-                        onClick={() => isInStock && (stockQuantity === undefined || quantity < stockQuantity) && setQuantity(quantity + 1)}
+                        disabled={!isInStock || (maxQuantity !== undefined && quantity >= maxQuantity)}
+                        onClick={() => {
+                          if (isInStock && (maxQuantity === undefined || quantity < maxQuantity)) {
+                            setQuantity((currentQuantity) => currentQuantity + 1);
+                          }
+                        }}
                         aria-label="aumentar cantidad"
-                        className="flex items-center justify-center w-12 h-12 ease-out duration-200 hover:text-blue"
+                        className="flex items-center justify-center w-12 h-12 ease-out duration-200 hover:text-blue disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         +
                       </button>
@@ -547,7 +594,7 @@ const ShopDetails = ({
                     <button
                       type="button"
                       onClick={handleAddToCart}
-                      disabled={!isInStock || (Boolean(product.variants?.length) && !selectedVariant)}
+                      disabled={!canAddToCart}
                       className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:cursor-not-allowed disabled:bg-gray-4"
                     >
                       {isInStock ? buttonLabels.addToCart : buttonLabels.soldOut}

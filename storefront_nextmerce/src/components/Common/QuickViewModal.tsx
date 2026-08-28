@@ -27,6 +27,7 @@ const QuickViewModal = () => {
   const { buttonLabels } = useStorefrontUi();
   const router = useRouter();
   const [quantity, setQuantity] = useState(1);
+  const [cartNotice, setCartNotice] = useState("");
 
   const dispatch = useDispatch<AppDispatch>();
 
@@ -45,6 +46,10 @@ const QuickViewModal = () => {
   const productDescription =
     stripHtml(product.description) ||
     "Conoce más detalles de este producto en la vista rápida.";
+  const maxQuantity = product.stockQuantity == null
+    ? undefined
+    : Math.max(0, Math.floor(product.stockQuantity));
+  const isInStock = product.inStock !== false && (maxQuantity === undefined || maxQuantity > 0);
   const hasComparePrice = product.price > product.discountedPrice;
   const metadata = [
     product.brandName ? { label: "Marca", value: product.brandName } : null,
@@ -72,6 +77,16 @@ const QuickViewModal = () => {
       router.push(product.href || "/products");
       return;
     }
+    if (!isInStock || maxQuantity === 0) {
+      setCartNotice("Este producto no tiene unidades disponibles.");
+      return;
+    }
+    if (maxQuantity !== undefined && quantity > maxQuantity) {
+      setQuantity(maxQuantity);
+      setCartNotice(`Solo hay ${maxQuantity} unidad${maxQuantity === 1 ? "" : "es"} disponible${maxQuantity === 1 ? "" : "s"}.`);
+      return;
+    }
+    setCartNotice("");
     dispatch(
       addItemToCart({
         ...product,
@@ -116,14 +131,16 @@ const QuickViewModal = () => {
   useEffect(() => {
     if (isModalOpen) {
       setQuantity(1);
+      setCartNotice("");
       setActivePreview(0);
       return;
     }
 
     setQuantity(1);
+    setCartNotice("");
     setActivePreview(0);
     dispatch(resetQuickView());
-  }, [isModalOpen, dispatch]);
+  }, [isModalOpen, dispatch, product?.id]);
 
   return (
     <div
@@ -298,10 +315,9 @@ const QuickViewModal = () => {
 
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => quantity > 1 && setQuantity(quantity - 1)}
+                      onClick={() => setQuantity((currentQuantity) => Math.max(1, currentQuantity - 1))}
                       aria-label="Disminuir cantidad"
                       className="flex items-center justify-center w-10 h-10 rounded-[5px] bg-gray-2 text-dark ease-out duration-200 hover:text-blue"
-                      disabled={quantity < 0 && true}
                     >
                       <svg
                         className="fill-current"
@@ -328,9 +344,14 @@ const QuickViewModal = () => {
                     </span>
 
                     <button
-                      onClick={() => setQuantity(quantity + 1)}
+                      onClick={() => {
+                        if (isInStock && (maxQuantity === undefined || quantity < maxQuantity)) {
+                          setQuantity((currentQuantity) => currentQuantity + 1);
+                        }
+                      }}
                       aria-label="Aumentar cantidad"
-                      className="flex items-center justify-center w-10 h-10 rounded-[5px] bg-gray-2 text-dark ease-out duration-200 hover:text-blue"
+                      disabled={!isInStock || (maxQuantity !== undefined && quantity >= maxQuantity)}
+                      className="flex items-center justify-center w-10 h-10 rounded-[5px] bg-gray-2 text-dark ease-out duration-200 hover:text-blue disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <svg
                         className="fill-current"
@@ -358,9 +379,15 @@ const QuickViewModal = () => {
                 </div>
               </div>
 
+              {cartNotice ? (
+                <p className="mb-4 text-sm text-red" role="alert">
+                  {cartNotice}
+                </p>
+              ) : null}
+
               <div className="flex flex-wrap items-center gap-4">
                 <button
-                  disabled={quantity === 0 && true}
+                  disabled={!isInStock || Boolean(product.variants?.length)}
                   onClick={() => handleAddToCart()}
                   className={`inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark
                   `}

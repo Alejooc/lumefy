@@ -943,7 +943,10 @@ def _split_variant_tokens(value: str | None) -> list[str]:
     # Keep hyphens intact in dimension labels (for example,
     # "Doble - 1.40 x 1.90"), while still supporting simple "Rojo - XL"
     # names from integrations.
-    normalized = value.replace("|", "/").replace(",", "/")
+    # Commas inside decimal dimensions are part of the value (for example,
+    # "0,40 X 0,70 Aprox."). Only treat a comma followed by whitespace as a
+    # separator used by simpler integrations such as "Rojo, XL".
+    normalized = re.sub(r",\s+", "/", value.replace("|", "/"))
     tokens: list[str] = []
     for part in normalized.split("/"):
         compact = part.strip()
@@ -991,7 +994,7 @@ def _extract_variant_facets(variants: list[ProductVariant] | None) -> tuple[list
         explicit_size = next(
             (
                 str(attributes[key]).strip()
-                for key in ("size", "talla", "medida")
+                for key in ("size", "sizes", "talla", "tallas", "medida", "medidas")
                 if attributes.get(key) not in (None, "")
             ),
             None,

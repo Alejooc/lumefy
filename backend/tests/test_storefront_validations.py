@@ -63,6 +63,19 @@ class StorefrontValidationTests(unittest.TestCase):
         self.assertEqual(sizes, ["XL", "M"])
         self.assertEqual(colors, ["Rojo", "Azul"])
 
+    def test_variant_facets_preserve_decimal_comma_measure_attributes(self):
+        variants = [
+            SimpleNamespace(
+                name="0,40 X 0,70 Aprox.",
+                attributes={"Color": "Verde", "Medidas": "0,40 X 0,70 Aprox."},
+            ),
+        ]
+
+        sizes, colors = _extract_variant_facets(variants)
+
+        self.assertEqual(sizes, ["0,40 X 0,70 Aprox."])
+        self.assertEqual(colors, ["Verde"])
+
     def test_public_shipping_config_serializes_orm_rows(self):
         destination = SimpleNamespace(
             id=uuid4(),
