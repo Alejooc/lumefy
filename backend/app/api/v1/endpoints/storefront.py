@@ -1112,6 +1112,15 @@ def _serialize_public_product(
     pricing: ProductPricing | None = None,
 ) -> schemas.PublicProduct:
     title = (published_product.custom_title or product.name or "").strip()
+    seo_title = (getattr(published_product, "seo_title", None) or title).strip() or title
+    seo_description = None
+    if not compact:
+        seo_description = (
+            getattr(published_product, "seo_description", None)
+            or getattr(published_product, "custom_description", None)
+            or product.description
+            or ""
+        ).strip() or None
     # Catalog cards do not render descriptions. Some provider descriptions
     # contain complete HTML galleries, so sending them with every page makes
     # the RSC payload unnecessarily large. Detail pages still receive the
@@ -1188,8 +1197,8 @@ def _serialize_public_product(
         show_stock=is_tracked,
         in_stock=not is_tracked or bool(available_stock and available_stock > 0),
         stock_quantity=available_stock,
-        seo_title=(getattr(published_product, "seo_title", None) or title or "").strip() or None,
-        seo_description=(getattr(published_product, "seo_description", None) or description or "").strip() or None,
+        seo_title=seo_title,
+        seo_description=seo_description,
     )
 
 
@@ -4679,6 +4688,8 @@ async def _read_simple_public_catalog(
         PublishedProduct.id,
         PublishedProduct.product_id,
         PublishedProduct.custom_title,
+        PublishedProduct.seo_title,
+        PublishedProduct.seo_description,
         PublishedProduct.slug,
         PublishedProduct.price_override,
         PublishedProduct.compare_at_price,
@@ -4939,6 +4950,8 @@ async def read_public_products(
         PublishedProduct.id,
         PublishedProduct.product_id,
         PublishedProduct.custom_title,
+        PublishedProduct.seo_title,
+        PublishedProduct.seo_description,
         PublishedProduct.slug,
         PublishedProduct.price_override,
         PublishedProduct.compare_at_price,

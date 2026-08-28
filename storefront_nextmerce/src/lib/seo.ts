@@ -1,4 +1,4 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 
 import { resolveStorefront } from "@/lib/storefront-api";
 import { getStorefrontBranding } from "@/lib/storefront-branding";
@@ -135,7 +135,7 @@ export async function buildStorefrontPageMetadata({
     ? titleWithStorefrontName(normalizedTitle, storefrontName)
     : configuredTitle || storefrontName;
   const pageDescription = stripHtml(description) || configuredDescription ||
-    `Compra online en ${storefrontName}.`;
+    `Compra online en ${storefrontName}. Descubre nuestros productos, novedades y ofertas en un solo lugar, con una experiencia de compra fácil y segura.`;
   const configuredIndex = booleanSetting(seoSettings, "index_storefront");
 
   return buildPageMetadata({
@@ -159,8 +159,15 @@ export async function buildPageMetadata({
   faviconUrl,
 }: MetadataInput): Promise<Metadata> {
   const siteUrl = await getSiteUrl();
-  const canonicalUrl = `${siteUrl}${path.startsWith("/") ? path : `/${path}`}`;
-  const absoluteImageUrl = imageUrl ? new URL(imageUrl, siteUrl).toString() : undefined;
+  const canonicalUrl = new URL(path.startsWith("/") ? path : `/${path}`, `${siteUrl}/`).toString();
+  let absoluteImageUrl: string | undefined;
+  if (imageUrl) {
+    try {
+      absoluteImageUrl = new URL(imageUrl, `${siteUrl}/`).toString();
+    } catch {
+      absoluteImageUrl = undefined;
+    }
+  }
 
   return {
     metadataBase: new URL(siteUrl),

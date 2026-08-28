@@ -191,6 +191,31 @@ function validHref(value: unknown): string | undefined {
   return undefined;
 }
 
+function validSocialProfileHref(
+  key: "facebook" | "twitter" | "instagram" | "linkedin",
+  value: string | undefined,
+): string | undefined {
+  const href = validHref(value);
+  if (!href) return undefined;
+
+  try {
+    const url = new URL(href);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    const allowedHosts: Record<typeof key, string[]> = {
+      facebook: ["facebook.com", "m.facebook.com"],
+      twitter: ["twitter.com", "x.com"],
+      instagram: ["instagram.com"],
+      linkedin: ["linkedin.com"],
+    };
+    if (!allowedHosts[key].includes(hostname) || url.pathname === "/") {
+      return undefined;
+    }
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 function fontFamily(value: unknown, fallback: string): string {
   switch (value) {
     case "euclid":
@@ -548,7 +573,7 @@ export function getStorefrontBranding(
       ),
     },
     socialLinks: (["facebook", "twitter", "instagram", "linkedin"] as const)
-      .map((key) => ({ key, href: nonEmpty(social[key]) }))
+      .map((key) => ({ key, href: validSocialProfileHref(key, nonEmpty(social[key])) }))
       .filter(
         (entry): entry is { key: "facebook" | "twitter" | "instagram" | "linkedin"; href: string } =>
           Boolean(entry.href),

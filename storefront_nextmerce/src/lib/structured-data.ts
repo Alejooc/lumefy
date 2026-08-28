@@ -88,7 +88,10 @@ function offer(
 }
 
 export function serializeJsonLd(data: JsonLdDocument): string {
-  return JSON.stringify(data).replace(/</g, "\\u003c");
+  return JSON.stringify(data)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
 }
 
 export function buildStorefrontIdentityStructuredData(
@@ -104,7 +107,7 @@ export function buildStorefrontIdentityStructuredData(
     contactType: "customer service",
     telephone: branding.supportPhone || undefined,
     email: branding.supportEmail || undefined,
-    availableLanguage: ["es"],
+    availableLanguage: [storefront.language || "es"],
   });
   const organization = compactObject({
     "@type": "Organization",

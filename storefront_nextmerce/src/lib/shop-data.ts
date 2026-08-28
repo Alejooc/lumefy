@@ -69,6 +69,7 @@ export type ShopDetailsViewModel = {
   product: Product;
   relatedItems: Product[];
   productTemplate: ProductTemplateDocument;
+  currency: string;
 };
 
 function normalizeTypeLabel(value?: string | null): string {
@@ -231,5 +232,6 @@ export async function loadShopDetailsViewModel(slug: string): Promise<ShopDetail
     product: toTemplateProduct(product),
     relatedItems,
     productTemplate: (storefront.theme_documents?.product || {}) as ProductTemplateDocument,
+    currency: storefront.currency,
   };
 }
