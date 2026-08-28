@@ -14,13 +14,14 @@ def enqueue_outbox_event(
     aggregate_id: uuid.UUID,
     company_id: uuid.UUID,
     payload: dict[str, Any],
+    idempotency_key: str | None = None,
 ) -> OutboxEvent:
     """Add an idempotent event; caller commits it with its business transaction."""
     event = OutboxEvent(
         event_type=event_type,
         aggregate_type=aggregate_type,
         aggregate_id=aggregate_id,
-        idempotency_key=f"{event_type}:{aggregate_id}",
+        idempotency_key=idempotency_key or f"{event_type}:{aggregate_id}",
         payload=payload,
         company_id=company_id,
     )

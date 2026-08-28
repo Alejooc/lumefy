@@ -7,6 +7,7 @@ import {
   AppInstalledDetail,
   AppMarketplaceService,
   BillingSummary,
+  TrackingStatus,
   WebhookDelivery
 } from 'src/app/core/services/app-marketplace.service';
 import { AuthService } from 'src/app/core/services/auth.service';
@@ -53,6 +54,7 @@ export class AppInstalledDetailComponent implements OnInit {
   events: AppInstallEvent[] = [];
   billing: BillingSummary | null = null;
   webhookDeliveries: WebhookDelivery[] = [];
+  trackingStatus: TrackingStatus | null = null;
 
   get appIconClass(): string {
     const icon = (this.appDetail?.icon || 'box').trim();
@@ -125,6 +127,11 @@ export class AppInstalledDetailComponent implements OnInit {
         } else {
           this.webhookDeliveries = [];
         }
+        if (this.isTrackingApp()) {
+          this.loadTrackingDeliveries();
+        } else {
+          this.trackingStatus = null;
+        }
       },
       error: (err) => {
         this.loading = false;
@@ -167,6 +174,21 @@ export class AppInstalledDetailComponent implements OnInit {
       },
       error: () => {
         this.webhookDeliveries = [];
+      }
+    });
+  }
+
+  loadTrackingDeliveries(): void {
+    if (!this.isTrackingApp()) {
+      this.trackingStatus = null;
+      return;
+    }
+    this.appService.getTrackingDeliveries(this.slug, 50).subscribe({
+      next: (status) => {
+        this.trackingStatus = status;
+      },
+      error: () => {
+        this.trackingStatus = null;
       }
     });
   }
@@ -250,6 +272,48 @@ export class AppInstalledDetailComponent implements OnInit {
 
   supportsExternalApi(): boolean {
     return !!this.appDetail?.capabilities?.includes('external_api');
+  }
+
+  isTrackingApp(): boolean {
+    return ['google-analytics', 'meta-pixel', 'tiktok-pixel'].includes(this.appDetail?.slug || '');
+  }
+
+  trackingEventLabel(eventName: string): string {
+    const labels: Record<string, string> = {
+      page_view: 'Visita de página',
+      view_item: 'Producto visto',
+      search: 'Búsqueda',
+      add_to_cart: 'Añadido al carrito',
+      remove_from_cart: 'Quitado del carrito',
+      view_cart: 'Carrito visto',
+      begin_checkout: 'Inicio de checkout',
+      add_shipping_info: 'Datos de envío',
+      add_payment_info: 'Datos de pago',
+      purchase: 'Compra'
+    };
+    return labels[eventName] || eventName;
+  }
+
+  trackingStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      SENT: 'Entregado',
+      RETRY: 'Reintentando',
+      FAILED: 'Rechazado',
+      NOT_CONFIGURED: 'Pendiente de configuración',
+      PENDING: 'Pendiente'
+    };
+    return labels[status] || status;
+  }
+
+  trackingStatusClass(status: string): string {
+    const classes: Record<string, string> = {
+      SENT: 'bg-success-subtle text-success',
+      RETRY: 'bg-warning-subtle text-warning-emphasis',
+      FAILED: 'bg-danger-subtle text-danger',
+      NOT_CONFIGURED: 'bg-secondary-subtle text-secondary',
+      PENDING: 'bg-light text-muted'
+    };
+    return classes[status] || 'bg-light text-muted';
   }
 
   saveConfig(): void {

@@ -195,3 +195,29 @@ class WebhookDeliveryOut(BaseModel):
     error_message: Optional[str] = None
     attempt_number: int
     created_at: datetime
+
+
+class TrackingDeliveryOut(BaseModel):
+    id: UUID
+    provider: str
+    event_id: str
+    event_name: str
+    status: str
+    status_code: Optional[int] = None
+    error_message: Optional[str] = None
+    attempt_number: int
+    last_attempt_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class TrackingStatusOut(BaseModel):
+    app_slug: str
+    server_side_enabled: bool
+    total: int = 0
+    sent: int = 0
+    retrying: int = 0
+    failed: int = 0
+    not_configured: int = 0
+    last_event_at: Optional[datetime] = None
+    deliveries: list[TrackingDeliveryOut] = Field(default_factory=list)

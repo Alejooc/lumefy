@@ -33,3 +33,77 @@
 .fw-mono {
   font-family: 'Courier New', monospace;
 }
+
+.tracking-status-card {
+  overflow: hidden;
+}
+
+.tracking-status-header {
+  background: linear-gradient(135deg, rgba(var(--bs-primary-rgb), .08), rgba(var(--bs-info-rgb), .04));
+}
+
+.tracking-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.tracking-metric {
+  padding: 10px 8px;
+  border: 1px solid var(--bs-border-color-translucent);
+  border-radius: 10px;
+  background: var(--bs-tertiary-bg);
+  text-align: center;
+}
+
+.tracking-metric-value,
+.tracking-metric-label {
+  display: block;
+}
+
+.tracking-metric-value {
+  color: var(--bs-emphasis-color);
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.tracking-metric-label {
+  margin-top: 4px;
+  color: var(--bs-secondary-color);
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.tracking-empty-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px;
+  border: 1px dashed var(--bs-border-color);
+  border-radius: 12px;
+  background: var(--bs-tertiary-bg);
+}
+
+.tracking-empty-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--bs-secondary-bg);
+  color: var(--bs-secondary-color);
+}
+
+.tracking-delivery-row {
+  padding: 10px 0;
+  border-top: 1px solid var(--bs-border-color-translucent);
+}
+
+@media (max-width: 420px) {
+  .tracking-metrics {
+    grid-template-columns: 1fr;
+  }
+}

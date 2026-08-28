@@ -27,6 +27,7 @@ from app.core.plan_limits import PlanLimitChecker
 from app.models.app_definition import AppDefinition
 from app.models.app_install_event import AppInstallEvent
 from app.models.app_webhook_delivery import AppWebhookDelivery
+from app.models.app_tracking_delivery import AppTrackingDelivery
 from app.models.company_app_install import CompanyAppInstall
 from app.models.integration import IntegrationSource
 from app.models.user import User
@@ -542,6 +543,73 @@ async def get_installed_events(
         }
         for event in events
     ]
+
+
+@router.get("/installed/{slug}/tracking/deliveries", response_model=schemas.TrackingStatusOut)
+async def get_tracking_deliveries(
+    slug: str,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    """Return server-side tracking health without exposing provider credentials."""
+    if not current_user.company_id:
+        raise HTTPException(status_code=400, detail="El usuario no tiene company_id asociado")
+    install, app = await _load_install_by_slug(db, current_user.company_id, slug)
+    if app.slug not in TRACKING_PRIVATE_CONFIG_KEYS:
+        raise HTTPException(status_code=400, detail="La app no tiene entregas de tracking server-side")
+
+    counts_result = await db.execute(
+        select(AppTrackingDelivery.status, func.count(AppTrackingDelivery.id))
+        .where(
+            AppTrackingDelivery.install_id == install.id,
+            AppTrackingDelivery.company_id == current_user.company_id,
+        )
+        .group_by(AppTrackingDelivery.status)
+    )
+    counts = {status: int(total) for status, total in counts_result.all()}
+    last_event_at = await db.scalar(
+        select(func.max(AppTrackingDelivery.created_at)).where(
+            AppTrackingDelivery.install_id == install.id,
+            AppTrackingDelivery.company_id == current_user.company_id,
+        )
+    )
+    deliveries_result = await db.execute(
+        select(AppTrackingDelivery)
+        .where(
+            AppTrackingDelivery.install_id == install.id,
+            AppTrackingDelivery.company_id == current_user.company_id,
+        )
+        .order_by(AppTrackingDelivery.created_at.desc())
+        .limit(max(1, min(limit, 100)))
+    )
+    deliveries = deliveries_result.scalars().all()
+    return {
+        "app_slug": app.slug,
+        "server_side_enabled": (install.settings or {}).get("server_side_enabled") is True,
+        "total": sum(counts.values()),
+        "sent": counts.get("SENT", 0),
+        "retrying": counts.get("RETRY", 0),
+        "failed": counts.get("FAILED", 0),
+        "not_configured": counts.get("NOT_CONFIGURED", 0),
+        "last_event_at": last_event_at,
+        "deliveries": [
+            {
+                "id": delivery.id,
+                "provider": delivery.provider,
+                "event_id": delivery.event_id,
+                "event_name": delivery.event_name,
+                "status": delivery.status,
+                "status_code": delivery.status_code,
+                "error_message": delivery.error_message,
+                "attempt_number": delivery.attempt_number,
+                "last_attempt_at": delivery.last_attempt_at,
+                "delivered_at": delivery.delivered_at,
+                "created_at": delivery.created_at,
+            }
+            for delivery in deliveries
+        ],
+    }
 
 
 @router.get("/installed/{slug}/billing", response_model=schemas.AppBillingSummary)

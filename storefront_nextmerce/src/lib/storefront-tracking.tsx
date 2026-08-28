@@ -4,8 +4,8 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
-import { getPublicTrackingIntegrations } from "@/lib/storefront-api";
-import type { PublicTrackingIntegration } from "@/types/storefront";
+import { getPublicTrackingIntegrations, sendPublicTrackingEvent } from "@/lib/storefront-api";
+import type { PublicTrackingEventRequest, PublicTrackingIntegration } from "@/types/storefront";
 
 export type TrackingItem = {
   item_id: string;
@@ -34,6 +34,8 @@ export type StorefrontTrackingEvent = {
   value?: number;
   transaction_id?: string;
   search_term?: string;
+  client_id?: string;
+  page_location?: string;
   items?: TrackingItem[];
 };
 
@@ -56,6 +58,7 @@ declare global {
 }
 
 const CONSENT_STORAGE_KEY = "lumefy-tracking-consent-v1";
+const CLIENT_ID_STORAGE_KEY = "lumefy-tracking-client-id-v1";
 const PURCHASE_STORAGE_KEY = "lumefy-pending-purchase-v1";
 const CONFIRMED_PAYMENT_STATUSES = new Set([
   "approved",
@@ -70,6 +73,7 @@ const initializedIntegrations = new Set<string>();
 let activeIntegrations: PublicTrackingIntegration[] = [];
 let activeConsent: TrackingConsent | null = null;
 let activeCurrency = "USD";
+let activeStorefrontId: string | null = null;
 let configurationLoaded = false;
 let pendingEvents: StorefrontTrackingEvent[] = [];
 let pendingConfirmedPurchase: StorefrontTrackingEvent | null = null;
@@ -103,6 +107,20 @@ function readConsent(): TrackingConsent | null {
 
 export function getStorefrontTrackingConsent(): TrackingConsent {
   return readConsent() || { analytics: false, marketing: false };
+}
+
+function getTrackingClientId(): string {
+  if (typeof window === "undefined") return "server";
+  const key = `${CLIENT_ID_STORAGE_KEY}:${window.location.host.toLowerCase()}`;
+  try {
+    const stored = window.localStorage.getItem(key);
+    if (stored) return stored;
+    const value = uniqueEventId("client");
+    window.localStorage.setItem(key, value);
+    return value;
+  } catch {
+    return uniqueEventId("client");
+  }
 }
 
 function appendScript(id: string, src: string): void {
@@ -201,7 +219,10 @@ function sendMetaEvent(integration: PublicTrackingIntegration, event: Storefront
     view_item: "ViewContent",
     search: "Search",
     add_to_cart: "AddToCart",
+    remove_from_cart: "RemoveFromCart",
+    view_cart: "ViewCart",
     begin_checkout: "InitiateCheckout",
+    add_shipping_info: "AddShippingInfo",
     add_payment_info: "AddPaymentInfo",
     purchase: "Purchase",
   };
@@ -234,7 +255,10 @@ function sendTikTokEvent(integration: PublicTrackingIntegration, event: Storefro
     view_item: "ViewContent",
     search: "Search",
     add_to_cart: "AddToCart",
+    remove_from_cart: "RemoveFromCart",
+    view_cart: "ViewCart",
     begin_checkout: "InitiateCheckout",
+    add_shipping_info: "AddShippingInfo",
     add_payment_info: "AddPaymentInfo",
     purchase: "Purchase",
   };
@@ -262,26 +286,57 @@ function integrationAllowed(integration: PublicTrackingIntegration): boolean {
     : activeConsent.marketing;
 }
 
+function shouldSendServerSide(event: StorefrontTrackingEvent): boolean {
+  if (!activeStorefrontId || event.name === "purchase") return false;
+  return activeIntegrations.some((integration) => (
+    integration.server_side_enabled
+    && integrationAllowed(integration)
+    && (event.name === "page_view" || integration.track_ecommerce)
+  ));
+}
+
 function dispatchTrackingEvent(event: StorefrontTrackingEvent): void {
   for (const integration of activeIntegrations) {
     if (!integrationAllowed(integration)) continue;
+    if (!integration.enabled) continue;
     if (integration.provider === "google_analytics") sendGoogleEvent(integration, event);
     if (integration.provider === "meta") sendMetaEvent(integration, event);
     if (integration.provider === "tiktok") sendTikTokEvent(integration, event);
   }
+  if (shouldSendServerSide(event)) {
+    if (event.name === "purchase") return;
+    const serverEvent: PublicTrackingEventRequest = {
+      name: event.name,
+      event_id: event.event_id || uniqueEventId(event.name),
+      client_id: event.client_id,
+      currency: event.currency,
+      value: event.value,
+      transaction_id: event.transaction_id,
+      search_term: event.search_term,
+      page_location: event.page_location,
+      items: event.items,
+      consent: activeConsent || { analytics: false, marketing: false },
+    };
+    void sendPublicTrackingEvent(activeStorefrontId as string, serverEvent).catch(() => {
+      // Browser tracking remains available if the public endpoint is unavailable.
+    });
+  }
 }
 
 function configureTracking(
+  storefrontId: string,
   integrations: PublicTrackingIntegration[],
   consent: TrackingConsent | null,
   currency: string,
 ): void {
+  activeStorefrontId = storefrontId;
   activeIntegrations = integrations;
   activeConsent = consent;
   activeCurrency = currency || "USD";
   configurationLoaded = true;
   for (const integration of integrations) {
     if (!integrationAllowed(integration)) continue;
+    if (!integration.enabled) continue;
     if (integration.provider === "google_analytics") initializeGoogleAnalytics(integration.tracking_id);
     if (integration.provider === "meta") initializeMetaPixel(integration.tracking_id);
     if (integration.provider === "tiktok") initializeTikTokPixel(integration.tracking_id);
@@ -304,6 +359,8 @@ export function trackStorefrontEvent(event: StorefrontTrackingEvent): void {
     ...event,
     event_id: event.event_id || uniqueEventId(event.name),
     currency: event.currency || activeCurrency,
+    client_id: event.client_id || getTrackingClientId(),
+    page_location: event.page_location || window.location.href,
   };
   if (!configurationLoaded) {
     pendingEvents = [...pendingEvents.slice(-(MAX_PENDING_EVENTS - 1)), normalizedEvent];
@@ -454,7 +511,7 @@ export function StorefrontTrackingProvider({
 
   useEffect(() => {
     if (!configurationResolved) return;
-    configureTracking(integrations, consent, currency);
+    configureTracking(storefrontId, integrations, consent, currency);
     if (consent && integrations.some(integrationAllowed)) {
       trackStorefrontEvent({ name: "page_view" });
       const searchTerm = new URLSearchParams(window.location.search).get("q")?.trim();

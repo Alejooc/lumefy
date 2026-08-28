@@ -203,7 +203,7 @@ APP_REGISTRY: List[Dict[str, Any]] = [
                 "server_side_enabled": {
                     "type": "boolean",
                     "title": "Medición server-side",
-                    "description": "Envía compras confirmadas desde el backend para recuperar conversiones bloqueadas por el navegador.",
+                    "description": "Envía eventos de la tienda desde el backend para recuperar conversiones bloqueadas por el navegador.",
                 },
                 "api_secret": {
                     "type": "string",
@@ -256,7 +256,7 @@ APP_REGISTRY: List[Dict[str, Any]] = [
                 "server_side_enabled": {
                     "type": "boolean",
                     "title": "Conversions API",
-                    "description": "Envía compras confirmadas desde el backend y las deduplica con el Pixel.",
+                    "description": "Envía eventos de la tienda desde el backend y los deduplica con el Pixel.",
                 },
                 "access_token": {
                     "type": "string",
@@ -316,7 +316,7 @@ APP_REGISTRY: List[Dict[str, Any]] = [
                 "server_side_enabled": {
                     "type": "boolean",
                     "title": "Events API",
-                    "description": "Envía compras confirmadas desde el backend y las deduplica con TikTok Pixel.",
+                    "description": "Envía eventos de la tienda desde el backend y los deduplica con TikTok Pixel.",
                 },
                 "access_token": {
                     "type": "string",

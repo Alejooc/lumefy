@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -505,12 +505,59 @@ class PublicStorePaymentGateway(BaseModel):
     public_config: dict = Field(default_factory=dict)
 
 
+class PublicTrackingConsent(BaseModel):
+    analytics: bool = False
+    marketing: bool = False
+
+
 class PublicTrackingIntegration(BaseModel):
     provider: str
     app_slug: str
     tracking_id: str
+    enabled: bool = True
     track_ecommerce: bool = True
+    server_side_enabled: bool = False
     consent_category: str
+
+
+PublicTrackingEventName = Literal[
+    "page_view",
+    "view_item",
+    "search",
+    "add_to_cart",
+    "remove_from_cart",
+    "view_cart",
+    "begin_checkout",
+    "add_shipping_info",
+    "add_payment_info",
+]
+
+
+class PublicTrackingEventItem(BaseModel):
+    item_id: str = Field(..., min_length=1, max_length=200)
+    item_name: str = Field(default="Producto", min_length=1, max_length=240)
+    price: float = Field(default=0, ge=0, le=100_000_000)
+    quantity: float = Field(default=1, gt=0, le=10_000)
+    item_variant: Optional[str] = Field(default=None, max_length=200)
+    item_category: Optional[str] = Field(default=None, max_length=200)
+    item_brand: Optional[str] = Field(default=None, max_length=200)
+
+
+class PublicTrackingEventRequest(BaseModel):
+    name: PublicTrackingEventName
+    event_id: str = Field(..., min_length=8, max_length=255)
+    client_id: Optional[str] = Field(default=None, min_length=8, max_length=255)
+    currency: Optional[str] = Field(default=None, min_length=3, max_length=12)
+    value: Optional[float] = Field(default=None, ge=0, le=100_000_000)
+    transaction_id: Optional[str] = Field(default=None, max_length=255)
+    search_term: Optional[str] = Field(default=None, max_length=240)
+    page_location: Optional[str] = Field(default=None, max_length=2048)
+    items: list[PublicTrackingEventItem] = Field(default_factory=list, max_length=100)
+    consent: PublicTrackingConsent = Field(default_factory=PublicTrackingConsent)
+
+
+class PublicTrackingEventResponse(BaseModel):
+    accepted: bool
 
 
 class PublicProductVariant(BaseModel):
@@ -618,11 +665,6 @@ class PublicCheckoutAddress(BaseModel):
     postal_code: Optional[str] = Field(default=None, max_length=40)
     state_code: Optional[str] = Field(default=None, max_length=32)
     city_code: Optional[str] = Field(default=None, max_length=32)
-
-
-class PublicTrackingConsent(BaseModel):
-    analytics: bool = False
-    marketing: bool = False
 
 
 class PublicCheckoutPreviewRequest(BaseModel):

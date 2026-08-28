@@ -98,7 +98,10 @@ from app.services.storefront_shipping import (
 )
 from app.services.pricing import ProductPricing, load_price_list_context, resolve_price, resolve_product_pricing
 from app.core.credential_crypto import SENSITIVE_GATEWAY_CONFIG_KEYS
-from app.services.storefront_tracking import enqueue_storefront_purchase_tracking
+from app.services.storefront_tracking import (
+    enqueue_storefront_purchase_tracking,
+    enqueue_storefront_tracking_event,
+)
 
 router = APIRouter()
 
@@ -4194,7 +4197,9 @@ async def read_public_tracking_integrations(
     integrations: list[schemas.PublicTrackingIntegration] = []
     for install, app in rows:
         app_settings = install.settings if isinstance(install.settings, dict) else {}
-        if app_settings.get("enabled") is not True:
+        browser_enabled = app_settings.get("enabled") is True
+        server_side_enabled = app_settings.get("server_side_enabled") is True
+        if not browser_enabled and not server_side_enabled:
             continue
 
         raw_tracking_id = str(
@@ -4223,12 +4228,75 @@ async def read_public_tracking_integrations(
                 provider=provider,
                 app_slug=app.slug,
                 tracking_id=raw_tracking_id.upper() if app.slug == "google-analytics" else raw_tracking_id,
+                enabled=browser_enabled,
                 track_ecommerce=app_settings.get("track_ecommerce") is not False,
+                server_side_enabled=server_side_enabled,
                 consent_category=consent_category,
             )
         )
 
     return integrations
+
+
+@router.post(
+    "/public/{storefront_id}/tracking/events",
+    response_model=schemas.PublicTrackingEventResponse,
+    status_code=202,
+)
+@limiter.limit("120/minute")
+async def collect_public_tracking_event(
+    request: Request,
+    storefront_id: uuid.UUID,
+    payload: schemas.PublicTrackingEventRequest,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Queue consented browser events for configured server-side providers."""
+    storefront = await _get_public_storefront_by_id(db, storefront_id)
+    if not storefront.company_id:
+        return {"accepted": False}
+
+    consent = payload.consent
+    if not consent.analytics and not consent.marketing:
+        return {"accepted": False}
+
+    installs_result = await db.execute(
+        select(CompanyAppInstall, AppDefinition)
+        .join(AppDefinition, AppDefinition.id == CompanyAppInstall.app_id)
+        .where(
+            CompanyAppInstall.company_id == storefront.company_id,
+            CompanyAppInstall.is_enabled == True,
+            AppDefinition.is_active == True,
+            AppDefinition.slug.in_(["google-analytics", "meta-pixel", "tiktok-pixel"]),
+        )
+    )
+    has_destination = False
+    for install, app in installs_result.all():
+        app_settings = install.settings if isinstance(install.settings, dict) else {}
+        if app_settings.get("server_side_enabled") is not True:
+            continue
+        consent_key = "analytics" if app.slug == "google-analytics" else "marketing"
+        if getattr(consent, consent_key) is not True:
+            continue
+        if payload.name != "page_view" and app_settings.get("track_ecommerce") is False:
+            continue
+        has_destination = True
+        break
+
+    if not has_destination:
+        return {"accepted": False}
+
+    enqueue_storefront_tracking_event(
+        db,
+        storefront_id=storefront.id,
+        company_id=storefront.company_id,
+        event=payload.model_dump(),
+    )
+    try:
+        await db.commit()
+    except IntegrityError:
+        # A repeated event_id is already safely queued; treat it as accepted.
+        await db.rollback()
+    return {"accepted": True}
 
 
 @router.get("/public/{storefront_id}/shipping/config", response_model=schemas.PublicShippingConfig)

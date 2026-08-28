@@ -68,8 +68,42 @@ export type PublicTrackingIntegration = {
   provider: "google_analytics" | "meta" | "tiktok";
   app_slug: string;
   tracking_id: string;
+  enabled: boolean;
   track_ecommerce: boolean;
+  server_side_enabled: boolean;
   consent_category: "analytics" | "marketing";
+};
+
+export type PublicTrackingEventName =
+  | "page_view"
+  | "view_item"
+  | "search"
+  | "add_to_cart"
+  | "remove_from_cart"
+  | "view_cart"
+  | "begin_checkout"
+  | "add_shipping_info"
+  | "add_payment_info";
+
+export type PublicTrackingEventRequest = {
+  name: PublicTrackingEventName;
+  event_id: string;
+  client_id?: string;
+  currency?: string;
+  value?: number;
+  transaction_id?: string;
+  search_term?: string;
+  page_location?: string;
+  items?: Array<{
+    item_id: string;
+    item_name: string;
+    price: number;
+    quantity: number;
+    item_variant?: string;
+    item_category?: string;
+    item_brand?: string;
+  }>;
+  consent: CheckoutTrackingConsent;
 };
 
 export type PublicStorefrontAccountUser = {

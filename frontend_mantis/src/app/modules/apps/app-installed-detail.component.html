@@ -258,6 +258,84 @@
                 }
               </div>
             </div>
+            @if (isTrackingApp()) {
+              <div class="card border-0 shadow-sm mb-3 tracking-status-card">
+                <div class="card-header tracking-status-header border-bottom d-flex justify-content-between align-items-center gap-2">
+                  <div>
+                    <h6 class="mb-1"><i class="ti ti-activity me-2 text-primary"></i>Estado de medición</h6>
+                    <span class="small text-muted">Entregas server-side por proveedor</span>
+                  </div>
+                  <button class="btn btn-sm btn-light" type="button" (click)="loadTrackingDeliveries()" title="Actualizar estado">
+                    <i class="ti ti-refresh"></i>
+                  </button>
+                </div>
+                <div class="card-body px-3 py-3">
+                  @if (trackingStatus; as tracking) {
+                    @if (!tracking.server_side_enabled) {
+                      <div class="tracking-empty-state mb-3">
+                        <div class="tracking-empty-icon"><i class="ti ti-plug-off"></i></div>
+                        <div>
+                          <div class="fw-semibold small">Server-side está apagado</div>
+                          <div class="small text-muted">Actívalo en configuración para recibir eventos desde el backend.</div>
+                        </div>
+                      </div>
+                    }
+                    <div class="tracking-metrics mb-3">
+                      <div class="tracking-metric">
+                        <span class="tracking-metric-value">{{ tracking.sent }}</span>
+                        <span class="tracking-metric-label">Entregados</span>
+                      </div>
+                      <div class="tracking-metric">
+                        <span class="tracking-metric-value">{{ tracking.retrying }}</span>
+                        <span class="tracking-metric-label">Reintentando</span>
+                      </div>
+                      <div class="tracking-metric">
+                        <span class="tracking-metric-value">{{ tracking.failed }}</span>
+                        <span class="tracking-metric-label">Rechazados</span>
+                      </div>
+                    </div>
+                    @if (tracking.not_configured > 0) {
+                      <div class="alert alert-warning py-2 px-3 small mb-3">
+                        <i class="ti ti-alert-triangle me-1"></i>
+                        Hay {{ tracking.not_configured }} evento(s) esperando las credenciales server-side.
+                      </div>
+                    }
+                    @if (tracking.last_event_at) {
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small text-muted">Último evento</span>
+                        <span class="small fw-semibold">{{ tracking.last_event_at | date:'short' }}</span>
+                      </div>
+                    }
+                    @if (tracking.deliveries.length === 0) {
+                      <div class="small text-muted py-2">Todavía no hay eventos server-side registrados.</div>
+                    }
+                    @for (delivery of tracking.deliveries; track delivery.id) {
+                      <div class="tracking-delivery-row">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                          <div class="min-w-0">
+                            <div class="small fw-semibold text-truncate">{{ trackingEventLabel(delivery.event_name) }}</div>
+                            <div class="small text-muted">{{ delivery.created_at | date:'short' }} · intento {{ delivery.attempt_number }}</div>
+                          </div>
+                          <span class="badge text-nowrap" [ngClass]="trackingStatusClass(delivery.status)">
+                            {{ trackingStatusLabel(delivery.status) }}
+                          </span>
+                        </div>
+                        @if (delivery.error_message) {
+                          <div class="small text-danger-emphasis mt-1 text-truncate" [title]="delivery.error_message">
+                            {{ delivery.error_message }}
+                          </div>
+                        }
+                      </div>
+                    }
+                  } @else {
+                    <div class="d-flex align-items-center gap-2 small text-muted py-3">
+                      <span class="spinner-border spinner-border-sm" role="status"></span>
+                      Cargando estado de entregas…
+                    </div>
+                  }
+                </div>
+              </div>
+            }
             @if (supportsWebhooks()) {
               <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header bg-white border-bottom">

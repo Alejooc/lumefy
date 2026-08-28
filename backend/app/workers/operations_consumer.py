@@ -17,7 +17,7 @@ from app.models.outbox_consumption import OutboxConsumption
 from app.models.sale import Sale
 from app.models.storefront import StorefrontOrder
 from app.models.email_delivery import EmailDelivery
-from app.services.storefront_tracking import send_server_side_purchase_events
+from app.services.storefront_tracking import send_server_side_tracking_event
 
 STREAM = os.getenv("REDIS_OUTBOX_STREAM", "lumefy:events")
 GROUP = "operations"
@@ -49,8 +49,8 @@ async def process_event(event_id: str, event_type: str, payload: dict) -> bool:
             except (TypeError, ValueError):
                 raise ValueError("inventory event has an invalid sale_id")
 
-        if event_type == "tracking.purchase":
-            await send_server_side_purchase_events(db, payload)
+        if event_type in {"tracking.event", "tracking.purchase"}:
+            await send_server_side_tracking_event(db, payload, outbox_event_id=parsed_event_id)
         elif event_type == "inventory.reserved" and sale:
             task = await db.scalar(select(FulfillmentTask).where(
                 FulfillmentTask.sale_id == sale.id,
@@ -139,7 +139,7 @@ async def process_event(event_id: str, event_type: str, payload: dict) -> bool:
                 order_code = str(sale.id)[:8].upper()
                 customer_subject = f"Tu pedido #{order_code} fue entregado"
                 customer_body = f"<p>Hola {customer_name},</p><p>Tu pedido <strong>#{order_code}</strong> fue entregado. Gracias por comprar con nosotros.</p>"
-        elif event_type not in {"inventory.reserved", "inventory.released", "inventory.dispatched", "order.delivered", "tracking.purchase"}:
+        elif event_type not in {"inventory.reserved", "inventory.released", "inventory.dispatched", "order.delivered", "tracking.event", "tracking.purchase"}:
             return False
 
         # The receipt and effects commit together. A crash or failed commit leaves

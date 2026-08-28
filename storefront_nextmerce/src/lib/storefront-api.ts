@@ -13,6 +13,7 @@ import {
   PublicCatalogResponse,
   PublicProduct,
   PublicStorePaymentGateway,
+  PublicTrackingEventRequest,
   PublicTrackingIntegration,
   PublicShippingConfig,
   PublicStoreNavigationItem,
@@ -179,6 +180,21 @@ export async function getPublicTrackingIntegrations(
   return request<PublicTrackingIntegration[]>(
     `/storefront/public/${storefrontId}/tracking`,
     { cache: "no-store" },
+  );
+}
+
+export async function sendPublicTrackingEvent(
+  storefrontId: string,
+  event: PublicTrackingEventRequest,
+): Promise<{ accepted: boolean }> {
+  return request<{ accepted: boolean }>(
+    `/storefront/public/${storefrontId}/tracking/events`,
+    {
+      method: "POST",
+      cache: "no-store",
+      keepalive: true,
+      body: JSON.stringify(event),
+    },
   );
 }
 

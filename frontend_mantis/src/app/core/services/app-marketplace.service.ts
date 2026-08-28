@@ -148,6 +148,32 @@ export interface WebhookDelivery {
   created_at: string;
 }
 
+export interface TrackingDelivery {
+  id: string;
+  provider: string;
+  event_id: string;
+  event_name: string;
+  status: string;
+  status_code?: number | null;
+  error_message?: string | null;
+  attempt_number: number;
+  last_attempt_at?: string | null;
+  delivered_at?: string | null;
+  created_at: string;
+}
+
+export interface TrackingStatus {
+  app_slug: string;
+  server_side_enabled: boolean;
+  total: number;
+  sent: number;
+  retrying: number;
+  failed: number;
+  not_configured: number;
+  last_event_at?: string | null;
+  deliveries: TrackingDelivery[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -203,6 +229,10 @@ export class AppMarketplaceService {
 
   getWebhookDeliveries(slug: string, limit = 25): Observable<WebhookDelivery[]> {
     return this.api.get<WebhookDelivery[]>(`/apps/installed/${slug}/webhooks/deliveries?limit=${limit}`);
+  }
+
+  getTrackingDeliveries(slug: string, limit = 50): Observable<TrackingStatus> {
+    return this.api.get<TrackingStatus>(`/apps/installed/${slug}/tracking/deliveries?limit=${limit}`);
   }
 
   retryWebhookDelivery(slug: string, deliveryId: string): Observable<WebhookTestResponse> {
