@@ -4686,6 +4686,11 @@ async def _read_simple_public_catalog(
         PublishedProduct.show_stock,
         PublishedProduct.sort_order,
         PublishedProduct.created_at,
+        # The public serializer exposes SEO fallbacks even for compact
+        # catalog cards. Load them explicitly so AsyncSession never attempts
+        # a deferred lazy load while serializing the response.
+        PublishedProduct.seo_title,
+        PublishedProduct.seo_description,
     ]
     product_columns = [
         Product.id,
@@ -4940,6 +4945,10 @@ async def read_public_products(
         PublishedProduct.is_featured,
         PublishedProduct.sort_order,
         PublishedProduct.created_at,
+        # Keep every field accessed by _serialize_public_product loaded in
+        # the async query; deferred SEO columns cause MissingGreenlet errors.
+        PublishedProduct.seo_title,
+        PublishedProduct.seo_description,
     ]
     product_columns = [
         Product.id,
