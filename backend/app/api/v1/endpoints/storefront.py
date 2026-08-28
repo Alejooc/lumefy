@@ -1240,6 +1240,11 @@ def _normalize_catalog_text(value: str | None) -> str:
     ).lower()
 
 
+def _slugify_catalog_text(value: str | None) -> str:
+    """Build a stable, URL-friendly value for public catalog facets."""
+    return re.sub(r"[^a-z0-9]+", "-", _normalize_catalog_text(value).strip()).strip("-")
+
+
 def _normalize_product_type_label(value: str | None) -> str:
     if not value:
         return "Otro"
@@ -1248,6 +1253,48 @@ def _normalize_product_type_label(value: str | None) -> str:
 
 def _parse_multi_query_param(value: str | None) -> list[str]:
     return [item.strip() for item in (value or "").split(",") if item.strip()]
+
+
+async def _resolve_public_category_ids(
+    db: AsyncSession,
+    storefront: Storefront,
+    values: list[str],
+) -> set[uuid.UUID]:
+    """Resolve category UUIDs and human-readable category slugs.
+
+    Category records predate public storefront slugs, so old URLs contain the
+    category UUID. New URLs use a slug derived from the category name while
+    this resolver keeps both representations valid.
+    """
+    resolved_ids: set[uuid.UUID] = set()
+    readable_filters: set[str] = set()
+    for value in values:
+        try:
+            resolved_ids.add(uuid.UUID(value))
+        except ValueError:
+            readable_filters.add(_normalize_catalog_text(value))
+            readable_filters.add(_slugify_catalog_text(value))
+
+    if not readable_filters:
+        return resolved_ids
+
+    category_result = await db.execute(
+        select(Category.id, Category.name).where(
+            Category.is_active == True,
+            or_(
+                Category.company_id == storefront.company_id,
+                Category.company_id.is_(None),
+            ),
+        )
+    )
+    for category_id, category_name in category_result.all():
+        if (
+            _normalize_catalog_text(category_name) in readable_filters
+            or _slugify_catalog_text(category_name) in readable_filters
+        ):
+            resolved_ids.add(category_id)
+
+    return resolved_ids
 
 
 def _parse_uuid_query_list(value: str | None, limit: int = 24) -> list[uuid.UUID]:
@@ -4920,6 +4967,7 @@ async def read_public_products(
 
     selected_collections = _parse_multi_query_param(collection)
     selected_categories = _parse_multi_query_param(category)
+    selected_category_ids = await _resolve_public_category_ids(db, storefront, selected_categories)
     selected_brands = [_normalize_catalog_text(item) for item in _parse_multi_query_param(brand)]
     selected_types = [item.upper() for item in _parse_multi_query_param(type)]
     selected_sizes = [item.lower() for item in _parse_multi_query_param(size)]
@@ -5028,7 +5076,7 @@ async def read_public_products(
     # variant price) still run in Python because they depend on JSON variant
     # attributes and storefront overrides.
     if selected_categories:
-        published_query = published_query.where(Product.category_id.in_(selected_categories))
+        published_query = published_query.where(Product.category_id.in_(selected_category_ids))
     if selected_types:
         published_query = published_query.where(Product.product_type.in_(selected_types))
     if requested_product_ids:
@@ -5180,7 +5228,7 @@ async def read_public_products(
             "collections": product_collection_map.get(published_product.id, []),
             "sizes": sizes_list,
             "colors": colors_list,
-            "category_id": str(product.category_id) if product.category_id else "",
+            "category_id": product.category_id,
             "category_name": category_name,
             "brand_name": brand_name,
             "brand_normalized": _normalize_catalog_text(brand_name),
@@ -5273,7 +5321,7 @@ async def read_public_products(
             or not selected_types
             or context["product_type"] in selected_types
         )
-        matches_category = ignore_category or not selected_categories or category_id in selected_categories
+        matches_category = ignore_category or not selected_categories or category_id in selected_category_ids
         matches_brand = (
             ignore_brand
             or not selected_brands
@@ -5364,7 +5412,7 @@ async def read_public_products(
     stock_map = catalog_stock_map
 
     collection_counts: dict[str, int] = {item.slug: 0 for item in collections}
-    category_names: dict[str, str] = {}
+    category_names: dict[uuid.UUID, str] = {}
     category_counts: dict[str, int] = {}
     brand_names: dict[str, str] = {}
     brand_counts: dict[str, int] = {}
@@ -5379,7 +5427,7 @@ async def read_public_products(
                 continue
             product = context["product"]
             if product.category_id and getattr(product, "category", None):
-                category_names[str(product.category_id)] = product.category.name
+                category_names[product.category_id] = product.category.name
             brand_name = context["brand_name"]
             if brand_name:
                 brand_names[context["brand_normalized"]] = brand_name
@@ -5426,11 +5474,11 @@ async def read_public_products(
         categories=[
             schemas.PublicCatalogCategory(
                 name=name,
-                slug=key,
-                products=category_counts.get(key, 0),
-                is_refined=key in selected_categories,
+                slug=_slugify_catalog_text(name) or str(category_id),
+                products=category_counts.get(str(category_id), 0),
+                is_refined=category_id in selected_category_ids,
             )
-            for key, name in sorted(category_names.items(), key=lambda entry: entry[1].lower())
+            for category_id, name in sorted(category_names.items(), key=lambda entry: entry[1].lower())
         ] if include_facets else [],
         collections=[
             schemas.PublicCatalogCategory(

@@ -36,16 +36,39 @@ export async function generateMetadata({
 
 export default async function CollectionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{
+    category?: string;
+    brand?: string;
+    q?: string;
+    type?: string;
+    size?: string;
+    color?: string;
+    sort?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    page?: string;
+  }>;
 }) {
   const { slug } = await params;
+  const { category, brand, q, type, size, color, sort, minPrice, maxPrice, page } = await searchParams;
 
   try {
     const collection = await getCollection(slug);
     const data = await loadShopViewModel({
       collectionSlug: collection.slug,
-      page: 1,
+      category,
+      brand,
+      searchTerm: q,
+      productType: type,
+      size,
+      color,
+      sort,
+      minPrice: minPrice ? Number(minPrice) : undefined,
+      maxPrice: maxPrice ? Number(maxPrice) : undefined,
+      page: Math.max(1, Number(page || "1") || 1),
       pageSize: 12,
     });
     const siteUrl = await getSiteUrl();
