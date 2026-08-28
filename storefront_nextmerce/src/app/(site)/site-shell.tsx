@@ -44,21 +44,6 @@ function themeStyleVariables(styles: StorefrontThemeStyleViewModel): CSSProperti
   } as CSSProperties;
 }
 
-function applyStorefrontFavicon(url?: string): void {
-  if (typeof document === "undefined") return;
-
-  document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="shortcut icon"]').forEach((link) => {
-    link.remove();
-  });
-
-  if (!url) return;
-  const link = document.createElement("link");
-  link.rel = "icon";
-  link.href = url;
-  link.dataset.storefrontFavicon = "true";
-  document.head.appendChild(link);
-}
-
 export default function SiteShell({
   children,
   initialStorefront,
@@ -67,17 +52,18 @@ export default function SiteShell({
   initialStorefront: PublicStorefront;
 }) {
   const [themeStyles, setThemeStyles] = useState(() => getStorefrontThemeStyles(initialStorefront));
+  const [faviconUrl, setFaviconUrl] = useState(
+    () => getStorefrontBranding(initialStorefront).faviconUrl || "",
+  );
 
   useEffect(() => {
     let active = true;
-
-    applyStorefrontFavicon(getStorefrontBranding(initialStorefront).faviconUrl);
 
     resolveStorefront()
       .then((storefront) => {
         if (!active) return;
         setThemeStyles(getStorefrontThemeStyles(storefront));
-        applyStorefrontFavicon(getStorefrontBranding(storefront).faviconUrl);
+        setFaviconUrl(getStorefrontBranding(storefront).faviconUrl || "");
       })
       .catch(() => {
         // The server-provided storefront remains usable if the refresh fails.
@@ -114,8 +100,8 @@ export default function SiteShell({
         setThemeStyles(getThemeStylesFromDocumentSettings(settings));
       }
       if ("favicon_url" in identity) {
-        applyStorefrontFavicon(
-          storefrontImageUrl(typeof identity.favicon_url === "string" ? identity.favicon_url : ""),
+        setFaviconUrl(
+          storefrontImageUrl(typeof identity.favicon_url === "string" ? identity.favicon_url : "") || "",
         );
       }
     };
@@ -129,6 +115,9 @@ export default function SiteShell({
 
   return (
     <html lang="es-CO" suppressHydrationWarning={true}>
+      <head>
+        {faviconUrl ? <link rel="icon" href={faviconUrl} data-storefront-favicon="true" /> : null}
+      </head>
       <body className="storefront-theme overflow-x-hidden" style={themeStyleVariables(themeStyles)}>
         <ReduxProvider>
           <StorefrontCurrencyProvider>
