@@ -342,7 +342,7 @@ export async function loadHomeViewModel(): Promise<HomeViewModel> {
   const fallbackHeroSlides = [
     {
       id: "home-editorial",
-      title: "Haz de tu casa tu lugar favorito",
+      title: "Productos para tu hogar, hechos para ti",
       description: "Textiles, colores y detalles que transforman lo cotidiano en un espacio que se siente realmente tuyo.",
       ctaHref: "/products",
       image: "/images/home/home-hero-editorial.webp",

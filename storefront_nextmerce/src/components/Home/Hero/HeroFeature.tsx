@@ -13,7 +13,7 @@ const HeroFeature = ({ items }: { items: HomeFeature[] }) => {
           key={item.id}
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-light-5">
-            <Image src={item.image} alt="" width={24} height={24} />
+            <Image src={item.image} alt={item.title} width={24} height={24} />
           </span>
           <div className="min-w-0">
             <h3 className="text-sm font-semibold leading-5 text-dark">{item.title}</h3>

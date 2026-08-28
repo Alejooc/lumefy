@@ -86,6 +86,12 @@ function titleWithStorefrontName(title: string, storefrontName: string): string 
   return `${title} | ${storefrontName}`;
 }
 
+function homeSeoTitle(title: string, storefrontName: string): string {
+  const normalized = title.trim() || `${storefrontName} | Tienda online de productos y novedades`;
+  if (normalized.length >= 50 || /tienda\s+online/i.test(normalized)) return normalized;
+  return `${normalized} | Tienda online`;
+}
+
 type MetadataInput = {
   title: string;
   description: string;
@@ -131,9 +137,10 @@ export async function buildStorefrontPageMetadata({
   const configuredDescription = stripHtml(stringSetting(seoSettings, "meta_description"));
   const configuredImage = stringSetting(seoSettings, "og_image_url");
   const normalizedTitle = title.trim();
-  const pageTitle = normalizedTitle
+  const basePageTitle = normalizedTitle
     ? titleWithStorefrontName(normalizedTitle, storefrontName)
-    : configuredTitle || storefrontName;
+    : configuredTitle || `${storefrontName} | Tienda online de productos y novedades`;
+  const pageTitle = path === "/" ? homeSeoTitle(basePageTitle, storefrontName) : basePageTitle;
   const pageDescription = stripHtml(description) || configuredDescription ||
     `Compra online en ${storefrontName}. Descubre nuestros productos, novedades y ofertas en un solo lugar, con una experiencia de compra fácil y segura.`;
   const configuredIndex = booleanSetting(seoSettings, "index_storefront");

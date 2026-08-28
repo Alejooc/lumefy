@@ -98,6 +98,19 @@ from app.services.pricing import ProductPricing, load_price_list_context, resolv
 from app.core.credential_crypto import SENSITIVE_GATEWAY_CONFIG_KEYS
 
 router = APIRouter()
+
+PUBLIC_STOREFRONT_CACHE_MAX_AGE = 60
+PUBLIC_CATALOG_CACHE_MAX_AGE = 15
+
+
+def _set_public_cache_headers(response: Response, preview_token: str | None, max_age: int) -> None:
+    response.headers["Cache-Control"] = (
+        "private, no-store"
+        if preview_token
+        else f"public, max-age={max_age}, s-maxage={max_age}, stale-while-revalidate={max_age * 2}"
+    )
+
+
 logger = logging.getLogger(__name__)
 
 # Providers that have a complete checkout path in this application. New
@@ -3988,9 +4001,11 @@ async def read_public_storefront_asset(
 @router.get("/public/by-subdomain/{subdomain}", response_model=schemas.PublicStorefront)
 async def read_public_storefront_by_subdomain(
     subdomain: str,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     preview_token: str | None = None,
 ) -> Any:
+    _set_public_cache_headers(response, preview_token, PUBLIC_STOREFRONT_CACHE_MAX_AGE)
     storefront = await _get_public_storefront_by_subdomain(db, subdomain, preview_token)
     company = await _get_company_for_storefront(db, storefront)
     return schemas.PublicStorefront(
@@ -4013,9 +4028,11 @@ async def read_public_storefront_by_subdomain(
 @router.get("/public/by-domain/{domain}", response_model=schemas.PublicStorefront)
 async def read_public_storefront_by_domain(
     domain: str,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     preview_token: str | None = None,
 ) -> Any:
+    _set_public_cache_headers(response, preview_token, PUBLIC_STOREFRONT_CACHE_MAX_AGE)
     storefront = await _get_public_storefront_by_domain(db, domain, preview_token)
     company = await _get_company_for_storefront(db, storefront)
     return schemas.PublicStorefront(
@@ -4058,9 +4075,11 @@ async def authorize_storefront_certificate(
 @router.get("/public/{storefront_id}", response_model=schemas.PublicStorefront)
 async def read_public_storefront(
     storefront_id: uuid.UUID,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     preview_token: str | None = None,
 ) -> Any:
+    _set_public_cache_headers(response, preview_token, PUBLIC_STOREFRONT_CACHE_MAX_AGE)
     storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     company = await _get_company_for_storefront(db, storefront)
     return schemas.PublicStorefront(
@@ -4510,9 +4529,11 @@ async def subscribe_public_storefront_newsletter(
 @router.get("/public/{storefront_id}/navigation", response_model=List[schemas.PublicStoreNavigationItem])
 async def read_public_navigation(
     storefront_id: uuid.UUID,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     preview_token: str | None = None,
 ) -> Any:
+    _set_public_cache_headers(response, preview_token, PUBLIC_STOREFRONT_CACHE_MAX_AGE)
     await _get_public_storefront_by_id(db, storefront_id, preview_token)
     result = await db.execute(
         select(StoreNavigationItem).where(
@@ -4538,9 +4559,11 @@ async def read_public_navigation(
 @router.get("/public/{storefront_id}/payment-gateways", response_model=List[schemas.PublicStorePaymentGateway])
 async def read_public_payment_gateways(
     storefront_id: uuid.UUID,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     preview_token: str | None = None,
 ) -> Any:
+    response.headers["Cache-Control"] = "private, no-store"
     await _get_public_storefront_by_id(db, storefront_id, preview_token)
     result = await db.execute(
         select(StorePaymentGateway).where(
@@ -4574,9 +4597,11 @@ async def read_public_payment_gateways(
 @router.get("/public/{storefront_id}/collections", response_model=List[schemas.PublicCollection])
 async def read_public_collections(
     storefront_id: uuid.UUID,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     preview_token: str | None = None,
 ) -> Any:
+    _set_public_cache_headers(response, preview_token, PUBLIC_STOREFRONT_CACHE_MAX_AGE)
     await _get_public_storefront_by_id(db, storefront_id, preview_token)
     result = await db.execute(
         select(StoreCollection).where(
@@ -4604,9 +4629,11 @@ async def read_public_collections(
 async def read_public_collection_detail(
     storefront_id: uuid.UUID,
     slug: str,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     preview_token: str | None = None,
 ) -> Any:
+    _set_public_cache_headers(response, preview_token, PUBLIC_CATALOG_CACHE_MAX_AGE)
     collection = await _get_public_collection_or_404(db, storefront_id, slug, preview_token)
     storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     result = await db.execute(
@@ -4883,9 +4910,7 @@ async def read_public_products(
     product_ids: str | None = None,
     preview_token: str | None = None,
 ) -> Any:
-    response.headers["Cache-Control"] = (
-        "private, no-store" if preview_token else "public, max-age=15, s-maxage=15, stale-while-revalidate=30"
-    )
+    _set_public_cache_headers(response, preview_token, PUBLIC_CATALOG_CACHE_MAX_AGE)
     storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     # Resolve the warehouse once and let PostgreSQL discard tracked products
     # with no available stock before loading variants, facets and collections.
@@ -5463,9 +5488,11 @@ async def read_public_products(
 async def read_public_product_detail(
     storefront_id: uuid.UUID,
     slug: str,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     preview_token: str | None = None,
 ) -> Any:
+    _set_public_cache_headers(response, preview_token, PUBLIC_CATALOG_CACHE_MAX_AGE)
     storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     published_product = await _get_public_published_product_or_404(db, storefront_id, slug, preview_token)
     stock_map = await _get_storefront_stock_map(db, storefront, [published_product.product_id])

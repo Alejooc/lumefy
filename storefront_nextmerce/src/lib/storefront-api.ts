@@ -135,15 +135,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function getPublicStorefrontBySubdomain(subdomain: string): Promise<PublicStorefront> {
   return request<PublicStorefront>(`/storefront/public/by-subdomain/${encodeURIComponent(subdomain)}`, {
-    // Branding and metadata can change from the admin panel. Do not let a
-    // cached response keep serving an old logo or favicon after publishing.
-    cache: "no-store",
+    // Preview requests are still forced to no-store inside request(). Public
+    // storefront identity can be cached briefly without sharing one tenant's
+    // response with another because the host is part of the API URL.
+    cache: "force-cache",
+    next: { revalidate: 30 },
   });
 }
 
 export async function getPublicStorefrontByDomain(domain: string): Promise<PublicStorefront> {
   return request<PublicStorefront>(`/storefront/public/by-domain/${encodeURIComponent(domain)}`, {
-    cache: "no-store",
+    cache: "force-cache",
+    next: { revalidate: 30 },
   });
 }
 
@@ -156,7 +159,7 @@ export async function getPublicNavigation(
 ): Promise<PublicStoreNavigationItem[]> {
   return request<PublicStoreNavigationItem[]>(
     `/storefront/public/${storefrontId}/navigation`,
-    { cache: "no-store" },
+    { cache: "force-cache", next: { revalidate: 60 } },
   );
 }
 

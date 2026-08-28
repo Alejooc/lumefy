@@ -123,6 +123,21 @@ export function buildStorefrontIdentityStructuredData(
     contactPoint: Object.keys(contactPoint).length > 2 ? [contactPoint] : undefined,
     sameAs: socialLinks.length ? socialLinks : undefined,
   });
+  const localBusiness = branding.supportAddress
+    ? compactObject({
+        "@type": "LocalBusiness",
+        "@id": `${siteUrl.replace(/\/$/, "")}/#local-business`,
+        name: storefront.name,
+        url: siteUrl,
+        image: logo,
+        telephone: branding.supportPhone || undefined,
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: branding.supportAddress,
+        },
+        sameAs: socialLinks.length ? socialLinks : undefined,
+      })
+    : undefined;
   const seoSettings = storefront.seo_settings || {};
   const website = compactObject({
     "@type": "WebSite",
@@ -145,7 +160,7 @@ export function buildStorefrontIdentityStructuredData(
 
   return {
     "@context": "https://schema.org",
-    "@graph": [organization, website],
+    "@graph": [organization, website, ...(localBusiness ? [localBusiness] : [])],
   };
 }
 
