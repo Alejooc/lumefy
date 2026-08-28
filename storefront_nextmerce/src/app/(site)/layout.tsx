@@ -2,20 +2,12 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import { StorefrontApiError, resolveStorefront } from "@/lib/storefront-api";
-import { getStorefrontBranding } from "@/lib/storefront-branding";
+import { buildStorefrontPageMetadata, getSiteUrl } from "@/lib/seo";
+import { buildStorefrontIdentityStructuredData } from "@/lib/structured-data";
 import SiteShell from "./site-shell";
 
 export async function generateMetadata(): Promise<Metadata> {
-  try {
-    const storefront = await resolveStorefront();
-    const branding = getStorefrontBranding(storefront);
-    return {
-      title: storefront.name,
-      icons: branding.faviconUrl ? { icon: branding.faviconUrl } : undefined,
-    };
-  } catch {
-    return {};
-  }
+  return buildStorefrontPageMetadata({ title: "", description: "", path: "/" });
 }
 
 export default async function RootLayout({
@@ -33,5 +25,15 @@ export default async function RootLayout({
     throw error;
   }
 
-  return <SiteShell initialStorefront={storefront}>{children}</SiteShell>;
+  const siteUrl = await getSiteUrl();
+  const globalStructuredData = buildStorefrontIdentityStructuredData(storefront, siteUrl);
+
+  return (
+    <SiteShell
+      initialStorefront={storefront}
+      globalStructuredData={globalStructuredData}
+    >
+      {children}
+    </SiteShell>
+  );
 }

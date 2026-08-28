@@ -37,6 +37,8 @@ export function toTemplateProduct(product: PublicProduct): Product {
     publishedProductId: product.id,
     title: product.title,
     description: product.description || "",
+    seoTitle: product.seo_title || undefined,
+    seoDescription: product.seo_description || undefined,
     reviews: product.is_featured ? 24 : 12,
     price: Number(compare || product.price),
     discountedPrice: Number(product.price),

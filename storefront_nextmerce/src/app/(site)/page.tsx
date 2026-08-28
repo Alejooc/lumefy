@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata() {
   return buildStorefrontPageMetadata({
     title: "",
-    description: "Compra online en nuestra tienda.",
+    description: "",
     path: "/",
   });
 }

@@ -3,6 +3,9 @@ import ShopDetails from "@/components/ShopDetails";
 import { loadShopDetailsViewModel } from "@/lib/shop-data";
 import { getPublicCollectionBySlug, resolveStorefront, StorefrontApiError } from "@/lib/storefront-api";
 import { buildStorefrontPageMetadata } from "@/lib/seo";
+import { buildBreadcrumbStructuredData, buildProductStructuredData } from "@/lib/structured-data";
+import StructuredData from "@/components/Seo/StructuredData";
+import { getSiteUrl } from "@/lib/seo";
 import { notFound, redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -38,11 +41,13 @@ export async function generateMetadata({
   try {
     const data = await loadShopDetailsViewModel(slug);
     return buildStorefrontPageMetadata({
-      title: data.product.title,
+      title: data.product.seoTitle || data.product.title,
       description:
+        data.product.seoDescription ||
         data.product.description ||
         `Compra ${data.product.title} online.`,
       path: `/products/${slug}`,
+      imageUrl: data.product.imgs?.previews?.[0],
     });
   } catch (error) {
     if (isNotFoundError(error)) {
@@ -66,9 +71,21 @@ const ProductDetailsPage = async ({
 
   try {
     const data = await loadShopDetailsViewModel(slug);
+    const storefront = await resolveStorefront();
+    const siteUrl = await getSiteUrl();
 
     return (
       <main>
+        <StructuredData
+          data={buildProductStructuredData(data.product, siteUrl, storefront.currency)}
+        />
+        <StructuredData
+          data={buildBreadcrumbStructuredData(siteUrl, [
+            { name: "Inicio", path: "/" },
+            { name: "Productos", path: "/products" },
+            { name: data.product.title, path: `/products/${encodeURIComponent(data.product.slug || slug)}` },
+          ])}
+        />
         <ShopDetails product={data.product} relatedItems={data.relatedItems} productTemplate={data.productTemplate} />
       </main>
     );

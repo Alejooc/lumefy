@@ -29,6 +29,8 @@ import type { StorefrontThemeStyleViewModel } from "@/lib/storefront-branding";
 import { storefrontImageUrl } from "@/lib/storefront-image";
 import { resolveStorefront } from "@/lib/storefront-api";
 import { StorefrontUiProvider } from "@/lib/storefront-ui";
+import type { JsonLdDocument } from "@/lib/structured-data";
+import { serializeJsonLd } from "@/lib/structured-data";
 
 function themeStyleVariables(styles: StorefrontThemeStyleViewModel): CSSProperties {
   return {
@@ -47,9 +49,11 @@ function themeStyleVariables(styles: StorefrontThemeStyleViewModel): CSSProperti
 export default function SiteShell({
   children,
   initialStorefront,
+  globalStructuredData,
 }: {
   children: React.ReactNode;
   initialStorefront: PublicStorefront;
+  globalStructuredData?: JsonLdDocument;
 }) {
   const [themeStyles, setThemeStyles] = useState(() => getStorefrontThemeStyles(initialStorefront));
   const [faviconUrl, setFaviconUrl] = useState(
@@ -139,6 +143,12 @@ export default function SiteShell({
             </StorefrontAuthProvider>
           </StorefrontCurrencyProvider>
         </ReduxProvider>
+        {globalStructuredData ? (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: serializeJsonLd(globalStructuredData) }}
+          />
+        ) : null}
         <ScrollToTop />
         <Footer initialStorefront={initialStorefront} />
       </body>

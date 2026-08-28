@@ -10,6 +10,7 @@ import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.ser
 type SeoSettings = {
   meta_title: string;
   meta_description: string;
+  og_image_url: string;
   index_storefront: boolean;
 };
 
@@ -112,6 +113,7 @@ export class EcommerceSeoComponent implements OnInit {
     return {
       meta_title: '',
       meta_description: '',
+      og_image_url: '',
       index_storefront: true,
       ...(settings || {})
     } as SeoSettings;

@@ -142,31 +142,31 @@ const SingleGridItem = ({ item }: { item: Product }) => {
         <div className="flex items-center gap-1">
           <Image
             src="/images/icons/icon-star.svg"
-            alt="star icon"
+            alt=""
             width={15}
             height={15}
           />
           <Image
             src="/images/icons/icon-star.svg"
-            alt="star icon"
+            alt=""
             width={15}
             height={15}
           />
           <Image
             src="/images/icons/icon-star.svg"
-            alt="star icon"
+            alt=""
             width={15}
             height={15}
           />
           <Image
             src="/images/icons/icon-star.svg"
-            alt="star icon"
+            alt=""
             width={15}
             height={15}
           />
           <Image
             src="/images/icons/icon-star.svg"
-            alt="star icon"
+            alt=""
             width={15}
             height={15}
           />

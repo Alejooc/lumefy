@@ -48,7 +48,7 @@ const RecentlyViewdItems = ({
                   src="/images/icons/icon-05.svg"
                   width={17}
                   height={17}
-                  alt="icon"
+                  alt=""
                 />
                 Productos relacionados
               </span>

@@ -63,6 +63,11 @@
                     <small class="form-hint">{{ form.meta_description.length }}/170 · Ideal: entre 140 y 160 caracteres.</small>
                   </div>
                   <div class="col-12">
+                    <label class="form-label">Imagen para compartir</label>
+                    <input class="form-control" [(ngModel)]="form.og_image_url" placeholder="https://.../imagen-compartir.jpg" maxlength="500" />
+                    <small class="form-hint">Se usará al compartir la tienda en Facebook, WhatsApp, LinkedIn y X. Si lo dejas vacío, se usará el logo.</small>
+                  </div>
+                  <div class="col-12">
                     <div class="settings-switch-grid">
                       <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" [(ngModel)]="form.index_storefront" />

@@ -19,6 +19,8 @@ export type Product = {
   href?: string;
   slug?: string;
   description?: string;
+  seoTitle?: string;
+  seoDescription?: string;
   categoryName?: string;
   brandName?: string;
   productType?: string;

@@ -196,6 +196,8 @@ class PublishedProductBase(BaseModel):
     is_published: bool = True
     is_featured: bool = False
     sort_order: int = 0
+    seo_title: Optional[str] = Field(default=None, max_length=70)
+    seo_description: Optional[str] = Field(default=None, max_length=320)
 
 
 class PublishedProductCreate(PublishedProductBase):
@@ -206,6 +208,8 @@ class PublishedProductUpdate(BaseModel):
     is_published: Optional[bool] = None
     is_featured: Optional[bool] = None
     sort_order: Optional[int] = None
+    seo_title: Optional[str] = Field(default=None, max_length=70)
+    seo_description: Optional[str] = Field(default=None, max_length=320)
 
 
 class PublishedProduct(PublishedProductBase):

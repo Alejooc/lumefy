@@ -2,7 +2,9 @@ import React from "react";
 import ShopWithSidebar from "@/components/ShopWithSidebar";
 import { getPublicCollectionBySlug, resolveStorefront } from "@/lib/storefront-api";
 import { loadShopViewModel } from "@/lib/shop-data";
-import { buildStorefrontPageMetadata } from "@/lib/seo";
+import { buildStorefrontPageMetadata, getSiteUrl } from "@/lib/seo";
+import { buildBreadcrumbStructuredData } from "@/lib/structured-data";
+import StructuredData from "@/components/Seo/StructuredData";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +27,7 @@ export async function generateMetadata({
       title: collection.name,
       description: collection.description || `Explora la colección ${collection.name}.`,
       path: `/collections/${encodeURIComponent(collection.slug)}`,
+      imageUrl: collection.image_url || undefined,
     });
   } catch {
     notFound();
@@ -45,9 +48,17 @@ export default async function CollectionPage({
       page: 1,
       pageSize: 12,
     });
+    const siteUrl = await getSiteUrl();
 
     return (
       <main>
+        <StructuredData
+          data={buildBreadcrumbStructuredData(siteUrl, [
+            { name: "Inicio", path: "/" },
+            { name: "Productos", path: "/products" },
+            { name: collection.name, path: `/collections/${encodeURIComponent(collection.slug)}` },
+          ])}
+        />
         <ShopWithSidebar
           items={data.items}
           categories={data.categories}

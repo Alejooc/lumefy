@@ -82,14 +82,14 @@ const CounDown = ({ content }: { content: HomeCountdown }) => {
 
           <Image
             src={content.backgroundImageUrl || "/images/countdown/countdown-bg.png"}
-            alt="bg shapes"
+            alt=""
             className="hidden sm:block absolute right-0 bottom-0 -z-1"
             width={737}
             height={482}
           />
           <Image
             src={content.productImageUrl || "/images/countdown/countdown-01.png"}
-            alt="product"
+            alt={content.title || "Producto destacado"}
             className="hidden lg:block absolute right-4 xl:right-33 bottom-4 xl:bottom-10 -z-1"
             width={411}
             height={376}

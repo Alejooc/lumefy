@@ -51,9 +51,15 @@ const HeroCarousel = ({ slides }: { slides: HeroSlide[] }) => {
                 style={{ color: textColor }}
               >
                 <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] opacity-75">Vive bonito todos los días</p>
-                <h1 className="max-w-[540px] text-[38px] font-semibold leading-[1.03] tracking-[-0.035em] sm:text-[54px] lg:text-[62px]">
-                  {slide.title}
-                </h1>
+                {index === 0 ? (
+                  <h1 className="max-w-[540px] text-[38px] font-semibold leading-[1.03] tracking-[-0.035em] sm:text-[54px] lg:text-[62px]">
+                    {slide.title}
+                  </h1>
+                ) : (
+                  <h2 className="max-w-[540px] text-[38px] font-semibold leading-[1.03] tracking-[-0.035em] sm:text-[54px] lg:text-[62px]">
+                    {slide.title}
+                  </h2>
+                )}
                 <p className="mt-5 max-w-[480px] text-sm leading-7 opacity-85 sm:text-base">{slide.description}</p>
                 <Link
                   href={slide.ctaHref}

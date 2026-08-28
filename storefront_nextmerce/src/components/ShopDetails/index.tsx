@@ -333,7 +333,7 @@ const ShopDetails = ({
 
   return (
     <div className={previewMode && selectionMode ? "lumefy-preview--selecting" : undefined}>
-      <Breadcrumb title={content.breadcrumb_title} pages={[content.breadcrumb_title]} />
+      <Breadcrumb title={content.breadcrumb_title} pages={[content.breadcrumb_title]} headingLevel="h2" />
 
       {!product?.title ? (
         "Producto no disponible"
@@ -419,9 +419,9 @@ const ShopDetails = ({
                   }}
                 >
                   <div className="flex items-start justify-between gap-4 mb-3">
-                    <h2 className="font-semibold text-xl sm:text-2xl xl:text-custom-3 text-dark">
+                    <h1 className="font-semibold text-xl sm:text-2xl xl:text-custom-3 text-dark">
                       {product.title}
-                    </h2>
+                    </h1>
 
                     {hasComparePrice && informationSection.settings["show_badge"] !== false ? (
                       <div className="inline-flex font-medium text-custom-sm text-white bg-blue rounded py-0.5 px-2.5">

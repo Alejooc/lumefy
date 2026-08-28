@@ -405,6 +405,8 @@ export interface PublishedProduct {
   is_published: boolean;
   is_featured: boolean;
   sort_order: number;
+  seo_title?: string | null;
+  seo_description?: string | null;
 }
 
 export interface StoreCollectionProduct {

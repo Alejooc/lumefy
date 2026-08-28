@@ -1088,6 +1088,8 @@ def _serialize_admin_published_product(published_product: PublishedProduct) -> s
         is_published=published_product.is_published,
         is_featured=published_product.is_featured,
         sort_order=published_product.sort_order,
+        seo_title=published_product.seo_title,
+        seo_description=published_product.seo_description,
         base_price=base_price,
         product_name=published_product.product.name if published_product.product else None,
         product_description=published_product.product.description if published_product.product else None,
@@ -1183,8 +1185,8 @@ def _serialize_public_product(
         show_stock=is_tracked,
         in_stock=not is_tracked or bool(available_stock and available_stock > 0),
         stock_quantity=available_stock,
-        seo_title=title,
-        seo_description=description,
+        seo_title=(published_product.seo_title or title or "").strip() or None,
+        seo_description=(published_product.seo_description or description or "").strip() or None,
     )
 
 
