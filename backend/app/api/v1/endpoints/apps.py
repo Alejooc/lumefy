@@ -34,6 +34,13 @@ from app.schemas import app_marketplace as schemas
 
 router = APIRouter()
 
+TRACKING_PRIVATE_CONFIG_KEYS: dict[str, set[str]] = {
+    "google-analytics": {"api_secret"},
+    "meta-pixel": {"access_token", "test_event_code"},
+    "tiktok-pixel": {"access_token", "test_event_code"},
+}
+TRACKING_SECRET_MASK = "********"
+
 
 def _unique(values: list[str]) -> list[str]:
     seen: set[str] = set()
@@ -78,6 +85,16 @@ def _serialize_install(
     app: AppDefinition,
     new_api_key: str | None = None,
 ) -> dict[str, Any]:
+    public_settings = dict(install.settings or {})
+    private_settings = install.private_settings or {}
+    for private_key in TRACKING_PRIVATE_CONFIG_KEYS.get(app.slug, set()):
+        # Never echo a legacy/plaintext value from the public settings JSON.
+        # New values are stored in private_settings and returned only as a mask.
+        public_settings.pop(private_key, None)
+        if private_settings.get(private_key):
+            # Let the admin know a secret exists without returning it to the
+            # browser. The update endpoint preserves this mask on save.
+            public_settings[private_key] = TRACKING_SECRET_MASK
     return {
         "install_id": install.id,
         "app_id": app.id,
@@ -92,7 +109,7 @@ def _serialize_install(
         "webhook_url": install.webhook_url,
         "billing_status": install.billing_status or "active",
         "new_api_key": new_api_key,
-        "settings": install.settings or {},
+        "settings": public_settings,
         "installed_at": install.installed_at,
     }
 
@@ -924,9 +941,29 @@ async def update_app_config(
         raise HTTPException(status_code=400, detail="El usuario no tiene company_id asociado")
 
     install, app = await _load_install_by_slug(db, current_user.company_id, slug)
-    install.settings = payload.settings
-    if isinstance(payload.settings, dict):
-        install.webhook_url = payload.settings.get("webhook_url") or install.webhook_url
+    incoming_settings = dict(payload.settings or {})
+    private_keys = TRACKING_PRIVATE_CONFIG_KEYS.get(app.slug, set())
+    private_settings = dict(install.private_settings or {})
+    for private_key in private_keys:
+        if private_key not in incoming_settings:
+            continue
+        candidate = incoming_settings.pop(private_key)
+        if isinstance(candidate, str) and candidate.strip() and candidate.strip() != TRACKING_SECRET_MASK:
+            private_settings[private_key] = candidate.strip()
+
+    if incoming_settings.get("server_side_enabled") is True:
+        required_private_key = "api_secret" if app.slug == "google-analytics" else "access_token"
+        if not private_settings.get(required_private_key):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Configura {required_private_key} para activar la medición server-side.",
+            )
+
+    install.settings = incoming_settings
+    if private_keys:
+        install.private_settings = private_settings
+    if isinstance(incoming_settings, dict):
+        install.webhook_url = incoming_settings.get("webhook_url") or install.webhook_url
 
     await _log_install_event(
         db=db,
@@ -934,7 +971,7 @@ async def update_app_config(
         app_id=app.id,
         event_type="config_update",
         triggered_by_user_id=current_user.id,
-        payload={"settings_keys": list((payload.settings or {}).keys())},
+        payload={"settings_keys": list((incoming_settings or {}).keys())},
     )
     await db.commit()
     await db.refresh(install)

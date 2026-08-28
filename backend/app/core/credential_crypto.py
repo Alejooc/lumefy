@@ -14,6 +14,7 @@ ENCRYPTED_VALUE_PREFIX = "enc:v1:"
 SENSITIVE_GATEWAY_CONFIG_KEYS = frozenset(
     {
         "access_token",
+        "api_secret",
         "api_key",
         "api_login",
         "authorization",
@@ -26,6 +27,7 @@ SENSITIVE_GATEWAY_CONFIG_KEYS = frozenset(
         "secret",
         "signing_secret",
         "token",
+        "test_event_code",
         "webhook_secret",
     }
 )

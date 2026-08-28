@@ -22,6 +22,7 @@ from app.core.permissions import PermissionChecker
 from app.core.audit import log_sale_event
 from app.services.inventory_consumption import consume_fifo_lots
 from app.services.pricing import load_price_list_context, resolve_price
+from app.services.storefront_tracking import enqueue_storefront_purchase_tracking
 from app.schemas import sale as schemas
 import uuid
 from datetime import datetime
@@ -915,6 +916,13 @@ async def confirm_delivery(
                 provider="cod",
                 reference=cod_payment.reference if cod_payment else "cod_delivery",
                 metadata={"from": previous_payment_status, "to": "approved", "source": "delivery"},
+            )
+            enqueue_storefront_purchase_tracking(
+                db,
+                storefront_order,
+                sale,
+                source="cod_delivery",
+                transaction_id="cod_delivery",
             )
 
     await log_sale_event(

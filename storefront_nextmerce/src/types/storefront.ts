@@ -64,6 +64,14 @@ export type PublicStorePaymentGateway = {
   };
 };
 
+export type PublicTrackingIntegration = {
+  provider: "google_analytics" | "meta" | "tiktok";
+  app_slug: string;
+  tracking_id: string;
+  track_ecommerce: boolean;
+  consent_category: "analytics" | "marketing";
+};
+
 export type PublicStorefrontAccountUser = {
   id: string;
   email: string;
@@ -263,6 +271,11 @@ export type CheckoutAddress = {
   city_code?: string | null;
 };
 
+export type CheckoutTrackingConsent = {
+  analytics: boolean;
+  marketing: boolean;
+};
+
 export type CheckoutCreateOrderRequest = {
   items: CheckoutItemInput[];
   customer: CheckoutCustomer;
@@ -274,6 +287,7 @@ export type CheckoutCreateOrderRequest = {
   coupon_code?: string | null;
   idempotency_key?: string | null;
   shipping_method_id?: string | null;
+  tracking_consent?: CheckoutTrackingConsent;
 };
 
 export type CheckoutCreateOrderResponse = {

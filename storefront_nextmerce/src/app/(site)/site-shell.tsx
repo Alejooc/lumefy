@@ -31,6 +31,7 @@ import { resolveStorefront } from "@/lib/storefront-api";
 import { StorefrontUiProvider } from "@/lib/storefront-ui";
 import type { JsonLdDocument } from "@/lib/structured-data";
 import { serializeJsonLd } from "@/lib/structured-data";
+import { StorefrontTrackingProvider } from "@/lib/storefront-tracking";
 
 function themeStyleVariables(styles: StorefrontThemeStyleViewModel): CSSProperties {
   return {
@@ -123,26 +124,28 @@ export default function SiteShell({
         {faviconUrl ? <link rel="icon" href={faviconUrl} data-storefront-favicon="true" /> : null}
       </head>
       <body className="storefront-theme overflow-x-hidden" style={themeStyleVariables(themeStyles)}>
-        <ReduxProvider>
-          <StorefrontCurrencyProvider>
-            <StorefrontAuthProvider>
-              <CartModalProvider>
-                <ModalProvider>
-                  <PreviewSliderProvider>
-                    <StorefrontUiProvider initialStorefront={initialStorefront}>
-                      <Header initialStorefront={initialStorefront} />
-                      {children}
-                      <CartFeedback />
-                      <QuickViewModal />
-                      <CartSidebarModal />
-                      <PreviewSliderModal />
-                    </StorefrontUiProvider>
-                  </PreviewSliderProvider>
-                </ModalProvider>
-              </CartModalProvider>
-            </StorefrontAuthProvider>
-          </StorefrontCurrencyProvider>
-        </ReduxProvider>
+        <StorefrontTrackingProvider storefrontId={initialStorefront.id} currency={initialStorefront.currency || "USD"}>
+          <ReduxProvider>
+            <StorefrontCurrencyProvider>
+              <StorefrontAuthProvider>
+                <CartModalProvider>
+                  <ModalProvider>
+                    <PreviewSliderProvider>
+                      <StorefrontUiProvider initialStorefront={initialStorefront}>
+                        <Header initialStorefront={initialStorefront} />
+                        {children}
+                        <CartFeedback />
+                        <QuickViewModal />
+                        <CartSidebarModal />
+                        <PreviewSliderModal />
+                      </StorefrontUiProvider>
+                    </PreviewSliderProvider>
+                  </ModalProvider>
+                </CartModalProvider>
+              </StorefrontAuthProvider>
+            </StorefrontCurrencyProvider>
+          </ReduxProvider>
+        </StorefrontTrackingProvider>
         {globalStructuredData ? (
           <script
             type="application/ld+json"

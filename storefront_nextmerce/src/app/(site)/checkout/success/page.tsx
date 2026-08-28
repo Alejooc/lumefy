@@ -1,6 +1,7 @@
 import MailSuccess from "@/components/MailSuccess";
 import { getPaymentStatus, resolveStorefront } from "@/lib/storefront-api";
 import { buildStorefrontPageMetadata } from "@/lib/seo";
+import PurchaseTracker from "@/components/Checkout/PurchaseTracker";
 
 export async function generateMetadata() {
   return buildStorefrontPageMetadata({
@@ -47,6 +48,12 @@ const CheckoutSuccessPage = async ({
 
   return (
     <main>
+      <PurchaseTracker
+        orderCode={orderCode}
+        paymentStatus={paymentStatus}
+        total={params.total}
+        currency={params.currency}
+      />
       <MailSuccess
         orderCode={orderCode}
         status={params.status}

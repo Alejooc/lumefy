@@ -29,6 +29,12 @@ import {
   checkoutAppearanceVariables,
   normalizeCheckoutAppearance,
 } from "@/lib/checkout-appearance";
+import {
+  getStorefrontTrackingConsent,
+  rememberPendingStorefrontPurchase,
+  trackStorefrontEvent,
+  trackingItem,
+} from "@/lib/storefront-tracking";
 
 type Props = {
   storefrontId: string;
@@ -251,6 +257,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const cartItems = useAppSelector((state) => state.cartReducer.items);
+  const checkoutTrackedRef = useRef(false);
   const { session, loading: authLoading } = useStorefrontAuth();
   const { buttonLabels } = useStorefrontUi();
   const settings = useMemo(
@@ -355,6 +362,17 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
       ),
     [cartItems],
   );
+
+  useEffect(() => {
+    if (checkoutTrackedRef.current || !cartItems.length) return;
+    checkoutTrackedRef.current = true;
+    trackStorefrontEvent({
+      name: "begin_checkout",
+      currency,
+      value: estimatedSubtotal,
+      items: cartItems.map(trackingItem),
+    });
+  }, [cartItems, currency, estimatedSubtotal]);
 
   const payloadSignature = JSON.stringify(payloadItems);
   const shippingSignature = JSON.stringify({
@@ -599,6 +617,20 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
         return;
       }
 
+      const checkoutTrackingItems = cartItems.map(trackingItem);
+      trackStorefrontEvent({
+        name: "add_shipping_info",
+        currency,
+        value: latestPreview.total,
+        items: checkoutTrackingItems,
+      });
+      trackStorefrontEvent({
+        name: "add_payment_info",
+        currency,
+        value: latestPreview.total,
+        items: checkoutTrackingItems,
+      });
+
       const order = await createCheckoutOrder(storefrontId, {
         items: payloadItems,
         customer: {
@@ -622,6 +654,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
         payment_provider: form.payment_provider,
         coupon_code: appliedCoupon,
         shipping_method_id: form.shipping_method_id || null,
+        tracking_consent: getStorefrontTrackingConsent(),
         idempotency_key: idempotencyKeyRef.current,
       }, authenticatedForStorefront ? session?.token : undefined);
 
@@ -658,6 +691,15 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
         return_url: `${
           typeof window !== "undefined" ? window.location.origin : ""
         }/checkout/success?order_code=${encodeURIComponent(order.order_code)}&status=${encodeURIComponent(order.status)}&total=${encodeURIComponent(String(order.total))}&currency=${encodeURIComponent(order.currency || currency)}&payment_provider=${encodeURIComponent(order.payment_provider)}&payment_status=${encodeURIComponent(order.payment_status)}`,
+      });
+
+      rememberPendingStorefrontPurchase({
+        name: "purchase",
+        event_id: `purchase:${order.order_code}`,
+        transaction_id: order.order_code,
+        currency: order.currency || currency,
+        value: order.total,
+        items: checkoutTrackingItems,
       });
 
       dispatch(removeAllItemsFromCart());

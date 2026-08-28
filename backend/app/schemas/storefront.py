@@ -505,6 +505,14 @@ class PublicStorePaymentGateway(BaseModel):
     public_config: dict = Field(default_factory=dict)
 
 
+class PublicTrackingIntegration(BaseModel):
+    provider: str
+    app_slug: str
+    tracking_id: str
+    track_ecommerce: bool = True
+    consent_category: str
+
+
 class PublicProductVariant(BaseModel):
     id: UUID
     name: str
@@ -612,6 +620,11 @@ class PublicCheckoutAddress(BaseModel):
     city_code: Optional[str] = Field(default=None, max_length=32)
 
 
+class PublicTrackingConsent(BaseModel):
+    analytics: bool = False
+    marketing: bool = False
+
+
 class PublicCheckoutPreviewRequest(BaseModel):
     items: list[PublicCheckoutItemInput] = Field(default_factory=list)
     shipping_amount: float = 0
@@ -661,6 +674,7 @@ class PublicCheckoutCreateOrderRequest(BaseModel):
     coupon_code: Optional[str] = Field(default=None, max_length=80)
     idempotency_key: Optional[str] = Field(default=None, min_length=8, max_length=120)
     shipping_method_id: Optional[UUID] = None
+    tracking_consent: PublicTrackingConsent = Field(default_factory=PublicTrackingConsent)
 
 
 class PublicCheckoutCreateOrderResponse(BaseModel):

@@ -13,6 +13,7 @@ import {
   PublicCatalogResponse,
   PublicProduct,
   PublicStorePaymentGateway,
+  PublicTrackingIntegration,
   PublicShippingConfig,
   PublicStoreNavigationItem,
   PublicStorefront,
@@ -168,6 +169,15 @@ export async function getPublicPaymentGateways(
 ): Promise<PublicStorePaymentGateway[]> {
   return request<PublicStorePaymentGateway[]>(
     `/storefront/public/${storefrontId}/payment-gateways`,
+    { cache: "no-store" },
+  );
+}
+
+export async function getPublicTrackingIntegrations(
+  storefrontId: string,
+): Promise<PublicTrackingIntegration[]> {
+  return request<PublicTrackingIntegration[]>(
+    `/storefront/public/${storefrontId}/tracking`,
     { cache: "no-store" },
   );
 }

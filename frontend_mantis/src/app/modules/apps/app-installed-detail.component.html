@@ -102,7 +102,9 @@
                         @if (field.description) {
                           <p class="text-muted small mb-1">{{ field.description }}</p>
                         }
-                        <input type="text" class="form-control" [id]="'field-' + field.key" [(ngModel)]="configForm[field.key]">
+                        <input [type]="field.format === 'password' ? 'password' : 'text'" class="form-control" [id]="'field-' + field.key"
+                          [placeholder]="field.placeholder || ''" [required]="field.required || false"
+                          [(ngModel)]="configForm[field.key]">
                       }
                     </div>
                   }

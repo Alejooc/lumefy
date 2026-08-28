@@ -23,6 +23,7 @@ import {
   productTemplateSectionEnabled,
   ProductTemplateDocument,
 } from "@/lib/product-template";
+import { trackStorefrontEvent, trackingItem } from "@/lib/storefront-tracking";
 
 function toSwatchColor(value: string): string {
   const normalized = value.trim().toLowerCase();
@@ -142,7 +143,7 @@ const ShopDetails = ({
   productTemplate?: ProductTemplateDocument;
 }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const { format } = useStorefrontCurrency();
+  const { currency, format } = useStorefrontCurrency();
   const { openPreviewModal } = usePreviewSlider();
   const { session, loading: authLoading } = useStorefrontAuth();
   const { buttonLabels } = useStorefrontUi();
@@ -305,6 +306,21 @@ const ShopDetails = ({
       ? `${stockQuantity} disponibles`
       : content.stock_in_label || "Disponible";
   const descriptionText = stripHtml(product.description);
+
+  useEffect(() => {
+    const item = trackingItem({
+      ...product,
+      discountedPrice: displayedPrice,
+      quantity: 1,
+      variantName: selectedVariantLabel,
+    });
+    trackStorefrontEvent({
+      name: "view_item",
+      currency,
+      value: displayedPrice,
+      items: [item],
+    });
+  }, [currency, displayedPrice, product.id, selectedVariantLabel]);
 
   const tabs = [
     { id: "description", title: content.description_tab_label, enabled: descriptionSection.settings["show_description_tab"] !== false },

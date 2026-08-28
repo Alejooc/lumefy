@@ -19,6 +19,9 @@ export interface SchemaField {
   type: string;
   enum?: string[];
   description?: string;
+  placeholder?: string;
+  format?: string;
+  required?: boolean;
 }
 
 @Component({
@@ -87,6 +90,9 @@ export class AppInstalledDetailComponent implements OnInit {
         const schema = data.config_schema;
         this.schemaFields = [];
         const properties = schema?.['properties'] as Record<string, Record<string, unknown>> | undefined;
+        const requiredFields = Array.isArray(schema?.['required'])
+          ? (schema?.['required'] as unknown[]).filter((key): key is string => typeof key === 'string')
+          : [];
         if (properties) {
           for (const key of Object.keys(properties)) {
             const prop = properties[key];
@@ -95,7 +101,10 @@ export class AppInstalledDetailComponent implements OnInit {
               title: typeof prop['title'] === 'string' ? prop['title'] : key,
               type: typeof prop['type'] === 'string' ? prop['type'] : 'string',
               enum: Array.isArray(prop['enum']) ? prop['enum'].filter((opt): opt is string => typeof opt === 'string') : undefined,
-              description: typeof prop['description'] === 'string' ? prop['description'] : undefined
+              description: typeof prop['description'] === 'string' ? prop['description'] : undefined,
+              placeholder: typeof prop['placeholder'] === 'string' ? prop['placeholder'] : undefined,
+              format: typeof prop['format'] === 'string' ? prop['format'] : undefined,
+              required: requiredFields.includes(key)
             });
           }
         }
@@ -244,6 +253,15 @@ export class AppInstalledDetailComponent implements OnInit {
   }
 
   saveConfig(): void {
+    const missingField = this.schemaFields.find((field) => {
+      if (!field.required) return false;
+      const value = this.configForm[field.key];
+      return value === null || value === undefined || String(value).trim() === '';
+    });
+    if (missingField) {
+      this.swal.warning('Configuración incompleta', `Completa el campo ${missingField.title}.`);
+      return;
+    }
     this.appService.updateConfig(this.slug, this.configForm).subscribe({
       next: () => {
         this.swal.success('Configuración guardada');

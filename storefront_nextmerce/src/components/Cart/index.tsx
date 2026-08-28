@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Breadcrumb from "../Common/Breadcrumb";
 import OrderSummary from "./OrderSummary";
@@ -17,6 +17,8 @@ import {
   type CartTemplateSection,
   type CartTemplateSectionType,
 } from "@/lib/cart-template";
+import { trackStorefrontEvent, trackingItem } from "@/lib/storefront-tracking";
+import { useStorefrontCurrency } from "@/lib/storefront-currency";
 
 const previewCartItems: CartItem[] = [
   {
@@ -62,7 +64,9 @@ function emptyCartIcon() {
 
 const Cart = ({ cartTemplate = {} }: { cartTemplate?: CartTemplateDocument | Record<string, unknown> }) => {
   const cartItems = useAppSelector((state) => state.cartReducer.items);
+  const { currency } = useStorefrontCurrency();
   const dispatch = useDispatch<AppDispatch>();
+  const lastTrackedCartRef = useRef("");
   const [previewTemplate, setPreviewTemplate] = useState<unknown>(cartTemplate);
   const [previewMode, setPreviewMode] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -83,6 +87,19 @@ const Cart = ({ cartTemplate = {} }: { cartTemplate?: CartTemplateDocument | Rec
   const showSummaryItems = settingBoolean(summarySection, "show_items", true);
   const showCheckoutButton = settingBoolean(summarySection, "show_checkout_button", true);
   const showContinueShopping = settingBoolean(emptySection, "show_continue_shopping", true);
+
+  useEffect(() => {
+    if (previewMode || !cartItems.length) return;
+    const signature = cartItems.map((item) => `${item.id}:${item.quantity}`).join("|");
+    if (lastTrackedCartRef.current === signature) return;
+    lastTrackedCartRef.current = signature;
+    trackStorefrontEvent({
+      name: "view_cart",
+      currency,
+      value: cartItems.reduce((total, item) => total + item.discountedPrice * item.quantity, 0),
+      items: cartItems.map(trackingItem),
+    });
+  }, [cartItems, currency, previewMode]);
 
   useEffect(() => {
     setPreviewTemplate(cartTemplate);

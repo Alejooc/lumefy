@@ -47,6 +47,8 @@ from app.models.product_variant import ProductVariant
 from app.models.user import User
 from app.models.client import Client
 from app.models.pricelist import PriceList
+from app.models.app_definition import AppDefinition
+from app.models.company_app_install import CompanyAppInstall
 from app.models.storefront_customer import StorefrontCustomerAccount
 from app.models.storefront_newsletter import StorefrontNewsletterSubscription
 from app.services.email import EmailService
@@ -96,6 +98,7 @@ from app.services.storefront_shipping import (
 )
 from app.services.pricing import ProductPricing, load_price_list_context, resolve_price, resolve_product_pricing
 from app.core.credential_crypto import SENSITIVE_GATEWAY_CONFIG_KEYS
+from app.services.storefront_tracking import enqueue_storefront_purchase_tracking
 
 router = APIRouter()
 
@@ -628,6 +631,19 @@ async def _apply_gateway_payment_status(
             provider=provider,
             reference=transaction_id,
             metadata={"from": previous_status or "none", "to": final_status},
+        )
+
+    if previous_status not in {"approved", "approved_partial", "approved_stock_unavailable"} and final_status in {
+        "approved",
+        "approved_partial",
+        "approved_stock_unavailable",
+    }:
+        enqueue_storefront_purchase_tracking(
+            db,
+            storefront_order,
+            sale,
+            source=f"{provider}_webhook",
+            transaction_id=transaction_id,
         )
 
     db.add(storefront_order)
@@ -4146,6 +4162,75 @@ async def read_public_storefront(
     )
 
 
+@router.get(
+    "/public/{storefront_id}/tracking",
+    response_model=list[schemas.PublicTrackingIntegration],
+)
+async def read_public_tracking_integrations(
+    storefront_id: uuid.UUID,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    preview_token: str | None = None,
+) -> Any:
+    """Return only browser-safe tracking identifiers for enabled apps."""
+    _set_public_cache_headers(response, preview_token, 30)
+    storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
+    if not storefront.company_id:
+        return []
+
+    rows = (
+        await db.execute(
+            select(CompanyAppInstall, AppDefinition)
+            .join(AppDefinition, AppDefinition.id == CompanyAppInstall.app_id)
+            .where(
+                CompanyAppInstall.company_id == storefront.company_id,
+                CompanyAppInstall.is_enabled == True,
+                AppDefinition.is_active == True,
+                AppDefinition.slug.in_(["google-analytics", "meta-pixel", "tiktok-pixel"]),
+            )
+        )
+    ).all()
+
+    integrations: list[schemas.PublicTrackingIntegration] = []
+    for install, app in rows:
+        app_settings = install.settings if isinstance(install.settings, dict) else {}
+        if app_settings.get("enabled") is not True:
+            continue
+
+        raw_tracking_id = str(
+            app_settings.get("measurement_id")
+            if app.slug == "google-analytics"
+            else app_settings.get("pixel_id")
+            or ""
+        ).strip()
+        if app.slug == "google-analytics":
+            valid_tracking_id = re.fullmatch(r"G-[A-Z0-9]+", raw_tracking_id.upper())
+            provider = "google_analytics"
+            consent_category = "analytics"
+        elif app.slug == "meta-pixel":
+            valid_tracking_id = re.fullmatch(r"[0-9]{5,32}", raw_tracking_id)
+            provider = "meta"
+            consent_category = "marketing"
+        else:
+            valid_tracking_id = re.fullmatch(r"[A-Za-z0-9]{8,40}", raw_tracking_id)
+            provider = "tiktok"
+            consent_category = "marketing"
+
+        if not valid_tracking_id:
+            continue
+        integrations.append(
+            schemas.PublicTrackingIntegration(
+                provider=provider,
+                app_slug=app.slug,
+                tracking_id=raw_tracking_id.upper() if app.slug == "google-analytics" else raw_tracking_id,
+                track_ecommerce=app_settings.get("track_ecommerce") is not False,
+                consent_category=consent_category,
+            )
+        )
+
+    return integrations
+
+
 @router.get("/public/{storefront_id}/shipping/config", response_model=schemas.PublicShippingConfig)
 async def read_public_shipping_config(
     storefront_id: uuid.UUID,
@@ -5754,6 +5839,8 @@ async def create_public_checkout_order(
             payment_provider=gateway.provider,
             payment_status="shipping_quote_required" if shipping_quote_required else "pending",
             currency=storefront.currency,
+            tracking_consent_analytics=bool(payload.tracking_consent.analytics),
+            tracking_consent_marketing=bool(payload.tracking_consent.marketing),
             fulfillment_warehouse_id=warehouse.id,
             company_id=storefront.company_id,
             created_by_id=sale_user.id,
@@ -6270,6 +6357,18 @@ async def read_public_payment_status(
                 reference=clean_transaction_id,
                 metadata={"from": previous_status or "none", "to": final_status, "source": "status_api"},
             )
+        if previous_status not in {"approved", "approved_partial", "approved_stock_unavailable"} and final_status in {
+            "approved",
+            "approved_partial",
+            "approved_stock_unavailable",
+        }:
+            enqueue_storefront_purchase_tracking(
+                db,
+                storefront_order,
+                sale,
+                source="wompi_status_api",
+                transaction_id=clean_transaction_id,
+            )
         sale.updated_by_id = sale.updated_by_id or sale.created_by_id
         db.add(sale)
         await db.commit()
@@ -6553,6 +6652,18 @@ async def receive_wompi_payment_event(
             provider="wompi",
             reference=transaction_id,
             metadata={"from": existing_status or "none", "to": final_status},
+        )
+    if existing_status not in {"approved", "approved_partial", "approved_stock_unavailable"} and final_status in {
+        "approved",
+        "approved_partial",
+        "approved_stock_unavailable",
+    }:
+        enqueue_storefront_purchase_tracking(
+            db,
+            storefront_order,
+            sale,
+            source="wompi_webhook",
+            transaction_id=transaction_id,
         )
     db.add(sale)
     await db.commit()

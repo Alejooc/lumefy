@@ -53,6 +53,30 @@ export class AppStoreComponent implements OnInit {
       icon: 'world-www',
       note: 'Diseña, publica y vende desde Lumefy.'
     },
+    'google-analytics': {
+      eyebrow: 'Analítica web',
+      tagline: 'Entiende cada paso antes de la compra.',
+      accent: '#f6a93b',
+      soft: '#fff5df',
+      icon: 'brand-google-analytics',
+      note: 'Visitas, productos, carritos y conversiones en GA4.'
+    },
+    'meta-pixel': {
+      eyebrow: 'Publicidad social',
+      tagline: 'Convierte el recorrido de compra en mejores campañas.',
+      accent: '#4d78ff',
+      soft: '#eaf0ff',
+      icon: 'brand-meta',
+      note: 'Eventos del storefront listos para Meta Ads.'
+    },
+    'tiktok-pixel': {
+      eyebrow: 'Social commerce',
+      tagline: 'Mide lo que inspira, conecta y convierte.',
+      accent: '#17171b',
+      soft: '#f1f1f3',
+      icon: 'brand-tiktok',
+      note: 'Señales de compra para TikTok Ads y audiencias.'
+    },
     pos_module: {
       eyebrow: 'Operación en tienda',
       tagline: 'Una caja rápida para cada momento de venta.',

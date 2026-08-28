@@ -265,6 +265,8 @@ class StorefrontOrder(BaseModel):
     payment_provider: Mapped[str] = mapped_column(String, nullable=False)
     payment_status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
     currency: Mapped[str] = mapped_column(String, nullable=False, default="USD")
+    tracking_consent_analytics: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    tracking_consent_marketing: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     fulfillment_warehouse_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=True, index=True)
 
     storefront = relationship("Storefront", back_populates="orders")
