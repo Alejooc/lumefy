@@ -1185,8 +1185,8 @@ def _serialize_public_product(
         show_stock=is_tracked,
         in_stock=not is_tracked or bool(available_stock and available_stock > 0),
         stock_quantity=available_stock,
-        seo_title=(published_product.seo_title or title or "").strip() or None,
-        seo_description=(published_product.seo_description or description or "").strip() or None,
+        seo_title=(getattr(published_product, "seo_title", None) or title or "").strip() or None,
+        seo_description=(getattr(published_product, "seo_description", None) or description or "").strip() or None,
     )
 
 
