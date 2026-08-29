@@ -5,7 +5,7 @@ APP_REGISTRY: List[Dict[str, Any]] = [
     {
         "slug": "eleganthome",
         "name": "ElegantHome",
-        "description": "Conecta ElegantHome con Lumefy para sincronizar productos, inventario y órdenes.",
+        "description": "Conecta ElegantHome con Jaofy para sincronizar productos, inventario y órdenes.",
         "category": "Integraciones",
         "version": "1.0.0",
         "icon": "cloud-download",

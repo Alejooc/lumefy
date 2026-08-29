@@ -23,9 +23,9 @@ export class AdminSettingsComponent implements OnInit {
 
     constructor() {
         this.settingsForm = this.fb.group({
-            system_name: ['Lumefy SaaS'],
+            system_name: ['Jaofy SaaS'],
             logo_url: [''],
-            primary_color: ['#4680ff'],
+            primary_color: ['#083b77'],
             default_currency: ['USD'],
             default_language: ['es'],
             maintenance_mode: [false],

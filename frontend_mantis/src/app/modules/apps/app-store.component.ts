@@ -51,7 +51,7 @@ export class AppStoreComponent implements OnInit {
       accent: '#ff7559',
       soft: '#fff0eb',
       icon: 'world-www',
-      note: 'Diseña, publica y vende desde Lumefy.'
+      note: 'Diseña, publica y vende desde Jaofy.'
     },
     'google-analytics': {
       eyebrow: 'Analítica web',

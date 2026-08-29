@@ -516,7 +516,7 @@ async def export_sale_to_source(
         },
         "payment_method": export_config.get("payment_method", 1),
         "delivery": float(sale.shipping_cost or 0),
-        "notes": sale.notes or "Orden creada desde Lumefy",
+        "notes": sale.notes or "Orden creada desde Jaofy",
         "items": items,
     }
     endpoint = _endpoint_config(source, "orders")

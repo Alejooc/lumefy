@@ -13,5 +13,5 @@ import { SpinnerComponent } from './theme/shared/components/spinner/spinner.comp
 })
 export class AppComponent {
   // public props
-  title = 'lumefy';
+  title = 'jaofy';
 }

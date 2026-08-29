@@ -1,7 +1,7 @@
 {
-    "name": "Lumefy SaaS",
-    "short_name": "Lumefy",
-    "theme_color": "#4680ff",
+    "name": "Jaofy SaaS",
+    "short_name": "Jaofy",
+    "theme_color": "#083b77",
     "background_color": "#ffffff",
     "display": "standalone",
     "scope": "./",

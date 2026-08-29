@@ -18,7 +18,7 @@ async def seed_templates():
                 "code": "WELCOME",
                 "name": "Bienvenida Usuario",
                 "type": "info",
-                "title_template": "¡Bienvenido a Lumefy!",
+                "title_template": "¡Bienvenido a Jaofy!",
                 "body_template": "Hola {user_name}, tu cuenta ha sido creada exitosamente.",
                 "is_active": True
             },

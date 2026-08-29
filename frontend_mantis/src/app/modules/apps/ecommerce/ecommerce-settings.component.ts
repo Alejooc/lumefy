@@ -130,7 +130,7 @@ export class EcommerceSettingsComponent implements OnInit {
 
   get platformStorefrontDomain(): string {
     const host = window.location.hostname.toLowerCase();
-    return host.startsWith('panel.') ? host.slice('panel.'.length) : host || 'lumefy.shop';
+    return host.startsWith('panel.') ? host.slice('panel.'.length) : host || 'jaofy.com';
   }
 
   get generatedStorefrontSlug(): string {

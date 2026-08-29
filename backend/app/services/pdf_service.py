@@ -13,9 +13,9 @@ class PDFService:
     def __init__(self):
         self.styles = getSampleStyleSheet()
         # Corporate Colors
-        self.primary_color = colors.HexColor("#1677ff")  # Corporate Blue
+        self.primary_color = colors.HexColor("#0fb4d0")  # Jaofy cyan
         self.secondary_color = colors.HexColor("#595959") # Dark Grey
-        self.accent_color = colors.HexColor("#0D47A1")   # Deep Blue
+        self.accent_color = colors.HexColor("#083b77")   # Jaofy navy
         self.light_bg = colors.HexColor("#f5f5f5")       # Light Grey
         
         # Paths
@@ -118,12 +118,12 @@ class PDFService:
 
     def _add_header(self, doc, elements, company=None, doc_type="DOCUMENTO", doc_id=""):
         # 1. Prepare Data
-        company_name = company.name if company else "Lumefy SaaS"
+        company_name = company.name if company else "Jaofy SaaS"
         address = company.address if company and company.address else "Calle 123 #45-67"
         tax_id = company.tax_id if company and company.tax_id else "NIT: 900.123.456-7"
         phone = company.phone if company and company.phone else "+57 300 123 4567"
-        website = company.website if company and company.website else "www.lumefy.io"
-        logo_url = company.logo_url if company else "assets/images/logo-dark.svg" # Default fallback
+        website = company.website if company and company.website else "www.jaofy.com"
+        logo_url = company.logo_url if company else "assets/images/brand/jaofy-logo-horizontal.png" # Default fallback
         # SVG fallback not supported by ReportLab efficiently without svglib, assume png/jpg or text
         # If SVG, we might skip or try. For now, let's assume if it fails it fails gracefully.
 
@@ -270,7 +270,7 @@ class PDFService:
             elements.append(Paragraph(sale.notes, self.value_style))
             elements.append(Spacer(1, 10))
 
-        footer_text = "Gracias por su compra. Documento generado por Lumefy SaaS."
+        footer_text = "Gracias por su compra. Documento generado por Jaofy SaaS."
         elements.append(Spacer(1, 20))
         elements.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=self.value_style, alignment=TA_CENTER, textColor=colors.grey, fontSize=8)))
 

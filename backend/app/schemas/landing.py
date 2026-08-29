@@ -24,7 +24,7 @@ class LandingSocial(BaseModel):
     linkedin: Optional[str] = None
 
 class LandingContact(BaseModel):
-    email: str = "contacto@lumefy.io"
+    email: str = "contacto@jaofy.com"
     phone: str = "+57 300 123 4567"
     address: str = "Calle 123, Bogota"
 

@@ -1,14 +1,5 @@
-<svg width="164" height="40" viewBox="0 0 164 40" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
-  <title id="title">Lumefy</title>
-  <defs>
-    <linearGradient id="lumefy-gradient-white" x1="4" y1="3" x2="37" y2="38" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#818CF8"/>
-      <stop offset="1" stop-color="#4F46E5"/>
-    </linearGradient>
-  </defs>
-  <rect x="2" y="2" width="36" height="36" rx="11" fill="url(#lumefy-gradient-white)"/>
-  <path d="M12.5 11.5V25.2C12.5 27.19 14.11 28.8 16.1 28.8H27.5" stroke="white" stroke-width="5" stroke-linecap="round"/>
-  <rect x="20.3" y="10.2" width="8" height="8" rx="3" fill="#CFFAFE"/>
-  <circle cx="24.3" cy="14.2" r="1.45" fill="#4338CA"/>
-  <text x="49" y="27.4" fill="white" font-family="Inter, Arial, sans-serif" font-size="25" font-weight="750" letter-spacing="-1.1">Lumefy</text>
+<svg width="182" height="50" viewBox="0 0 182 50" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">Jaofy</title>
+  <rect width="182" height="50" rx="8" fill="white" />
+  <image href="/assets/images/brand/jaofy-logo-horizontal.png" x="0" y="0" width="182" height="50" preserveAspectRatio="xMidYMid meet" />
 </svg>

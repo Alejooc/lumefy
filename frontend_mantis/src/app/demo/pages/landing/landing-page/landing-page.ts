@@ -67,7 +67,7 @@ export class LandingPage implements OnInit, OnDestroy {
           enabled: true,
           hero: {
             title: 'Opera tu negocio y vende online desde un solo lugar',
-            subtitle: 'Lumefy conecta catálogo, inventario, ventas, logística y tienda online para que tu operación avance sin duplicar trabajo.',
+            subtitle: 'Jaofy conecta catálogo, inventario, ventas, logística y tienda online para que tu operación avance sin duplicar trabajo.',
             cta_text: 'Crear mi empresa',
             cta_link: "/register",
             image_url: "assets/images/auth/auth-bg.png"
@@ -83,7 +83,7 @@ export class LandingPage implements OnInit, OnDestroy {
           clients: [],
           social: {},
           contact: {
-            email: "hola@lumefy.io",
+            email: "hola@jaofy.com",
             phone: "+57 (601) 555-0123",
             address: "Bogotá, Colombia"
           },
@@ -98,7 +98,7 @@ export class LandingPage implements OnInit, OnDestroy {
 
   faqs = [
     {
-      question: '¿Cómo empiezo a operar en Lumefy?',
+      question: '¿Cómo empiezo a operar en Jaofy?',
       answer: 'Crea tu empresa y sucursal, agrega el catálogo y registra cotizaciones o pedidos. Desde el dashboard encontrarás el orden recomendado.'
     },
     {

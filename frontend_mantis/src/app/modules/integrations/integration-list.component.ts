@@ -705,7 +705,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     request.subscribe({
       next: (run) => {
         this.activeRuns[this.runKey(source.id, syncType)] = run;
-        this.swal.success('Sincronización en cola', 'Puedes seguir trabajando mientras Lumefy procesa los datos.');
+        this.swal.success('Sincronización en cola', 'Puedes seguir trabajando mientras Jaofy procesa los datos.');
         this.pollRun(source, run);
       },
       error: (error) => {

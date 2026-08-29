@@ -91,7 +91,7 @@ export class EcommercePaymentsComponent implements OnInit {
     whatsapp: {
       label: 'Comprar por WhatsApp', description: 'Envía el carrito y los datos del pedido al WhatsApp comercial configurado.',
       defaultName: 'Comprar por WhatsApp', accent: 'emerald', merchantLabel: 'WhatsApp comercial', merchantPlaceholder: 'Ej. 573001234567',
-      publicLabel: 'Etiqueta opcional', publicPlaceholder: 'Ej. Ventas Lumefy',
+      publicLabel: 'Etiqueta opcional', publicPlaceholder: 'Ej. Ventas Jaofy',
       secretLabel: 'Secreto', secretPlaceholder: 'No requerido'
     },
     cod: {

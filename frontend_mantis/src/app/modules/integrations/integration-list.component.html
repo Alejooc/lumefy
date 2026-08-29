@@ -2,7 +2,7 @@
   <div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
     <div>
       <h4 class="mb-1">ElegantHome</h4>
-      <p class="text-muted mb-0">Conecta ElegantHome para sincronizar productos, precios, inventario y órdenes con Lumefy.</p>
+      <p class="text-muted mb-0">Conecta ElegantHome para sincronizar productos, precios, inventario y órdenes con Jaofy.</p>
     </div>
     <button class="btn btn-primary" (click)="openCreate()">
       <i class="ti ti-plus me-1"></i> Nueva conexión
@@ -249,7 +249,7 @@
                     <label class="form-label">Máximo de solicitudes</label>
                     <input class="form-control" type="number" min="1" [(ngModel)]="form.max_pages">
                   </div>
-                  <div class="col-12"><small class="text-muted">La ruta suele ser <code>meta.next_cursor</code>, <code>next_cursor</code> o <code>links.next</code>. Lumefy rechaza cursores que apunten a otro dominio.</small></div>
+                  <div class="col-12"><small class="text-muted">La ruta suele ser <code>meta.next_cursor</code>, <code>next_cursor</code> o <code>links.next</code>. Jaofy rechaza cursores que apunten a otro dominio.</small></div>
                 }
               }
 
@@ -312,7 +312,7 @@
                     <input class="form-check-input" type="checkbox" id="inventory-batch-enabled" [(ngModel)]="form.inventory_batch_enabled">
                     <label class="form-check-label fw-semibold" for="inventory-batch-enabled">Consultar por lotes de SKU</label>
                   </div>
-                  <p class="small text-muted mb-3">Actívalo cuando el proveedor reciba varios SKU en una sola petición, por ejemplo <code>?skus=THO12306,THO12362</code>. Lumefy genera los lotes automáticamente y nunca envía más de 100 SKU.</p>
+                    <p class="small text-muted mb-3">Actívalo cuando el proveedor reciba varios SKU en una sola petición, por ejemplo <code>?skus=THO12306,THO12362</code>. Jaofy genera los lotes automáticamente y nunca envía más de 100 SKU.</p>
                   @if (form.inventory_batch_enabled) {
                     <div class="row g-3">
                       <div class="col-md-6">
@@ -366,7 +366,7 @@
         }
         <div class="table-responsive mapping-table">
           <table class="table table-sm align-middle">
-            <thead><tr><th>Campo Lumefy</th><th>Campo detectado en la API</th><th>Confianza</th><th>Alternativas</th></tr></thead>
+            <thead><tr><th>Campo Jaofy</th><th>Campo detectado en la API</th><th>Confianza</th><th>Alternativas</th></tr></thead>
             <tbody>
               @for (suggestion of mappingDraft.suggestions; track suggestion.canonical) {
                 <tr>
@@ -644,7 +644,7 @@
                       <span class="run-state">{{ syncStatus(source, 'INVENTORY') }}</span>
                     }
                   </div>
-                  <p class="sync-description">Actualiza únicamente cantidades. Lumefy ejecuta un proceso por conexión para evitar cruces.</p>
+                  <p class="sync-description">Actualiza únicamente cantidades. Jaofy ejecuta un proceso por conexión para evitar cruces.</p>
                   @if (syncProgress(source, 'INVENTORY'); as progress) {
                     <div class="sync-progress" [class.progress-complete]="progress.percent >= 100">
                       <div class="sync-progress-heading">

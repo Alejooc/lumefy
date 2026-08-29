@@ -1,3 +1,4 @@
+:host .dashboard-side-logo img { display: block; width: 18px; height: 18px; object-fit: contain; }
 :host {
   --market-ink: #171917;
   --market-muted: #6d716d;
@@ -16,7 +17,8 @@
 .market-nav { position: relative; z-index: 4; display: grid; grid-template-columns: minmax(190px, 1fr) minmax(290px, 620px) minmax(190px, 1fr); align-items: center; gap: 24px; min-height: 72px; padding: 0 4.5%; border-bottom: 1px solid var(--market-line); background: rgba(251, 251, 248, .88); backdrop-filter: blur(16px); }
 .market-brand, .browse-button, .account-chip, .search-clear, .category-rail button, .browse-categories button, .refresh-button, .tile-open, .detail-close, .active-filters button { border: 0; background: transparent; color: inherit; cursor: pointer; }
 .market-brand { display: inline-flex; align-items: center; justify-self: start; gap: 10px; padding: 0; font-size: 18px; letter-spacing: -.04em; }
-.brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px 11px 11px 3px; background: var(--market-ink); color: var(--market-acid); font-size: 17px; transform: rotate(-6deg); }
+.brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px 11px 11px 3px; background: transparent; color: var(--market-acid); font-size: 17px; }
+.brand-mark img { display: block; width: 34px; height: 34px; object-fit: contain; }
 .brand-name { transform: rotate(0deg); }.brand-name strong { font-weight: 800; }
 .market-search { position: relative; display: flex; align-items: center; min-width: 0; height: 44px; border: 1px solid #d9dad4; border-radius: 999px; background: rgba(255, 255, 255, .72); color: var(--market-muted); transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease; }
 .market-search:focus-within { border-color: var(--market-ink); background: #fff; box-shadow: 0 0 0 4px rgba(201, 241, 70, .22); }.market-search > i { margin-left: 18px; font-size: 18px; }.market-search input { width: 100%; min-width: 0; height: 100%; padding: 0 14px; border: 0; outline: 0; background: transparent; color: var(--market-ink); font-size: 13px; }.market-search input::placeholder { color: #898d87; }.market-search input::-webkit-search-cancel-button { display: none; }.search-clear { display: grid; width: 28px; height: 28px; margin-right: 7px; place-items: center; border-radius: 50%; color: var(--market-muted); }.search-clear:hover { background: #f0f0ea; color: var(--market-ink); }
