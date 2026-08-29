@@ -17,7 +17,7 @@
       <button class="browse-button" type="button" (click)="browseOpen = !browseOpen" [attr.aria-expanded]="browseOpen">
         Explorar apps <i class="ti" [class.ti-chevron-down]="!browseOpen" [class.ti-chevron-up]="browseOpen"></i>
       </button>
-      <button class="account-chip" type="button" aria-label="Cuenta de empresa"><i class="ti ti-building-store"></i></button>
+      <button class="account-chip" type="button" (click)="backToPanel()" aria-label="Volver al panel" title="Volver al panel"><i class="ti ti-building-store"></i></button>
     </div>
   </header>
 
@@ -114,6 +114,14 @@
       </section>
     </section>
   </main>
+
+  <footer class="market-footer">
+    <div>
+      <span class="market-footer-brand">Jaofy <strong>apps</strong></span>
+      <span class="market-footer-copy">Extensiones para que tu operación avance contigo.</span>
+    </div>
+    <button type="button" class="market-footer-back" (click)="backToPanel()">Volver al panel <i class="ti ti-arrow-up-right"></i></button>
+  </footer>
 
   @if (selectedApp) {
     <div class="detail-backdrop" (click)="closeDetails()"><article class="detail-drawer" (click)="$event.stopPropagation()" [style.--detail-accent]="metaFor(selectedApp).accent"><button type="button" class="detail-close" (click)="closeDetails()" aria-label="Cerrar detalles"><i class="ti ti-x"></i></button><div class="detail-visual" [style.background]="metaFor(selectedApp).soft"><span class="detail-visual-orb"></span><span class="detail-icon" [style.background]="metaFor(selectedApp).accent"><i [class]="iconClass(selectedApp)"></i></span><span class="detail-visual-word">Jaofy<br /><strong>apps</strong></span></div><div class="detail-content"><span class="eyebrow">{{ metaFor(selectedApp).eyebrow }}</span><div class="detail-title-row"><div><h2>{{ selectedApp.name }}</h2><span>v{{ selectedApp.version }}</span></div>@if (isInstalled(selectedApp.slug)) { <span class="detail-status"><i class="ti ti-check"></i> Instalada</span> }</div><p class="detail-tagline">{{ metaFor(selectedApp).tagline }}</p><p class="detail-description">{{ selectedApp.description || metaFor(selectedApp).note }}</p><div class="detail-meta"><span><i class="ti ti-tag"></i>{{ selectedApp.category || 'General' }}</span><span><i class="ti ti-bolt"></i>{{ (selectedApp.capabilities || []).length }} funciones</span><span><i class="ti ti-shield-check"></i>{{ pricingLabel(selectedApp) }}</span></div>@if (selectedApp.requested_scopes?.length) { <div class="detail-permissions"><strong>Permisos que solicita</strong><div>@for (scope of selectedApp.requested_scopes; track scope) { <span>{{ scope }}</span> }</div></div> }@if (installingSlug === selectedApp.slug) { <div class="detail-progress"><div><span>Instalando app</span><strong>{{ installProgress[selectedApp.slug] || 0 }}%</strong></div><div class="progress-track"><span [style.width.%]="installProgress[selectedApp.slug] || 0"></span></div></div> }<div class="detail-actions">@if (isInstalled(selectedApp.slug)) { <button type="button" class="button button-dark" (click)="openInstalled(selectedApp.slug)">Abrir configuración <i class="ti ti-arrow-up-right"></i></button><button type="button" class="button button-danger" (click)="uninstall(selectedApp.slug); closeDetails()">Desactivar</button> } @else { <button type="button" class="button button-dark" (click)="install(selectedApp.slug)">Instalar app <i class="ti ti-arrow-up-right"></i></button> }</div><small class="detail-footnote"><i class="ti ti-lock"></i> La instalación es independiente para cada empresa y sus permisos se pueden revisar.</small></div></article></div>

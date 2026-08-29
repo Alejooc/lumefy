@@ -186,6 +186,10 @@ export class AppStoreComponent implements OnInit {
     this.router.navigate(['/apps/admin']);
   }
 
+  backToPanel(): void {
+    this.router.navigate(['/dashboard/default']);
+  }
+
   clearSearch(): void {
     this.searchQuery = '';
   }

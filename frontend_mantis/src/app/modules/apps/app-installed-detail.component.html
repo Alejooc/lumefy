@@ -1,398 +1,109 @@
-@if (!loading && appDetail) {
-  <div class="container-fluid py-4">
-    <!-- App Header -->
-    <div class="row mb-4">
-      <div class="col-12">
-        <div class="card border-0 shadow-sm app-header-card">
-          <div class="card-body d-flex align-items-center gap-4 flex-wrap p-4">
-            <div class="app-icon-wrapper">
-              <div class="app-icon">
-                <i class="ti" [ngClass]="appIconClass"
-                style="font-size: 2.2rem;"></i>
-              </div>
-            </div>
-            <div class="flex-grow-1">
-              <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                <h3 class="mb-0">{{ appDetail.name }}</h3>
-                <span class="badge bg-primary-subtle text-primary" style="font-size:.75rem;">
-                  v{{ appDetail.version }}
-                </span>
-                <span class="badge bg-light text-dark" style="font-size:.75rem;">
-                  Instalada: v{{ appDetail.installed_version }}
-                </span>
-                @if (appDetail.is_enabled) {
-                  <span class="badge bg-success-subtle text-success">Activa</span>
-                }
-                @if (!appDetail.is_enabled) {
-                  <span class="badge bg-danger-subtle text-danger">Desactivada</span>
-                }
-              </div>
-              <p class="text-muted mb-1 small">{{ appDetail.description || 'Sin descripción.' }}</p>
-              <p class="text-muted mb-0" style="font-size:.75rem;">
-                <span class="me-3"><i class="ti ti-tag me-1"></i>{{ appDetail.category || 'General' }}</span>
-                <span><i class="ti ti-code me-1"></i>{{ appDetail.slug }}</span>
-              </p>
-            </div>
-            <div class="d-flex gap-2 flex-wrap">
-              <button class="btn btn-outline-secondary btn-sm" (click)="loadDetail()" [disabled]="loading">
-                <i class="ti ti-refresh me-1"></i>Refrescar
-              </button>
-              @if (supportsWebhooks()) {
-                <button class="btn btn-outline-dark btn-sm" (click)="testWebhook()">
-                  <i class="ti ti-send me-1"></i>Test Webhook
-                </button>
-              }
-            </div>
-          </div>
-        </div>
-      </div>
+<div class="app-config-shell">
+  <header class="app-config-topbar">
+    <button type="button" class="config-back-button" (click)="backToMarketplace()">
+      <i class="ti ti-arrow-left"></i>
+      <span>Marketplace</span>
+    </button>
+    <div class="config-brand" aria-label="Jaofy apps">
+      <span class="config-brand-mark"><img src="assets/images/brand/jaofy-icon.png" alt="" /></span>
+      <span>Jaofy <strong>apps</strong></span>
     </div>
-    <!-- Configuration Form -->
-    <div class="row">
-      <div class="col-lg-8">
-        <div class="card border-0 shadow-sm">
-          <div class="card-header bg-white border-bottom d-flex align-items-center gap-2">
-            <i class="ti ti-settings text-primary"></i>
-            <h5 class="mb-0">Configuración</h5>
+    @if (appDetail) {
+      <div class="config-app-context"><span class="config-app-context-dot"></span><span>{{ appDetail.name }}</span></div>
+    }
+  </header>
+
+  @if (loading) {
+    <main class="app-config-loading" aria-live="polite">
+      <div class="config-loader-mark"><i class="ti ti-adjustments-horizontal"></i></div>
+      <div class="spinner-border text-primary" role="status"></div>
+      <h2>Cargando configuración</h2>
+      <p>Estamos preparando los campos de conexión de tu app.</p>
+    </main>
+  }
+
+  @if (!loading && appDetail; as app) {
+    <main class="app-config-main">
+      <div class="container-fluid app-config-container">
+        <div class="config-page-heading">
+          <div>
+            <span class="config-eyebrow">Configuración de integración</span>
+            <h1>Conecta {{ app.name }} a tu operación.</h1>
+            <p>Administra credenciales, eventos y permisos desde un único lugar.</p>
           </div>
-          <div class="card-body p-4">
-            <!-- Dynamic fields from config_schema -->
-            @if (schemaFields.length > 0) {
-              @for (field of schemaFields; track field) {
-                <div class="mb-4">
-                  <!-- Boolean → Toggle switch -->
-                  @if (field.type === 'boolean') {
-                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                      <div>
-                        <label class="form-label mb-0 fw-semibold">{{ field.title }}</label>
-                        @if (field.description) {
-                          <p class="text-muted small mb-0">{{ field.description }}</p>
-                        }
-                      </div>
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" style="width:2.5rem; height:1.3rem;"
-                          [id]="'field-' + field.key" [(ngModel)]="configForm[field.key]">
-                        </div>
-                      </div>
-                    }
-                    <!-- Enum → Select -->
-                    @if (field.type === 'string' && field.enum) {
-                      <label [for]="'field-' + field.key" class="form-label fw-semibold">{{ field.title }}</label>
-                      @if (field.description) {
-                        <p class="text-muted small mb-1">{{ field.description }}</p>
+          <button type="button" class="config-refresh-button" (click)="loadDetail()" [disabled]="loading || saving">
+            <i class="ti ti-refresh" [class.config-spin]="loading"></i><span>Actualizar</span>
+          </button>
+        </div>
+
+        <section class="config-app-header">
+          <div class="config-app-icon"><i class="ti" [ngClass]="appIconClass"></i></div>
+          <div class="config-app-title">
+            <div class="config-app-title-line">
+              <h2>{{ app.name }}</h2><span class="config-badge">v{{ app.version }}</span>
+              @if (app.is_enabled) { <span class="config-status config-status-active"><i class="ti ti-check"></i> Activa</span> }
+              @else { <span class="config-status config-status-disabled"><i class="ti ti-player-pause"></i> Desactivada</span> }
+            </div>
+            <p>{{ app.description || 'Configura esta integración para comenzar a recibir datos.' }}</p>
+            <div class="config-app-meta"><span><i class="ti ti-category"></i>{{ app.category || 'Aplicación' }}</span><span><i class="ti ti-code"></i>{{ app.slug }}</span><span>Instalada {{ app.installed_at | date:'mediumDate' }}</span></div>
+          </div>
+        </section>
+
+        @if (isTrackingApp()) {
+          <section class="tracking-config-banner">
+            <div class="tracking-config-icon"><i class="ti ti-activity"></i></div>
+            <div class="tracking-config-copy"><span class="config-eyebrow">Medición del storefront</span><h2>{{ trackingProviderLabel() }}</h2><p>{{ trackingConfigCopy() }}</p></div>
+            <div class="tracking-config-state" [class.is-ready]="trackingIdentifierValue()">
+              <i class="ti" [class.ti-circle-check-filled]="trackingIdentifierValue()" [class.ti-circle-dashed]="!trackingIdentifierValue()"></i><span>{{ trackingIdentifierValue() ? 'Identificador listo' : 'Requiere configuración' }}</span>
+            </div>
+          </section>
+        }
+
+        <div class="row g-4">
+          <div class="col-xl-8">
+            <section class="config-card config-form-card">
+              <div class="config-card-heading"><div><span class="config-card-kicker">Paso 1</span><h2>Datos de conexión</h2></div><i class="ti ti-settings-2"></i></div>
+              @if (schemaFields.length > 0) {
+                <div class="config-fields">
+                  @for (field of schemaFields; track field.key) {
+                    <div class="config-field" [class.config-field-toggle]="field.type === 'boolean'">
+                      @if (field.type === 'boolean') {
+                        <div class="config-toggle-row"><div><label class="config-field-label" [for]="'field-' + field.key">{{ field.title }}@if (field.required) { <span class="required-mark">*</span> }</label>@if (field.description) { <p class="config-field-help">{{ field.description }}</p> }</div><label class="config-switch"><input type="checkbox" [id]="'field-' + field.key" [(ngModel)]="configForm[field.key]" /><span></span></label></div>
                       }
-                      <select class="form-select" [id]="'field-' + field.key" [(ngModel)]="configForm[field.key]">
-                        @for (opt of field.enum; track opt) {
-                          <option [value]="opt">{{ opt }}</option>
-                        }
-                      </select>
-                    }
-                    <!-- Number → Input -->
-                    @if (field.type === 'number' || field.type === 'integer') {
-                      <label [for]="'field-' + field.key" class="form-label fw-semibold">{{ field.title }}</label>
-                      @if (field.description) {
-                        <p class="text-muted small mb-1">{{ field.description }}</p>
+                      @if (field.type === 'string' && field.enum) {
+                        <label class="config-field-label" [for]="'field-' + field.key">{{ field.title }}@if (field.required) { <span class="required-mark">*</span> }</label>@if (field.description) { <p class="config-field-help">{{ field.description }}</p> }<select class="config-input" [id]="'field-' + field.key" [(ngModel)]="configForm[field.key]">@for (option of field.enum; track option) { <option [value]="option">{{ option }}</option> }</select>
                       }
-                      <input type="number" class="form-control" [id]="'field-' + field.key"
-                        [(ngModel)]="configForm[field.key]">
+                      @if (field.type === 'number' || field.type === 'integer') {
+                        <label class="config-field-label" [for]="'field-' + field.key">{{ field.title }}@if (field.required) { <span class="required-mark">*</span> }</label>@if (field.description) { <p class="config-field-help">{{ field.description }}</p> }<input class="config-input" type="number" [id]="'field-' + field.key" [(ngModel)]="configForm[field.key]" />
                       }
-                      <!-- Plain string → Input (no enum) -->
                       @if ((field.type === 'string' || !field.type) && !field.enum) {
-                        <label [for]="'field-' + field.key" class="form-label fw-semibold">{{ field.title }}</label>
-                        @if (field.description) {
-                          <p class="text-muted small mb-1">{{ field.description }}</p>
-                        }
-                        <input [type]="field.format === 'password' ? 'password' : 'text'" class="form-control" [id]="'field-' + field.key"
-                          [placeholder]="field.placeholder || ''" [required]="field.required || false"
-                          [(ngModel)]="configForm[field.key]">
+                        <label class="config-field-label" [for]="'field-' + field.key">{{ field.title }}@if (field.required) { <span class="required-mark">*</span> }</label>@if (field.description) { <p class="config-field-help">{{ field.description }}</p> }<input class="config-input" [class.config-input-secret]="field.format === 'password'" [type]="field.format === 'password' ? 'password' : 'text'" [id]="'field-' + field.key" [placeholder]="field.placeholder || ''" [required]="field.required || false" [(ngModel)]="configForm[field.key]" />@if (isMaskedSecret(field)) { <p class="config-secret-help"><i class="ti ti-lock"></i> Este valor está protegido. Déjalo sin cambios para conservar la credencial actual.</p> }
                       }
                     </div>
                   }
-                } @else {
-                  <div class="text-center py-5">
-                    <i class="ti ti-adjustments text-muted" style="font-size: 3rem; opacity:.4;"></i>
-                    <h6 class="text-muted mt-3">Sin campos de configuración definidos</h6>
-                    <p class="text-muted small">El desarrollador de esta app no definió un esquema de configuración todavía.
-                    </p>
-                  </div>
-                }
-                <!-- No schema defined yet -->
-                <div class="d-flex justify-content-between align-items-center mt-4">
-                  <!-- Raw JSON toggle -->
-                  <button class="btn btn-link btn-sm text-muted p-0" (click)="showRawJson = !showRawJson">
-                    <i class="ti ti-code me-1"></i>{{ showRawJson ? 'Ocultar' : 'Ver' }} JSON crudo
-                  </button>
-                  @if (schemaFields.length > 0) {
-                    <button class="btn btn-primary" (click)="saveConfig()">
-                      <i class="ti ti-device-floppy me-2"></i>Guardar configuración
-                    </button>
-                  }
                 </div>
-                <!-- Raw JSON accordion -->
-                @if (showRawJson) {
-                  <div class="mt-3">
-                    <label class="form-label small fw-semibold text-muted">JSON de configuración actual</label>
-                    <textarea class="form-control font-monospace" rows="10" [(ngModel)]="configEditor"
-                    style="font-size:.8rem; background:#1e1e2e; color:#cdd6f4; border:none; border-radius:8px;"></textarea>
-                    <div class="d-flex justify-content-end mt-2">
-                      <button class="btn btn-outline-secondary btn-sm" (click)="saveRawJson()">
-                        <i class="ti ti-device-floppy me-1"></i>Guardar JSON
-                      </button>
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
+                <div class="config-form-actions"><span><i class="ti ti-shield-lock"></i> Tus credenciales privadas se guardan protegidas.</span><button type="button" class="config-save-button" (click)="saveConfig()" [disabled]="saving">@if (saving) { <span class="spinner-border spinner-border-sm"></span> Guardando… } @else { <i class="ti ti-device-floppy"></i> Guardar configuración }</button></div>
+              } @else {
+                <div class="config-empty-state"><i class="ti ti-adjustments-off"></i><h3>Esta app no tiene campos configurables.</h3><p>El proveedor debe publicar un esquema de configuración para habilitar esta sección.</p></div>
+              }
+              <div class="config-raw-tools"><button type="button" class="config-raw-toggle" (click)="showRawJson = !showRawJson"><i class="ti ti-code"></i>{{ showRawJson ? 'Ocultar JSON avanzado' : 'Ver JSON avanzado' }}</button>@if (showRawJson) { <div class="config-raw-editor"><label for="config-json">Configuración avanzada</label><textarea id="config-json" [(ngModel)]="configEditor" rows="9"></textarea><button type="button" class="config-secondary-button" (click)="saveRawJson()" [disabled]="saving">Guardar JSON</button></div> }</div>
+            </section>
           </div>
-          <!-- Info sidebar -->
-          <div class="col-lg-4">
-            <div class="card border-0 shadow-sm mb-3">
-              <div class="card-header bg-white border-bottom">
-                <h6 class="mb-0"><i class="ti ti-info-circle me-2 text-muted"></i>Información de instalación</h6>
-              </div>
-              <div class="card-body px-4 py-3">
-                <div class="info-row">
-                  <span class="text-muted small">Instalada</span>
-                  <span class="small fw-semibold">{{ appDetail.installed_at | date:'mediumDate' }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="text-muted small">ID de instalación</span>
-                  <span class="small text-truncate fw-mono" style="max-width: 150px;" [title]="appDetail.install_id">{{
-                  appDetail.install_id }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="text-muted small">Slug</span>
-                  <code class="small">{{ appDetail.slug }}</code>
-                </div>
-                @if (appDetail.api_key_prefix) {
-                  <div class="info-row">
-                    <span class="text-muted small">API key prefix</span>
-                    <code class="small">{{ appDetail.api_key_prefix }}</code>
-                  </div>
-                }
-                @if (appDetail.oauth_client_id) {
-                  <div class="info-row">
-                    <span class="text-muted small">OAuth client_id</span>
-                    <code class="small">{{ appDetail.oauth_client_id }}</code>
-                  </div>
-                }
-                @if (supportsWebhooks()) {
-                  <div class="info-row">
-                    <span class="text-muted small">Webhook URL</span>
-                    <span class="small fw-semibold">{{ appDetail.webhook_url || 'No configurado' }}</span>
-                  </div>
-                }
-                @if (appDetail.granted_scopes.length > 0) {
-                  <div class="info-row">
-                    <span class="text-muted small">Scopes concedidos</span>
-                    <span class="small fw-semibold">{{ appDetail.granted_scopes.join(', ') }}</span>
-                  </div>
-                }
-                <div class="d-flex gap-2 mt-3">
-                  <button class="btn btn-sm btn-outline-primary" (click)="rotateApiKey()">Rotar API key</button>
-                  @if (supportsExternalApi()) {
-                    <button class="btn btn-sm btn-outline-dark" (click)="rotateClientSecret()">Rotar client secret</button>
-                  }
-                  @if (supportsWebhooks()) {
-                    <button class="btn btn-sm btn-outline-secondary" (click)="rotateWebhookSecret()">Rotar secret</button>
-                  }
-                </div>
-              </div>
-            </div>
-            @if (billing) {
-              <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white border-bottom">
-                  <h6 class="mb-0"><i class="ti ti-credit-card me-2 text-muted"></i>Billing</h6>
-                </div>
-                <div class="card-body px-4 py-3">
-                  <div class="info-row">
-                    <span class="text-muted small">Modelo</span>
-                    <span class="small fw-semibold">{{ billing.pricing_model }}</span>
-                  </div>
-                  <div class="info-row">
-                    <span class="text-muted small">Costo mensual</span>
-                    <span class="small fw-semibold">{{ billing.monthly_price }} {{ billing.currency }}</span>
-                  </div>
-                  <div class="info-row">
-                    <span class="text-muted small">Estado</span>
-                    <span class="small fw-semibold">{{ billing.billing_status }}</span>
-                  </div>
-                  @if (billing.next_invoice_date) {
-                    <div class="info-row">
-                      <span class="text-muted small">Proxima factura</span>
-                      <span class="small fw-semibold">{{ billing.next_invoice_date | date:'mediumDate' }}</span>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-            @if (appDetail.capabilities.length > 0) {
-              <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white border-bottom">
-                  <h6 class="mb-0"><i class="ti ti-bolt me-2 text-muted"></i>Capacidades</h6>
-                </div>
-                <div class="card-body px-4 py-3">
-                  @for (capability of appDetail.capabilities; track capability) {
-                    <span class="badge bg-light text-dark me-1 mb-1">
-                      {{ capability }}
-                    </span>
-                  }
-                </div>
-              </div>
-            }
-            <div class="card border-0 shadow-sm mb-3">
-              <div class="card-header bg-white border-bottom">
-                <h6 class="mb-0"><i class="ti ti-clock me-2 text-muted"></i>Eventos de lifecycle</h6>
-              </div>
-              <div class="card-body px-4 py-3">
-                @if (events.length === 0) {
-                  <div class="small text-muted">Aun no hay eventos registrados.</div>
-                }
-                @for (event of events; track event) {
-                  <div class="border-bottom py-2">
-                    <div class="d-flex justify-content-between gap-2">
-                      <span class="small fw-semibold text-uppercase">{{ event.event_type }}</span>
-                      <span class="small text-muted">{{ event.created_at | date:'short' }}</span>
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
+
+          <aside class="col-xl-4">
+            <section class="config-card config-side-card"><div class="config-card-heading compact"><div><span class="config-card-kicker">Estado</span><h2>Conexión y permisos</h2></div><i class="ti ti-shield-check"></i></div><div class="config-info-list"><div><span>Versión instalada</span><strong>v{{ app.installed_version }}</strong></div><div><span>ID de instalación</span><code>{{ app.install_id }}</code></div>@if (app.api_key_prefix) { <div><span>API key</span><code>{{ app.api_key_prefix }}••••••</code></div> }@if (app.oauth_client_id) { <div><span>OAuth client</span><code>{{ app.oauth_client_id }}</code></div> }</div>@if (app.granted_scopes?.length) { <div class="config-scope-block"><span>Permisos concedidos</span><div>@for (scope of app.granted_scopes; track scope) { <code>{{ scope }}</code> }</div></div> }</section>
+
             @if (isTrackingApp()) {
-              <div class="card border-0 shadow-sm mb-3 tracking-status-card">
-                <div class="card-header tracking-status-header border-bottom d-flex justify-content-between align-items-center gap-2">
-                  <div>
-                    <h6 class="mb-1"><i class="ti ti-activity me-2 text-primary"></i>Estado de medición</h6>
-                    <span class="small text-muted">Entregas server-side por proveedor</span>
-                  </div>
-                  <button class="btn btn-sm btn-light" type="button" (click)="loadTrackingDeliveries()" title="Actualizar estado">
-                    <i class="ti ti-refresh"></i>
-                  </button>
-                </div>
-                <div class="card-body px-3 py-3">
-                  @if (trackingStatus; as tracking) {
-                    @if (!tracking.server_side_enabled) {
-                      <div class="tracking-empty-state mb-3">
-                        <div class="tracking-empty-icon"><i class="ti ti-plug-off"></i></div>
-                        <div>
-                          <div class="fw-semibold small">Server-side está apagado</div>
-                          <div class="small text-muted">Actívalo en configuración para recibir eventos desde el backend.</div>
-                        </div>
-                      </div>
-                    }
-                    <div class="tracking-metrics mb-3">
-                      <div class="tracking-metric">
-                        <span class="tracking-metric-value">{{ tracking.sent }}</span>
-                        <span class="tracking-metric-label">Entregados</span>
-                      </div>
-                      <div class="tracking-metric">
-                        <span class="tracking-metric-value">{{ tracking.retrying }}</span>
-                        <span class="tracking-metric-label">Reintentando</span>
-                      </div>
-                      <div class="tracking-metric">
-                        <span class="tracking-metric-value">{{ tracking.failed }}</span>
-                        <span class="tracking-metric-label">Rechazados</span>
-                      </div>
-                    </div>
-                    @if (tracking.not_configured > 0) {
-                      <div class="alert alert-warning py-2 px-3 small mb-3">
-                        <i class="ti ti-alert-triangle me-1"></i>
-                        Hay {{ tracking.not_configured }} evento(s) esperando las credenciales server-side.
-                      </div>
-                    }
-                    @if (tracking.last_event_at) {
-                      <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="small text-muted">Último evento</span>
-                        <span class="small fw-semibold">{{ tracking.last_event_at | date:'short' }}</span>
-                      </div>
-                    }
-                    @if (tracking.deliveries.length === 0) {
-                      <div class="small text-muted py-2">Todavía no hay eventos server-side registrados.</div>
-                    }
-                    @for (delivery of tracking.deliveries; track delivery.id) {
-                      <div class="tracking-delivery-row">
-                        <div class="d-flex justify-content-between align-items-start gap-2">
-                          <div class="min-w-0">
-                            <div class="small fw-semibold text-truncate">{{ trackingEventLabel(delivery.event_name) }}</div>
-                            <div class="small text-muted">{{ delivery.created_at | date:'short' }} · intento {{ delivery.attempt_number }}</div>
-                          </div>
-                          <span class="badge text-nowrap" [ngClass]="trackingStatusClass(delivery.status)">
-                            {{ trackingStatusLabel(delivery.status) }}
-                          </span>
-                        </div>
-                        @if (delivery.error_message) {
-                          <div class="small text-danger-emphasis mt-1 text-truncate" [title]="delivery.error_message">
-                            {{ delivery.error_message }}
-                          </div>
-                        }
-                      </div>
-                    }
-                  } @else {
-                    <div class="d-flex align-items-center gap-2 small text-muted py-3">
-                      <span class="spinner-border spinner-border-sm" role="status"></span>
-                      Cargando estado de entregas…
-                    </div>
-                  }
-                </div>
-              </div>
+              <section class="config-card config-side-card tracking-status-card"><div class="config-card-heading compact"><div><span class="config-card-kicker">Paso 2</span><h2>Estado de medición</h2></div><button type="button" class="config-icon-button" (click)="loadTrackingDeliveries()" title="Actualizar estado"><i class="ti ti-refresh"></i></button></div>@if (trackingStatus; as tracking) { <div class="tracking-summary"><div><strong>{{ tracking.sent }}</strong><span>Entregados</span></div><div><strong>{{ tracking.retrying }}</strong><span>Reintentando</span></div><div><strong>{{ tracking.failed }}</strong><span>Rechazados</span></div></div>@if (!tracking.server_side_enabled) { <p class="tracking-note"><i class="ti ti-info-circle"></i> Activa el modo server-side en el formulario para enviar eventos desde el backend.</p> }@if (tracking.last_event_at) { <div class="tracking-last-event"><span>Último evento</span><strong>{{ tracking.last_event_at | date:'short' }}</strong></div> }@if (tracking.deliveries.length === 0) { <p class="config-muted">Aún no hay eventos server-side registrados.</p> }@for (delivery of tracking.deliveries; track delivery.id) { <div class="tracking-delivery"><div><strong>{{ trackingEventLabel(delivery.event_name) }}</strong><small>{{ delivery.created_at | date:'short' }}</small></div><span [ngClass]="trackingStatusClass(delivery.status)">{{ trackingStatusLabel(delivery.status) }}</span></div> } } @else { <p class="config-muted">Cargando estado de entregas…</p> }</section>
             }
-            @if (supportsWebhooks()) {
-              <div class="card border-0 shadow-sm mb-3">
-                <div class="card-header bg-white border-bottom">
-                  <h6 class="mb-0"><i class="ti ti-link me-2 text-muted"></i>Webhook deliveries</h6>
-                </div>
-                <div class="card-body px-4 py-3">
-                  @if (webhookDeliveries.length === 0) {
-                    <div class="small text-muted">Sin entregas registradas.</div>
-                  }
-                  @for (delivery of webhookDeliveries; track delivery) {
-                    <div class="border-bottom py-2">
-                      <div class="d-flex justify-content-between align-items-center gap-2">
-                        <div>
-                          <div class="small fw-semibold">{{ delivery.event_name }}</div>
-                          <div class="small text-muted">
-                            intento {{ delivery.attempt_number }} | {{ delivery.created_at | date:'short' }}
-                          </div>
-                        </div>
-                        <div class="text-end">
-                          <span class="badge me-2" [class.bg-success]="delivery.success" [class.bg-danger]="!delivery.success">
-                            {{ delivery.success ? 'OK' : 'FAIL' }}
-                          </span>
-                          @if (!delivery.success) {
-                            <button class="btn btn-sm btn-outline-warning" (click)="retryWebhook(delivery.id)">
-                              Retry
-                            </button>
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-            <!-- Schema preview -->
-            @if (schemaFields.length > 0) {
-              <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-bottom">
-                  <h6 class="mb-0"><i class="ti ti-list me-2 text-muted"></i>Campos disponibles</h6>
-                </div>
-                <div class="card-body px-4 py-3">
-                  @for (field of schemaFields; track field) {
-                    <div class="d-flex justify-content-between align-items-center py-1">
-                      <span class="small">{{ field.title }}</span>
-                      <span class="badge bg-light text-muted" style="font-size: .7rem;">{{ field.type || 'string' }}</span>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-          </div>
+
+            @if (billing) { <section class="config-card config-side-card"><div class="config-card-heading compact"><div><span class="config-card-kicker">Plan</span><h2>Facturación</h2></div><i class="ti ti-credit-card"></i></div><div class="config-info-list"><div><span>Modelo</span><strong>{{ billing.pricing_model }}</strong></div><div><span>Costo mensual</span><strong>{{ billing.monthly_price }} {{ billing.currency }}</strong></div><div><span>Estado</span><strong>{{ billing.billing_status }}</strong></div></div></section> }
+            <section class="config-card config-side-card"><div class="config-card-heading compact"><div><span class="config-card-kicker">Actividad</span><h2>Últimos eventos</h2></div><i class="ti ti-history"></i></div>@if (events.length === 0) { <p class="config-muted">Aún no hay eventos registrados.</p> }@for (event of events; track event.id) { <div class="lifecycle-event"><div><strong>{{ event.event_type }}</strong><span>{{ event.created_at | date:'short' }}</span></div><i class="ti ti-circle-check"></i></div> }</section>
+          </aside>
         </div>
       </div>
-    } @else {
-      <div class="d-flex justify-content-center align-items-center" style="height: 300px;">
-        <div class="spinner-border text-primary" role="status"></div>
-      </div>
-    }
+    </main>
+  }
 
-    <!-- Loading state -->
+  @if (!loading && !appDetail) { <main class="app-config-loading"><div class="config-loader-mark"><i class="ti ti-unlink"></i></div><h2>No encontramos esta instalación</h2><p>Regresa al marketplace para elegir una app instalada.</p><button type="button" class="config-save-button" (click)="backToMarketplace()">Ir al marketplace</button></main> }
+</div>

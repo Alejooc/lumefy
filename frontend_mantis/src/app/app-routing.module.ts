@@ -51,6 +51,16 @@ const routes: Routes = [
     ]
   },
   {
+    path: 'apps/store',
+    canActivate: [AuthGuard, TenantGuard],
+    loadComponent: () => import('./modules/apps/app-store.component').then((c) => c.AppStoreComponent)
+  },
+  {
+    path: 'apps/installed/:slug',
+    canActivate: [AuthGuard, TenantGuard],
+    loadComponent: () => import('./modules/apps/app-installed-detail.component').then((c) => c.AppInstalledDetailComponent)
+  },
+  {
     path: 'pos',
     canActivate: [AuthGuard, TenantGuard, PosAccessGuard],
     loadComponent: () => import('./modules/pos/pos.component').then((c) => c.PosComponent)
@@ -270,11 +280,6 @@ const routes: Routes = [
         loadChildren: () => import('./modules/billing/billing.module').then(m => m.BillingModule)
       },
       {
-        path: 'apps/store',
-        canActivate: [TenantGuard],
-        loadComponent: () => import('./modules/apps/app-store.component').then((c) => c.AppStoreComponent)
-      },
-      {
         path: 'integrations',
         redirectTo: 'apps/installed/eleganthome/connections',
         pathMatch: 'full'
@@ -284,11 +289,6 @@ const routes: Routes = [
         canActivate: [TenantGuard, AppAccessGuard],
         data: { appSlug: 'eleganthome', requiredPermission: 'manage_company' },
         loadComponent: () => import('./modules/integrations/integration-list.component').then((c) => c.IntegrationListComponent)
-      },
-      {
-        path: 'apps/installed/:slug',
-        canActivate: [TenantGuard],
-        loadComponent: () => import('./modules/apps/app-installed-detail.component').then((c) => c.AppInstalledDetailComponent)
       },
       {
         path: 'apps/admin',

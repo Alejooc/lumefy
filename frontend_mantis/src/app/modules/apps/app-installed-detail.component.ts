@@ -41,6 +41,7 @@ export class AppInstalledDetailComponent implements OnInit {
   private swal = inject(SweetAlertService);
 
   loading = false;
+  saving = false;
   slug = '';
   appDetail: AppInstalledDetail | null = null;
 
@@ -278,6 +279,43 @@ export class AppInstalledDetailComponent implements OnInit {
     return ['google-analytics', 'meta-pixel', 'tiktok-pixel'].includes(this.appDetail?.slug || '');
   }
 
+  backToMarketplace(): void {
+    this.router.navigate(['/apps/store']);
+  }
+
+  trackingProviderLabel(): string {
+    const labels: Record<string, string> = {
+      'google-analytics': 'Google Analytics 4',
+      'meta-pixel': 'Meta Pixel',
+      'tiktok-pixel': 'TikTok Pixel'
+    };
+    return labels[this.appDetail?.slug || ''] || 'Medición';
+  }
+
+  trackingIdentifierLabel(): string {
+    if (this.appDetail?.slug === 'google-analytics') return 'ID de medición';
+    return 'ID del píxel';
+  }
+
+  trackingIdentifierValue(): unknown {
+    const key = this.appDetail?.slug === 'google-analytics' ? 'measurement_id' : 'pixel_id';
+    return this.configForm[key];
+  }
+
+  trackingConfigCopy(): string {
+    if (this.appDetail?.slug === 'google-analytics') {
+      return 'Conecta tu propiedad GA4 para medir visitas, productos, carritos y compras del storefront.';
+    }
+    if (this.appDetail?.slug === 'meta-pixel') {
+      return 'Conecta Meta para enviar eventos del storefront a tus campañas y audiencias.';
+    }
+    return 'Conecta TikTok para medir eventos de compra y mejorar tus campañas de social commerce.';
+  }
+
+  isMaskedSecret(field: SchemaField): boolean {
+    return field.format === 'password' && this.configForm[field.key] === '********';
+  }
+
   trackingEventLabel(eventName: string): string {
     const labels: Record<string, string> = {
       page_view: 'Visita de página',
@@ -317,6 +355,7 @@ export class AppInstalledDetailComponent implements OnInit {
   }
 
   saveConfig(): void {
+    if (this.saving) return;
     const missingField = this.schemaFields.find((field) => {
       if (!field.required) return false;
       const value = this.configForm[field.key];
@@ -326,26 +365,33 @@ export class AppInstalledDetailComponent implements OnInit {
       this.swal.warning('Configuración incompleta', `Completa el campo ${missingField.title}.`);
       return;
     }
+    this.saving = true;
     this.appService.updateConfig(this.slug, this.configForm).subscribe({
       next: () => {
+        this.saving = false;
         this.swal.success('Configuración guardada');
         this.loadDetail();
       },
       error: (err) => {
+        this.saving = false;
         this.swal.error('Error', err?.error?.detail || 'No se pudo guardar la configuracion.');
       }
     });
   }
 
   saveRawJson(): void {
+    if (this.saving) return;
     try {
       const parsed = JSON.parse(this.configEditor || '{}');
+      this.saving = true;
       this.appService.updateConfig(this.slug, parsed).subscribe({
         next: () => {
+          this.saving = false;
           this.swal.success('Configuración guardada');
           this.loadDetail();
         },
         error: (err) => {
+          this.saving = false;
           this.swal.error('Error', err?.error?.detail || 'No se pudo guardar la configuracion.');
         }
       });
