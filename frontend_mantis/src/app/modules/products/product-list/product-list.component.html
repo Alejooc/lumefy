@@ -1,67 +1,78 @@
 <div class="row">
   <div class="col-sm-12">
     <app-card [cardTitle]="'Productos'" cardClass="product-list-card">
-      <ng-template #headerOptionsTemplate>
-        <div class="d-flex flex-wrap gap-2 justify-content-end">
-          <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-success" (click)="exportData('excel')" title="Exportar Excel editable con IDs de producto y variante">
-              <i class="ti ti-file"></i> Excel
+      <div class="product-action-toolbar" aria-label="Acciones de productos">
+        <div class="product-action-row product-action-row-primary">
+          <div class="product-action-group">
+            <button class="btn btn-primary btn-sm" routerLink="/products/create">
+              <i class="ti ti-plus"></i> Nuevo producto
             </button>
-            <button class="btn btn-outline-success" (click)="exportData('csv')" title="Exportar CSV">
-              <i class="ti ti-file-text"></i> CSV
+            <button class="btn btn-outline-primary btn-sm" routerLink="/products/import">
+              <i class="ti ti-upload"></i> Importar catálogo
             </button>
           </div>
-          <button class="btn btn-outline-primary" routerLink="/products/import">
-            <i class="ti ti-upload"></i> Importar
-          </button>
-          <button class="btn btn-outline-secondary" (click)="toggleArchivedView()" [disabled]="isLoading"
-            [title]="showArchived ? 'Volver a los productos activos' : 'Mostrar productos archivados'">
-            <i class="ti" [ngClass]="showArchived ? 'ti-package' : 'ti-archive'"></i>
-            {{ showArchived ? 'Ver activos' : 'Ver archivados' }}
-          </button>
-          @if (totalProducts > 0 && !showArchived) {
-            <button class="btn btn-outline-warning" (click)="completeImageUrls()" [disabled]="isLoading"
-              title="Completar rutas relativas o reemplazar una base de imágenes incorrecta">
-              <i class="ti ti-photo-edit"></i>
-              {{ selectedCount > 0 ? 'Actualizar imágenes seleccionadas' : 'Actualizar URLs de imágenes' }}
+
+          <div class="product-action-group product-action-group-tools">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Exportar productos">
+              <button class="btn btn-outline-secondary" (click)="exportData('excel')"
+                title="Exportar Excel editable con IDs de producto y variante">
+                <i class="ti ti-file"></i> Excel
+              </button>
+              <button class="btn btn-outline-secondary" (click)="exportData('csv')" title="Exportar CSV">
+                <i class="ti ti-file-text"></i> CSV
+              </button>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" (click)="toggleArchivedView()" [disabled]="isLoading"
+              [title]="showArchived ? 'Volver a los productos activos' : 'Mostrar productos archivados'">
+              <i class="ti" [ngClass]="showArchived ? 'ti-package' : 'ti-archive'"></i>
+              {{ showArchived ? 'Ver activos' : 'Ver archivados' }}
             </button>
-            <button class="btn btn-outline-primary" (click)="publishToEcommerce()" [disabled]="isLoading"
-              title="Publicar los productos seleccionados o todo el catálogo activo">
-              <i class="ti ti-world-upload"></i>
-              {{ selectedCount > 0 ? 'Publicar seleccionados' : 'Publicar en ecommerce' }}
-            </button>
-          }
-          <button class="btn btn-primary" routerLink="/products/create">
-            <i class="ti ti-plus"></i> Nuevo Producto
-          </button>
-          @if (selectedCount > 0 && !showArchived) {
-            <button class="btn btn-danger" (click)="deleteSelected()" [disabled]="isLoading">
-              <i class="ti ti-trash"></i> Eliminar seleccionados ({{ selectedCount }})
-            </button>
-          }
-          @if (showArchived && totalProducts > 0) {
-            <button class="btn btn-outline-success" (click)="restoreArchivedProducts()" [disabled]="isLoading"
-              title="Activar los archivados seleccionados o todos los archivados">
-              <i class="ti ti-archive-off"></i>
-              {{ selectedCount > 0 ? 'Activar seleccionados' : 'Activar archivados' }}
-            </button>
-            <button class="btn btn-danger" (click)="deleteArchivedProducts()" [disabled]="isLoading"
-              title="Eliminar físicamente los archivados seleccionados o todos los archivados">
-              <i class="ti ti-trash-x"></i>
-              {{ selectedCount > 0 ? 'Eliminar seleccionados' : 'Eliminar archivados' }}
-            </button>
-          }
-          @if (totalCatalogProducts > 0 && !showArchived) {
-            <button class="btn btn-danger" (click)="deleteAllProducts()" [disabled]="isLoading"
-              title="Eliminar físicamente todo el catálogo y sus relaciones">
-              <i class="ti ti-trash-x"></i> Vaciar catálogo definitivamente
-            </button>
-          }
+          </div>
         </div>
-      </ng-template>
+
+        @if (totalProducts > 0) {
+          <div class="product-action-row product-action-row-context">
+            @if (!showArchived) {
+              <button class="btn btn-outline-primary btn-sm" (click)="publishToEcommerce()" [disabled]="isLoading"
+                title="Publicar los productos seleccionados o todo el catálogo activo">
+                <i class="ti ti-world-upload"></i>
+                {{ selectedCount > 0 ? 'Publicar seleccionados' : 'Publicar en ecommerce' }}
+              </button>
+            }
+            @if (selectedCount > 0) {
+              <span class="product-selection-summary">
+                <i class="ti ti-checks"></i> {{ selectedCount }} seleccionado(s)
+              </span>
+            }
+            @if (selectedCount > 0 && !showArchived) {
+              <button class="btn btn-outline-danger btn-sm" (click)="deleteSelected()" [disabled]="isLoading">
+                <i class="ti ti-trash"></i> Eliminar seleccionados
+              </button>
+            }
+            @if (showArchived) {
+              <button class="btn btn-outline-success btn-sm" (click)="restoreArchivedProducts()" [disabled]="isLoading"
+                title="Activar los archivados seleccionados o todos los archivados">
+                <i class="ti ti-archive-off"></i>
+                {{ selectedCount > 0 ? 'Activar seleccionados' : 'Activar archivados' }}
+              </button>
+              <button class="btn btn-outline-danger btn-sm" (click)="deleteArchivedProducts()" [disabled]="isLoading"
+                title="Eliminar físicamente los archivados seleccionados o todos los archivados">
+                <i class="ti ti-trash-x"></i>
+                {{ selectedCount > 0 ? 'Eliminar seleccionados' : 'Eliminar archivados' }}
+              </button>
+            }
+            @if (totalCatalogProducts > 0 && !showArchived) {
+              <button class="btn btn-outline-danger btn-sm" (click)="deleteAllProducts()" [disabled]="isLoading"
+                title="Eliminar físicamente todo el catálogo y sus relaciones">
+                <i class="ti ti-trash-x"></i> Vaciar catálogo
+              </button>
+            }
+          </div>
+        }
+      </div>
 
       <!-- Search Bar -->
-      <div class="row align-items-center g-3 mb-3 product-list-toolbar">
+      <div class="row align-items-center g-3 mb-3 product-search-toolbar">
         <div class="col-lg-5">
           <label class="visually-hidden" for="product-search">Buscar productos</label>
           <div class="input-group">
@@ -88,9 +99,6 @@
             }
             @if (showArchived) {
               <span class="ms-2 badge bg-light-warning text-warning">Vista de archivados</span>
-            }
-            @if (selectedCount > 0) {
-              <span class="ms-2 badge bg-light-danger text-danger">{{ selectedCount }} seleccionado(s)</span>
             }
           }
         </div>

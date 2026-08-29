@@ -28,14 +28,6 @@ interface BulkRestoreArchivedResponse {
     not_found: string[];
 }
 
-interface BulkImageUrlResponse {
-    requested: number;
-    products_updated: number;
-    images_updated: number;
-    skipped_valid: number;
-    not_found: string[];
-}
-
 interface BulkPublishResponse {
     requested: number;
     published: number;
@@ -512,96 +504,6 @@ export class ProductListComponent implements OnInit {
             });
         });
         }
-
-    async completeImageUrls(): Promise<void> {
-        if (this.isLoading || !this.totalProducts) {
-            return;
-        }
-
-        const selectedIds = Array.from(this.selectedProductIds);
-        const scopeText = selectedIds.length
-            ? `Se revisarán los ${selectedIds.length} productos seleccionados.`
-            : `Se revisarán los ${this.totalProducts} productos del catálogo completo.`;
-        const result = await this.swal.input({
-            title: 'Completar URLs de imágenes',
-            text: `${scopeText} Las rutas relativas se completarán conservando todos sus directorios. Las URLs absolutas se conservarán por ahora y podrás reemplazarlas si quedaron con una base incorrecta.`,
-            input: 'text',
-            inputLabel: 'Base de imágenes',
-            inputPlaceholder: 'https://cdn.proveedor.com/',
-            inputAttributes: { autocapitalize: 'off', autocorrect: 'off' },
-            showCancelButton: true,
-            confirmButtonText: 'Revisar URLs',
-            cancelButtonText: 'Cancelar',
-            inputValidator: (value) => {
-                const prefix = String(value || '').trim();
-                try {
-                    const parsed = new URL(prefix);
-                    if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) {
-                        return 'Escribe una URL completa que empiece por http:// o https://.';
-                    }
-                } catch {
-                    return 'Escribe una URL completa que empiece por http:// o https://.';
-                }
-                return undefined;
-            }
-        });
-        if (!result.isConfirmed) {
-            return;
-        }
-
-        const body: { prefix: string; product_ids?: string[]; replace_existing?: boolean } = {
-            prefix: String(result.value).trim()
-        };
-        if (selectedIds.length) {
-            body.product_ids = selectedIds;
-        }
-
-        this.isLoading = true;
-        this.updateImageUrls(body, false);
-    }
-
-    private updateImageUrls(
-        body: { prefix: string; product_ids?: string[]; replace_existing?: boolean },
-        replacingExisting: boolean
-    ): void {
-        this.apiService.post<BulkImageUrlResponse>('/products/bulk-complete-image-urls', body).subscribe({
-            next: (response) => {
-                if (!replacingExisting && response.skipped_valid > 0) {
-                    this.swal
-                        .confirm(
-                            'Hay URLs existentes',
-                            `${response.skipped_valid} imagen(es) ya tienen una URL absoluta. Si esa base es incorrecta, se reemplazarán conservando la ruta completa del proveedor (por ejemplo products/12529/9_b4.jpg). ¿Continuar?`
-                        )
-                        .then((confirmation) => {
-                            if (confirmation.isConfirmed) {
-                                body.replace_existing = true;
-                                this.updateImageUrls(body, true);
-                                return;
-                            }
-                            this.clearSelection();
-                            this.isLoading = false;
-                            this.loadProducts();
-                        });
-                    return;
-                }
-
-                this.clearSelection();
-                this.isLoading = false;
-                const replacedText = replacingExisting ? ' Las bases anteriores fueron reemplazadas.' : '';
-                this.swal.success(
-                    'URLs actualizadas',
-                    `${response.images_updated} imagen(es) actualizada(s). ${response.skipped_valid} URL(s) válida(s) se conservaron.${replacedText}`
-                );
-                this.loadProducts();
-            },
-            error: (err) => {
-                this.isLoading = false;
-                const detail = err?.error?.detail;
-                this.swal.error('No se pudieron completar las URLs', typeof detail === 'string' ? detail : 'Intenta nuevamente.');
-                this.cdr.detectChanges();
-            }
-        });
-    }
 
     publishToEcommerce(): void {
         if (this.isLoading || !this.totalProducts) {
