@@ -3080,6 +3080,13 @@ async def create_storefront_domain(
     platform_domain, _ = _platform_storefront_host_and_port()
     if platform_domain and (normalized_domain == platform_domain or normalized_domain.endswith(f".{platform_domain}")):
         raise HTTPException(status_code=422, detail="Ese dominio pertenece a la plataforma. Usa el subdominio de la tienda.")
+    existing_domain = await db.scalar(
+        select(StorefrontDomain)
+        .where(StorefrontDomain.domain == normalized_domain)
+        .with_for_update()
+    )
+    if existing_domain and existing_domain.is_active:
+        raise HTTPException(status_code=409, detail="Ese dominio ya está registrado.")
     if domain_in.is_primary:
         await db.execute(
             select(StorefrontDomain).where(
@@ -3093,19 +3100,44 @@ async def create_storefront_domain(
             .where(StorefrontDomain.storefront_id == domain_in.storefront_id, StorefrontDomain.is_active == True)
             .values(is_primary=False)
         )
-    domain = StorefrontDomain(
-        domain=normalized_domain,
-        storefront_id=domain_in.storefront_id,
-        is_primary=domain_in.is_primary,
-        is_verified=False,
-        verification_token=secrets.token_urlsafe(24),
-        provisioning_status="PENDING_VERIFICATION",
-        company_id=current_user.company_id,
-        created_by_id=current_user.id,
-        updated_by_id=current_user.id,
-    )
+    if existing_domain:
+        # A delete is intentionally soft so the historical record and any
+        # NPM identifiers remain available for cleanup. Reuse that row when a
+        # merchant registers the same domain again instead of violating the
+        # global unique constraint on `domain`.
+        domain = existing_domain
+        domain.storefront_id = domain_in.storefront_id
+        domain.is_primary = domain_in.is_primary
+        domain.is_active = True
+        domain.is_verified = False
+        domain.verification_token = secrets.token_urlsafe(24)
+        domain.verified_at = None
+        domain.provisioning_status = "PENDING_VERIFICATION"
+        domain.provisioning_attempts = 0
+        domain.provisioning_error = None
+        domain.provisioning_next_attempt_at = None
+        domain.provisioning_last_attempt_at = None
+        domain.provisioned_at = None
+        domain.company_id = current_user.company_id
+        domain.updated_by_id = current_user.id
+    else:
+        domain = StorefrontDomain(
+            domain=normalized_domain,
+            storefront_id=domain_in.storefront_id,
+            is_primary=domain_in.is_primary,
+            is_verified=False,
+            verification_token=secrets.token_urlsafe(24),
+            provisioning_status="PENDING_VERIFICATION",
+            company_id=current_user.company_id,
+            created_by_id=current_user.id,
+            updated_by_id=current_user.id,
+        )
     db.add(domain)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Ese dominio ya está registrado.") from exc
     await db.refresh(domain)
     return _serialize_domain(domain)
 

@@ -99,6 +99,11 @@ async def process_claimed_domain(domain_id: uuid.UUID) -> None:
         domain = await db.get(StorefrontDomain, domain_id)
         if not domain:
             return
+        # The merchant may register the same domain again while an old
+        # removal is still running. Do not let that stale removal overwrite
+        # the new PENDING_VERIFICATION/QUEUED state.
+        if removing and domain.is_active:
+            return
         domain.provisioning_error = None
         domain.provisioning_next_attempt_at = None
         if removing:
@@ -131,6 +136,10 @@ async def record_failure(
     async with SessionLocal() as db:
         domain = await db.get(StorefrontDomain, domain_id)
         if not domain:
+            return
+        # A retry from a stale removal must not change the state of a row that
+        # has already been reactivated by the merchant.
+        if removing and domain.is_active:
             return
         effective_removing = removing or not domain.is_active
         domain.provisioning_error = public_error_message(error)

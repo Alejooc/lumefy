@@ -5,7 +5,10 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
-from app.api.v1.endpoints.storefront import verify_storefront_domain
+from fastapi import HTTPException
+
+from app.api.v1.endpoints.storefront import create_storefront_domain, verify_storefront_domain
+from app.schemas import storefront as storefront_schemas
 from app.services.npm_provisioning import NginxProxyManagerClient, NpmApiError
 from app.workers.domain_provisioning_worker import public_error_message, retry_delay_seconds
 
@@ -145,6 +148,90 @@ class NpmProvisioningClientTests(unittest.TestCase):
 
 
 class StorefrontDomainProvisioningTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def _domain_fixture(*, is_active: bool):
+        now = datetime.now(timezone.utc)
+        company_id = uuid4()
+        return SimpleNamespace(
+            id=uuid4(),
+            storefront_id=uuid4(),
+            domain="varyago.com",
+            is_primary=False,
+            is_verified=True,
+            verification_token="old-token",
+            verified_at=now,
+            provisioning_status="REMOVAL_QUEUED" if not is_active else "ACTIVE",
+            provisioning_attempts=2,
+            provisioning_error="old error",
+            provisioning_next_attempt_at=now,
+            provisioning_last_attempt_at=now,
+            npm_proxy_host_id=12,
+            npm_certificate_id=33,
+            provisioned_at=now,
+            company_id=company_id,
+            created_at=now,
+            updated_at=now,
+            is_active=is_active,
+            updated_by_id=None,
+        )
+
+    async def test_reuses_a_soft_deleted_domain_record(self):
+        existing = self._domain_fixture(is_active=False)
+        storefront = SimpleNamespace(id=uuid4(), company_id=existing.company_id, is_active=True)
+        result = SimpleNamespace(scalars=lambda: SimpleNamespace(first=lambda: storefront))
+        db = SimpleNamespace(
+            execute=AsyncMock(return_value=result),
+            scalar=AsyncMock(return_value=existing),
+            add=Mock(),
+            commit=AsyncMock(),
+            refresh=AsyncMock(),
+        )
+        user = SimpleNamespace(id=uuid4(), company_id=existing.company_id)
+
+        with patch("app.api.v1.endpoints.storefront._platform_storefront_host_and_port", return_value=("", None)):
+            serialized = await create_storefront_domain(
+                db=db,
+                domain_in=storefront_schemas.StorefrontDomainCreate(
+                    storefront_id=storefront.id,
+                    domain="VARYAGO.COM.",
+                ),
+                current_user=user,
+            )
+
+        self.assertTrue(existing.is_active)
+        self.assertFalse(existing.is_verified)
+        self.assertEqual(existing.provisioning_status, "PENDING_VERIFICATION")
+        self.assertEqual(serialized.domain, "varyago.com")
+        self.assertEqual(serialized.provisioning_status, "PENDING_VERIFICATION")
+        db.commit.assert_awaited_once()
+
+    async def test_active_duplicate_returns_conflict_instead_of_internal_error(self):
+        existing = self._domain_fixture(is_active=True)
+        storefront = SimpleNamespace(id=uuid4(), company_id=existing.company_id, is_active=True)
+        result = SimpleNamespace(scalars=lambda: SimpleNamespace(first=lambda: storefront))
+        db = SimpleNamespace(
+            execute=AsyncMock(return_value=result),
+            scalar=AsyncMock(return_value=existing),
+            add=Mock(),
+            commit=AsyncMock(),
+            refresh=AsyncMock(),
+        )
+        user = SimpleNamespace(id=uuid4(), company_id=existing.company_id)
+
+        with patch("app.api.v1.endpoints.storefront._platform_storefront_host_and_port", return_value=("", None)):
+            with self.assertRaises(HTTPException) as raised:
+                await create_storefront_domain(
+                    db=db,
+                    domain_in=storefront_schemas.StorefrontDomainCreate(
+                        storefront_id=storefront.id,
+                        domain="varyago.com",
+                    ),
+                    current_user=user,
+                )
+
+        self.assertEqual(raised.exception.status_code, 409)
+        db.commit.assert_not_awaited()
+
     async def test_successful_txt_verification_queues_npm_provisioning(self):
         now = datetime.now(timezone.utc)
         domain = SimpleNamespace(
