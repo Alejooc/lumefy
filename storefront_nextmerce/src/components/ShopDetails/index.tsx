@@ -490,6 +490,21 @@ const ShopDetails = ({
                     ) : null}
                   </div>
 
+                  {product.sellerName || product.brandName ? (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 text-custom-sm text-dark-3">
+                      {product.sellerName ? (
+                        <span>
+                          Vendido por: <span className="font-medium text-dark">{product.sellerName}</span>
+                        </span>
+                      ) : null}
+                      {product.brandName ? (
+                        <span>
+                          Marca: <span className="font-medium text-dark">{product.brandName}</span>
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   <div className="flex flex-wrap items-center gap-5.5 mb-4.5">
                     {informationSection.settings["show_stock"] !== false ? <div className="flex items-center gap-1.5">
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

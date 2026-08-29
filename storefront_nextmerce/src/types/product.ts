@@ -23,6 +23,7 @@ export type Product = {
   seoDescription?: string;
   categoryName?: string;
   brandName?: string;
+  sellerName?: string;
   productType?: string;
   availableSizes?: string[];
   availableColors?: string[];

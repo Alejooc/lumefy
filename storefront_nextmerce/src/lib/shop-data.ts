@@ -227,9 +227,13 @@ export async function loadShopDetailsViewModel(slug: string): Promise<ShopDetail
   const relatedItems = (category ? sameCategory : sameBrand)
     .slice(0, 8)
     .map(toTemplateProduct);
+  const templateProduct = toTemplateProduct(product);
 
   return {
-    product: toTemplateProduct(product),
+    product: {
+      ...templateProduct,
+      sellerName: storefront.name,
+    },
     relatedItems,
     productTemplate: (storefront.theme_documents?.product || {}) as ProductTemplateDocument,
     currency: storefront.currency,
