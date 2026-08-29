@@ -385,7 +385,15 @@ const ShopDetails = ({
 
   return (
     <div className={previewMode && selectionMode ? "lumefy-preview--selecting" : undefined}>
-      <Breadcrumb title={content.breadcrumb_title} pages={[content.breadcrumb_title]} headingLevel="h2" />
+      <Breadcrumb
+        title={product.title || content.breadcrumb_title}
+        pages={[
+          "Productos",
+          ...(product.categoryName ? [product.categoryName] : []),
+          product.title || content.breadcrumb_title,
+        ]}
+        headingLevel="h2"
+      />
 
       {!product?.title ? (
         "Producto no disponible"
@@ -483,10 +491,6 @@ const ShopDetails = ({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-5.5 mb-4.5">
-                    <div className="flex items-center gap-2.5">
-                      <span>{product.reviews ? `(${product.reviews} reseñas)` : "Reseñas próximamente"}</span>
-                    </div>
-
                     {informationSection.settings["show_stock"] !== false ? <div className="flex items-center gap-1.5">
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                         <path
