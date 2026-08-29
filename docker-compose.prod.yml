@@ -122,6 +122,17 @@ services:
       outbox-relay:
         condition: service_started
 
+  domain-provisioning-worker:
+    <<: *backend-service
+    restart: unless-stopped
+    command: python -m app.workers.domain_provisioning_worker
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      default: {}
+      proxy: {}
+
   email-delivery-worker:
     <<: *backend-service
     restart: unless-stopped

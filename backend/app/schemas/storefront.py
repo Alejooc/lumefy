@@ -144,6 +144,12 @@ class StorefrontDomain(StorefrontDomainBase):
     verification_record: Optional[str] = None
     verification_value: Optional[str] = None
     verified_at: Optional[datetime] = None
+    provisioning_status: str = "PENDING_VERIFICATION"
+    provisioning_attempts: int = 0
+    provisioning_error: Optional[str] = None
+    provisioning_next_attempt_at: Optional[datetime] = None
+    provisioning_last_attempt_at: Optional[datetime] = None
+    provisioned_at: Optional[datetime] = None
     company_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime

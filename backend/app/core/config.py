@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings
 from pydantic import EmailStr, Field, field_validator, model_validator
 from cryptography.fernet import Fernet
 from typing import Optional, Union
+from urllib.parse import urlsplit
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Jaofy"
@@ -38,6 +39,21 @@ class Settings(BaseSettings):
     SQL_ECHO: bool = False
     FRONTEND_URL: str = "http://localhost:4200"
     PLATFORM_STOREFRONT_DOMAIN: Optional[str] = None
+    NPM_PROVISIONING_ENABLED: bool = False
+    NPM_API_URL: Optional[str] = None
+    NPM_IDENTITY: Optional[str] = None
+    NPM_PASSWORD: Optional[str] = None
+    NPM_FORWARD_SCHEME: str = "http"
+    NPM_STOREFRONT_HOST: str = "lumefy-storefront-1"
+    NPM_STOREFRONT_PORT: int = Field(default=3000, ge=1, le=65535)
+    NPM_VERIFY_SSL: bool = True
+    NPM_REQUEST_TIMEOUT_SECONDS: int = Field(default=30, ge=5, le=120)
+    NPM_CERTIFICATE_TIMEOUT_SECONDS: int = Field(default=900, ge=60, le=900)
+    NPM_PROVISIONING_MAX_ATTEMPTS: int = Field(default=3, ge=1, le=10)
+    # NPM runs Certbot as a single process and rejects concurrent issuances.
+    NPM_PROVISIONING_CONCURRENCY: int = Field(default=1, ge=1, le=1)
+    NPM_PROVISIONING_POLL_SECONDS: float = Field(default=2, ge=0.5, le=60)
+    NPM_PROVISIONING_STALE_MINUTES: int = Field(default=30, ge=20, le=120)
     INTEGRATION_ALLOW_PRIVATE_NETWORKS: bool = False
     INTEGRATION_REQUEST_TIMEOUT_SECONDS: int = Field(default=30, ge=1, le=120)
     # External providers are outside of our control. Keep transient failures
@@ -105,6 +121,23 @@ class Settings(BaseSettings):
                 raise ValueError("Authenticated SMTP must use TLS in production")
         if (self.MAIL_STARTTLS or self.MAIL_SSL_TLS) and not self.VALIDATE_CERTS:
             raise ValueError("SMTP certificates must be validated in production")
+        if self.NPM_PROVISIONING_ENABLED:
+            npm_values = {
+                "NPM_API_URL": self.NPM_API_URL,
+                "NPM_IDENTITY": self.NPM_IDENTITY,
+                "NPM_PASSWORD": self.NPM_PASSWORD,
+                "NPM_STOREFRONT_HOST": self.NPM_STOREFRONT_HOST,
+            }
+            for field_name, value in npm_values.items():
+                if not value or not str(value).strip():
+                    raise ValueError(f"{field_name} is required when NPM provisioning is enabled")
+            if self.NPM_FORWARD_SCHEME not in {"http", "https"}:
+                raise ValueError("NPM_FORWARD_SCHEME must be http or https")
+            parsed_npm_url = urlsplit(str(self.NPM_API_URL))
+            if parsed_npm_url.scheme not in {"http", "https"} or not parsed_npm_url.hostname:
+                raise ValueError("NPM_API_URL must be an absolute HTTP(S) URL")
+            if any(fragment in str(self.NPM_PASSWORD).lower() for fragment in insecure_fragments):
+                raise ValueError("NPM_PASSWORD is not safe for production")
         return self
 
     class Config:

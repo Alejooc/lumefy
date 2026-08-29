@@ -206,7 +206,7 @@
           <div class="domain-highlight" [class.is-empty]="!primaryDomain">
             <span class="domain-highlight__label">Principal</span>
             <strong>{{ primaryDomain?.domain || 'Sin dominio principal' }}</strong>
-            <small>{{ primaryDomain?.is_verified ? 'Dominio verificado' : 'Aun no hay dominio verificado' }}</small>
+            <small>{{ primaryDomain ? domainProvisioningLabel(primaryDomain) : 'Aun no hay dominio verificado' }}</small>
           </div>
 
           <button class="btn btn-outline-primary w-100 mt-2" (click)="openDomainsModal()" [disabled]="!selectedStorefrontId">
@@ -234,7 +234,7 @@
                   <div>
                     <strong class="d-block">{{ domain.domain }}</strong>
                     <small class="text-muted">
-                      {{ domain.is_primary ? 'Principal' : 'Secundario' }} · {{ domain.is_verified ? 'Verificado' : 'Pendiente' }}
+                      {{ domain.is_primary ? 'Principal' : 'Secundario' }} · {{ domainProvisioningLabel(domain) }}
                     </small>
                   </div>
                 </div>
@@ -331,7 +331,8 @@
                       <div>
                         <strong class="d-block">{{ domain.domain }}</strong>
                         <small class="text-muted">
-                          {{ domain.is_primary ? 'Principal' : 'Secundario' }} · {{ domain.is_verified ? 'Verificado' : 'Pendiente' }}
+                          {{ domain.is_primary ? 'Principal' : 'Secundario' }}
+                          <span class="badge ms-1" [ngClass]="domainProvisioningClass(domain)">{{ domainProvisioningLabel(domain) }}</span>
                         </small>
                         @if (!domain.is_verified && domain.verification_record && domain.verification_value) {
                           <div class="small text-muted mt-2">
@@ -339,10 +340,16 @@
                             <span class="d-block">Valor: <code>{{ domain.verification_value }}</code></span>
                           </div>
                         }
+                        @if (domain.provisioning_error) {
+                          <div class="small text-danger mt-2">{{ domain.provisioning_error }}</div>
+                        }
                       </div>
                       <div class="d-flex gap-2">
                         @if (!domain.is_verified) {
                           <button class="btn btn-outline-primary btn-sm" (click)="verifyDomain(domain)" [disabled]="saving">Verificar DNS</button>
+                        }
+                        @if (canRetryDomainProvisioning(domain)) {
+                          <button class="btn btn-outline-primary btn-sm" (click)="retryDomainProvisioning(domain)" [disabled]="saving">Reintentar</button>
                         }
                         <button class="btn btn-outline-secondary btn-sm" (click)="editDomain(domain)">Principal</button>
                         <button class="btn btn-outline-danger btn-sm" (click)="deleteDomain(domain)">Borrar</button>

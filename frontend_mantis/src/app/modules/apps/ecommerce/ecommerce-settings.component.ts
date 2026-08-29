@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { EcommerceContextService } from 'src/app/core/services/ecommerce-context.service';
@@ -32,7 +32,7 @@ interface WarehouseOption {
   templateUrl: './ecommerce-settings.component.html',
   styleUrls: ['./ecommerce-shared.component.scss', './ecommerce-settings.component.scss']
 })
-export class EcommerceSettingsComponent implements OnInit {
+export class EcommerceSettingsComponent implements OnInit, OnDestroy {
   private storefrontService = inject(StorefrontAdminService);
   private context = inject(EcommerceContextService);
   private permissions = inject(PermissionService);
@@ -66,6 +66,7 @@ export class EcommerceSettingsComponent implements OnInit {
   };
   brandingForm: StorefrontBrandingSettings = this.createBrandingForm();
   currencySettingsForm: StorefrontCurrencySettings = this.createCurrencySettingsForm();
+  private domainPollTimer?: number;
 
   ngOnInit(): void {
     if (!this.permissions.hasPermission('manage_company')) {
@@ -81,6 +82,10 @@ export class EcommerceSettingsComponent implements OnInit {
       next: (warehouses) => this.warehouses = warehouses.filter((warehouse) => warehouse.allows_ecommerce),
       error: () => this.warehouses = []
     });
+  }
+
+  ngOnDestroy(): void {
+    this.clearDomainRefresh();
   }
 
   loadStorefronts(): void {
@@ -149,6 +154,7 @@ export class EcommerceSettingsComponent implements OnInit {
       next: (domains) => {
         this.domains = domains;
         this.loading = false;
+        this.scheduleDomainRefresh();
       },
       error: (err) => {
         this.loading = false;
@@ -252,9 +258,12 @@ export class EcommerceSettingsComponent implements OnInit {
   verifyDomain(domain: StorefrontDomain): void {
     this.saving = true;
     this.storefrontService.verifyDomain(domain.id).subscribe({
-      next: () => {
+      next: (verifiedDomain) => {
         this.saving = false;
-        this.swal.success('Dominio verificado y listo para recibir tráfico.');
+        const message = verifiedDomain.provisioning_status === 'QUEUED'
+          ? 'Dominio verificado. Estamos configurando el proxy y el certificado SSL.'
+          : 'Dominio verificado. La automatización de infraestructura requiere configuración.';
+        this.swal.success(message);
         this.loadDomains();
       },
       error: (err) => {
@@ -262,6 +271,52 @@ export class EcommerceSettingsComponent implements OnInit {
         this.swal.error('Aún no se pudo verificar', err?.error?.detail || 'Revisa el registro TXT y vuelve a intentarlo.');
       }
     });
+  }
+
+  retryDomainProvisioning(domain: StorefrontDomain): void {
+    this.saving = true;
+    this.storefrontService.provisionDomain(domain.id).subscribe({
+      next: () => {
+        this.saving = false;
+        this.swal.success('El dominio volvió a la cola de configuración.');
+        this.loadDomains();
+      },
+      error: (err) => {
+        this.saving = false;
+        this.swal.error('No se pudo reintentar', err?.error?.detail || 'Revisa la configuración DNS y de NPM.');
+      }
+    });
+  }
+
+  domainProvisioningLabel(domain: StorefrontDomain): string {
+    const labels: Record<string, string> = {
+      PENDING_VERIFICATION: 'Pendiente de verificación',
+      QUEUED: 'En cola',
+      PROVISIONING: 'Configurando SSL',
+      RETRY: 'Reintentando',
+      ACTIVE: 'Activo',
+      FAILED: 'Requiere atención',
+      NOT_CONFIGURED: 'Automatización pendiente',
+      REMOVAL_QUEUED: 'Eliminando',
+      REMOVING: 'Eliminando',
+      REMOVAL_RETRY: 'Reintentando eliminación',
+      REMOVAL_FAILED: 'Error al eliminar',
+      REMOVED: 'Eliminado'
+    };
+    return labels[domain.provisioning_status] || domain.provisioning_status || 'Pendiente';
+  }
+
+  domainProvisioningClass(domain: StorefrontDomain): string {
+    if (domain.provisioning_status === 'ACTIVE') return 'text-bg-success';
+    if (['FAILED', 'REMOVAL_FAILED', 'NOT_CONFIGURED'].includes(domain.provisioning_status)) return 'text-bg-danger';
+    if (['QUEUED', 'PROVISIONING', 'RETRY', 'REMOVAL_QUEUED', 'REMOVING', 'REMOVAL_RETRY'].includes(domain.provisioning_status)) {
+      return 'text-bg-info';
+    }
+    return 'text-bg-secondary';
+  }
+
+  canRetryDomainProvisioning(domain: StorefrontDomain): boolean {
+    return domain.is_verified && ['FAILED', 'NOT_CONFIGURED'].includes(domain.provisioning_status);
   }
 
   themeLabel(themeKey?: string | null): string {
@@ -329,6 +384,22 @@ export class EcommerceSettingsComponent implements OnInit {
       domain: '',
       is_primary: false
     };
+  }
+
+  private scheduleDomainRefresh(): void {
+    this.clearDomainRefresh();
+    const hasImmediateWork = this.domains.some((domain) => ['QUEUED', 'PROVISIONING'].includes(domain.provisioning_status));
+    const hasDelayedWork = this.domains.some((domain) => domain.provisioning_status === 'RETRY');
+    if (hasImmediateWork || hasDelayedWork) {
+      this.domainPollTimer = window.setTimeout(() => this.loadDomains(), hasImmediateWork ? 5000 : 30000);
+    }
+  }
+
+  private clearDomainRefresh(): void {
+    if (this.domainPollTimer !== undefined) {
+      window.clearTimeout(this.domainPollTimer);
+      this.domainPollTimer = undefined;
+    }
   }
 
   private normalizeStorefrontForm(form: Partial<Storefront>): Partial<Storefront> {

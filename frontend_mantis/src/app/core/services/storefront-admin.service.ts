@@ -380,6 +380,12 @@ export interface StorefrontDomain {
   verification_record?: string | null;
   verification_value?: string | null;
   verified_at?: string | null;
+  provisioning_status: string;
+  provisioning_attempts: number;
+  provisioning_error?: string | null;
+  provisioning_next_attempt_at?: string | null;
+  provisioning_last_attempt_at?: string | null;
+  provisioned_at?: string | null;
 }
 
 export interface StoreCollection {
@@ -739,6 +745,10 @@ export class StorefrontAdminService {
 
   verifyDomain(id: string): Observable<StorefrontDomain> {
     return this.api.post<StorefrontDomain>(`/storefront/domains/${id}/verify`, {});
+  }
+
+  provisionDomain(id: string): Observable<StorefrontDomain> {
+    return this.api.post<StorefrontDomain>(`/storefront/domains/${id}/provision`, {});
   }
 
   deleteDomain(id: string): Observable<{ ok: boolean }> {

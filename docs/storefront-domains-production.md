@@ -1,42 +1,34 @@
 # Dominios y HTTPS de tiendas
 
-La aplicación sirve el panel administrativo en `ADMIN_DOMAIN` y cada tienda en
-un subdominio de `PLATFORM_STOREFRONT_DOMAIN`. Caddy gestiona HTTPS y almacena
-los certificados en el volumen `caddy_data`.
+Lumefy utiliza Nginx Proxy Manager (NPM) como entrada pública. El panel se sirve en `ADMIN_DOMAIN`, las tiendas de la plataforma usan `*.PLATFORM_STOREFRONT_DOMAIN` y cada dominio propio obtiene un Proxy Host y certificado independientes.
 
-## Preparar la plataforma
+## Dominios de la plataforma
 
-1. Configure `ADMIN_DOMAIN`, `PLATFORM_STOREFRONT_DOMAIN` y `ACME_EMAIL` en el
-   archivo de entorno de producción.
-2. Cree un registro `A` para el dominio del panel y un `A` wildcard para las
-   tiendas. Ejemplo para `lumefy.shop`:
+El Proxy Host wildcard existente apunta al storefront compartido:
 
-   ```text
-   admin.lumefy.shop   A   IP_DEL_SERVIDOR
-   *.lumefy.shop       A   IP_DEL_SERVIDOR
-   ```
+```text
+*.jaofy.com, jaofy.com -> lumefy-storefront-1:3000
+```
 
-3. Abra los puertos TCP 80 y 443 hacia el servidor y despliegue con
-   `docker compose -f docker-compose.prod.yml up -d`.
-4. Compruebe `https://admin.lumefy.shop` y una tienda existente, por ejemplo
-   `https://varyago.lumefy.shop`. El primer acceso puede tardar unos segundos
-   mientras Caddy obtiene el certificado.
+Crear una tienda con un subdominio de `jaofy.com` no solicita certificados adicionales.
 
 ## Dominio propio de una tienda
 
-1. En **Ecommerce > Configuración > Dominios**, agregue solo el host, por
-   ejemplo `tienda.cliente.com`.
-2. Copie el registro TXT que muestra Lumefy:
+1. En **Ecommerce > Configuración > Dominios**, el comercio agrega solo el host que quiere utilizar.
+2. Lumefy genera `_lumefy-verification.<dominio>` con un valor TXT único.
+3. Al pulsar **Verificar DNS**, el backend valida el TXT y encola el dominio.
+4. El worker crea en NPM un Proxy Host exclusivo hacia `lumefy-storefront-1:3000`.
+5. Antes de solicitar SSL, usa la prueba HTTP de NPM. Si todavía no existe conectividad DNS, reintenta con espera sin consumir solicitudes de certificados.
+6. NPM emite y renueva el certificado y Lumefy marca el dominio como **Activo**.
 
-   ```text
-   _lumefy-verification.tienda.cliente.com  TXT  lumefy-verification=TOKEN
-   ```
+El host exacto debe estar registrado en Lumefy. Si se necesitan `example.com` y `www.example.com`, se agregan y verifican como dos dominios.
 
-3. Cuando el TXT haya propagado, pulse **Verificar DNS**. Hasta ese momento el
-   dominio no resuelve hacia ninguna tienda y Caddy no puede solicitar un
-   certificado para él.
-4. Después de verificarlo, apunte el host al servidor mediante `A` o `CNAME`.
-   Visite el dominio por HTTPS; Caddy emitirá y renovará el certificado.
+## Estados
 
-No marque ni edite la verificación manualmente: el backend solo la concede al
-encontrar el token TXT exacto.
+* `PENDING_VERIFICATION`: falta validar el TXT.
+* `QUEUED` / `PROVISIONING`: NPM está configurando el host.
+* `RETRY`: DNS o NPM aún no están listos; el worker reintentará.
+* `ACTIVE`: Proxy Host y certificado están asociados.
+* `FAILED`: se agotaron los intentos o existe un conflicto que requiere revisión.
+
+Nunca marques un dominio como verificado o activo directamente en la base de datos.

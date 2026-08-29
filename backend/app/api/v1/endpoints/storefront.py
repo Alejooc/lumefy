@@ -322,6 +322,12 @@ def _serialize_domain(domain: StorefrontDomain) -> schemas.StorefrontDomain:
         verification_record=_domain_verification_record(domain.domain) if token else None,
         verification_value=_domain_verification_value(token) if token else None,
         verified_at=domain.verified_at,
+        provisioning_status=domain.provisioning_status,
+        provisioning_attempts=domain.provisioning_attempts,
+        provisioning_error=domain.provisioning_error,
+        provisioning_next_attempt_at=domain.provisioning_next_attempt_at,
+        provisioning_last_attempt_at=domain.provisioning_last_attempt_at,
+        provisioned_at=domain.provisioned_at,
         company_id=domain.company_id,
         created_at=domain.created_at,
         updated_at=domain.updated_at,
@@ -335,6 +341,10 @@ async def _ensure_domain_verification_token(domain: StorefrontDomain) -> bool:
     domain.verification_token = secrets.token_urlsafe(24)
     domain.is_verified = False
     domain.verified_at = None
+    domain.provisioning_status = "PENDING_VERIFICATION"
+    domain.provisioning_attempts = 0
+    domain.provisioning_error = None
+    domain.provisioning_next_attempt_at = None
     return True
 
 
@@ -3089,6 +3099,7 @@ async def create_storefront_domain(
         is_primary=domain_in.is_primary,
         is_verified=False,
         verification_token=secrets.token_urlsafe(24),
+        provisioning_status="PENDING_VERIFICATION",
         company_id=current_user.company_id,
         created_by_id=current_user.id,
         updated_by_id=current_user.id,
@@ -3162,6 +3173,45 @@ async def verify_storefront_domain(
         )
     domain.is_verified = True
     domain.verified_at = datetime.now(timezone.utc)
+    domain.provisioning_status = "QUEUED" if settings.NPM_PROVISIONING_ENABLED else "NOT_CONFIGURED"
+    domain.provisioning_attempts = 0
+    domain.provisioning_error = None
+    domain.provisioning_next_attempt_at = datetime.now(timezone.utc) if settings.NPM_PROVISIONING_ENABLED else None
+    domain.provisioning_last_attempt_at = None
+    domain.updated_by_id = current_user.id
+    db.add(domain)
+    await db.commit()
+    await db.refresh(domain)
+    return _serialize_domain(domain)
+
+
+@router.post("/domains/{domain_id}/provision", response_model=schemas.StorefrontDomain)
+async def retry_storefront_domain_provisioning(
+    *,
+    db: AsyncSession = Depends(get_db),
+    domain_id: uuid.UUID,
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    domain = await db.scalar(
+        select(StorefrontDomain).where(
+            StorefrontDomain.id == domain_id,
+            StorefrontDomain.company_id == current_user.company_id,
+            StorefrontDomain.is_active == True,
+        )
+    )
+    if not domain:
+        raise HTTPException(status_code=404, detail="Storefront domain not found")
+    if not domain.is_verified:
+        raise HTTPException(status_code=409, detail="Primero verifica el registro TXT del dominio.")
+    if not settings.NPM_PROVISIONING_ENABLED:
+        raise HTTPException(status_code=503, detail="El aprovisionamiento automático de dominios no está configurado.")
+    if domain.provisioning_status == "ACTIVE":
+        return _serialize_domain(domain)
+    domain.provisioning_status = "QUEUED"
+    domain.provisioning_attempts = 0
+    domain.provisioning_error = None
+    domain.provisioning_next_attempt_at = datetime.now(timezone.utc)
+    domain.provisioning_last_attempt_at = None
     domain.updated_by_id = current_user.id
     db.add(domain)
     await db.commit()
@@ -3187,6 +3237,14 @@ async def delete_storefront_domain(
     if not domain:
         raise HTTPException(status_code=404, detail="Storefront domain not found")
     domain.is_active = False
+    should_deprovision = settings.NPM_PROVISIONING_ENABLED and (
+        domain.is_verified or domain.npm_proxy_host_id is not None
+    )
+    domain.provisioning_status = "REMOVAL_QUEUED" if should_deprovision else "REMOVED"
+    domain.provisioning_attempts = 0
+    domain.provisioning_error = None
+    domain.provisioning_next_attempt_at = datetime.now(timezone.utc) if should_deprovision else None
+    domain.provisioning_last_attempt_at = None
     domain.updated_by_id = current_user.id
     db.add(domain)
     await db.commit()

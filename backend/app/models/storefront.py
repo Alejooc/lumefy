@@ -53,6 +53,14 @@ class StorefrontDomain(BaseModel):
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     verification_token: Mapped[str] = mapped_column(String, nullable=True)
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    provisioning_status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING_VERIFICATION", index=True)
+    provisioning_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    provisioning_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    provisioning_next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    provisioning_last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    npm_proxy_host_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    npm_certificate_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    provisioned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     storefront = relationship("Storefront", back_populates="domains")
 

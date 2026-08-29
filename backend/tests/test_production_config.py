@@ -50,6 +50,20 @@ class ProductionSettingsTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             production_settings(VALIDATE_CERTS=False)
 
+    def test_requires_npm_credentials_when_automatic_provisioning_is_enabled(self):
+        with self.assertRaises(ValidationError):
+            production_settings(NPM_PROVISIONING_ENABLED=True)
+
+    def test_accepts_internal_npm_api_when_credentials_are_configured(self):
+        configured = production_settings(
+            NPM_PROVISIONING_ENABLED=True,
+            NPM_API_URL="http://nginx-proxy-manager:81/api",
+            NPM_IDENTITY="automation@example.com",
+            NPM_PASSWORD="npm-automation-password-for-tests",
+        )
+
+        self.assertTrue(configured.NPM_PROVISIONING_ENABLED)
+
 
 if __name__ == "__main__":
     unittest.main()
