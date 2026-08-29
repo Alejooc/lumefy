@@ -41,7 +41,7 @@ Activa WebSockets en todos los proxy hosts. Los nombres `frontend`, `storefront`
 
 3. Despliega también `domain-provisioning-worker`. El servicio viene incluido en `docker-compose.prod.yml`.
 4. El comercio agrega el dominio en Lumefy, publica el TXT y pulsa **Verificar DNS**. Solo después de validar propiedad, Lumefy coloca el dominio en la cola.
-5. El worker crea un Proxy Host HTTP exclusivo, comprueba que el dominio llega a NPM y únicamente entonces solicita el certificado de Let's Encrypt.
+5. El worker comprueba primero que el dominio llega por HTTP al servidor de desafío de NPM; después crea o completa un Proxy Host HTTP exclusivo y solicita el certificado de Let's Encrypt.
 
 Cada dominio se procesa de forma idempotente. Lumefy conserva los identificadores del Proxy Host y del certificado, limita los reintentos y muestra el último error en Ecommerce > Configuración > Dominios.
 

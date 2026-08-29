@@ -152,9 +152,15 @@ class NginxProxyManagerClient:
         proxy_host = self._find_proxy_host(normalized)
         if proxy_host:
             self._assert_managed_proxy_host(proxy_host, normalized)
-        else:
-            proxy_host = self._create_proxy_host(normalized)
-        proxy_host_id = int(proxy_host["id"])
+            # NPM only includes its shared ACME webroot location in a host
+            # that already has a certificate. Disable an incomplete host so
+            # the request falls through to NPM's default challenge server.
+            if int(proxy_host.get("certificate_id") or 0) <= 0 and proxy_host.get("enabled", True):
+                self._request(
+                    "POST",
+                    f"/nginx/proxy-hosts/{int(proxy_host['id'])}/disable",
+                    expected_statuses={200},
+                )
 
         reachability = self._request(
             "POST",
@@ -169,6 +175,9 @@ class NginxProxyManagerClient:
                 retryable=True,
             )
 
+        if not proxy_host:
+            proxy_host = self._create_proxy_host(normalized)
+        proxy_host_id = int(proxy_host["id"])
         certificate_id = int(proxy_host.get("certificate_id") or 0)
         if certificate_id <= 0:
             certificate = self._find_certificate(normalized)

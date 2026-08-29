@@ -17,8 +17,8 @@ Crear una tienda con un subdominio de `jaofy.com` no solicita certificados adici
 1. En **Ecommerce > Configuración > Dominios**, el comercio agrega solo el host que quiere utilizar.
 2. Lumefy genera `_lumefy-verification.<dominio>` con un valor TXT único.
 3. Al pulsar **Verificar DNS**, el backend valida el TXT y encola el dominio.
-4. El worker crea en NPM un Proxy Host exclusivo hacia `lumefy-storefront-1:3000`.
-5. Antes de solicitar SSL, usa la prueba HTTP de NPM. Si todavía no existe conectividad DNS, reintenta con espera sin consumir solicitudes de certificados.
+4. Antes de crear el host, el worker usa la prueba HTTP de NPM contra su servidor de desafío. Si todavía no existe conectividad DNS, reintenta con espera sin consumir solicitudes de certificados.
+5. Cuando la prueba es correcta, crea o completa en NPM un Proxy Host exclusivo hacia `lumefy-storefront-1:3000` y solicita el SSL.
 6. NPM emite y renueva el certificado y Lumefy marca el dominio como **Activo**.
 
 El host exacto debe estar registrado en Lumefy. Si se necesitan `example.com` y `www.example.com`, se agregan y verifican como dos dominios.

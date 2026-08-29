@@ -56,8 +56,8 @@ class NpmProvisioningClientTests(unittest.TestCase):
         client, session = client_with_responses(
             FakeResponse(200, {"token": "jwt"}),
             FakeResponse(200, []),
-            FakeResponse(201, {"id": 12, "certificate_id": 0}),
             FakeResponse(200, {"shop.example.com": "ok"}),
+            FakeResponse(201, {"id": 12, "certificate_id": 0}),
             FakeResponse(200, []),
             FakeResponse(201, {"id": 33}),
             FakeResponse(200, {"id": 12}),
@@ -123,6 +123,7 @@ class NpmProvisioningClientTests(unittest.TestCase):
                 "forward_port": 3000,
                 "certificate_id": 0,
             }]),
+            FakeResponse(200, True),
             FakeResponse(200, {"shop.example.com": "404"}),
         )
 
@@ -131,6 +132,32 @@ class NpmProvisioningClientTests(unittest.TestCase):
 
         self.assertTrue(raised.exception.retryable)
         self.assertFalse(any(call[1].endswith("/nginx/certificates") for call in session.calls))
+
+    def test_disables_an_incomplete_existing_host_before_testing_http(self):
+        client, session = client_with_responses(
+            FakeResponse(200, {"token": "jwt"}),
+            FakeResponse(200, [{
+                "id": 12,
+                "domain_names": ["shop.example.com"],
+                "forward_scheme": "http",
+                "forward_host": "lumefy-storefront-1",
+                "forward_port": 3000,
+                "certificate_id": 0,
+                "enabled": True,
+            }]),
+            FakeResponse(200, True),
+            FakeResponse(200, {"shop.example.com": "ok"}),
+            FakeResponse(200, []),
+            FakeResponse(201, {"id": 33}),
+            FakeResponse(200, {"id": 12}),
+        )
+
+        result = client.provision_domain("shop.example.com")
+
+        self.assertEqual(result.proxy_host_id, 12)
+        disable_call = next(call for call in session.calls if call[1].endswith("/nginx/proxy-hosts/12/disable"))
+        reachability_call = next(call for call in session.calls if call[1].endswith("/nginx/certificates/test-http"))
+        self.assertLess(session.calls.index(disable_call), session.calls.index(reachability_call))
 
     def test_retry_schedule_respects_provider_retry_after(self):
         self.assertEqual(retry_delay_seconds(1), 300)
