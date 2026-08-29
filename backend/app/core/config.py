@@ -4,7 +4,7 @@ from cryptography.fernet import Fernet
 from typing import Optional, Union
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Lumefy"
+    PROJECT_NAME: str = "Jaofy"
     API_V1_STR: str = "/api/v1"
     
     POSTGRES_SERVER: str
@@ -51,12 +51,12 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER_PASSWORD: str
 
     # Email Settings
-    MAIL_USERNAME: str = "admin@lumefy.com"
+    MAIL_USERNAME: str = "admin@jaofy.com"
     MAIL_PASSWORD: str = "change-me"
-    MAIL_FROM: EmailStr = "admin@lumefy.com"
+    MAIL_FROM: EmailStr = "admin@jaofy.com"
     MAIL_PORT: int = Field(default=587, ge=1, le=65535)
     MAIL_SERVER: str = "smtp.gmail.com"
-    MAIL_FROM_NAME: str = "Lumefy Support"
+    MAIL_FROM_NAME: str = "Jaofy Support"
     MAIL_STARTTLS: bool = True
     MAIL_SSL_TLS: bool = False
     USE_CREDENTIALS: bool = True
