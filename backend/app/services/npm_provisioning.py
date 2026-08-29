@@ -44,6 +44,8 @@ class NginxProxyManagerClient:
         forward_scheme: str,
         forward_host: str,
         forward_port: int,
+        backend_host: str = "backend",
+        backend_port: int = 8000,
         timeout_seconds: int = 30,
         certificate_timeout_seconds: int = 900,
         verify_ssl: bool = True,
@@ -55,6 +57,8 @@ class NginxProxyManagerClient:
         self.forward_scheme = forward_scheme
         self.forward_host = forward_host
         self.forward_port = forward_port
+        self.backend_host = backend_host
+        self.backend_port = backend_port
         self.timeout_seconds = timeout_seconds
         self.certificate_timeout_seconds = certificate_timeout_seconds
         self.verify_ssl = verify_ssl
@@ -75,6 +79,8 @@ class NginxProxyManagerClient:
             forward_scheme=settings.NPM_FORWARD_SCHEME,
             forward_host=settings.NPM_STOREFRONT_HOST,
             forward_port=settings.NPM_STOREFRONT_PORT,
+            backend_host=settings.NPM_BACKEND_HOST,
+            backend_port=settings.NPM_BACKEND_PORT,
             timeout_seconds=settings.NPM_REQUEST_TIMEOUT_SECONDS,
             certificate_timeout_seconds=settings.NPM_CERTIFICATE_TIMEOUT_SECONDS,
             verify_ssl=settings.NPM_VERIFY_SSL,
@@ -205,6 +211,7 @@ class NginxProxyManagerClient:
                 "http2_support": True,
                 "allow_websocket_upgrade": True,
                 "trust_forwarded_proto": True,
+                "locations": self._backend_locations(),
                 "enabled": True,
             },
         )
@@ -250,7 +257,7 @@ class NginxProxyManagerClient:
             "hsts_enabled": False,
             "hsts_subdomains": False,
             "trust_forwarded_proto": True,
-            "locations": [],
+            "locations": self._backend_locations(),
             "enabled": True,
         }
         return self._request(
@@ -259,6 +266,16 @@ class NginxProxyManagerClient:
             payload=payload,
             expected_statuses={201},
         )
+
+    def _backend_locations(self) -> list[dict[str, Any]]:
+        """Route public storefront API calls to FastAPI inside the shared network."""
+        return [{
+            "path": "/api/v1/storefront/public/",
+            "forward_scheme": self.forward_scheme,
+            "forward_host": self.backend_host,
+            "forward_port": self.backend_port,
+            "advanced_config": "",
+        }]
 
     def _find_proxy_host(self, domain: str) -> dict[str, Any] | None:
         hosts = self._request("GET", "/nginx/proxy-hosts")

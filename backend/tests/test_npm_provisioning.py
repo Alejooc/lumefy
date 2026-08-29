@@ -72,6 +72,13 @@ class NpmProvisioningClientTests(unittest.TestCase):
         update_payload = session.calls[-1][2]["json"]
         self.assertTrue(update_payload["ssl_forced"])
         self.assertEqual(update_payload["certificate_id"], 33)
+        self.assertEqual(update_payload["locations"], [{
+            "path": "/api/v1/storefront/public/",
+            "forward_scheme": "http",
+            "forward_host": "backend",
+            "forward_port": 8000,
+            "advanced_config": "",
+        }])
 
     def test_reuses_an_existing_managed_host_and_certificate(self):
         client, session = client_with_responses(

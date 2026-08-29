@@ -34,6 +34,8 @@ Activa WebSockets en todos los proxy hosts. Los nombres `frontend`, `storefront`
    NPM_FORWARD_SCHEME=http
    NPM_STOREFRONT_HOST=lumefy-storefront-1
    NPM_STOREFRONT_PORT=3000
+   NPM_BACKEND_HOST=backend
+   NPM_BACKEND_PORT=8000
    NPM_VERIFY_SSL=true
    NPM_PROVISIONING_MAX_ATTEMPTS=3
    NPM_PROVISIONING_CONCURRENCY=1

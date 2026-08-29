@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     NPM_FORWARD_SCHEME: str = "http"
     NPM_STOREFRONT_HOST: str = "lumefy-storefront-1"
     NPM_STOREFRONT_PORT: int = Field(default=3000, ge=1, le=65535)
+    NPM_BACKEND_HOST: str = "backend"
+    NPM_BACKEND_PORT: int = Field(default=8000, ge=1, le=65535)
     NPM_VERIFY_SSL: bool = True
     NPM_REQUEST_TIMEOUT_SECONDS: int = Field(default=30, ge=5, le=120)
     NPM_CERTIFICATE_TIMEOUT_SECONDS: int = Field(default=900, ge=60, le=900)
@@ -127,6 +129,7 @@ class Settings(BaseSettings):
                 "NPM_IDENTITY": self.NPM_IDENTITY,
                 "NPM_PASSWORD": self.NPM_PASSWORD,
                 "NPM_STOREFRONT_HOST": self.NPM_STOREFRONT_HOST,
+                "NPM_BACKEND_HOST": self.NPM_BACKEND_HOST,
             }
             for field_name, value in npm_values.items():
                 if not value or not str(value).strip():
