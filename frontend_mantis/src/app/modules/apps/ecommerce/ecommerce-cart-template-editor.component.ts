@@ -15,6 +15,7 @@ import {
 } from 'src/app/core/services/storefront-admin.service';
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
+import { EcommerceEditorPagePickerComponent } from './ecommerce-editor-page-picker.component';
 
 type CartSectionType = 'cart_header' | 'cart_items' | 'cart_summary' | 'cart_empty';
 type CartSidebarMode = 'sections' | 'settings' | 'section' | 'add';
@@ -66,7 +67,7 @@ const CART_COMPONENTS: CartComponentDefinition[] = [
 @Component({
   selector: 'app-ecommerce-cart-template-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, DragDropModule, RouterLink],
+  imports: [CommonModule, FormsModule, DragDropModule, RouterLink, EcommerceEditorPagePickerComponent],
   templateUrl: './ecommerce-cart-template-editor.component.html',
   styleUrls: ['./ecommerce-cart-template-editor.component.scss'],
 })

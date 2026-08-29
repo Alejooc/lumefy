@@ -15,6 +15,7 @@ import {
 } from 'src/app/core/services/storefront-admin.service';
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
+import { EcommerceEditorPagePickerComponent } from './ecommerce-editor-page-picker.component';
 
 type PageSlug = 'contact' | 'about' | 'shipping' | 'returns' | 'privacy' | 'terms';
 type PageSectionType = 'page_header' | 'page_content' | 'page_contact_form';
@@ -64,7 +65,7 @@ const PAGE_COMPONENTS: PageComponentDefinition[] = [
 @Component({
   selector: 'app-ecommerce-pages-template-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, DragDropModule, RouterLink],
+  imports: [CommonModule, FormsModule, DragDropModule, RouterLink, EcommerceEditorPagePickerComponent],
   templateUrl: './ecommerce-pages-template-editor.component.html',
   styleUrls: ['./ecommerce-pages-template-editor.component.scss'],
 })

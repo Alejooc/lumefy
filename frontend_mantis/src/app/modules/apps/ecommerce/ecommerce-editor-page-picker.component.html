@@ -1,0 +1,44 @@
+<div class="editor-page-picker">
+  <button
+    class="editor-page-picker__trigger"
+    type="button"
+    aria-haspopup="menu"
+    aria-controls="ecommerce-editor-pages"
+    [attr.aria-expanded]="menuOpen"
+    (click)="toggleMenu()"
+  >
+    <span class="editor-page-picker__current-icon"><i [class]="'ti ti-' + activeOption.icon"></i></span>
+    <span class="editor-page-picker__current-copy">
+      <small>Página</small>
+      <strong>{{ activeOption.label }}</strong>
+    </span>
+    <i class="ti ti-chevron-down editor-page-picker__chevron" [class.open]="menuOpen"></i>
+  </button>
+
+  @if (menuOpen) {
+    <div id="ecommerce-editor-pages" class="editor-page-picker__menu" role="menu" aria-label="Páginas editables de la tienda">
+      <div class="editor-page-picker__heading">
+        <span><strong>Páginas de la tienda</strong><small>Elige la vista que quieres editar</small></span>
+        <kbd>Esc</kbd>
+      </div>
+
+      <div class="editor-page-picker__list">
+        @for (page of pages; track page.id) {
+          @if (page.id === activePage) {
+            <button class="editor-page-picker__option active" type="button" role="menuitem" aria-current="page" (click)="closeMenu()">
+              <span class="editor-page-picker__option-icon"><i [class]="'ti ti-' + page.icon"></i></span>
+              <span class="editor-page-picker__option-copy"><strong>{{ page.label }}</strong><small>{{ page.description }}</small></span>
+              <i class="ti ti-check editor-page-picker__check"></i>
+            </button>
+          } @else {
+            <a class="editor-page-picker__option" [routerLink]="page.route" role="menuitem" (click)="onNavigate($event)">
+              <span class="editor-page-picker__option-icon"><i [class]="'ti ti-' + page.icon"></i></span>
+              <span class="editor-page-picker__option-copy"><strong>{{ page.label }}</strong><small>{{ page.description }}</small></span>
+              <i class="ti ti-chevron-right editor-page-picker__arrow"></i>
+            </a>
+          }
+        }
+      </div>
+    </div>
+  }
+</div>

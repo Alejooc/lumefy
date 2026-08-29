@@ -1,6 +1,6 @@
-<div class="pages-editor-shell">
+<div class="pages-editor-shell" [class.pages-editor-shell--sidebar-collapsed]="!sidebarOpen">
   @if (loading && !theme) {
-    <div class="pages-editor-loading" aria-label="Cargando editor"><div class="pages-editor-loading__top"></div><div class="pages-editor-loading__body"><span></span><span></span><span></span></div></div>
+    <div class="pages-editor-loading" aria-label="Cargando editor"><div class="pages-editor-loading__top"></div><div class="pages-editor-loading__body"><span></span><span></span></div></div>
   } @else if (!storefront) {
     <section class="pages-editor-empty"><i class="ti ti-file-text"></i><span class="pages-editor-kicker">Editor visual</span><h4>Elige una tienda para empezar</h4><p>Activa una tienda para personalizar tus páginas informativas.</p>@if (errorMessage) { <div class="alert alert-warning mt-3">{{ errorMessage }}</div> }</section>
   } @else {
@@ -17,17 +17,7 @@
           @if (storefronts.length > 1) { <select class="form-select form-select-sm" [(ngModel)]="selectedStorefrontId" (ngModelChange)="onStorefrontChange()" aria-label="Tienda seleccionada">@for (item of storefronts; track item.id) { <option [value]="item.id">{{ item.name }}</option> }</select> } @else { <strong>{{ storefront.name }}</strong> }
           <span class="pages-editor-live-pill"><span></span>{{ storefront.is_enabled ? 'Activa' : 'Borrador' }}</span>
         </div>
-        <details class="pages-editor-page-picker">
-          <summary><i class="ti ti-file-text"></i><span>Páginas</span><i class="ti ti-chevron-down"></i></summary>
-          <div class="pages-editor-page-picker__menu">
-            <a routerLink="/commerce/design"><i class="ti ti-home"></i><span><strong>Página de inicio</strong><small>Secciones principales</small></span></a>
-            <a routerLink="/commerce/design/product"><i class="ti ti-shopping-bag"></i><span><strong>Producto</strong><small>Ficha y galería</small></span></a>
-            <a routerLink="/commerce/design/collection"><i class="ti ti-category"></i><span><strong>Colecciones</strong><small>Catálogo y filtros</small></span></a>
-            <a routerLink="/commerce/design/search"><i class="ti ti-search"></i><span><strong>Resultados de búsqueda</strong><small>Resultados y estado vacío</small></span></a>
-            <a routerLink="/commerce/design/cart"><i class="ti ti-shopping-cart"></i><span><strong>Carrito</strong><small>Productos y resumen</small></span></a>
-            <button type="button" class="active"><i class="ti ti-file-text"></i><span><strong>Páginas informativas</strong><small>Editando ahora</small></span><i class="ti ti-check"></i></button>
-          </div>
-        </details>
+        <app-ecommerce-editor-page-picker activePage="pages" [hasUnsavedChanges]="dirty" />
       </div>
       <div class="pages-editor-topbar__right">
         <span class="pages-editor-save-state" [class.pages-editor-save-state--dirty]="dirty"><span></span>{{ saving ? 'Guardando...' : dirty ? 'Sin guardar' : 'Guardado' }}</span>

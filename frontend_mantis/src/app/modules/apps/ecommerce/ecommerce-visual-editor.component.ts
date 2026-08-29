@@ -30,6 +30,7 @@ import {
 } from 'src/app/core/services/storefront-admin.service';
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
+import { EcommerceEditorPagePickerComponent } from './ecommerce-editor-page-picker.component';
 
 type VisualSectionType =
   | 'hero'
@@ -250,7 +251,7 @@ interface VisualLinkOption {
 @Component({
   selector: 'app-ecommerce-visual-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, DragDropModule, RouterLink],
+  imports: [CommonModule, FormsModule, DragDropModule, RouterLink, EcommerceEditorPagePickerComponent],
   templateUrl: './ecommerce-visual-editor.component.html',
   styleUrls: ['./ecommerce-visual-editor.component.scss']
 })

@@ -17,6 +17,7 @@ import {
 } from 'src/app/core/services/storefront-admin.service';
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
+import { EcommerceEditorPagePickerComponent } from './ecommerce-editor-page-picker.component';
 
 type ProductSectionType = 'product_gallery' | 'product_information' | 'product_description' | 'product_related';
 type ProductSidebarMode = 'sections' | 'settings' | 'section' | 'add';
@@ -66,7 +67,7 @@ const PRODUCT_COMPONENTS: ProductComponentDefinition[] = [
 @Component({
   selector: 'app-ecommerce-product-template-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, DragDropModule, RouterLink],
+  imports: [CommonModule, FormsModule, DragDropModule, RouterLink, EcommerceEditorPagePickerComponent],
   templateUrl: './ecommerce-product-template-editor.component.html',
   styleUrls: ['./ecommerce-product-template-editor.component.scss'],
 })

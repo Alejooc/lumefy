@@ -8,7 +8,6 @@
       <div class="visual-editor-loading__body">
         <div class="visual-editor-loading__rail"></div>
         <div class="visual-editor-loading__canvas"></div>
-        <div class="visual-editor-loading__rail"></div>
       </div>
     </div>
   } @else if (!storefront) {
@@ -53,18 +52,7 @@
           <span class="visual-editor-live-pill" [class.visual-editor-live-pill--draft]="!storefront.is_enabled"><span></span>{{ storefront.is_enabled ? 'Activa' : 'Borrador' }}</span>
         </div>
 
-        <details class="visual-editor-page-picker">
-          <summary><i class="ti ti-home"></i><span>Página de inicio</span><i class="ti ti-chevron-down"></i></summary>
-          <div class="visual-editor-page-picker__menu">
-            <label><i class="ti ti-search"></i><input type="search" placeholder="Buscar página" aria-label="Buscar página de la tienda" /></label>
-            <a routerLink="/commerce/design" class="active"><i class="ti ti-home"></i><span>Página de inicio</span><i class="ti ti-check"></i></a>
-            <a routerLink="/commerce/design/product"><i class="ti ti-shopping-bag"></i><span>Producto</span><small>Editar plantilla</small></a>
-            <a routerLink="/commerce/design/collection"><i class="ti ti-category"></i><span>Colecciones</span><small>Editar plantilla</small></a>
-            <a routerLink="/commerce/design/search"><i class="ti ti-search"></i><span>Resultados de búsqueda</span><small>Editar plantilla</small></a>
-            <a routerLink="/commerce/design/cart"><i class="ti ti-shopping-cart"></i><span>Carrito</span><small>Editar plantilla</small></a>
-            <a routerLink="/commerce/design/pages"><i class="ti ti-file-text"></i><span>Páginas informativas</span><small>Editar plantilla</small></a>
-          </div>
-        </details>
+        <app-ecommerce-editor-page-picker activePage="home" [hasUnsavedChanges]="dirty" />
       </div>
 
       <div class="visual-editor-topbar__actions">

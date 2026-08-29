@@ -17,6 +17,7 @@ import {
 } from 'src/app/core/services/storefront-admin.service';
 import { PermissionService } from 'src/app/core/services/permission.service';
 import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.service';
+import { EcommerceEditorPagePickerComponent } from './ecommerce-editor-page-picker.component';
 
 type CatalogSectionType = 'collection_header' | 'collection_filters' | 'collection_grid' | 'search_header' | 'search_filters' | 'search_grid';
 type CollectionSidebarMode = 'sections' | 'settings' | 'section' | 'add';
@@ -66,7 +67,7 @@ const SEARCH_COMPONENTS: CollectionComponentDefinition[] = [
 @Component({
   selector: 'app-ecommerce-collection-template-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, DragDropModule, RouterLink],
+  imports: [CommonModule, FormsModule, DragDropModule, RouterLink, EcommerceEditorPagePickerComponent],
   templateUrl: './ecommerce-collection-template-editor.component.html',
   styleUrls: ['./ecommerce-collection-template-editor.component.scss'],
 })

@@ -1,47 +1,41 @@
-<div class="collection-editor-shell">
+<div class="collection-editor-shell" [class.collection-editor-shell--sidebar-collapsed]="!sidebarOpen">
   <header class="collection-editor-topbar">
-    <a class="collection-editor-back" routerLink="/commerce/design" aria-label="Volver al editor de inicio">
-      <i class="ti ti-arrow-left"></i>
-    </a>
-    <div class="collection-editor-tool-divider"></div>
-    <button class="collection-editor-tool-button" type="button" [class.is-active]="sidebarMode === 'sections'" (click)="showSections()" aria-label="Estructura de la página">
-      <i class="ti ti-layout-list"></i>
-    </button>
-    <button class="collection-editor-tool-button" type="button" [class.is-active]="sidebarMode === 'settings'" (click)="showSettings()" aria-label="Ajustes de la plantilla">
-      <i class="ti ti-settings"></i>
-    </button>
-    <div class="collection-editor-brand">
-      <strong>{{ storefront?.name || 'Tienda' }}</strong>
-      <span class="collection-editor-status"><i></i> {{ dirty ? 'Cambios pendientes' : 'Guardado' }}</span>
+    <div class="collection-editor-topbar__left">
+      <a class="collection-editor-back" routerLink="/commerce" aria-label="Volver al ecommerce" title="Volver al ecommerce">
+        <i class="ti ti-arrow-left"></i>
+      </a>
+      <div class="collection-editor-tool-divider"></div>
+      <button class="collection-editor-tool-button" type="button" [class.is-active]="sidebarMode === 'sections'" (click)="showSections()" aria-label="Estructura de la página" title="Secciones">
+        <i class="ti ti-layout-list"></i>
+      </button>
+      <button class="collection-editor-tool-button" type="button" [class.is-active]="sidebarMode === 'settings'" (click)="showSettings()" aria-label="Ajustes de la plantilla" title="Ajustes">
+        <i class="ti ti-settings"></i>
+      </button>
     </div>
-    <div class="collection-editor-page-picker">
-      <span class="collection-editor-page-icon"><i [class]="isSearchTemplate ? 'ti ti-search' : 'ti ti-layout-dashboard'"></i></span>
-      <span>{{ templateTitle }}</span>
-      <i class="ti ti-chevron-down"></i>
-      <div class="collection-editor-page-menu">
-        <a routerLink="/commerce/design"><i class="ti ti-home"></i><span>Inicio</span></a>
-        <a routerLink="/commerce/design/product"><i class="ti ti-shopping-bag"></i><span>Producto</span></a>
-        <a [class.is-active]="!isSearchTemplate" routerLink="/commerce/design/collection"><i class="ti ti-layout-dashboard"></i><span>Colección</span></a>
-        <a [class.is-active]="isSearchTemplate" routerLink="/commerce/design/search"><i class="ti ti-search"></i><span>Resultados de búsqueda</span></a>
-        <a routerLink="/commerce/design/cart"><i class="ti ti-shopping-cart"></i><span>Carrito</span></a>
-        <a routerLink="/commerce/design/pages"><i class="ti ti-file-text"></i><span>Páginas informativas</span></a>
+
+    <div class="collection-editor-topbar__context">
+      <div class="collection-editor-brand">
+        <strong>{{ storefront?.name || 'Tienda' }}</strong>
+        <span class="collection-editor-status"><i></i> {{ dirty ? 'Sin guardar' : 'Guardado' }}</span>
       </div>
+      <app-ecommerce-editor-page-picker [activePage]="isSearchTemplate ? 'search' : 'collection'" [hasUnsavedChanges]="dirty" />
     </div>
-    <div class="collection-editor-spacer"></div>
-    <div class="collection-editor-viewport-picker" aria-label="Vista previa responsive">
-      <button type="button" [class.is-active]="previewViewport === 'desktop'" (click)="setViewport('desktop')" aria-label="Vista escritorio"><i class="ti ti-device-desktop"></i></button>
-      <button type="button" [class.is-active]="previewViewport === 'tablet'" (click)="setViewport('tablet')" aria-label="Vista tablet"><i class="ti ti-device-tablet"></i></button>
-      <button type="button" [class.is-active]="previewViewport === 'mobile'" (click)="setViewport('mobile')" aria-label="Vista móvil"><i class="ti ti-device-mobile"></i></button>
+
+    <div class="collection-editor-topbar__right">
+      <div class="collection-editor-viewport-picker" aria-label="Vista previa responsive">
+        <button type="button" [class.is-active]="previewViewport === 'desktop'" (click)="setViewport('desktop')" aria-label="Vista escritorio"><i class="ti ti-device-desktop"></i></button>
+        <button type="button" [class.is-active]="previewViewport === 'tablet'" (click)="setViewport('tablet')" aria-label="Vista tablet"><i class="ti ti-device-tablet"></i></button>
+        <button type="button" [class.is-active]="previewViewport === 'mobile'" (click)="setViewport('mobile')" aria-label="Vista móvil"><i class="ti ti-device-mobile"></i></button>
+      </div>
+      <button class="collection-editor-select-button" type="button" [class.is-active]="selectionMode" (click)="toggleSelectionMode()" aria-label="Seleccionar elementos en la vista previa" title="Seleccionar elemento">
+        <i class="ti ti-pointer"></i>
+      </button>
+      <button class="collection-editor-save-button" type="button" [disabled]="saving || publishing || !theme || !dirty" (click)="saveDraft()" aria-label="Guardar cambios" title="Guardar cambios">
+        <i class="ti ti-device-floppy"></i>
+        <span class="visually-hidden">{{ saving ? 'Guardando…' : 'Guardar' }}</span>
+      </button>
+      <button class="collection-editor-publish-button" type="button" [disabled]="!canPublish" (click)="publish()">{{ publishing ? 'Publicando…' : 'Publicar' }}</button>
     </div>
-    <button class="collection-editor-select-button" type="button" [class.is-active]="selectionMode" (click)="toggleSelectionMode()" aria-label="Seleccionar elementos en la vista previa">
-      <i class="ti ti-pointer"></i>
-    </button>
-    <button class="collection-editor-icon-button" type="button" aria-label="Más opciones"><i class="ti ti-dots"></i></button>
-    <button class="collection-editor-save-button" type="button" [disabled]="saving || publishing || !theme" (click)="saveDraft()">
-      <i class="ti ti-device-floppy"></i>
-      <span>{{ saving ? 'Guardando…' : 'Guardar' }}</span>
-    </button>
-    <button class="collection-editor-publish-button" type="button" [disabled]="!canPublish" (click)="publish()">{{ publishing ? 'Publicando…' : 'Publicar' }}</button>
   </header>
 
   <main class="collection-editor-workspace">

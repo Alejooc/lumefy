@@ -1,8 +1,8 @@
-<div class="product-editor-shell">
+<div class="product-editor-shell" [class.product-editor-shell--sidebar-collapsed]="!sidebarOpen">
   @if (loading && !theme) {
     <div class="product-editor-loading" aria-label="Cargando editor">
       <div class="product-editor-loading__top"></div>
-      <div class="product-editor-loading__body"><span></span><span></span><span></span></div>
+      <div class="product-editor-loading__body"><span></span><span></span></div>
     </div>
   } @else if (!storefront) {
     <section class="product-editor-empty">
@@ -31,17 +31,7 @@
           } @else { <strong>{{ storefront.name }}</strong> }
           <span class="product-editor-live-pill"><span></span>{{ storefront.is_enabled ? 'Activa' : 'Borrador' }}</span>
         </div>
-        <details class="product-editor-page-picker">
-          <summary><i class="ti ti-shopping-bag"></i><span>Producto</span><i class="ti ti-chevron-down"></i></summary>
-          <div class="product-editor-page-picker__menu">
-            <a routerLink="/commerce/design"><i class="ti ti-home"></i><span>Página de inicio</span></a>
-            <button type="button" class="active"><i class="ti ti-shopping-bag"></i><span>Producto</span><i class="ti ti-check"></i></button>
-            <a routerLink="/commerce/design/collection"><i class="ti ti-category"></i><span>Colecciones</span><small>Editar plantilla</small></a>
-            <a routerLink="/commerce/design/search"><i class="ti ti-search"></i><span>Resultados de búsqueda</span><small>Editar plantilla</small></a>
-            <a routerLink="/commerce/design/cart"><i class="ti ti-shopping-cart"></i><span>Carrito</span><small>Editar plantilla</small></a>
-            <a routerLink="/commerce/design/pages"><i class="ti ti-file-text"></i><span>Páginas informativas</span><small>Editar plantilla</small></a>
-          </div>
-        </details>
+        <app-ecommerce-editor-page-picker activePage="product" [hasUnsavedChanges]="dirty" />
       </div>
 
       <div class="product-editor-topbar__right">

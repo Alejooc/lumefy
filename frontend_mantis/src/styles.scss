@@ -127,7 +127,7 @@ Lumefy application styles
 .visual-editor-history-empty { padding: 32px 0; color: var(--editor-muted); font-size: 11px; text-align: center; }
 .visual-editor-loading { height: 100dvh; padding: 12px; }
 .visual-editor-loading__top { height: 64px; border-radius: 8px; background: linear-gradient(90deg, var(--editor-soft) 25%, var(--editor-paper) 50%, var(--editor-soft) 75%); background-size: 200% 100%; animation: visual-editor-shimmer 1.4s infinite; }
-.visual-editor-loading__body { display: grid; grid-template-columns: 276px 1fr 356px; gap: 1px; height: calc(100dvh - 88px); margin-top: 12px; }
+.visual-editor-loading__body { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 1px; height: calc(100dvh - 88px); margin-top: 12px; }
 .visual-editor-loading__rail,
 .visual-editor-loading__canvas { background: linear-gradient(90deg, var(--editor-soft) 25%, var(--editor-paper) 50%, var(--editor-soft) 75%); background-size: 200% 100%; animation: visual-editor-shimmer 1.4s infinite; }
 .visual-editor-empty { display: flex; max-width: 560px; min-height: 100dvh; align-items: center; justify-content: center; flex-direction: column; margin: 0 auto; padding: 40px; border: 0; background: transparent; text-align: center; }
