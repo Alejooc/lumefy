@@ -40,7 +40,9 @@ El entorno `production` de GitHub necesita estos secretos:
 - `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PATH` y `DEPLOY_SSH_KEY`;
 - `DEPLOY_KNOWN_HOSTS`: la línea de host SSH verificada por un canal independiente. El workflow no confía automáticamente en el resultado de `ssh-keyscan`.
 
-El despliegue usa exactamente `github.sha`, conserva una etiqueta de imagen por revisión, no se cancela a mitad de ejecución, crea un respaldo previo cuando ya existen datos y termina con smoke tests internos. En el primer despliegue, cuando no existe ninguno de los volúmenes de datos, omite el respaldo de forma explícita.
+El despliegue usa exactamente `github.sha`, conserva una etiqueta de imagen por revisión y no se cancela a mitad de ejecución. Cada servicio mantiene la etiqueta exacta de la imagen que ya está ejecutando cuando no recibió cambios; de esta forma, un cambio del storefront no reinicia el backend ni los workers. Cuando ya existen datos, el rollout crea primero un respaldo rápido de PostgreSQL en `backups/pre-deploy/`. En el primer despliegue, cuando no existe ninguno de los volúmenes de datos, omite el respaldo de forma explícita.
+
+Después del smoke test interno, el despliegue recarga Nginx Proxy Manager cuando encuentra su contenedor y comprueba públicamente el panel, el API y los archivos estáticos. Un `502` externo hace fallar el workflow aunque todos los contenedores estén sanos. Define `PROXY_CONTAINER_NAME` en `.env.production` si el contenedor no puede descubrirse automáticamente desde `PROXY_NETWORK`.
 
 ## Sondas, logs y alertas
 
@@ -49,7 +51,7 @@ El despliegue usa exactamente `github.sha`, conserva una etiqueta de imagen por 
 - Cada respuesta del API incluye `X-Request-ID`. Un identificador válido recibido se conserva; valores inseguros se reemplazan. Los logs de petición contienen el mismo ID, ruta, estado y duración.
 - Docker rota cada log a cinco archivos de 10 MB para evitar llenar el disco.
 
-Después de configurar DNS, conecta un monitor externo a `/healthz` y una comprobación autenticada de negocio separada. Hasta entonces, ejecuta `sh scripts/smoke-production.sh` desde cron o desde el sistema de monitoreo del VPS. Deben alertar como mínimo:
+Después de configurar DNS, conecta un monitor externo a `/api/v1/readyz` y una comprobación autenticada de negocio separada. Hasta entonces, ejecuta `sh scripts/smoke-production.sh` y `sh scripts/smoke-public.sh` desde cron o desde el sistema de monitoreo del VPS. Deben alertar como mínimo:
 
 - `/readyz` fallando durante dos comprobaciones seguidas;
 - cualquier contenedor requerido detenido o reiniciando;
@@ -71,6 +73,8 @@ Por defecto queda en `backups/production/<fecha-UTC>/` y conserva 14 días. Prog
 ```cron
 0 2 * * * cd /srv/lumefy && sh scripts/backup-production.sh >> /var/log/lumefy-backup.log 2>&1
 ```
+
+No sustituyas este respaldo completo por los snapshots de `backups/pre-deploy/`: estos últimos contienen únicamente PostgreSQL para que un despliegue no vuelva a comprimir toda la biblioteca de archivos. Se conservan siete días por defecto y su propósito es proteger el cambio de esquema inmediato.
 
 La copia local no es suficiente. Replica cada directorio terminado a almacenamiento externo cifrado e inmutable. Supervisa la antigüedad del último respaldo y prueba una restauración al menos una vez al mes.
 

@@ -1,6 +1,6 @@
 x-backend-service: &backend-service
   build: ./backend
-  image: lumefy-backend:${LUMEFY_IMAGE_TAG:-local}
+  image: lumefy-backend:${BACKEND_IMAGE_TAG:-${LUMEFY_IMAGE_TAG:-local}}
   env_file:
     - ${BACKEND_ENV_FILE:-./backend/.env.production}
   environment:
@@ -167,7 +167,7 @@ services:
 
   frontend:
     build: ./frontend_mantis
-    image: lumefy-frontend:${LUMEFY_IMAGE_TAG:-local}
+    image: lumefy-frontend:${FRONTEND_IMAGE_TAG:-${LUMEFY_IMAGE_TAG:-local}}
     restart: unless-stopped
     init: true
     security_opt:
@@ -194,7 +194,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: /api/v1
         NEXT_PUBLIC_PLATFORM_STOREFRONT_DOMAIN: ${PLATFORM_STOREFRONT_DOMAIN}
-    image: lumefy-storefront:${LUMEFY_IMAGE_TAG:-local}
+    image: lumefy-storefront:${STOREFRONT_IMAGE_TAG:-${LUMEFY_IMAGE_TAG:-local}}
     restart: unless-stopped
     init: true
     security_opt:

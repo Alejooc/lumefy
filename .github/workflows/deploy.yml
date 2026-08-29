@@ -195,6 +195,7 @@ jobs:
           docker network inspect npm_default >/dev/null 2>&1 || docker network create npm_default
       - name: Validate Compose and build production images
         run: |
+          sh -n scripts/*.sh
           docker compose --env-file "$ROOT_ENV_FILE" -f docker-compose.prod.yml config --quiet
           docker compose --env-file "$ROOT_ENV_FILE" -f docker-compose.prod.yml build backend frontend storefront
       - name: Verify image boundaries

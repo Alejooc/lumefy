@@ -9,6 +9,7 @@ COMPOSE_FILE=${COMPOSE_FILE:-docker-compose.prod.yml}
 ROOT_ENV_FILE=${ROOT_ENV_FILE:-.env.production}
 BACKEND_ENV_FILE=${BACKEND_ENV_FILE:-./backend/.env.production}
 BACKUP_HELPER_IMAGE=${BACKUP_HELPER_IMAGE:-alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce}
+BACKUP_MODE=${BACKUP_MODE:-full}
 
 test -s "$ROOT_ENV_FILE"
 test -s "$BACKEND_ENV_FILE"
@@ -26,12 +27,22 @@ BACKUP_DIR=${BACKUP_DIR:-${configured_backup_dir:-./backups/production}}
 RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-${configured_retention_days:-14}}
 STATIC_VOLUME=${BACKEND_STATIC_VOLUME:-${configured_static_volume:-lumefy_backend_static}}
 
-case "$STATIC_VOLUME" in
-  ""|[-._]*|*[!a-zA-Z0-9_.-]*)
-    echo "Refusing an invalid Docker volume name: $STATIC_VOLUME" >&2
+case "$BACKUP_MODE" in
+  full|database) ;;
+  *)
+    echo "BACKUP_MODE must be either 'full' or 'database'." >&2
     exit 1
     ;;
 esac
+
+if [ "$BACKUP_MODE" = "full" ]; then
+  case "$STATIC_VOLUME" in
+    ""|[-._]*|*[!a-zA-Z0-9_.-]*)
+      echo "Refusing an invalid Docker volume name: $STATIC_VOLUME" >&2
+      exit 1
+      ;;
+  esac
+fi
 
 case "$BACKUP_DIR" in
   ""|"/"|"."|"..")
@@ -78,39 +89,46 @@ compose exec -T db sh -c \
 test -s "$temporary/database.dump"
 compose exec -T db pg_restore --list < "$temporary/database.dump" > /dev/null
 
-absolute_temporary=$(cd "$temporary" && pwd)
-# Git Bash needs a native Windows bind source when argument conversion is disabled.
-if command -v cygpath >/dev/null 2>&1; then
-  absolute_temporary=$(cygpath -w "$absolute_temporary")
+if [ "$BACKUP_MODE" = "full" ]; then
+  absolute_temporary=$(cd "$temporary" && pwd)
+  # Git Bash needs a native Windows bind source when argument conversion is disabled.
+  if command -v cygpath >/dev/null 2>&1; then
+    absolute_temporary=$(cygpath -w "$absolute_temporary")
+  fi
+  # The shared volume contains files created by the non-root API user and
+  # legacy uploads may have stricter ownership or mode bits. The backup
+  # helper is read-only and only receives the static volume, so it must read
+  # as root to produce a complete archive instead of silently losing media.
+  docker run --rm --read-only \
+    --user 0:0 \
+    --volume "$STATIC_VOLUME:/source:ro" \
+    --volume "$absolute_temporary:/backup" \
+    "$BACKUP_HELPER_IMAGE" \
+    tar -C /source -czf /backup/uploads.tar.gz .
+  test -s "$temporary/uploads.tar.gz"
+  docker run --rm --read-only \
+    --user "$(id -u):$(id -g)" \
+    --volume "$absolute_temporary:/backup:ro" \
+    "$BACKUP_HELPER_IMAGE" \
+    tar -tzf /backup/uploads.tar.gz > /dev/null
 fi
-# The shared volume contains files created by the non-root API user and
-# legacy uploads may have stricter ownership or mode bits. The backup
-# helper is read-only and only receives the static volume, so it must read
-# as root to produce a complete archive instead of silently losing media.
-docker run --rm --read-only \
-  --user 0:0 \
-  --volume "$STATIC_VOLUME:/source:ro" \
-  --volume "$absolute_temporary:/backup" \
-  "$BACKUP_HELPER_IMAGE" \
-  tar -C /source -czf /backup/uploads.tar.gz .
-test -s "$temporary/uploads.tar.gz"
-docker run --rm --read-only \
-  --user "$(id -u):$(id -g)" \
-  --volume "$absolute_temporary:/backup:ro" \
-  "$BACKUP_HELPER_IMAGE" \
-  tar -tzf /backup/uploads.tar.gz > /dev/null
 
 revision=$(git rev-parse HEAD 2>/dev/null || printf 'unknown')
 cat > "$temporary/metadata.txt" <<EOF
 created_at_utc=$timestamp
 git_revision=$revision
 compose_file=$COMPOSE_FILE
+backup_mode=$BACKUP_MODE
 static_volume=$STATIC_VOLUME
 EOF
 
 (
   cd "$temporary"
-  sha256sum database.dump uploads.tar.gz metadata.txt > SHA256SUMS
+  if [ "$BACKUP_MODE" = "full" ]; then
+    sha256sum database.dump uploads.tar.gz metadata.txt > SHA256SUMS
+  else
+    sha256sum database.dump metadata.txt > SHA256SUMS
+  fi
   sha256sum --check SHA256SUMS
 )
 
@@ -121,4 +139,4 @@ find "$BACKUP_DIR" \
   -mindepth 1 -maxdepth 1 -type d -name '20??????T??????Z' \
   -mtime "+$RETENTION_DAYS" -exec rm -rf -- {} +
 
-echo "Production backup created and verified: $target"
+echo "Production $BACKUP_MODE backup created and verified: $target"

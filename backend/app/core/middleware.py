@@ -55,7 +55,7 @@ class RequestObservabilityMiddleware:
             await self.app(scope, receive, send_with_request_id)
         finally:
             path = scope.get("path", "")
-            if path not in {"/healthz", "/readyz"} or status_code >= 400:
+            if path not in {"/healthz", "/readyz", "/api/v1/healthz", "/api/v1/readyz"} or status_code >= 400:
                 event = {
                     "event": "http_request_completed",
                     "request_id": request_id,
@@ -80,7 +80,7 @@ class MaintenanceMiddleware(BaseHTTPMiddleware):
             path.startswith("/docs") or 
             path.startswith("/openapi.json") or
             path.startswith("/static") or
-            path in {"/healthz", "/readyz"} or
+            path in {"/healthz", "/readyz", "/api/v1/healthz", "/api/v1/readyz"} or
             request.method == "OPTIONS" # CORS preflight
         ):
             return await call_next(request)

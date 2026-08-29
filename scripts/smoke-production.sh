@@ -10,7 +10,7 @@ compose() {
   docker compose --env-file "$ROOT_ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
 
-for service in db redis backend outbox-relay operations-consumer email-delivery-worker integration-sync-worker frontend storefront; do
+for service in db redis backend outbox-relay operations-consumer domain-provisioning-worker email-delivery-worker integration-sync-worker frontend storefront; do
   if ! compose ps --status running --services | grep -qx "$service"; then
     echo "Required service is not running: $service" >&2
     compose ps

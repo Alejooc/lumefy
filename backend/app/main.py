@@ -19,6 +19,7 @@ app = FastAPI(
 )
 
 @app.get("/healthz", tags=["health"])
+@app.get(f"{settings.API_V1_STR}/healthz", tags=["health"], include_in_schema=False)
 @limiter.exempt
 async def liveness_probe():
     """Una sonda pública y mínima para Docker/orquestadores; no expone métricas."""
@@ -26,6 +27,7 @@ async def liveness_probe():
 
 
 @app.get("/readyz", tags=["health"])
+@app.get(f"{settings.API_V1_STR}/readyz", tags=["health"], include_in_schema=False)
 @limiter.exempt
 async def readiness_probe():
     """Verify that this API can serve requests, including its database."""
