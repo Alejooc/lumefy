@@ -226,6 +226,7 @@ async def _load_automated_collections(
     query = (
         select(StoreCollection)
         .options(selectinload(StoreCollection.rules))
+        .execution_options(populate_existing=True)
         .where(
             StoreCollection.storefront_id == storefront_id,
             StoreCollection.company_id == company_id,

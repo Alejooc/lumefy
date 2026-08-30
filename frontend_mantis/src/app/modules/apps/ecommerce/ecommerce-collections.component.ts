@@ -677,9 +677,10 @@ export class EcommerceCollectionsComponent implements OnInit {
       next: (result) => {
         this.ruleSaving = false;
         this.saving = false;
+        const syncSummary = `${result.added_count} agregado(s) y ${result.removed_count} retirado(s).`;
         this.swal.success(
-          afterCollectionSave && result.added_count > 0
-            ? `Colección guardada: ${result.added_count} producto(s) agregado(s)`
+          afterCollectionSave && (result.added_count > 0 || result.removed_count > 0)
+            ? `Colección guardada: ${syncSummary}`
             : 'Colección guardada'
         );
         this.loadCollections();

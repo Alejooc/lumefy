@@ -5341,6 +5341,10 @@ async def read_public_products(
     fulfillment_warehouse = await _resolve_storefront_fulfillment_warehouse(db, storefront)
 
     selected_collections = _parse_multi_query_param(collection)
+    if selected_collections and not preview_token:
+        # Automated collection membership changes must be visible immediately
+        # after the admin saves its rules; do not serve an old edge response.
+        response.headers["Cache-Control"] = "private, no-store"
     selected_categories = _parse_multi_query_param(category)
     selected_category_ids = await _resolve_public_category_ids(db, storefront, selected_categories)
     selected_brands = [_normalize_catalog_text(item) for item in _parse_multi_query_param(brand)]
