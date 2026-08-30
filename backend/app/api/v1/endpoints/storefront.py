@@ -3459,6 +3459,8 @@ async def add_product_to_collection(
     current_user: User = Depends(PermissionChecker("manage_company")),
 ) -> Any:
     collection = await _get_collection_or_404(db, collection_id, current_user.company_id)
+    if collection.collection_mode == "automated":
+        raise HTTPException(status_code=422, detail="Las colecciones automáticas se administran mediante reglas.")
     published_product = await _get_published_product_or_404(db, link_in.published_product_id, current_user.company_id)
     if published_product.storefront_id != collection.storefront_id:
         raise HTTPException(status_code=400, detail="Collection and published product must belong to the same storefront")
@@ -3517,7 +3519,9 @@ async def remove_product_from_collection(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_company")),
 ) -> Any:
-    await _get_collection_or_404(db, collection_id, current_user.company_id)
+    collection = await _get_collection_or_404(db, collection_id, current_user.company_id)
+    if collection.collection_mode == "automated":
+        raise HTTPException(status_code=422, detail="Las colecciones automáticas se administran mediante reglas.")
     result = await db.execute(
         select(StoreCollectionProduct).where(
             StoreCollectionProduct.collection_id == collection_id,

@@ -362,12 +362,19 @@ export class EcommerceCollectionsComponent implements OnInit {
     }
   }
 
+  onExistingRuleFieldChange(rule: StoreCollectionRule): void {
+    const validOperators = this.availableOperators(rule.field).map((option) => option.value);
+    if (!validOperators.includes(rule.operator)) {
+      rule.operator = validOperators[0];
+    }
+  }
+
   ruleFieldLabel(field: CollectionRuleField): string {
     return this.ruleFields.find((option) => option.value === field)?.label || field;
   }
 
-  ruleOperatorLabel(operator: CollectionRuleOperator): string {
-    return this.availableOperators(this.ruleDraft.field).find((option) => option.value === operator)?.label || operator;
+  ruleOperatorLabel(operator: CollectionRuleOperator, field: CollectionRuleField = this.ruleDraft.field): string {
+    return this.availableOperators(field).find((option) => option.value === operator)?.label || operator;
   }
 
   saveRules(): void {
@@ -658,7 +665,7 @@ export class EcommerceCollectionsComponent implements OnInit {
   }
 
   private isPreviewableRules(): boolean {
-    return this.rules.every((rule) => ['title', 'description', 'sku', 'price'].includes(rule.field));
+    return this.rules.every((rule) => ['title', 'description', 'price'].includes(rule.field));
   }
 
   private matchesRulePreview(product: PublishedProduct): boolean {
@@ -687,7 +694,7 @@ export class EcommerceCollectionsComponent implements OnInit {
   }
 
   private previewValues(product: PublishedProduct, field: CollectionRuleField): string[] {
-    const value = field === 'title' ? product.product_name : field === 'description' ? product.product_description : field === 'sku' ? product.slug : '';
+    const value = field === 'title' ? product.product_name : field === 'description' ? product.product_description : '';
     return [String(value || '').trim().toLowerCase()];
   }
 }

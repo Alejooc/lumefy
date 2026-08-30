@@ -196,7 +196,13 @@ async def _load_published_products(
     inventory_result = await db.execute(
         select(
             Inventory.product_id,
-            func.coalesce(func.sum(Inventory.quantity - Inventory.reserved_quantity), 0),
+            func.coalesce(
+                func.sum(
+                    func.coalesce(Inventory.quantity, 0)
+                    - func.coalesce(Inventory.reserved_quantity, 0)
+                ),
+                0,
+            ),
         )
         .where(
             Inventory.company_id == company_id,
@@ -259,8 +265,23 @@ async def reconcile_automated_collections(
         company_id=company_id,
         product_ids=product_ids,
     )
-    if not collections or not products:
+    if not collections:
         return {"matched_count": 0, "added_count": 0, "removed_count": 0}
+
+    if not products:
+        links_result = await db.execute(
+            select(StoreCollectionProduct).where(
+                StoreCollectionProduct.collection_id.in_([collection.id for collection in collections]),
+                StoreCollectionProduct.company_id == company_id,
+                StoreCollectionProduct.is_active == True,
+            )
+        )
+        removed_count = 0
+        for link in links_result.scalars().all():
+            link.is_active = False
+            link.updated_by_id = user_id
+            removed_count += 1
+        return {"matched_count": 0, "added_count": 0, "removed_count": removed_count}
 
     product_ids_for_query = [item.id for item in products]
     links_result = await db.execute(

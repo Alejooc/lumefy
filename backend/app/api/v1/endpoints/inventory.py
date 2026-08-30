@@ -20,6 +20,7 @@ router = APIRouter()
 from sqlalchemy.orm import selectinload
 
 from app.models.product import Product
+from app.services.storefront_collections import reconcile_products_collections
 
 
 async def _validate_company_product_and_branch(
@@ -451,6 +452,12 @@ async def create_movement(
         db.add(movement_dest)
         
         try:
+            await reconcile_products_collections(
+                db,
+                company_id=current_user.company_id,
+                product_ids=[movement_in.product_id],
+                user_id=current_user.id,
+            )
             await db.commit()
             await db.refresh(movement_src)
             # Return source movement as main response
@@ -524,6 +531,12 @@ async def create_movement(
         db.add(movement)
         
         try:
+            await reconcile_products_collections(
+                db,
+                company_id=current_user.company_id,
+                product_ids=[movement_in.product_id],
+                user_id=current_user.id,
+            )
             await db.commit()
             await db.refresh(movement)
         except Exception as e:

@@ -4,9 +4,13 @@
       <h4 class="mb-1">Colecciones</h4>
       <p class="text-muted mb-0">Gestiona las colecciones desde un listado principal y entra a una vista separada para productos y configuracion.</p>
     </div>
-    <div class="d-flex gap-2">
-      @if (storefronts.length > 0) {
-        <span class="settings-pill">{{ storefronts[0].name }}</span>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      @if (storefronts.length > 1) {
+        <select class="form-select form-select-sm collection-storefront-select" [(ngModel)]="selectedStorefrontId" (change)="onStorefrontChange()">
+          @for (storefront of storefronts; track storefront.id) { <option [value]="storefront.id">{{ storefront.name }}</option> }
+        </select>
+      } @else if (storefronts.length > 0) {
+        <span class="settings-pill"><i class="ti ti-building-store me-1"></i>{{ storefronts[0].name }}</span>
       }
       @if (viewMode === 'list') {
         <button class="btn btn-primary btn-sm" (click)="startNewCollection()" [disabled]="!selectedStorefrontId">Crear coleccion</button>
@@ -22,9 +26,9 @@
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
           <div>
             <h5 class="mb-0">Listado de colecciones</h5>
-            <small class="text-muted">Entra a cada coleccion para administrar sus productos y abrir su configuracion.</small>
+            <small class="text-muted">Crea colecciones manuales o automáticas y mantenlas organizadas.</small>
           </div>
-          <span class="badge bg-light text-dark">{{ collections.length }} colecciones</span>
+          <div class="collection-list-summary"><span class="badge bg-light text-dark">{{ filteredCollections.length }} de {{ collections.length }}</span><input class="form-control form-control-sm" [(ngModel)]="collectionSearch" placeholder="Buscar colección" /></div>
         </div>
 
         @if (!selectedStorefrontId) {
@@ -41,7 +45,11 @@
           </div>
         }
 
-        @if (selectedStorefrontId && collections.length > 0) {
+        @if (selectedStorefrontId && collections.length > 0 && filteredCollections.length === 0) {
+          <div class="empty-state border rounded p-4 text-center text-muted"><p class="mb-1">No encontramos esa colección</p><small>Prueba con otro nombre o slug.</small></div>
+        }
+
+        @if (selectedStorefrontId && filteredCollections.length > 0) {
           <div class="table-responsive">
             <table class="table align-middle">
               <thead>
@@ -55,18 +63,14 @@
                 </tr>
               </thead>
               <tbody>
-                @for (collection of collections; track collection.id) {
+                @for (collection of filteredCollections; track collection.id) {
                   <tr>
                     <td>
                       <strong class="d-block">{{ collection.name }}</strong>
                       <small class="text-muted">{{ collection.description || 'Sin descripcion' }}</small>
                     </td>
                     <td>/{{ collection.slug }}</td>
-                    <td>
-                      <span class="badge" [class.bg-success]="collection.is_visible" [class.bg-secondary]="!collection.is_visible">
-                        {{ collection.is_visible ? 'Visible' : 'Oculta' }}
-                      </span>
-                    </td>
+                    <td><span class="badge" [class.bg-success]="collection.is_visible" [class.bg-secondary]="!collection.is_visible">{{ collection.is_visible ? 'Visible' : 'Oculta' }}</span><span class="badge ms-1" [class.bg-primary]="collection.collection_mode === 'automated'" [class.bg-light]="collection.collection_mode !== 'automated'" [class.text-dark]="collection.collection_mode !== 'automated'">{{ collection.collection_mode === 'automated' ? 'Automática' : 'Manual' }}</span></td>
                     <td>{{ collection.is_featured ? 'Si' : 'No' }}</td>
                     <td>{{ collection.sort_order }}</td>
                     <td class="text-end">
@@ -158,6 +162,77 @@
                 </div>
               </div>
 
+              <div class="collection-mode-panel mt-4">
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-5">
+                    <label class="form-label">Cómo se agregan los productos</label>
+                    <select class="form-select" [(ngModel)]="form.collection_mode">
+                      <option value="manual">Manual: yo elijo los productos</option>
+                      <option value="automated">Automática: usar reglas</option>
+                    </select>
+                  </div>
+                  @if (form.collection_mode === 'automated') {
+                    <div class="col-md-4">
+                      <label class="form-label">Coincidir con</label>
+                      <select class="form-select" [(ngModel)]="form.rule_match">
+                        <option value="all">Todas las condiciones</option>
+                        <option value="any">Cualquiera de las condiciones</option>
+                      </select>
+                    </div>
+                    <div class="col-md-3">
+                      <span class="rule-mode-hint"><i class="ti ti-sparkles"></i> Se actualiza al publicar productos</span>
+                    </div>
+                  }
+                </div>
+
+                @if (form.collection_mode === 'automated') {
+                  <div class="collection-rules-builder mt-3">
+                    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">
+                      <div>
+                        <h6 class="mb-1">Reglas de la colección</h6>
+                        <small class="text-muted">Ejemplo: Título <strong>contiene</strong> “almohada”. Los cambios se aplican automáticamente.</small>
+                      </div>
+                      @if (rulePreviewIsAvailable) {
+                        <span class="rule-preview-count"><i class="ti ti-filter-check"></i>{{ rulePreviewCount }} coincidencia(s) ahora</span>
+                      }
+                    </div>
+
+                    @if (rules.length === 0) {
+                      <div class="rule-empty-state"><i class="ti ti-adjustments-horizontal"></i><span>Aún no hay condiciones. Agrega al menos una para activar la colección automática.</span></div>
+                    }
+                    @for (rule of rules; track $index; let ruleIndex = $index) {
+                      <div class="collection-rule-row">
+                        <span class="rule-row-number">{{ ruleIndex + 1 }}</span>
+                        <select class="form-select" [(ngModel)]="rule.field" (ngModelChange)="onExistingRuleFieldChange(rule)" aria-label="Campo de regla">
+                          @for (field of ruleFields; track field.value) { <option [value]="field.value">{{ field.label }}</option> }
+                        </select>
+                        <select class="form-select" [(ngModel)]="rule.operator" aria-label="Operador de regla">
+                          @for (operator of availableOperators(rule.field); track operator.value) { <option [value]="operator.value">{{ operator.label }}</option> }
+                        </select>
+                        <input class="form-control" [type]="rule.field === 'price' || rule.field === 'inventory' ? 'number' : 'text'" [(ngModel)]="rule.value" placeholder="Ej. almohada" aria-label="Valor de regla" />
+                        <button type="button" class="btn btn-outline-danger rule-remove-button" (click)="removeRule(ruleIndex)" aria-label="Eliminar regla"><i class="ti ti-trash"></i></button>
+                      </div>
+                    }
+
+                    <div class="collection-rule-add-row">
+                      <select class="form-select" [(ngModel)]="ruleDraft.field" (ngModelChange)="onRuleFieldChange()" aria-label="Nuevo campo de regla">
+                        @for (field of ruleFields; track field.value) { <option [value]="field.value">{{ field.label }}</option> }
+                      </select>
+                      <select class="form-select" [(ngModel)]="ruleDraft.operator" aria-label="Nuevo operador de regla">
+                        @for (operator of availableOperators(ruleDraft.field); track operator.value) { <option [value]="operator.value">{{ operator.label }}</option> }
+                      </select>
+                      <input class="form-control" [type]="ruleDraft.field === 'price' || ruleDraft.field === 'inventory' ? 'number' : 'text'" [(ngModel)]="ruleDraft.value" (keyup.enter)="addRule()" placeholder="Valor de la condición" aria-label="Nuevo valor de regla" />
+                      <button type="button" class="btn btn-outline-primary" (click)="addRule()"><i class="ti ti-plus me-1"></i>Agregar condición</button>
+                    </div>
+                    @if (!rulePreviewIsAvailable && rules.length > 0) { <small class="rule-backend-note"><i class="ti ti-info-circle"></i> La vista previa rápida aplica para título, descripción y precio; al guardar se evaluarán también proveedor, categoría, etiquetas, inventario, SKU y variantes.</small> }
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="applyRules()" [disabled]="ruleSaving || rules.length === 0"><i class="ti ti-refresh me-1"></i>Recalcular ahora</button>
+                      <button type="button" class="btn btn-primary btn-sm" (click)="saveRules()" [disabled]="ruleSaving"><span *ngIf="ruleSaving" class="spinner-border spinner-border-sm me-1"></span><i *ngIf="!ruleSaving" class="ti ti-device-floppy me-1"></i>Guardar reglas</button>
+                    </div>
+                  </div>
+                }
+              </div>
+
               <div class="d-flex justify-content-end gap-2 mt-3">
                 <button class="btn btn-outline-secondary" (click)="showConfigPanel = false">Cerrar</button>
                 <button class="btn btn-primary" (click)="save()" [disabled]="saving || !selectedStorefrontId">
@@ -180,10 +255,14 @@
               <div class="d-flex gap-2 flex-wrap">
                 @if (selectedCollectionId) {
                   <span class="badge bg-light text-dark">{{ linkedProducts.length }} vinculados</span>
-                  <button class="btn btn-outline-primary btn-sm" (click)="openAddProductsModal()">Agregar productos</button>
-                  <button class="btn btn-outline-danger btn-sm" (click)="removeSelectedLinkedProducts()" [disabled]="selectedLinkedProductIds.length === 0 || saving">
-                    Quitar seleccionados
-                  </button>
+                  @if (form.collection_mode !== 'automated') {
+                    <button class="btn btn-outline-primary btn-sm" (click)="openAddProductsModal()">Agregar productos</button>
+                    <button class="btn btn-outline-danger btn-sm" (click)="removeSelectedLinkedProducts()" [disabled]="selectedLinkedProductIds.length === 0 || saving">
+                      Quitar seleccionados
+                    </button>
+                  } @else {
+                    <span class="collection-automation-lock"><i class="ti ti-sparkles me-1"></i>Los productos se administran con reglas</span>
+                  }
                 }
               </div>
             </div>
@@ -221,6 +300,10 @@
                   <label class="form-label">Precio max.</label>
                   <input class="form-control" type="number" [(ngModel)]="linkedMaxPrice" />
                 </div>
+                <div class="col-12 d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                  <small class="text-muted">{{ filteredLinkedProducts.length }} producto(s) coinciden con estos filtros.</small>
+                  <button type="button" class="btn btn-link btn-sm p-0" (click)="clearLinkedFilters()">Limpiar filtros</button>
+                </div>
               </div>
 
               <div class="row g-2 align-items-center mb-3">
@@ -246,7 +329,7 @@
             @if (selectedCollectionId && linkedProducts.length === 0) {
               <div class="empty-state border rounded p-4 text-center text-muted">
                 <p class="mb-1">Esta coleccion aun no tiene productos</p>
-                <small>Agrega productos publicados desde el selector superior.</small>
+                <small>{{ form.collection_mode === 'automated' ? 'Agrega condiciones arriba y guarda las reglas para poblarla.' : 'Agrega productos publicados desde el selector superior.' }}</small>
               </div>
             }
 
@@ -261,7 +344,9 @@
                       <th>Destacado</th>
                       <th>Precio base / web</th>
                       <th>Orden</th>
-                      <th class="text-end">Acciones</th>
+                      @if (form.collection_mode !== 'automated') {
+                        <th class="text-end">Acciones</th>
+                      }
                     </tr>
                   </thead>
                   <tbody>
@@ -283,9 +368,11 @@
                         <td>{{ item.is_featured ? 'Si' : 'No' }}</td>
                         <td>{{ priceLabel(item) }}</td>
                         <td>{{ linkedSortOrder(item.id) }}</td>
-                        <td class="text-end">
-                          <button class="btn btn-outline-danger btn-sm" (click)="removeLinkedProduct(item.id)">Quitar</button>
-                        </td>
+                        @if (form.collection_mode !== 'automated') {
+                          <td class="text-end">
+                            <button class="btn btn-outline-danger btn-sm" (click)="removeLinkedProduct(item.id)">Quitar</button>
+                          </td>
+                        }
                       </tr>
                     }
                   </tbody>
@@ -332,10 +419,14 @@
               <label class="form-label">Precio min.</label>
               <input class="form-control" type="number" [(ngModel)]="availableMinPrice" />
             </div>
-            <div class="col-md-2">
-              <label class="form-label">Precio max.</label>
-              <input class="form-control" type="number" [(ngModel)]="availableMaxPrice" />
-            </div>
+                <div class="col-md-2">
+                  <label class="form-label">Precio max.</label>
+                  <input class="form-control" type="number" [(ngModel)]="availableMaxPrice" />
+                </div>
+                <div class="col-12 d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                  <small class="text-muted"><strong>{{ filteredAvailableProducts.length }}</strong> producto(s) disponibles con estos filtros.</small>
+                  <button type="button" class="btn btn-link btn-sm p-0" (click)="clearAvailableFilters()">Limpiar filtros</button>
+                </div>
           </div>
 
           <div class="row g-3 mb-3">
