@@ -30,6 +30,7 @@ class PriceListSourceRuleBase(BaseModel):
     pricing_mode: Literal["FIXED", "MARKUP_PERCENT", "MARKUP_AMOUNT"] = "MARKUP_PERCENT"
     base_source: Literal["INTERNAL_PRICE", "INTERNAL_COST", "EXTERNAL_PRICE", "EXTERNAL_COST"] = "EXTERNAL_PRICE"
     adjustment_value: float = 0.0
+    rounding_mode: Literal["NEAREST", "ENDING_900"] = "NEAREST"
     rounding_step: float = 0.0
     min_margin_percent: Optional[float] = None
 
@@ -43,6 +44,7 @@ class PriceListSourceRuleUpdate(BaseModel):
     pricing_mode: Optional[Literal["FIXED", "MARKUP_PERCENT", "MARKUP_AMOUNT"]] = None
     base_source: Optional[Literal["INTERNAL_PRICE", "INTERNAL_COST", "EXTERNAL_PRICE", "EXTERNAL_COST"]] = None
     adjustment_value: Optional[float] = None
+    rounding_mode: Optional[Literal["NEAREST", "ENDING_900"]] = None
     rounding_step: Optional[float] = None
     min_margin_percent: Optional[float] = None
 
@@ -64,6 +66,7 @@ class PriceListBase(BaseModel):
     pricing_mode: Literal["FIXED", "MARKUP_PERCENT", "MARKUP_AMOUNT"] = "FIXED"
     base_source: Literal["INTERNAL_PRICE", "INTERNAL_COST", "EXTERNAL_PRICE", "EXTERNAL_COST"] = "INTERNAL_PRICE"
     adjustment_value: float = 0.0
+    rounding_mode: Literal["NEAREST", "ENDING_900"] = "NEAREST"
     rounding_step: float = 0.0
     min_margin_percent: Optional[float] = None
 
@@ -80,6 +83,7 @@ class PriceListUpdate(BaseModel):
     pricing_mode: Optional[Literal["FIXED", "MARKUP_PERCENT", "MARKUP_AMOUNT"]] = None
     base_source: Optional[Literal["INTERNAL_PRICE", "INTERNAL_COST", "EXTERNAL_PRICE", "EXTERNAL_COST"]] = None
     adjustment_value: Optional[float] = None
+    rounding_mode: Optional[Literal["NEAREST", "ENDING_900"]] = None
     rounding_step: Optional[float] = None
     min_margin_percent: Optional[float] = None
 
@@ -96,6 +100,7 @@ class PriceListGlobalAdjustment(BaseModel):
     percent: float = Field(ge=-100, le=10000)
     base_source: Optional[Literal["INTERNAL_PRICE", "INTERNAL_COST", "EXTERNAL_PRICE", "EXTERNAL_COST"]] = None
     preserve_overrides: bool = True
+    rounding_mode: Optional[Literal["NEAREST", "ENDING_900"]] = None
     rounding_step: Optional[float] = None
     min_margin_percent: Optional[float] = None
 

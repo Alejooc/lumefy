@@ -135,6 +135,7 @@ async def create_pricelist(
         pricing_mode=pricelist_in.pricing_mode,
         base_source=pricelist_in.base_source,
         adjustment_value=pricelist_in.adjustment_value,
+        rounding_mode=pricelist_in.rounding_mode,
         rounding_step=pricelist_in.rounding_step,
         min_margin_percent=pricelist_in.min_margin_percent,
         company_id=current_user.company_id
@@ -444,6 +445,8 @@ async def apply_global_adjustment(
         raise HTTPException(status_code=400, detail="La lista necesita un origen de datos para calcular precios externos")
     if adjustment.rounding_step is not None:
         pricelist.rounding_step = adjustment.rounding_step
+    if adjustment.rounding_mode is not None:
+        pricelist.rounding_mode = adjustment.rounding_mode
     if adjustment.min_margin_percent is not None:
         pricelist.min_margin_percent = adjustment.min_margin_percent
     if not adjustment.preserve_overrides:

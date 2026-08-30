@@ -23,6 +23,7 @@ export interface PriceList {
     pricing_mode: 'FIXED' | 'MARKUP_PERCENT' | 'MARKUP_AMOUNT';
     base_source: 'INTERNAL_PRICE' | 'INTERNAL_COST' | 'EXTERNAL_PRICE' | 'EXTERNAL_COST';
     adjustment_value: number;
+    rounding_mode: 'NEAREST' | 'ENDING_900';
     rounding_step: number;
     min_margin_percent?: number | null;
     items?: PriceListItem[];
@@ -36,6 +37,7 @@ export interface PriceListSourceRule {
     pricing_mode: 'FIXED' | 'MARKUP_PERCENT' | 'MARKUP_AMOUNT';
     base_source: 'INTERNAL_PRICE' | 'INTERNAL_COST' | 'EXTERNAL_PRICE' | 'EXTERNAL_COST';
     adjustment_value: number;
+    rounding_mode: 'NEAREST' | 'ENDING_900';
     rounding_step: number;
     min_margin_percent?: number | null;
 }
@@ -51,6 +53,7 @@ export interface PriceListPayload {
     pricing_mode?: PriceList['pricing_mode'];
     base_source?: PriceList['base_source'];
     adjustment_value?: number;
+    rounding_mode?: PriceList['rounding_mode'];
     rounding_step?: number;
     min_margin_percent?: number | null;
     source_rules?: PriceListSourceRulePayload[];
@@ -120,6 +123,7 @@ export class PriceListService {
         percent: number;
         base_source?: PriceList['base_source'];
         preserve_overrides: boolean;
+        rounding_mode?: PriceList['rounding_mode'];
         rounding_step?: number;
         min_margin_percent?: number;
     }): Observable<PriceList> {

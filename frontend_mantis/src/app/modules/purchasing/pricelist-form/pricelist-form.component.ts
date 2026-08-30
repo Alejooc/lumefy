@@ -50,6 +50,7 @@ export class PriceListFormComponent implements OnInit {
             pricing_mode: ['FIXED', Validators.required],
             base_source: ['INTERNAL_PRICE', Validators.required],
             adjustment_value: [0, [Validators.required, Validators.min(-1000000)]],
+            rounding_mode: ['NEAREST', Validators.required],
             rounding_step: [0, [Validators.min(0)]],
             min_margin_percent: [null, [Validators.min(0)]],
             items: this.fb.array([])
@@ -87,6 +88,7 @@ export class PriceListFormComponent implements OnInit {
                 pricing_mode: pl.pricing_mode || 'FIXED',
                 base_source: pl.base_source || 'INTERNAL_PRICE',
                 adjustment_value: pl.adjustment_value || 0,
+                rounding_mode: pl.rounding_mode || 'NEAREST',
                 rounding_step: pl.rounding_step || 0,
                 min_margin_percent: pl.min_margin_percent ?? null
             });
@@ -128,6 +130,7 @@ export class PriceListFormComponent implements OnInit {
             pricing_mode: 'MARKUP_PERCENT',
             base_source: 'EXTERNAL_PRICE',
             adjustment_value: 0,
+            rounding_mode: 'NEAREST',
             rounding_step: 0,
             min_margin_percent: null
         });
@@ -156,6 +159,7 @@ export class PriceListFormComponent implements OnInit {
             pricing_mode: rule.pricing_mode,
             base_source: rule.base_source,
             adjustment_value: Number(rule.adjustment_value || 0),
+            rounding_mode: rule.rounding_mode || 'NEAREST',
             rounding_step: Number(rule.rounding_step || 0),
             min_margin_percent: rule.min_margin_percent == null ? null : Number(rule.min_margin_percent)
         };
@@ -198,6 +202,7 @@ export class PriceListFormComponent implements OnInit {
                 pricing_mode: formVal.pricing_mode,
                 base_source: formVal.base_source,
                 adjustment_value: Number(formVal.adjustment_value || 0),
+                rounding_mode: formVal.rounding_mode,
                 rounding_step: Number(formVal.rounding_step || 0),
                 min_margin_percent: formVal.min_margin_percent === '' ? null : formVal.min_margin_percent
                 }).subscribe({
@@ -267,6 +272,7 @@ export class PriceListFormComponent implements OnInit {
             percent: this.globalPercent,
             base_source: this.globalBaseSource,
             preserve_overrides: this.preserveOverrides,
+            rounding_mode: this.priceListForm.get('rounding_mode')?.value,
             rounding_step: Number(this.priceListForm.get('rounding_step')?.value || 0),
             min_margin_percent: this.priceListForm.get('min_margin_percent')?.value ?? undefined
         }).subscribe({

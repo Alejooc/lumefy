@@ -27,6 +27,7 @@ class PriceListSourceRule(BaseModel):
     pricing_mode: Mapped[str] = mapped_column(String(30), nullable=False, default="MARKUP_PERCENT")
     base_source: Mapped[str] = mapped_column(String(30), nullable=False, default="EXTERNAL_PRICE")
     adjustment_value: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    rounding_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="NEAREST")
     rounding_step: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     min_margin_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
 

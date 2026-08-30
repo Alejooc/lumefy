@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 import uuid
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_CEILING, ROUND_HALF_UP
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -238,12 +238,21 @@ def resolve_price(
             value = max(value, minimum)
 
     rule, _external_values = _rule_for_product(context, product, variant)
-    step = float((rule.rounding_step if rule else price_list.rounding_step) or 0)
-    if step > 0:
+    rounding_mode = getattr(rule, "rounding_mode", None) or getattr(price_list, "rounding_mode", "NEAREST")
+    if rounding_mode == "ENDING_900":
+        amount = max(Decimal("0"), Decimal(str(value)))
+        thousand = Decimal("1000")
+        ending = Decimal("900")
         value = float(
-            (Decimal(str(value)) / Decimal(str(step))).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-            * Decimal(str(step))
+            ((amount - ending) / thousand).to_integral_value(rounding=ROUND_CEILING) * thousand + ending
         )
+    else:
+        step = float((rule.rounding_step if rule else price_list.rounding_step) or 0)
+        if step > 0:
+            value = float(
+                (Decimal(str(value)) / Decimal(str(step))).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+                * Decimal(str(step))
+            )
     return max(0.0, round(value, 2))
 
 

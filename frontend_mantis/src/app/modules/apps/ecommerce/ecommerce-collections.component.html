@@ -333,7 +333,14 @@
               </div>
             }
 
-            @if (selectedCollectionId && linkedProducts.length === 0) {
+            @if (selectedCollectionId && productsLoading) {
+              <div class="empty-state border rounded p-4 text-center text-muted">
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                Cargando los productos de la coleccion...
+              </div>
+            }
+
+            @if (selectedCollectionId && !productsLoading && linkedProducts.length === 0) {
               <div class="empty-state border rounded p-4 text-center text-muted">
                 <p class="mb-1">Esta coleccion aun no tiene productos</p>
                 <small>{{ form.collection_mode === 'automated' ? 'Agrega condiciones arriba y guarda las reglas para poblarla.' : 'Agrega productos publicados desde el selector superior.' }}</small>
@@ -457,14 +464,21 @@
             <small class="text-muted">{{ selectedAvailableProductIds.length }} seleccionados</small>
           </div>
 
-          @if (filteredAvailableProducts.length === 0) {
+          @if (productsLoading) {
+            <div class="empty-state border rounded p-4 text-center text-muted">
+              <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+              Cargando productos publicados...
+            </div>
+          }
+
+          @if (!productsLoading && filteredAvailableProducts.length === 0) {
             <div class="empty-state border rounded p-4 text-center text-muted">
               <p class="mb-1">No hay productos disponibles</p>
               <small>Puede que ya todos esten vinculados o que el filtro no tenga coincidencias.</small>
             </div>
           }
 
-          @if (filteredAvailableProducts.length > 0) {
+          @if (!productsLoading && filteredAvailableProducts.length > 0) {
             <div class="table-responsive collection-modal__table">
               <table class="table align-middle">
                 <thead>

@@ -26,6 +26,7 @@ class PriceList(BaseModel):
     pricing_mode: Mapped[str] = mapped_column(String(30), default="FIXED")
     base_source: Mapped[str] = mapped_column(String(30), default="INTERNAL_PRICE")
     adjustment_value: Mapped[float] = mapped_column(Float, default=0.0)
+    rounding_mode: Mapped[str] = mapped_column(String(20), default="NEAREST")
     rounding_step: Mapped[float] = mapped_column(Float, default=0.0)
     min_margin_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
     

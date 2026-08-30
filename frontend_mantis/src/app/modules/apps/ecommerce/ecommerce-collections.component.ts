@@ -31,6 +31,8 @@ export class EcommerceCollectionsComponent implements OnInit {
   private swal = inject(SweetAlertService);
 
   loading = false;
+  productsLoading = false;
+  private productsRequestId = 0;
   saving = false;
   storefronts: Storefront[] = [];
   selectedStorefrontId = '';
@@ -164,20 +166,19 @@ export class EcommerceCollectionsComponent implements OnInit {
 
   loadCollections(): void {
     if (!this.selectedStorefrontId) {
+      this.productsRequestId += 1;
       this.collections = [];
       this.publishedProducts = [];
       this.collectionProducts = [];
+      this.productsLoading = false;
       this.loading = false;
       return;
     }
     this.loading = true;
-    forkJoin({
-      collections: this.storefrontService.getCollections(this.selectedStorefrontId),
-      products: this.storefrontService.getPublishedProducts(this.selectedStorefrontId)
-    }).subscribe({
-      next: ({ collections, products }) => {
+    this.storefrontService.getCollections(this.selectedStorefrontId).subscribe({
+      next: (collections) => {
         this.collections = collections;
-        this.publishedProducts = products;
+        this.publishedProducts = [];
         this.resetBulkSelection();
         this.loading = false;
       },
@@ -206,6 +207,32 @@ export class EcommerceCollectionsComponent implements OnInit {
     }
     this.loadCollectionProducts(collectionId);
     this.loadCollectionRules(collectionId);
+    this.loadPublishedProducts();
+  }
+
+  loadPublishedProducts(): void {
+    if (!this.selectedStorefrontId || this.productsLoading) {
+      return;
+    }
+    const requestId = ++this.productsRequestId;
+    this.productsLoading = true;
+    this.storefrontService.getPublishedProducts(this.selectedStorefrontId).subscribe({
+      next: (products) => {
+        if (requestId !== this.productsRequestId) {
+          return;
+        }
+        this.publishedProducts = products;
+        this.productsLoading = false;
+      },
+      error: (err) => {
+        if (requestId !== this.productsRequestId) {
+          return;
+        }
+        this.publishedProducts = [];
+        this.productsLoading = false;
+        this.swal.error('Error', err?.error?.detail || 'No se pudieron cargar los productos publicados.');
+      }
+    });
   }
 
   loadCollectionRules(collectionId: string): void {
@@ -294,6 +321,7 @@ export class EcommerceCollectionsComponent implements OnInit {
 
   openAddProductsModal(): void {
     if (!this.selectedCollectionId) return;
+    this.loadPublishedProducts();
     this.availableSearch = '';
     this.availableSlugFilter = '';
     this.availableFeaturedFilter = 'all';
@@ -546,6 +574,8 @@ export class EcommerceCollectionsComponent implements OnInit {
   }
 
   private resetSelection(): void {
+    this.productsRequestId += 1;
+    this.productsLoading = false;
     this.selectedCollectionId = '';
     this.form = this.createForm();
     this.collectionProducts = [];

@@ -58,9 +58,16 @@
                 <input type="number" class="form-control" formControlName="adjustment_value" min="-1000000" step="0.01">
               </div>
               <div class="col-md-3">
+                <label class="form-label">Tipo de redondeo</label>
+                <select class="form-select" formControlName="rounding_mode">
+                  <option value="NEAREST">Múltiplo más cercano</option>
+                  <option value="ENDING_900">Terminar en 900</option>
+                </select>
+              </div>
+              <div class="col-md-3">
                 <label class="form-label">Redondear a</label>
                 <input type="number" class="form-control" formControlName="rounding_step" min="0" step="100">
-                <small class="text-muted">Regla general si no hay proveedor específico.</small>
+                <small class="text-muted">Solo aplica con “Múltiplo más cercano”.</small>
               </div>
               <div class="col-md-3">
                 <label class="form-label">Margen mínimo (%)</label>
@@ -146,8 +153,16 @@
                         </div>
                       </div>
                       <div class="col-md-4">
+                        <label class="form-label small">Tipo de redondeo</label>
+                        <select class="form-select" [(ngModel)]="rule.rounding_mode" [ngModelOptions]="{standalone: true}">
+                          <option value="NEAREST">Múltiplo más cercano</option>
+                          <option value="ENDING_900">Terminar en 900</option>
+                        </select>
+                      </div>
+                      <div class="col-md-4">
                         <label class="form-label small">Redondear a</label>
                         <input type="number" class="form-control" [(ngModel)]="rule.rounding_step" [ngModelOptions]="{standalone: true}" min="0" step="100">
+                        <small class="text-muted">Solo aplica con múltiplo.</small>
                       </div>
                       <div class="col-md-4">
                         <label class="form-label small">Margen mínimo (%)</label>

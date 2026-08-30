@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpEvent } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { shareReplay, tap } from 'rxjs/operators';
 
 import { ApiService } from './api.service';
 
@@ -688,9 +689,17 @@ export interface PublicPaymentIntentResponse {
 })
 export class StorefrontAdminService {
   private api = inject(ApiService);
+  private storefrontsRequest$: Observable<Storefront[]> | null = null;
+  private collectionsRequests = new Map<string, Observable<StoreCollection[]>>();
+  private navigationRequests = new Map<string, Observable<StoreNavigationItem[]>>();
 
   getStorefronts(): Observable<Storefront[]> {
-    return this.api.get<Storefront[]>('/storefront/');
+    if (!this.storefrontsRequest$) {
+      this.storefrontsRequest$ = this.api.get<Storefront[]>('/storefront/').pipe(
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+    }
+    return this.storefrontsRequest$;
   }
 
   getReadiness(storefrontId: string): Observable<StorefrontReadiness> {
@@ -767,11 +776,15 @@ export class StorefrontAdminService {
   }
 
   createStorefront(payload: Partial<Storefront>): Observable<Storefront> {
-    return this.api.post<Storefront>('/storefront/', payload);
+    return this.api.post<Storefront>('/storefront/', payload).pipe(
+      tap(() => this.storefrontsRequest$ = null),
+    );
   }
 
   updateStorefront(id: string, payload: Partial<Storefront>): Observable<Storefront> {
-    return this.api.put<Storefront>(`/storefront/${id}`, payload);
+    return this.api.put<Storefront>(`/storefront/${id}`, payload).pipe(
+      tap(() => this.storefrontsRequest$ = null),
+    );
   }
 
   getDomains(storefrontId?: string): Observable<StorefrontDomain[]> {
@@ -799,15 +812,27 @@ export class StorefrontAdminService {
   }
 
   getCollections(storefrontId?: string): Observable<StoreCollection[]> {
-    return this.api.get<StoreCollection[]>('/storefront/collections', storefrontId ? { storefront_id: storefrontId } : {});
+    const cacheKey = storefrontId || '__all__';
+    let request$ = this.collectionsRequests.get(cacheKey);
+    if (!request$) {
+      request$ = this.api
+        .get<StoreCollection[]>('/storefront/collections', storefrontId ? { storefront_id: storefrontId } : {})
+        .pipe(shareReplay({ bufferSize: 1, refCount: false }));
+      this.collectionsRequests.set(cacheKey, request$);
+    }
+    return request$;
   }
 
   createCollection(payload: Partial<StoreCollection>): Observable<StoreCollection> {
-    return this.api.post<StoreCollection>('/storefront/collections', payload);
+    return this.api.post<StoreCollection>('/storefront/collections', payload).pipe(
+      tap(() => this.collectionsRequests.clear()),
+    );
   }
 
   updateCollection(id: string, payload: Partial<StoreCollection>): Observable<StoreCollection> {
-    return this.api.put<StoreCollection>(`/storefront/collections/${id}`, payload);
+    return this.api.put<StoreCollection>(`/storefront/collections/${id}`, payload).pipe(
+      tap(() => this.collectionsRequests.clear()),
+    );
   }
 
   getCollectionRules(collectionId: string): Observable<StoreCollectionRule[]> {
@@ -818,11 +843,15 @@ export class StorefrontAdminService {
     collectionId: string,
     payload: { collection_mode: 'manual' | 'automated'; rule_match: 'all' | 'any'; rules: StoreCollectionRule[] }
   ): Observable<CollectionRulesApplyResponse> {
-    return this.api.put<CollectionRulesApplyResponse>(`/storefront/collections/${collectionId}/rules`, payload);
+    return this.api.put<CollectionRulesApplyResponse>(`/storefront/collections/${collectionId}/rules`, payload).pipe(
+      tap(() => this.collectionsRequests.clear()),
+    );
   }
 
   applyCollectionRules(collectionId: string): Observable<CollectionRulesApplyResponse> {
-    return this.api.post<CollectionRulesApplyResponse>(`/storefront/collections/${collectionId}/rules/apply`, {});
+    return this.api.post<CollectionRulesApplyResponse>(`/storefront/collections/${collectionId}/rules/apply`, {}).pipe(
+      tap(() => this.collectionsRequests.clear()),
+    );
   }
 
   getPublishedProducts(storefrontId?: string): Observable<PublishedProduct[]> {
@@ -838,7 +867,9 @@ export class StorefrontAdminService {
   }
 
   addProductToCollection(collectionId: string, payload: Partial<StoreCollectionProduct>): Observable<StoreCollectionProduct> {
-    return this.api.post<StoreCollectionProduct>(`/storefront/collections/${collectionId}/products`, payload);
+    return this.api.post<StoreCollectionProduct>(`/storefront/collections/${collectionId}/products`, payload).pipe(
+      tap(() => this.collectionsRequests.clear()),
+    );
   }
 
   getCollectionProducts(collectionId: string): Observable<StoreCollectionProduct[]> {
@@ -846,23 +877,39 @@ export class StorefrontAdminService {
   }
 
   removeProductFromCollection(collectionId: string, publishedProductId: string): Observable<{ ok: boolean }> {
-    return this.api.delete<{ ok: boolean }>(`/storefront/collections/${collectionId}/products/${publishedProductId}`);
+    return this.api.delete<{ ok: boolean }>(`/storefront/collections/${collectionId}/products/${publishedProductId}`).pipe(
+      tap(() => this.collectionsRequests.clear()),
+    );
   }
 
   getNavigation(storefrontId?: string): Observable<StoreNavigationItem[]> {
-    return this.api.get<StoreNavigationItem[]>('/storefront/navigation', storefrontId ? { storefront_id: storefrontId } : {});
+    const cacheKey = storefrontId || '__all__';
+    let request$ = this.navigationRequests.get(cacheKey);
+    if (!request$) {
+      request$ = this.api
+        .get<StoreNavigationItem[]>('/storefront/navigation', storefrontId ? { storefront_id: storefrontId } : {})
+        .pipe(shareReplay({ bufferSize: 1, refCount: false }));
+      this.navigationRequests.set(cacheKey, request$);
+    }
+    return request$;
   }
 
   createNavigationItem(payload: Partial<StoreNavigationItem>): Observable<StoreNavigationItem> {
-    return this.api.post<StoreNavigationItem>('/storefront/navigation', payload);
+    return this.api.post<StoreNavigationItem>('/storefront/navigation', payload).pipe(
+      tap(() => this.navigationRequests.clear()),
+    );
   }
 
   updateNavigationItem(id: string, payload: Partial<StoreNavigationItem>): Observable<StoreNavigationItem> {
-    return this.api.put<StoreNavigationItem>(`/storefront/navigation/${id}`, payload);
+    return this.api.put<StoreNavigationItem>(`/storefront/navigation/${id}`, payload).pipe(
+      tap(() => this.navigationRequests.clear()),
+    );
   }
 
   deleteNavigationItem(id: string): Observable<{ ok: boolean }> {
-    return this.api.delete<{ ok: boolean }>(`/storefront/navigation/${id}`);
+    return this.api.delete<{ ok: boolean }>(`/storefront/navigation/${id}`).pipe(
+      tap(() => this.navigationRequests.clear()),
+    );
   }
 
   getPaymentGateways(storefrontId?: string): Observable<StorePaymentGateway[]> {
