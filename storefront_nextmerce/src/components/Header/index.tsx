@@ -954,7 +954,7 @@ const Header = ({ initialStorefront }: HeaderProps) => {
                     ) : (
                       <li
                         key={i}
-                        className="group relative before:w-0 before:h-[3px] before:bg-blue before:absolute before:left-0 before:top-0 before:rounded-b-[3px] before:ease-out before:duration-200 hover:before:w-full "
+                        className="group relative before:w-0 before:h-[3px] before:bg-blue before:absolute before:left-0 before:bottom-0 before:rounded-t-[3px] before:ease-out before:duration-200 hover:before:w-full "
                       >
                         <Link
                           href={menuItem.path}
