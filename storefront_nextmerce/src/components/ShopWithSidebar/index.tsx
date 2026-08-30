@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Breadcrumb from "../Common/Breadcrumb";
 import CustomSelect from "./CustomSelect";
@@ -123,6 +123,7 @@ const ShopWithSidebar = ({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isNavigating, startNavigation] = useTransition();
   const [productStyle, setProductStyle] = useState("grid");
   const [productSidebar, setProductSidebar] = useState(false);
   const [loadedItems, setLoadedItems] = useState<Product[]>(items);
@@ -180,6 +181,11 @@ const ShopWithSidebar = ({
   const endProduct = loadedItems.length ? startProduct + loadedItems.length - 1 : 0;
   const activeMinPrice = searchParams.get("minPrice");
   const activeMaxPrice = searchParams.get("maxPrice");
+
+  const navigateTo = (url: string) => {
+    setProductSidebar(false);
+    startNavigation(() => router.push(url));
+  };
 
 
   // Server navigation replaces the first batch when a filter changes. Reset
@@ -308,7 +314,7 @@ const ShopWithSidebar = ({
     const params = new URLSearchParams(searchParams.toString());
     if (!value) {
       params.delete(key);
-      router.push(`${pathname}?${params.toString()}`);
+      navigateTo(`${pathname}?${params.toString()}`);
       return;
     }
 
@@ -327,7 +333,7 @@ const ShopWithSidebar = ({
     }
     params.delete("page");
 
-    router.push(`${pathname}?${params.toString()}`);
+    navigateTo(`${pathname}?${params.toString()}`);
   };
 
   const updateFilters = (entries: Record<string, string | undefined>) => {
@@ -340,7 +346,7 @@ const ShopWithSidebar = ({
       }
     }
     params.delete("page");
-    router.push(`${pathname}?${params.toString()}`);
+    navigateTo(`${pathname}?${params.toString()}`);
   };
 
   const removeFilterValue = (key: string, value?: string) => {
@@ -361,7 +367,7 @@ const ShopWithSidebar = ({
       }
     }
     params.delete("page");
-    router.push(`${pathname}?${params.toString()}`);
+    navigateTo(`${pathname}?${params.toString()}`);
   };
 
   const clearAllFilters = () => {
@@ -369,7 +375,7 @@ const ShopWithSidebar = ({
     ["collection", "category", "brand", "type", "size", "color", "minPrice", "maxPrice", "page"].forEach((key) =>
       params.delete(key),
     );
-    router.push(`${pathname}?${params.toString()}`);
+    navigateTo(`${pathname}?${params.toString()}`);
   };
 
   const removePriceFilter = () => {
@@ -377,7 +383,7 @@ const ShopWithSidebar = ({
     params.delete("minPrice");
     params.delete("maxPrice");
     params.delete("page");
-    router.push(`${pathname}?${params.toString()}`);
+    navigateTo(`${pathname}?${params.toString()}`);
   };
 
   const categoryLabelMap = new Map(categories.map((item) => [item.slug, item.name]));
@@ -459,6 +465,19 @@ const ShopWithSidebar = ({
         pages={breadcrumbPages || ["Productos"]}
       />
       <section className={`overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6] ${previewMode && selectionMode ? "lumefy-preview--selecting" : ""}`}>
+        {isNavigating ? (
+          <div
+            className="absolute inset-0 z-[60] flex items-start justify-center bg-white/55 px-4 pt-28 backdrop-blur-[1px]"
+            role="status"
+            aria-live="polite"
+            aria-label="Actualizando catálogo"
+          >
+            <div className="sticky top-24 inline-flex items-center gap-3 rounded-full border border-gray-3 bg-white px-4 py-2.5 text-sm font-medium text-dark shadow-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue border-t-transparent" aria-hidden="true" />
+              Actualizando catálogo…
+            </div>
+          </div>
+        ) : null}
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
           <div className="flex gap-7.5">
             {/* <!-- Sidebar Start --> */}
@@ -495,7 +514,7 @@ const ShopWithSidebar = ({
                         type="button"
                         className="text-blue"
                         onClick={() =>
-                          router.push(
+                          navigateTo(
                             searchTerm?.trim()
                               ? `${pathname}?q=${encodeURIComponent(searchTerm)}`
                               : pathname,
