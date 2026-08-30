@@ -69,6 +69,7 @@ const ShopWithSidebar = ({
   colors,
   selectedCollectionName,
   selectedCollectionDescription,
+  collectionSlug,
   collectionTemplate,
   searchTemplate,
   templateKey = "collection",
@@ -98,6 +99,7 @@ const ShopWithSidebar = ({
   colors: ShopFilterFacet[];
   selectedCollectionName?: string;
   selectedCollectionDescription?: string;
+  collectionSlug?: string;
   collectionTemplate?: CollectionTemplateDocument;
   searchTemplate?: SearchTemplateDocument;
   templateKey?: "collection" | "search";
@@ -246,6 +248,12 @@ const ShopWithSidebar = ({
       params.delete("maxPrice");
       if (minPrice) params.set("min_price", minPrice);
       if (maxPrice) params.set("max_price", maxPrice);
+      // Collection pages encode the collection in the pathname, not in the
+      // query string. Preserve it for every incremental request so a later
+      // batch cannot fall back to the complete storefront catalog.
+      if (templateKey === "collection" && collectionSlug) {
+        params.set("collection", collectionSlug);
+      }
       params.set("page", String(nextPage));
       params.set("page_size", String(PRODUCTS_PER_BATCH));
       params.set("include_facets", "false");
@@ -273,7 +281,7 @@ const ShopWithSidebar = ({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [hasMoreItems, isLoadingMore, nextPage, searchParams]);
+  }, [collectionSlug, hasMoreItems, isLoadingMore, nextPage, searchParams, templateKey]);
 
   useEffect(() => {
     const target = loadMoreRef.current;

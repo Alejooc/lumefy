@@ -161,7 +161,10 @@ export async function getPublicNavigation(
 ): Promise<PublicStoreNavigationItem[]> {
   return request<PublicStoreNavigationItem[]>(
     `/storefront/public/${storefrontId}/navigation`,
-    { cache: "force-cache", next: { revalidate: 60 } },
+    // Menu edits must become visible immediately after saving them in the
+    // admin. The response is tiny, so freshness is more valuable than
+    // keeping a stale navigation cache for the storefront.
+    { cache: "no-store" },
   );
 }
 

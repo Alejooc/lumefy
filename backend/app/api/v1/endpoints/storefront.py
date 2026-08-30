@@ -4953,7 +4953,9 @@ async def read_public_navigation(
     db: AsyncSession = Depends(get_db),
     preview_token: str | None = None,
 ) -> Any:
-    _set_public_cache_headers(response, preview_token, PUBLIC_STOREFRONT_CACHE_MAX_AGE)
+    # Navigation is a small response and is edited from the admin. Do not let
+    # the browser or Cloudflare keep an old tree after a menu item is saved.
+    response.headers["Cache-Control"] = "private, no-store"
     await _get_public_storefront_by_id(db, storefront_id, preview_token)
     result = await db.execute(
         select(StoreNavigationItem).where(
@@ -5852,6 +5854,7 @@ async def read_public_products(
                 is_refined=category_id in selected_category_ids,
             )
             for category_id, name in sorted(category_names.items(), key=lambda entry: entry[1].lower())
+            if category_counts.get(str(category_id), 0) > 0 or category_id in selected_category_ids
         ] if include_facets else [],
         collections=[
             schemas.PublicCatalogCategory(
@@ -5861,6 +5864,7 @@ async def read_public_products(
                 is_refined=item.slug in selected_collections,
             )
             for item in collections
+            if collection_counts.get(item.slug, 0) > 0 or item.slug in selected_collections
         ] if include_facets else [],
         brands=[
             schemas.PublicCatalogFacet(
@@ -5869,6 +5873,7 @@ async def read_public_products(
                 is_refined=key in selected_brands,
             )
             for key, name in sorted(brand_names.items(), key=lambda entry: entry[1].lower())
+            if brand_counts.get(key, 0) > 0 or key in selected_brands
         ] if include_facets else [],
         product_types=[
             schemas.PublicCatalogProductType(
@@ -5878,6 +5883,7 @@ async def read_public_products(
                 is_refined=value in selected_types,
             )
             for value, count in sorted(type_counts.items(), key=lambda entry: entry[0])
+            if count > 0 or value in selected_types
         ] if include_facets else [],
         sizes=[
             schemas.PublicCatalogFacet(
@@ -5886,6 +5892,7 @@ async def read_public_products(
                 is_refined=value.lower() in selected_sizes,
             )
             for value, count in sorted(size_counts.items(), key=lambda entry: entry[0])
+            if count > 0 or value.lower() in selected_sizes
         ] if include_facets else [],
         colors=[
             schemas.PublicCatalogFacet(
@@ -5894,6 +5901,7 @@ async def read_public_products(
                 is_refined=value.lower() in selected_colors,
             )
             for value, count in sorted(color_counts.items(), key=lambda entry: entry[0])
+            if count > 0 or value.lower() in selected_colors
         ] if include_facets else [],
         total_products=total_products,
         min_price=catalog_min_price,

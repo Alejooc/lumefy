@@ -2,9 +2,16 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
+const ITEMS_PER_COLUMN = 6;
+
 const Dropdown = ({ menuItem, stickyMenu }) => {
   const [dropdownToggler, setDropdownToggler] = useState(false);
   const pathUrl = usePathname();
+  const columns = [];
+
+  for (let index = 0; index < menuItem.submenu.length; index += ITEMS_PER_COLUMN) {
+    columns.push(menuItem.submenu.slice(index, index + ITEMS_PER_COLUMN));
+  }
 
   return (
     <li
@@ -38,18 +45,24 @@ const Dropdown = ({ menuItem, stickyMenu }) => {
 
       {/* <!-- Dropdown Start --> */}
       <ul
-        className={`dropdown ${dropdownToggler ? "flex" : ""} xl:group-hover:translate-y-0`}
+        className={`dropdown ${dropdownToggler ? "flex" : ""} xl:flex-row xl:group-hover:translate-y-0`}
       >
-        {menuItem.submenu.map((item, i) => (
-          <li key={i}>
-            <Link
-              href={item.path}
-              className={`flex text-custom-sm hover:text-blue hover:bg-gray-1 py-[7px] px-4.5 ${
-                pathUrl === item.path && "text-blue bg-gray-1"
-              } `}
-            >
-              {item.title}
-            </Link>
+        {columns.map((column, columnIndex) => (
+          <li className="xl:min-w-[220px] xl:flex-[0_1_220px]" key={columnIndex}>
+            <ul className="flex flex-col gap-1">
+              {column.map((item) => (
+                <li key={item.id}>
+                  <Link
+                    href={item.path}
+                    className={`flex min-h-[2.75rem] items-center rounded-[0.35rem] text-custom-sm hover:text-blue hover:bg-gray-1 py-[7px] px-4.5 ${
+                      pathUrl === item.path && "text-blue bg-gray-1"
+                    } `}
+                  >
+                    {item.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </li>
         ))}
       </ul>
