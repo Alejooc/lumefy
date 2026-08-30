@@ -227,7 +227,14 @@
                     @if (!rulePreviewIsAvailable && rules.length > 0) { <small class="rule-backend-note"><i class="ti ti-info-circle"></i> La vista previa rápida aplica para título, descripción y precio; al guardar se evaluarán también proveedor, categoría, etiquetas, inventario, SKU y variantes.</small> }
                     <div class="d-flex justify-content-end gap-2 mt-3">
                       <button type="button" class="btn btn-outline-secondary btn-sm" (click)="applyRules()" [disabled]="ruleSaving || rules.length === 0"><i class="ti ti-refresh me-1"></i>Recalcular ahora</button>
-                      <button type="button" class="btn btn-primary btn-sm" (click)="saveRules()" [disabled]="ruleSaving"><span *ngIf="ruleSaving" class="spinner-border spinner-border-sm me-1"></span><i *ngIf="!ruleSaving" class="ti ti-device-floppy me-1"></i>Guardar reglas</button>
+                      <button type="button" class="btn btn-primary btn-sm" (click)="saveRules()" [disabled]="ruleSaving">
+                        @if (ruleSaving) {
+                          <span class="spinner-border spinner-border-sm me-1"></span>
+                        } @else {
+                          <i class="ti ti-device-floppy me-1"></i>
+                        }
+                        Guardar reglas
+                      </button>
                     </div>
                   </div>
                 }
