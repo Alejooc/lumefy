@@ -398,6 +398,49 @@ export interface StoreCollection {
   is_visible: boolean;
   is_featured: boolean;
   sort_order: number;
+  collection_mode: 'manual' | 'automated';
+  rule_match: 'all' | 'any';
+}
+
+export type CollectionRuleField =
+  | 'title'
+  | 'description'
+  | 'vendor'
+  | 'brand'
+  | 'product_type'
+  | 'category'
+  | 'tag'
+  | 'sku'
+  | 'price'
+  | 'inventory'
+  | 'status'
+  | 'variant_title';
+
+export type CollectionRuleOperator =
+  | 'equals'
+  | 'not_equals'
+  | 'contains'
+  | 'not_contains'
+  | 'starts_with'
+  | 'ends_with'
+  | 'greater_than'
+  | 'less_than'
+  | 'greater_or_equal'
+  | 'less_or_equal';
+
+export interface StoreCollectionRule {
+  id?: string;
+  collection_id?: string;
+  field: CollectionRuleField;
+  operator: CollectionRuleOperator;
+  value: string;
+  position?: number;
+}
+
+export interface CollectionRulesApplyResponse {
+  matched_count: number;
+  added_count: number;
+  removed_count: number;
 }
 
 export interface PublishedProduct {
@@ -765,6 +808,21 @@ export class StorefrontAdminService {
 
   updateCollection(id: string, payload: Partial<StoreCollection>): Observable<StoreCollection> {
     return this.api.put<StoreCollection>(`/storefront/collections/${id}`, payload);
+  }
+
+  getCollectionRules(collectionId: string): Observable<StoreCollectionRule[]> {
+    return this.api.get<StoreCollectionRule[]>(`/storefront/collections/${collectionId}/rules`);
+  }
+
+  updateCollectionRules(
+    collectionId: string,
+    payload: { collection_mode: 'manual' | 'automated'; rule_match: 'all' | 'any'; rules: StoreCollectionRule[] }
+  ): Observable<CollectionRulesApplyResponse> {
+    return this.api.put<CollectionRulesApplyResponse>(`/storefront/collections/${collectionId}/rules`, payload);
+  }
+
+  applyCollectionRules(collectionId: string): Observable<CollectionRulesApplyResponse> {
+    return this.api.post<CollectionRulesApplyResponse>(`/storefront/collections/${collectionId}/rules/apply`, {});
   }
 
   getPublishedProducts(storefrontId?: string): Observable<PublishedProduct[]> {

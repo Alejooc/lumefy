@@ -50,6 +50,7 @@ from .storefront import (
     Storefront,
     StorefrontDomain,
     StoreCollection,
+    StoreCollectionRule,
     PublishedProduct,
     StoreCollectionProduct,
     StoreNavigationItem,

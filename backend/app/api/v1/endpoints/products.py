@@ -42,6 +42,7 @@ from app.services.integration_service import (
     prune_orphaned_local_assets,
     remove_unreferenced_local_assets,
 )
+from app.services.storefront_collections import reconcile_products_collections
 
 router = APIRouter()
 
@@ -1116,6 +1117,13 @@ async def bulk_publish_products(
         )
         published += 1
 
+    await db.flush()
+    await reconcile_products_collections(
+        db,
+        company_id=current_user.company_id,
+        product_ids=[product.id for product in products],
+        user_id=current_user.id,
+    )
     await log_activity(
         db,
         action="PUBLISH",
@@ -1516,6 +1524,13 @@ async def create_product(
             company_id=current_user.company_id,
             ecommerce_data=ecommerce_data,
         )
+        await db.flush()
+        await reconcile_products_collections(
+            db,
+            company_id=current_user.company_id,
+            product_ids=[product.id],
+            user_id=current_user.id,
+        )
         await db.commit()
         
         await log_activity(db, action="CREATE", entity_type="Product", entity_id=product.id,
@@ -1623,6 +1638,13 @@ async def update_product(
         ecommerce_data=ecommerce_data,
     )
 
+    await db.flush()
+    await reconcile_products_collections(
+        db,
+        company_id=current_user.company_id,
+        product_ids=[product.id],
+        user_id=current_user.id,
+    )
     await db.commit()
     await db.refresh(product)
     

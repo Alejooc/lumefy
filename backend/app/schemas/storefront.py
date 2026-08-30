@@ -168,6 +168,8 @@ class StoreCollectionBase(BaseModel):
     is_visible: bool = True
     is_featured: bool = False
     sort_order: int = 0
+    collection_mode: Literal["manual", "automated"] = "manual"
+    rule_match: Literal["all", "any"] = "all"
 
 
 class StoreCollectionCreate(StoreCollectionBase):
@@ -182,6 +184,8 @@ class StoreCollectionUpdate(BaseModel):
     is_visible: Optional[bool] = None
     is_featured: Optional[bool] = None
     sort_order: Optional[int] = None
+    collection_mode: Optional[Literal["manual", "automated"]] = None
+    rule_match: Optional[Literal["all", "any"]] = None
 
 
 class StoreCollection(StoreCollectionBase):
@@ -193,6 +197,41 @@ class StoreCollection(StoreCollectionBase):
 
     class Config:
         from_attributes = True
+
+
+class StoreCollectionRuleBase(BaseModel):
+    field: Literal["title", "description", "vendor", "brand", "product_type", "category", "tag", "sku", "price", "inventory", "status", "variant_title"]
+    operator: Literal["equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with", "greater_than", "less_than", "greater_or_equal", "less_or_equal"]
+    value: str = Field(default="", max_length=500)
+    position: int = Field(default=0, ge=0, le=100)
+
+
+class StoreCollectionRuleCreate(StoreCollectionRuleBase):
+    pass
+
+
+class StoreCollectionRule(StoreCollectionRuleBase):
+    id: UUID
+    collection_id: UUID
+    company_id: Optional[UUID] = None
+    created_at: datetime
+    updated_at: datetime
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class StoreCollectionRulesUpdate(BaseModel):
+    collection_mode: Literal["manual", "automated"] = "manual"
+    rule_match: Literal["all", "any"] = "all"
+    rules: list[StoreCollectionRuleCreate] = Field(default_factory=list, max_length=20)
+
+
+class StoreCollectionRulesApplyResponse(BaseModel):
+    matched_count: int
+    added_count: int
+    removed_count: int
 
 
 class PublishedProductBase(BaseModel):

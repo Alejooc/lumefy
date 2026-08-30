@@ -20,7 +20,7 @@ import dns.resolver
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import load_only, selectinload
@@ -56,6 +56,7 @@ from app.services.outbox import enqueue_outbox_event
 from app.models.storefront import (
     PublishedProduct,
     StoreCollection,
+    StoreCollectionRule,
     StoreCollectionProduct,
     StoreNavigationItem,
     StorePaymentGateway,
@@ -101,6 +102,12 @@ from app.core.credential_crypto import SENSITIVE_GATEWAY_CONFIG_KEYS
 from app.services.storefront_tracking import (
     enqueue_storefront_purchase_tracking,
     enqueue_storefront_tracking_event,
+)
+from app.services.storefront_collections import (
+    COLLECTION_RULE_FIELDS,
+    COLLECTION_RULE_OPERATORS,
+    reconcile_automated_collections,
+    reconcile_products_collections,
 )
 
 router = APIRouter()
@@ -3338,6 +3345,111 @@ async def update_collection(
     return collection
 
 
+@router.get("/collections/{collection_id}/rules", response_model=List[schemas.StoreCollectionRule])
+async def read_collection_rules(
+    collection_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    await _get_collection_or_404(db, collection_id, current_user.company_id)
+    result = await db.execute(
+        select(StoreCollectionRule)
+        .where(
+            StoreCollectionRule.collection_id == collection_id,
+            StoreCollectionRule.company_id == current_user.company_id,
+            StoreCollectionRule.is_active == True,
+        )
+        .order_by(StoreCollectionRule.position.asc())
+    )
+    return result.scalars().all()
+
+
+def _validate_collection_rule(rule: schemas.StoreCollectionRuleCreate) -> None:
+    if rule.field not in COLLECTION_RULE_FIELDS or rule.operator not in COLLECTION_RULE_OPERATORS:
+        raise HTTPException(status_code=422, detail="La regla de colección no es válida.")
+    if not rule.value.strip():
+        raise HTTPException(status_code=422, detail="Cada regla debe tener un valor.")
+    numeric_fields = {"price", "inventory"}
+    numeric_operators = {"equals", "not_equals", "greater_than", "less_than", "greater_or_equal", "less_or_equal"}
+    if rule.field in numeric_fields:
+        if rule.operator not in numeric_operators:
+            raise HTTPException(status_code=422, detail="Precio e inventario solo admiten comparaciones numéricas.")
+        try:
+            float(rule.value.replace(",", ".").strip())
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="El valor de precio o inventario debe ser numérico.") from exc
+    elif rule.operator in numeric_operators:
+        raise HTTPException(status_code=422, detail="La comparación numérica solo aplica a precio e inventario.")
+
+
+@router.put("/collections/{collection_id}/rules", response_model=schemas.StoreCollectionRulesApplyResponse)
+async def replace_collection_rules(
+    collection_id: uuid.UUID,
+    rules_in: schemas.StoreCollectionRulesUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    collection = await _get_collection_or_404(db, collection_id, current_user.company_id)
+    for rule in rules_in.rules:
+        _validate_collection_rule(rule)
+
+    collection.collection_mode = rules_in.collection_mode
+    collection.rule_match = rules_in.rule_match
+    collection.updated_by_id = current_user.id
+    await db.execute(
+        delete(StoreCollectionRule).where(
+            StoreCollectionRule.collection_id == collection_id,
+            StoreCollectionRule.company_id == current_user.company_id,
+        )
+    )
+    for position, rule in enumerate(rules_in.rules):
+        db.add(
+            StoreCollectionRule(
+                collection_id=collection_id,
+                field=rule.field,
+                operator=rule.operator,
+                value=rule.value.strip(),
+                position=position,
+                company_id=current_user.company_id,
+                created_by_id=current_user.id,
+                updated_by_id=current_user.id,
+            )
+        )
+
+    await db.flush()
+    stats = {"matched_count": 0, "added_count": 0, "removed_count": 0}
+    if collection.collection_mode == "automated":
+        stats = await reconcile_automated_collections(
+            db,
+            storefront_id=collection.storefront_id,
+            company_id=current_user.company_id,
+            user_id=current_user.id,
+            collection_id=collection.id,
+        )
+    await db.commit()
+    return stats
+
+
+@router.post("/collections/{collection_id}/rules/apply", response_model=schemas.StoreCollectionRulesApplyResponse)
+async def apply_collection_rules(
+    collection_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    collection = await _get_collection_or_404(db, collection_id, current_user.company_id)
+    if collection.collection_mode != "automated":
+        raise HTTPException(status_code=422, detail="Cambia la colección a Automática para aplicar reglas.")
+    stats = await reconcile_automated_collections(
+        db,
+        storefront_id=collection.storefront_id,
+        company_id=current_user.company_id,
+        user_id=current_user.id,
+        collection_id=collection.id,
+    )
+    await db.commit()
+    return stats
+
+
 @router.post("/collections/{collection_id}/products", response_model=schemas.StoreCollectionProduct)
 async def add_product_to_collection(
     *,
@@ -3471,6 +3583,13 @@ async def create_published_product(
         updated_by_id=current_user.id,
     )
     db.add(published_product)
+    await db.flush()
+    await reconcile_products_collections(
+        db,
+        company_id=current_user.company_id,
+        product_ids=[published_product.product_id],
+        user_id=current_user.id,
+    )
     await db.commit()
     await db.refresh(published_product, attribute_names=["product"])
     return _serialize_admin_published_product(published_product)
@@ -3489,6 +3608,13 @@ async def update_published_product(
         setattr(published_product, field, value)
     published_product.updated_by_id = current_user.id
     db.add(published_product)
+    await db.flush()
+    await reconcile_products_collections(
+        db,
+        company_id=current_user.company_id,
+        product_ids=[published_product.product_id],
+        user_id=current_user.id,
+    )
     await db.commit()
     await db.refresh(published_product, attribute_names=["product"])
     return _serialize_admin_published_product(published_product)

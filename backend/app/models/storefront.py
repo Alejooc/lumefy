@@ -80,12 +80,31 @@ class StoreCollection(BaseModel):
     is_visible: Mapped[bool] = mapped_column(Boolean, default=True)
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    collection_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="manual")
+    rule_match: Mapped[str] = mapped_column(String(8), nullable=False, default="all")
 
     storefront = relationship("Storefront", back_populates="collections")
     collection_products = relationship("StoreCollectionProduct", back_populates="collection", cascade="all, delete-orphan")
+    rules = relationship("StoreCollectionRule", back_populates="collection", cascade="all, delete-orphan", order_by="StoreCollectionRule.position")
 
     __table_args__ = (
         UniqueConstraint("storefront_id", "slug", name="uq_store_collection_storefront_slug"),
+    )
+
+
+class StoreCollectionRule(BaseModel):
+    __tablename__ = "store_collection_rules"
+
+    collection_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("store_collections.id"), nullable=False, index=True)
+    field: Mapped[str] = mapped_column(String(32), nullable=False)
+    operator: Mapped[str] = mapped_column(String(32), nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    collection = relationship("StoreCollection", back_populates="rules")
+
+    __table_args__ = (
+        UniqueConstraint("collection_id", "position", name="uq_store_collection_rule_position"),
     )
 
 

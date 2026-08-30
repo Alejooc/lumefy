@@ -49,6 +49,7 @@ from app.models.storefront import (
     Storefront,
     StorefrontDomain,
     StoreCollection,
+    StoreCollectionRule,
     PublishedProduct,
     StoreCollectionProduct,
     StoreNavigationItem,

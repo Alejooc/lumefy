@@ -7,7 +7,10 @@ import { EcommerceContextService } from 'src/app/core/services/ecommerce-context
 import { PermissionService } from 'src/app/core/services/permission.service';
 import {
   PublishedProduct,
+  CollectionRuleField,
+  CollectionRuleOperator,
   StoreCollection,
+  StoreCollectionRule,
   StoreCollectionProduct,
   Storefront,
   StorefrontAdminService
@@ -34,11 +37,29 @@ export class EcommerceCollectionsComponent implements OnInit {
   collections: StoreCollection[] = [];
   publishedProducts: PublishedProduct[] = [];
   collectionProducts: StoreCollectionProduct[] = [];
+  rules: StoreCollectionRule[] = [];
   viewMode: 'list' | 'detail' = 'list';
   showConfigPanel = false;
   showAddProductsModal = false;
   selectedCollectionId = '';
   form: Partial<StoreCollection> = this.createForm();
+  collectionSearch = '';
+  ruleDraft: StoreCollectionRule = this.createRuleDraft();
+  ruleSaving = false;
+  readonly ruleFields: Array<{ value: CollectionRuleField; label: string; description: string }> = [
+    { value: 'title', label: 'Título', description: 'Nombre visible del producto' },
+    { value: 'description', label: 'Descripción', description: 'Descripción del producto' },
+    { value: 'vendor', label: 'Proveedor', description: 'Proveedor o marca asociada' },
+    { value: 'brand', label: 'Marca', description: 'Marca del producto' },
+    { value: 'product_type', label: 'Tipo de producto', description: 'Tipo configurado en el catálogo' },
+    { value: 'category', label: 'Categoría', description: 'Categoría del producto' },
+    { value: 'tag', label: 'Etiqueta', description: 'Etiquetas del producto' },
+    { value: 'sku', label: 'SKU', description: 'SKU del producto o sus variantes' },
+    { value: 'price', label: 'Precio', description: 'Precio publicado' },
+    { value: 'inventory', label: 'Inventario', description: 'Existencias disponibles' },
+    { value: 'status', label: 'Estado', description: 'Activo o borrador' },
+    { value: 'variant_title', label: 'Título de variante', description: 'Nombre de una variante' }
+  ];
   assignment = { publishedProductId: '', sortOrder: 0 };
   availableSearch = '';
   linkedSearch = '';
@@ -52,6 +73,25 @@ export class EcommerceCollectionsComponent implements OnInit {
   linkedMaxPrice: number | null = null;
   selectedAvailableProductIds: string[] = [];
   selectedLinkedProductIds: string[] = [];
+
+  get filteredCollections(): StoreCollection[] {
+    const query = this.collectionSearch.trim().toLowerCase();
+    if (!query) return this.collections;
+    return this.collections.filter((collection) =>
+      [collection.name, collection.slug, collection.description]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
+  }
+
+  get rulePreviewCount(): number {
+    if (!this.rules.length || !this.isPreviewableRules()) return 0;
+    return this.publishedProducts.filter((product) => this.matchesRulePreview(product)).length;
+  }
+
+  get rulePreviewIsAvailable(): boolean {
+    return this.rules.length > 0 && this.isPreviewableRules();
+  }
 
   ngOnInit(): void {
     if (!this.permissions.hasPermission('manage_company')) {
@@ -152,6 +192,8 @@ export class EcommerceCollectionsComponent implements OnInit {
     this.selectedCollectionId = collectionId;
     const selected = this.collections.find((item) => item.id === collectionId);
     this.form = selected ? { ...selected } : this.createForm();
+    this.rules = [];
+    this.ruleDraft = this.createRuleDraft();
     this.assignment = { publishedProductId: '', sortOrder: 0 };
     this.resetFilters();
     this.resetBulkSelection();
@@ -163,6 +205,19 @@ export class EcommerceCollectionsComponent implements OnInit {
       return;
     }
     this.loadCollectionProducts(collectionId);
+    this.loadCollectionRules(collectionId);
+  }
+
+  loadCollectionRules(collectionId: string): void {
+    this.storefrontService.getCollectionRules(collectionId).subscribe({
+      next: (rules) => {
+        this.rules = rules.map((rule, index) => ({ ...rule, position: index }));
+      },
+      error: (err) => {
+        this.rules = [];
+        this.swal.error('Error', err?.error?.detail || 'No se pudieron cargar las reglas de la colección.');
+      }
+    });
   }
 
   loadCollectionProducts(collectionId: string): void {
@@ -180,6 +235,8 @@ export class EcommerceCollectionsComponent implements OnInit {
 
   startNewCollection(): void {
     this.resetSelection();
+    this.rules = [];
+    this.ruleDraft = this.createRuleDraft();
     this.viewMode = 'detail';
     this.showConfigPanel = true;
   }
@@ -198,14 +255,12 @@ export class EcommerceCollectionsComponent implements OnInit {
       : this.storefrontService.createCollection(payload);
     request.subscribe({
       next: (collection) => {
-        this.saving = false;
-        this.swal.success('Coleccion guardada');
         this.selectedCollectionId = collection.id;
+        this.form = { ...collection };
         this.viewMode = 'detail';
         this.showConfigPanel = false;
         this.showAddProductsModal = false;
-        this.loadCollections();
-        this.loadCollectionProducts(collection.id);
+        this.persistRules(collection.id, true);
       },
       error: (err) => {
         this.saving = false;
@@ -247,6 +302,93 @@ export class EcommerceCollectionsComponent implements OnInit {
     this.selectedAvailableProductIds = [];
     this.assignment.sortOrder = this.nextSortOrder();
     this.showAddProductsModal = true;
+  }
+
+  clearAvailableFilters(): void {
+    this.availableSearch = '';
+    this.availableSlugFilter = '';
+    this.availableFeaturedFilter = 'all';
+    this.availableMinPrice = null;
+    this.availableMaxPrice = null;
+  }
+
+  clearLinkedFilters(): void {
+    this.linkedSearch = '';
+    this.linkedSlugFilter = '';
+    this.linkedFeaturedFilter = 'all';
+    this.linkedMinPrice = null;
+    this.linkedMaxPrice = null;
+  }
+
+  addRule(): void {
+    const value = String(this.ruleDraft.value || '').trim();
+    if (!value) {
+      this.swal.warning('Regla incompleta', 'Escribe el valor que debe cumplir el producto.');
+      return;
+    }
+    this.rules = [...this.rules, { ...this.ruleDraft, value, position: this.rules.length }];
+    this.ruleDraft = this.createRuleDraft();
+  }
+
+  removeRule(index: number): void {
+    this.rules = this.rules.filter((_, ruleIndex) => ruleIndex !== index).map((rule, position) => ({ ...rule, position }));
+  }
+
+  availableOperators(field: CollectionRuleField): Array<{ value: CollectionRuleOperator; label: string }> {
+    if (field === 'price' || field === 'inventory') {
+      return [
+        { value: 'equals', label: 'es igual a' },
+        { value: 'not_equals', label: 'no es igual a' },
+        { value: 'greater_than', label: 'es mayor que' },
+        { value: 'less_than', label: 'es menor que' },
+        { value: 'greater_or_equal', label: 'es mayor o igual que' },
+        { value: 'less_or_equal', label: 'es menor o igual que' }
+      ];
+    }
+    return [
+      { value: 'equals', label: 'es igual a' },
+      { value: 'not_equals', label: 'no es igual a' },
+      { value: 'contains', label: 'contiene' },
+      { value: 'not_contains', label: 'no contiene' },
+      { value: 'starts_with', label: 'comienza con' },
+      { value: 'ends_with', label: 'termina con' }
+    ];
+  }
+
+  onRuleFieldChange(): void {
+    const validOperators = this.availableOperators(this.ruleDraft.field).map((option) => option.value);
+    if (!validOperators.includes(this.ruleDraft.operator)) {
+      this.ruleDraft = { ...this.ruleDraft, operator: validOperators[0] };
+    }
+  }
+
+  ruleFieldLabel(field: CollectionRuleField): string {
+    return this.ruleFields.find((option) => option.value === field)?.label || field;
+  }
+
+  ruleOperatorLabel(operator: CollectionRuleOperator): string {
+    return this.availableOperators(this.ruleDraft.field).find((option) => option.value === operator)?.label || operator;
+  }
+
+  saveRules(): void {
+    if (!this.selectedCollectionId) return;
+    this.persistRules(this.selectedCollectionId, false);
+  }
+
+  applyRules(): void {
+    if (!this.selectedCollectionId || this.form.collection_mode !== 'automated') return;
+    this.ruleSaving = true;
+    this.storefrontService.applyCollectionRules(this.selectedCollectionId).subscribe({
+      next: (result) => {
+        this.ruleSaving = false;
+        this.swal.success('Colección actualizada', `${result.added_count} agregados y ${result.removed_count} retirados.`);
+        this.loadCollectionProducts(this.selectedCollectionId);
+      },
+      error: (err) => {
+        this.ruleSaving = false;
+        this.swal.error('Error', err?.error?.detail || 'No se pudieron aplicar las reglas.');
+      }
+    });
   }
 
   closeAddProductsModal(): void {
@@ -400,6 +542,7 @@ export class EcommerceCollectionsComponent implements OnInit {
     this.selectedCollectionId = '';
     this.form = this.createForm();
     this.collectionProducts = [];
+    this.rules = [];
     this.assignment = { publishedProductId: '', sortOrder: 0 };
     this.resetFilters();
     this.resetBulkSelection();
@@ -433,8 +576,8 @@ export class EcommerceCollectionsComponent implements OnInit {
       (featuredFilter === 'regular' && !item.is_featured);
 
     const price = item.base_price;
-    const matchesMinPrice = minPrice === null || price === null || price === undefined || price >= minPrice;
-    const matchesMaxPrice = maxPrice === null || price === null || price === undefined || price <= maxPrice;
+    const matchesMinPrice = minPrice === null || (price !== null && price !== undefined && price >= minPrice);
+    const matchesMaxPrice = maxPrice === null || (price !== null && price !== undefined && price <= maxPrice);
 
     return matchesText && matchesSlug && matchesFeatured && matchesMinPrice && matchesMaxPrice;
   }
@@ -472,7 +615,79 @@ export class EcommerceCollectionsComponent implements OnInit {
       image_url: '',
       is_visible: true,
       is_featured: false,
-      sort_order: 0
+      sort_order: 0,
+      collection_mode: 'manual',
+      rule_match: 'all'
     };
+  }
+
+  private createRuleDraft(): StoreCollectionRule {
+    return {
+      field: 'title',
+      operator: 'contains',
+      value: '',
+      position: 0
+    };
+  }
+
+  private persistRules(collectionId: string, afterCollectionSave: boolean): void {
+    this.ruleSaving = true;
+    this.storefrontService.updateCollectionRules(collectionId, {
+      collection_mode: this.form.collection_mode || 'manual',
+      rule_match: this.form.rule_match || 'all',
+      rules: this.rules.map((rule, position) => ({ ...rule, position }))
+    }).subscribe({
+      next: (result) => {
+        this.ruleSaving = false;
+        this.saving = false;
+        this.swal.success(
+          afterCollectionSave && result.added_count > 0
+            ? `Colección guardada: ${result.added_count} producto(s) agregado(s)`
+            : 'Colección guardada'
+        );
+        this.loadCollections();
+        this.loadCollectionProducts(collectionId);
+        this.loadCollectionRules(collectionId);
+      },
+      error: (err) => {
+        this.ruleSaving = false;
+        this.saving = false;
+        this.swal.error('Error', err?.error?.detail || 'No se pudieron guardar las reglas de la colección.');
+      }
+    });
+  }
+
+  private isPreviewableRules(): boolean {
+    return this.rules.every((rule) => ['title', 'description', 'sku', 'price'].includes(rule.field));
+  }
+
+  private matchesRulePreview(product: PublishedProduct): boolean {
+    const result = this.rules.map((rule) => {
+      const values = this.previewValues(product, rule.field);
+      const expected = rule.value.trim().toLowerCase();
+      if (rule.field === 'price') {
+        const price = Number(product.base_price);
+        const target = Number(rule.value.replace(',', '.'));
+        if (!Number.isFinite(price) || !Number.isFinite(target)) return false;
+        if (rule.operator === 'equals') return price === target;
+        if (rule.operator === 'not_equals') return price !== target;
+        if (rule.operator === 'greater_than') return price > target;
+        if (rule.operator === 'less_than') return price < target;
+        if (rule.operator === 'greater_or_equal') return price >= target;
+        return price <= target;
+      }
+      if (rule.operator === 'equals') return values.some((value) => value === expected);
+      if (rule.operator === 'not_equals') return values.every((value) => value !== expected);
+      if (rule.operator === 'contains') return values.some((value) => value.includes(expected));
+      if (rule.operator === 'not_contains') return values.every((value) => !value.includes(expected));
+      if (rule.operator === 'starts_with') return values.some((value) => value.startsWith(expected));
+      return values.some((value) => value.endsWith(expected));
+    });
+    return this.form.rule_match === 'any' ? result.some(Boolean) : result.every(Boolean);
+  }
+
+  private previewValues(product: PublishedProduct, field: CollectionRuleField): string[] {
+    const value = field === 'title' ? product.product_name : field === 'description' ? product.product_description : field === 'sku' ? product.slug : '';
+    return [String(value || '').trim().toLowerCase()];
   }
 }
