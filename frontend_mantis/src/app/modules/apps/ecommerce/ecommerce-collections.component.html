@@ -174,7 +174,7 @@
                   @if (form.collection_mode === 'automated') {
                     <div class="col-md-4">
                       <label class="form-label">Coincidir con</label>
-                      <select class="form-select" [(ngModel)]="form.rule_match">
+                      <select class="form-select" [(ngModel)]="form.rule_match" (ngModelChange)="onRuleChanged()">
                         <option value="all">Todas las condiciones</option>
                         <option value="any">Cualquiera de las condiciones</option>
                       </select>
@@ -190,10 +190,12 @@
                     <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">
                       <div>
                         <h6 class="mb-1">Reglas de la colección</h6>
-                        <small class="text-muted">Ejemplo: Título <strong>contiene</strong> “almohada”. Los cambios se aplican automáticamente.</small>
+                        <small class="text-muted">Define quién entra por reglas y luego excluye casos puntuales desde la lista de productos.</small>
                       </div>
-                      @if (rulePreviewIsAvailable) {
-                        <span class="rule-preview-count"><i class="ti ti-filter-check"></i>{{ rulePreviewCount }} coincidencia(s) ahora</span>
+                      @if (rulePreviewLoading) {
+                        <span class="rule-preview-count rule-preview-count--loading"><span class="spinner-border spinner-border-sm"></span>Calculando con el catálogo real</span>
+                      } @else if (rulePreviewIsAvailable && !rulePreviewError) {
+                        <span class="rule-preview-count"><i class="ti ti-filter-check"></i>{{ rulePreviewIncludedCount }} producto(s) quedarán incluidos</span>
                       }
                     </div>
 
@@ -206,10 +208,10 @@
                         <select class="form-select" [(ngModel)]="rule.field" (ngModelChange)="onExistingRuleFieldChange(rule)" aria-label="Campo de regla">
                           @for (field of ruleFields; track field.value) { <option [value]="field.value">{{ field.label }}</option> }
                         </select>
-                        <select class="form-select" [(ngModel)]="rule.operator" aria-label="Operador de regla">
+                        <select class="form-select" [(ngModel)]="rule.operator" (ngModelChange)="onRuleChanged()" aria-label="Operador de regla">
                           @for (operator of availableOperators(rule.field); track operator.value) { <option [value]="operator.value">{{ operator.label }}</option> }
                         </select>
-                        <input class="form-control" [type]="rule.field === 'price' || rule.field === 'inventory' ? 'number' : 'text'" [(ngModel)]="rule.value" placeholder="Ej. almohada" aria-label="Valor de regla" />
+                        <input class="form-control" [type]="rule.field === 'price' || rule.field === 'inventory' ? 'number' : 'text'" [(ngModel)]="rule.value" (ngModelChange)="onRuleChanged()" placeholder="Ej. cortina" aria-label="Valor de regla" />
                         <button type="button" class="btn btn-outline-danger rule-remove-button" (click)="removeRule(ruleIndex)" aria-label="Eliminar regla"><i class="ti ti-trash"></i></button>
                       </div>
                     }
@@ -224,17 +226,35 @@
                       <input class="form-control" [type]="ruleDraft.field === 'price' || ruleDraft.field === 'inventory' ? 'number' : 'text'" [(ngModel)]="ruleDraft.value" (keyup.enter)="addRule()" placeholder="Valor de la condición" aria-label="Nuevo valor de regla" />
                       <button type="button" class="btn btn-outline-primary" (click)="addRule()"><i class="ti ti-plus me-1"></i>Agregar condición</button>
                     </div>
-                    @if (!rulePreviewIsAvailable && rules.length > 0) { <small class="rule-backend-note"><i class="ti ti-info-circle"></i> La vista previa rápida aplica para título, descripción y precio; al guardar se evaluarán también proveedor, categoría, etiquetas, inventario, SKU y variantes.</small> }
-                    <div class="d-flex justify-content-end gap-2 mt-3">
-                      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="applyRules()" [disabled]="ruleSaving || rules.length === 0"><i class="ti ti-refresh me-1"></i>Recalcular ahora</button>
-                      <button type="button" class="btn btn-primary btn-sm" (click)="saveRules()" [disabled]="ruleSaving">
+
+                    @if (rulePreviewError) {
+                      <div class="rule-preview-message rule-preview-message--error"><i class="ti ti-alert-circle"></i><span>{{ rulePreviewError }}</span></div>
+                    } @else if (rulePreviewIsAvailable && !rulePreviewLoading) {
+                      <div class="rule-preview-message">
+                        <i class="ti ti-database-search"></i>
+                        <div>
+                          <strong>{{ rulePreviewMatchedCount }} cumplen las reglas</strong>
+                          <span>{{ rulePreviewIncludedCount }} se mostrarán en la colección@if (rulePreviewExcludedCount > 0) { · {{ rulePreviewExcludedCount }} están excluidos manualmente }</span>
+                          @if (rulePreviewProducts.length > 0) {
+                            <small>Muestra: @for (product of rulePreviewProducts; track product.id; let last = $last) { {{ product.title }}@if (!last) {, } }</small>
+                          }
+                        </div>
+                      </div>
+                    }
+
+                    <div class="d-flex justify-content-between align-items-center gap-2 mt-3 flex-wrap">
+                      <small class="text-muted"><i class="ti ti-info-circle me-1"></i>La vista previa usa exactamente el mismo evaluador del storefront.</small>
+                      <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refreshRulePreview()" [disabled]="rulePreviewLoading || !rulePreviewIsAvailable"><i class="ti ti-refresh me-1"></i>Actualizar vista previa</button>
+                        <button type="button" class="btn btn-primary btn-sm" (click)="saveRules()" [disabled]="ruleSaving || !selectedCollectionId || !rulePreviewIsAvailable">
                         @if (ruleSaving) {
                           <span class="spinner-border spinner-border-sm me-1"></span>
                         } @else {
                           <i class="ti ti-device-floppy me-1"></i>
                         }
-                        Guardar reglas
-                      </button>
+                          Guardar y aplicar reglas
+                        </button>
+                      </div>
                     </div>
                   </div>
                 }
@@ -261,15 +281,18 @@
               </div>
               <div class="d-flex gap-2 flex-wrap">
                 @if (selectedCollectionId) {
-                  <span class="badge bg-light text-dark">{{ linkedProducts.length }} vinculados</span>
+                  <span class="badge bg-light text-dark">{{ linkedProducts.length }} incluidos</span>
+                  @if (form.collection_mode === 'automated') {
+                    <span class="badge collection-excluded-badge">{{ excludedProducts.length }} excluidos</span>
+                  }
                   @if (form.collection_mode !== 'automated') {
                     <button class="btn btn-outline-primary btn-sm" (click)="openAddProductsModal()">Agregar productos</button>
-                    <button class="btn btn-outline-danger btn-sm" (click)="removeSelectedLinkedProducts()" [disabled]="selectedLinkedProductIds.length === 0 || saving">
-                      Quitar seleccionados
-                    </button>
                   } @else {
-                    <span class="collection-automation-lock"><i class="ti ti-sparkles me-1"></i>Los productos se administran con reglas</span>
+                    <span class="collection-automation-lock"><i class="ti ti-sparkles me-1"></i>Reglas + exclusiones manuales</span>
                   }
+                  <button class="btn btn-outline-danger btn-sm" (click)="removeSelectedLinkedProducts()" [disabled]="selectedLinkedProductIds.length === 0 || saving">
+                    {{ form.collection_mode === 'automated' ? 'Excluir seleccionados' : 'Quitar seleccionados' }}
+                  </button>
                 }
               </div>
             </div>
@@ -358,9 +381,7 @@
                       <th>Destacado</th>
                       <th>Precio base / web</th>
                       <th>Orden</th>
-                      @if (form.collection_mode !== 'automated') {
-                        <th class="text-end">Acciones</th>
-                      }
+                      <th class="text-end">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -382,15 +403,44 @@
                         <td>{{ item.is_featured ? 'Si' : 'No' }}</td>
                         <td>{{ priceLabel(item) }}</td>
                         <td>{{ linkedSortOrder(item.id) }}</td>
-                        @if (form.collection_mode !== 'automated') {
-                          <td class="text-end">
-                            <button class="btn btn-outline-danger btn-sm" (click)="removeLinkedProduct(item.id)">Quitar</button>
-                          </td>
-                        }
+                        <td class="text-end">
+                          <button class="btn btn-outline-danger btn-sm" (click)="removeLinkedProduct(item.id)">
+                            {{ form.collection_mode === 'automated' ? 'Excluir' : 'Quitar' }}
+                          </button>
+                        </td>
                       </tr>
                     }
                   </tbody>
                 </table>
+              </div>
+            }
+
+            @if (selectedCollectionId && form.collection_mode === 'automated' && excludedProducts.length > 0) {
+              <div class="collection-exclusions mt-4">
+                <div class="collection-exclusions__header">
+                  <div>
+                    <h6 class="mb-1"><i class="ti ti-eye-off me-1"></i>Exclusiones manuales</h6>
+                    <small>Estos productos cumplen o cumplieron las reglas, pero no se muestran en el storefront.</small>
+                  </div>
+                  <input class="form-control form-control-sm" [(ngModel)]="excludedSearch" placeholder="Buscar excluidos" />
+                </div>
+                <div class="table-responsive mt-3">
+                  <table class="table align-middle mb-0">
+                    <thead>
+                      <tr><th>Producto</th><th>Slug</th><th>Precio</th><th class="text-end">Acciones</th></tr>
+                    </thead>
+                    <tbody>
+                      @for (item of filteredExcludedProducts; track item.id) {
+                        <tr>
+                          <td><strong>{{ productLabel(item) }}</strong></td>
+                          <td>/{{ item.slug }}</td>
+                          <td>{{ priceLabel(item) }}</td>
+                          <td class="text-end"><button class="btn btn-outline-primary btn-sm" (click)="restoreExcludedProduct(item.id)" [disabled]="saving">Restaurar</button></td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
               </div>
             }
           </div>

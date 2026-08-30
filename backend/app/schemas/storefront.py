@@ -232,6 +232,27 @@ class StoreCollectionRulesApplyResponse(BaseModel):
     matched_count: int
     added_count: int
     removed_count: int
+    excluded_count: int = 0
+
+
+class StoreCollectionRulesPreviewRequest(BaseModel):
+    storefront_id: UUID
+    collection_id: Optional[UUID] = None
+    rule_match: Literal["all", "any"] = "all"
+    rules: list[StoreCollectionRuleCreate] = Field(default_factory=list, max_length=20)
+
+
+class StoreCollectionRulesPreviewProduct(BaseModel):
+    id: UUID
+    title: str
+    slug: str
+
+
+class StoreCollectionRulesPreviewResponse(BaseModel):
+    matched_count: int
+    included_count: int
+    excluded_count: int
+    products: list[StoreCollectionRulesPreviewProduct] = Field(default_factory=list)
 
 
 class PublishedProductBase(BaseModel):
@@ -287,6 +308,7 @@ class StoreCollectionProduct(StoreCollectionProductBase):
     created_at: datetime
     updated_at: datetime
     is_active: bool
+    is_excluded: bool = False
 
     class Config:
         from_attributes = True

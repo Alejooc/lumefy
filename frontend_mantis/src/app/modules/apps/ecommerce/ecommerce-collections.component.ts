@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 
@@ -7,6 +7,7 @@ import { EcommerceContextService } from 'src/app/core/services/ecommerce-context
 import { PermissionService } from 'src/app/core/services/permission.service';
 import {
   PublishedProduct,
+  CollectionRulesPreviewProduct,
   CollectionRuleField,
   CollectionRuleOperator,
   StoreCollection,
@@ -24,7 +25,7 @@ import { SweetAlertService } from 'src/app/theme/shared/services/sweet-alert.ser
   templateUrl: './ecommerce-collections.component.html',
   styleUrls: ['./ecommerce-shared.component.scss', './ecommerce-collections.component.scss']
 })
-export class EcommerceCollectionsComponent implements OnInit {
+export class EcommerceCollectionsComponent implements OnInit, OnDestroy {
   private storefrontService = inject(StorefrontAdminService);
   private context = inject(EcommerceContextService);
   private permissions = inject(PermissionService);
@@ -40,6 +41,14 @@ export class EcommerceCollectionsComponent implements OnInit {
   publishedProducts: PublishedProduct[] = [];
   collectionProducts: StoreCollectionProduct[] = [];
   rules: StoreCollectionRule[] = [];
+  rulePreviewLoading = false;
+  rulePreviewMatchedCount = 0;
+  rulePreviewIncludedCount = 0;
+  rulePreviewExcludedCount = 0;
+  rulePreviewProducts: CollectionRulesPreviewProduct[] = [];
+  rulePreviewError = '';
+  private rulePreviewTimer: ReturnType<typeof setTimeout> | null = null;
+  private rulePreviewRequestId = 0;
   viewMode: 'list' | 'detail' = 'list';
   showConfigPanel = false;
   showAddProductsModal = false;
@@ -65,6 +74,7 @@ export class EcommerceCollectionsComponent implements OnInit {
   assignment = { publishedProductId: '', sortOrder: 0 };
   availableSearch = '';
   linkedSearch = '';
+  excludedSearch = '';
   availableSlugFilter = '';
   linkedSlugFilter = '';
   availableFeaturedFilter: 'all' | 'featured' | 'regular' = 'all';
@@ -86,13 +96,8 @@ export class EcommerceCollectionsComponent implements OnInit {
     );
   }
 
-  get rulePreviewCount(): number {
-    if (!this.rules.length || !this.isPreviewableRules()) return 0;
-    return this.publishedProducts.filter((product) => this.matchesRulePreview(product)).length;
-  }
-
   get rulePreviewIsAvailable(): boolean {
-    return this.rules.length > 0 && this.isPreviewableRules();
+    return this.rules.length > 0 && this.rules.every((rule) => String(rule.value || '').trim().length > 0);
   }
 
   ngOnInit(): void {
@@ -103,13 +108,28 @@ export class EcommerceCollectionsComponent implements OnInit {
     this.loadData();
   }
 
+  ngOnDestroy(): void {
+    if (this.rulePreviewTimer) clearTimeout(this.rulePreviewTimer);
+  }
+
   get selectedCollection(): StoreCollection | null {
     return this.collections.find((item) => item.id === this.selectedCollectionId) || null;
   }
 
   get linkedProducts(): PublishedProduct[] {
-    const linkedIds = new Set(this.collectionProducts.map((item) => item.published_product_id));
+    const linkedIds = new Set(
+      this.collectionProducts
+        .filter((item) => item.is_active && !item.is_excluded)
+        .map((item) => item.published_product_id)
+    );
     return this.publishedProducts.filter((item) => linkedIds.has(item.id));
+  }
+
+  get excludedProducts(): PublishedProduct[] {
+    const excludedIds = new Set(
+      this.collectionProducts.filter((item) => item.is_excluded).map((item) => item.published_product_id)
+    );
+    return this.publishedProducts.filter((item) => excludedIds.has(item.id));
   }
 
   get availableProducts(): PublishedProduct[] {
@@ -178,7 +198,9 @@ export class EcommerceCollectionsComponent implements OnInit {
     this.storefrontService.getCollections(this.selectedStorefrontId).subscribe({
       next: (collections) => {
         this.collections = collections;
-        this.publishedProducts = [];
+        if (this.viewMode === 'list') {
+          this.publishedProducts = [];
+        }
         this.resetBulkSelection();
         this.loading = false;
       },
@@ -194,6 +216,7 @@ export class EcommerceCollectionsComponent implements OnInit {
     const selected = this.collections.find((item) => item.id === collectionId);
     this.form = selected ? { ...selected } : this.createForm();
     this.rules = [];
+    this.resetRulePreview();
     this.ruleDraft = this.createRuleDraft();
     this.assignment = { publishedProductId: '', sortOrder: 0 };
     this.resetFilters();
@@ -208,6 +231,12 @@ export class EcommerceCollectionsComponent implements OnInit {
     this.loadCollectionProducts(collectionId);
     this.loadCollectionRules(collectionId);
     this.loadPublishedProducts();
+  }
+
+  get filteredExcludedProducts(): PublishedProduct[] {
+    const query = this.excludedSearch.trim().toLowerCase();
+    if (!query) return this.excludedProducts;
+    return this.excludedProducts.filter((item) => this.matchesSearch(item, query));
   }
 
   loadPublishedProducts(): void {
@@ -239,9 +268,11 @@ export class EcommerceCollectionsComponent implements OnInit {
     this.storefrontService.getCollectionRules(collectionId).subscribe({
       next: (rules) => {
         this.rules = rules.map((rule, index) => ({ ...rule, position: index }));
+        this.scheduleRulePreview(0);
       },
       error: (err) => {
         this.rules = [];
+        this.resetRulePreview();
         this.swal.error('Error', err?.error?.detail || 'No se pudieron cargar las reglas de la colección.');
       }
     });
@@ -264,6 +295,7 @@ export class EcommerceCollectionsComponent implements OnInit {
     this.resetSelection();
     this.rules = [];
     this.ruleDraft = this.createRuleDraft();
+    this.resetRulePreview();
     this.viewMode = 'detail';
     this.showConfigPanel = true;
   }
@@ -287,7 +319,7 @@ export class EcommerceCollectionsComponent implements OnInit {
         this.viewMode = 'detail';
         this.showConfigPanel = false;
         this.showAddProductsModal = false;
-        this.persistRules(collection.id, true);
+        this.persistRules(collection.id);
       },
       error: (err) => {
         this.saving = false;
@@ -356,10 +388,12 @@ export class EcommerceCollectionsComponent implements OnInit {
     }
     this.rules = [...this.rules, { ...this.ruleDraft, value, position: this.rules.length }];
     this.ruleDraft = this.createRuleDraft();
+    this.scheduleRulePreview();
   }
 
   removeRule(index: number): void {
     this.rules = this.rules.filter((_, ruleIndex) => ruleIndex !== index).map((rule, position) => ({ ...rule, position }));
+    this.scheduleRulePreview();
   }
 
   availableOperators(field: CollectionRuleField): Array<{ value: CollectionRuleOperator; label: string }> {
@@ -395,6 +429,45 @@ export class EcommerceCollectionsComponent implements OnInit {
     if (!validOperators.includes(rule.operator)) {
       rule.operator = validOperators[0];
     }
+    this.scheduleRulePreview();
+  }
+
+  onRuleChanged(): void {
+    this.scheduleRulePreview();
+  }
+
+  refreshRulePreview(): void {
+    if (!this.selectedStorefrontId || !this.rulePreviewIsAvailable) {
+      this.resetRulePreview();
+      return;
+    }
+    if (this.rulePreviewTimer) {
+      clearTimeout(this.rulePreviewTimer);
+      this.rulePreviewTimer = null;
+    }
+    const requestId = ++this.rulePreviewRequestId;
+    this.rulePreviewLoading = true;
+    this.rulePreviewError = '';
+    this.storefrontService.previewCollectionRules({
+      storefront_id: this.selectedStorefrontId,
+      collection_id: this.selectedCollectionId || undefined,
+      rule_match: this.form.rule_match || 'all',
+      rules: this.rules.map((rule, position) => ({ ...rule, position }))
+    }).subscribe({
+      next: (preview) => {
+        if (requestId !== this.rulePreviewRequestId) return;
+        this.rulePreviewLoading = false;
+        this.rulePreviewMatchedCount = preview.matched_count;
+        this.rulePreviewIncludedCount = preview.included_count;
+        this.rulePreviewExcludedCount = preview.excluded_count;
+        this.rulePreviewProducts = preview.products;
+      },
+      error: (err) => {
+        if (requestId !== this.rulePreviewRequestId) return;
+        this.rulePreviewLoading = false;
+        this.rulePreviewError = err?.error?.detail || 'No se pudo calcular la vista previa.';
+      }
+    });
   }
 
   ruleFieldLabel(field: CollectionRuleField): string {
@@ -407,7 +480,7 @@ export class EcommerceCollectionsComponent implements OnInit {
 
   saveRules(): void {
     if (!this.selectedCollectionId) return;
-    this.persistRules(this.selectedCollectionId, false);
+    this.persistRules(this.selectedCollectionId);
   }
 
   applyRules(): void {
@@ -416,8 +489,12 @@ export class EcommerceCollectionsComponent implements OnInit {
     this.storefrontService.applyCollectionRules(this.selectedCollectionId).subscribe({
       next: (result) => {
         this.ruleSaving = false;
-        this.swal.success('Colección actualizada', `${result.added_count} agregados y ${result.removed_count} retirados.`);
+        this.swal.success(
+          'Colección actualizada',
+          `${result.added_count} agregados, ${result.removed_count} retirados y ${result.excluded_count} excluidos.`
+        );
         this.loadCollectionProducts(this.selectedCollectionId);
+        this.scheduleRulePreview(0);
       },
       error: (err) => {
         this.ruleSaving = false;
@@ -515,8 +592,11 @@ export class EcommerceCollectionsComponent implements OnInit {
     if (!this.selectedCollectionId) return;
     this.storefrontService.removeProductFromCollection(this.selectedCollectionId, publishedProductId).subscribe({
       next: () => {
-        this.swal.success('Producto eliminado de la coleccion');
+        this.swal.success(
+          this.form.collection_mode === 'automated' ? 'Producto excluido de la colección automática' : 'Producto eliminado de la colección'
+        );
         this.loadCollectionProducts(this.selectedCollectionId);
+        this.scheduleRulePreview(0);
       },
       error: (err) => {
         this.swal.error('Error', err?.error?.detail || 'No se pudo eliminar el producto de la coleccion.');
@@ -538,8 +618,14 @@ export class EcommerceCollectionsComponent implements OnInit {
     forkJoin(requests).subscribe({
       next: () => {
         this.saving = false;
-        this.swal.success('Productos eliminados de la coleccion');
+        this.selectedLinkedProductIds = [];
+        this.swal.success(
+          this.form.collection_mode === 'automated'
+            ? 'Productos excluidos de la colección automática'
+            : 'Productos eliminados de la colección'
+        );
         this.loadCollectionProducts(this.selectedCollectionId!);
+        this.scheduleRulePreview(0);
       },
       error: (err) => {
         this.saving = false;
@@ -580,6 +666,7 @@ export class EcommerceCollectionsComponent implements OnInit {
     this.form = this.createForm();
     this.collectionProducts = [];
     this.rules = [];
+    this.resetRulePreview();
     this.assignment = { publishedProductId: '', sortOrder: 0 };
     this.resetFilters();
     this.resetBulkSelection();
@@ -622,6 +709,7 @@ export class EcommerceCollectionsComponent implements OnInit {
   private resetFilters(): void {
     this.availableSearch = '';
     this.linkedSearch = '';
+    this.excludedSearch = '';
     this.availableSlugFilter = '';
     this.linkedSlugFilter = '';
     this.availableFeaturedFilter = 'all';
@@ -667,7 +755,7 @@ export class EcommerceCollectionsComponent implements OnInit {
     };
   }
 
-  private persistRules(collectionId: string, afterCollectionSave: boolean): void {
+  private persistRules(collectionId: string): void {
     this.ruleSaving = true;
     this.storefrontService.updateCollectionRules(collectionId, {
       collection_mode: this.form.collection_mode || 'manual',
@@ -677,9 +765,9 @@ export class EcommerceCollectionsComponent implements OnInit {
       next: (result) => {
         this.ruleSaving = false;
         this.saving = false;
-        const syncSummary = `${result.added_count} agregado(s) y ${result.removed_count} retirado(s).`;
+        const syncSummary = `${result.added_count} agregado(s), ${result.removed_count} retirado(s) y ${result.excluded_count} excluido(s).`;
         this.swal.success(
-          afterCollectionSave && (result.added_count > 0 || result.removed_count > 0)
+          result.added_count > 0 || result.removed_count > 0 || result.excluded_count > 0
             ? `Colección guardada: ${syncSummary}`
             : 'Colección guardada'
         );
@@ -695,37 +783,37 @@ export class EcommerceCollectionsComponent implements OnInit {
     });
   }
 
-  private isPreviewableRules(): boolean {
-    return this.rules.every((rule) => ['title', 'description', 'price'].includes(rule.field));
-  }
-
-  private matchesRulePreview(product: PublishedProduct): boolean {
-    const result = this.rules.map((rule) => {
-      const values = this.previewValues(product, rule.field);
-      const expected = rule.value.trim().toLowerCase();
-      if (rule.field === 'price') {
-        const price = Number(product.base_price);
-        const target = Number(rule.value.replace(',', '.'));
-        if (!Number.isFinite(price) || !Number.isFinite(target)) return false;
-        if (rule.operator === 'equals') return price === target;
-        if (rule.operator === 'not_equals') return price !== target;
-        if (rule.operator === 'greater_than') return price > target;
-        if (rule.operator === 'less_than') return price < target;
-        if (rule.operator === 'greater_or_equal') return price >= target;
-        return price <= target;
+  restoreExcludedProduct(publishedProductId: string): void {
+    if (!this.selectedCollectionId) return;
+    this.saving = true;
+    this.storefrontService.restoreProductToAutomatedCollection(this.selectedCollectionId, publishedProductId).subscribe({
+      next: () => {
+        this.saving = false;
+        this.swal.success('Producto restaurado', 'Volverá a la colección siempre que todavía cumpla las reglas.');
+        this.loadCollectionProducts(this.selectedCollectionId);
+        this.scheduleRulePreview(0);
+      },
+      error: (err) => {
+        this.saving = false;
+        this.swal.error('Error', err?.error?.detail || 'No se pudo restaurar el producto.');
       }
-      if (rule.operator === 'equals') return values.some((value) => value === expected);
-      if (rule.operator === 'not_equals') return values.every((value) => value !== expected);
-      if (rule.operator === 'contains') return values.some((value) => value.includes(expected));
-      if (rule.operator === 'not_contains') return values.every((value) => !value.includes(expected));
-      if (rule.operator === 'starts_with') return values.some((value) => value.startsWith(expected));
-      return values.some((value) => value.endsWith(expected));
     });
-    return this.form.rule_match === 'any' ? result.some(Boolean) : result.every(Boolean);
   }
 
-  private previewValues(product: PublishedProduct, field: CollectionRuleField): string[] {
-    const value = field === 'title' ? product.product_name : field === 'description' ? product.product_description : '';
-    return [String(value || '').trim().toLowerCase()];
+  private scheduleRulePreview(delay = 350): void {
+    if (this.rulePreviewTimer) clearTimeout(this.rulePreviewTimer);
+    this.rulePreviewTimer = setTimeout(() => this.refreshRulePreview(), delay);
+  }
+
+  private resetRulePreview(): void {
+    this.rulePreviewRequestId += 1;
+    if (this.rulePreviewTimer) clearTimeout(this.rulePreviewTimer);
+    this.rulePreviewTimer = null;
+    this.rulePreviewLoading = false;
+    this.rulePreviewMatchedCount = 0;
+    this.rulePreviewIncludedCount = 0;
+    this.rulePreviewExcludedCount = 0;
+    this.rulePreviewProducts = [];
+    this.rulePreviewError = '';
   }
 }

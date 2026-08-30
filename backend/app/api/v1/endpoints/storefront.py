@@ -106,6 +106,7 @@ from app.services.storefront_tracking import (
 from app.services.storefront_collections import (
     COLLECTION_RULE_FIELDS,
     COLLECTION_RULE_OPERATORS,
+    preview_collection_rules,
     reconcile_automated_collections,
     reconcile_products_collections,
 )
@@ -3382,6 +3383,54 @@ def _validate_collection_rule(rule: schemas.StoreCollectionRuleCreate) -> None:
         raise HTTPException(status_code=422, detail="La comparación numérica solo aplica a precio e inventario.")
 
 
+@router.post("/collections/rules/preview", response_model=schemas.StoreCollectionRulesPreviewResponse)
+async def preview_collection_rule_draft(
+    preview_in: schemas.StoreCollectionRulesPreviewRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    await _get_storefront_or_404(db, preview_in.storefront_id, current_user.company_id)
+    for rule in preview_in.rules:
+        _validate_collection_rule(rule)
+
+    excluded_product_ids: set[uuid.UUID] = set()
+    if preview_in.collection_id:
+        collection = await _get_collection_or_404(db, preview_in.collection_id, current_user.company_id)
+        if collection.storefront_id != preview_in.storefront_id:
+            raise HTTPException(status_code=400, detail="La colección no pertenece a la tienda seleccionada.")
+        excluded_result = await db.execute(
+            select(StoreCollectionProduct.published_product_id).where(
+                StoreCollectionProduct.collection_id == collection.id,
+                StoreCollectionProduct.company_id == current_user.company_id,
+                StoreCollectionProduct.is_excluded == True,
+            )
+        )
+        excluded_product_ids = set(excluded_result.scalars().all())
+
+    matches = await preview_collection_rules(
+        db,
+        storefront_id=preview_in.storefront_id,
+        company_id=current_user.company_id,
+        rules=preview_in.rules,
+        rule_match=preview_in.rule_match,
+    )
+    included = [product for product in matches if product.id not in excluded_product_ids]
+    excluded_count = len(matches) - len(included)
+    return schemas.StoreCollectionRulesPreviewResponse(
+        matched_count=len(matches),
+        included_count=len(included),
+        excluded_count=excluded_count,
+        products=[
+            schemas.StoreCollectionRulesPreviewProduct(
+                id=product.id,
+                title=(product.custom_title or (product.product.name if product.product else "") or "").strip(),
+                slug=product.slug,
+            )
+            for product in included[:8]
+        ],
+    )
+
+
 @router.put("/collections/{collection_id}/rules", response_model=schemas.StoreCollectionRulesApplyResponse)
 async def replace_collection_rules(
     collection_id: uuid.UUID,
@@ -3417,7 +3466,11 @@ async def replace_collection_rules(
         )
 
     await db.flush()
-    stats = {"matched_count": 0, "added_count": 0, "removed_count": 0}
+    # The collection was loaded before the bulk rule replacement. Refresh its
+    # relationship explicitly so the reconciliation evaluates the rules that
+    # were just persisted, not a relationship snapshot left in the session.
+    await db.refresh(collection, attribute_names=["rules"])
+    stats = {"matched_count": 0, "added_count": 0, "removed_count": 0, "excluded_count": 0}
     if collection.collection_mode == "automated":
         stats = await reconcile_automated_collections(
             db,
@@ -3426,6 +3479,17 @@ async def replace_collection_rules(
             user_id=current_user.id,
             collection_id=collection.id,
         )
+    else:
+        excluded_links = await db.scalars(
+            select(StoreCollectionProduct).where(
+                StoreCollectionProduct.collection_id == collection.id,
+                StoreCollectionProduct.company_id == current_user.company_id,
+                StoreCollectionProduct.is_excluded == True,
+            )
+        )
+        for link in excluded_links.all():
+            link.is_excluded = False
+            link.updated_by_id = current_user.id
     await db.commit()
     return stats
 
@@ -3439,6 +3503,7 @@ async def apply_collection_rules(
     collection = await _get_collection_or_404(db, collection_id, current_user.company_id)
     if collection.collection_mode != "automated":
         raise HTTPException(status_code=422, detail="Cambia la colección a Automática para aplicar reglas.")
+    await db.refresh(collection, attribute_names=["rules"])
     stats = await reconcile_automated_collections(
         db,
         storefront_id=collection.storefront_id,
@@ -3474,6 +3539,7 @@ async def add_product_to_collection(
     existing_link = result.scalars().first()
     if existing_link:
         existing_link.is_active = True
+        existing_link.is_excluded = False
         existing_link.sort_order = link_in.sort_order
         existing_link.updated_by_id = current_user.id
         db.add(existing_link)
@@ -3506,7 +3572,10 @@ async def read_collection_products(
         select(StoreCollectionProduct).where(
             StoreCollectionProduct.collection_id == collection_id,
             StoreCollectionProduct.company_id == current_user.company_id,
-            StoreCollectionProduct.is_active == True,
+            or_(
+                StoreCollectionProduct.is_active == True,
+                StoreCollectionProduct.is_excluded == True,
+            ),
         ).order_by(StoreCollectionProduct.sort_order.asc(), StoreCollectionProduct.created_at.asc())
     )
     return result.scalars().all()
@@ -3520,24 +3589,61 @@ async def remove_product_from_collection(
     current_user: User = Depends(PermissionChecker("manage_company")),
 ) -> Any:
     collection = await _get_collection_or_404(db, collection_id, current_user.company_id)
-    if collection.collection_mode == "automated":
-        raise HTTPException(status_code=422, detail="Las colecciones automáticas se administran mediante reglas.")
     result = await db.execute(
         select(StoreCollectionProduct).where(
             StoreCollectionProduct.collection_id == collection_id,
             StoreCollectionProduct.published_product_id == published_product_id,
             StoreCollectionProduct.company_id == current_user.company_id,
-            StoreCollectionProduct.is_active == True,
         )
     )
     link = result.scalars().first()
-    if not link:
+    if not link or (collection.collection_mode != "automated" and not link.is_active):
         raise HTTPException(status_code=404, detail="Collection product link not found")
     link.is_active = False
+    link.is_excluded = collection.collection_mode == "automated"
     link.updated_by_id = current_user.id
     db.add(link)
     await db.commit()
-    return {"ok": True}
+    return {"ok": True, "excluded": link.is_excluded}
+
+
+@router.post(
+    "/collections/{collection_id}/products/{published_product_id}/restore",
+    response_model=schemas.StoreCollectionProduct,
+)
+async def restore_automated_collection_product(
+    collection_id: uuid.UUID,
+    published_product_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_company")),
+) -> Any:
+    collection = await _get_collection_or_404(db, collection_id, current_user.company_id)
+    if collection.collection_mode != "automated":
+        raise HTTPException(status_code=422, detail="Esta acción solo aplica a colecciones automáticas.")
+    link = await db.scalar(
+        select(StoreCollectionProduct).where(
+            StoreCollectionProduct.collection_id == collection.id,
+            StoreCollectionProduct.published_product_id == published_product_id,
+            StoreCollectionProduct.company_id == current_user.company_id,
+            StoreCollectionProduct.is_excluded == True,
+        )
+    )
+    if not link:
+        raise HTTPException(status_code=404, detail="El producto no está excluido de esta colección.")
+    link.is_excluded = False
+    link.updated_by_id = current_user.id
+    await db.flush()
+    await reconcile_automated_collections(
+        db,
+        storefront_id=collection.storefront_id,
+        company_id=current_user.company_id,
+        user_id=current_user.id,
+        product_ids=[published_product_id],
+        collection_id=collection.id,
+    )
+    await db.commit()
+    await db.refresh(link)
+    return link
 
 
 @router.get("/published-products", response_model=List[schemas.PublishedProduct])
@@ -5573,6 +5679,7 @@ async def read_public_products(
             .join(StoreCollection, StoreCollection.id == StoreCollectionProduct.collection_id)
             .where(
                 StoreCollectionProduct.published_product_id.in_(published_ids),
+                StoreCollectionProduct.is_active == True,
                 StoreCollection.storefront_id == storefront_id,
                 StoreCollection.is_active == True,
                 StoreCollection.is_visible == True,

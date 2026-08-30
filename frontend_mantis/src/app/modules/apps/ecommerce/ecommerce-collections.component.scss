@@ -114,6 +114,89 @@
     font-weight: 600;
   }
 
+  .rule-preview-count--loading {
+    background: var(--bs-info-bg-subtle);
+    color: var(--bs-info-text-emphasis);
+  }
+
+  .rule-preview-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--bs-success-border-subtle);
+    border-radius: calc(var(--bs-border-radius) * 1.1);
+    background: var(--bs-success-bg-subtle);
+    color: var(--bs-success-text-emphasis);
+  }
+
+  .rule-preview-message > i {
+    margin-top: 0.1rem;
+    font-size: 1.25rem;
+  }
+
+  .rule-preview-message strong,
+  .rule-preview-message span,
+  .rule-preview-message small {
+    display: block;
+  }
+
+  .rule-preview-message span,
+  .rule-preview-message small {
+    margin-top: 0.15rem;
+    font-size: 0.76rem;
+  }
+
+  .rule-preview-message small {
+    max-width: 920px;
+    color: var(--bs-secondary-color);
+  }
+
+  .rule-preview-message--error {
+    border-color: var(--bs-danger-border-subtle);
+    background: var(--bs-danger-bg-subtle);
+    color: var(--bs-danger-text-emphasis);
+  }
+
+  .collection-excluded-badge {
+    background: var(--bs-warning-bg-subtle);
+    color: var(--bs-warning-text-emphasis);
+  }
+
+  .collection-exclusions {
+    overflow: hidden;
+    border: 1px solid var(--bs-warning-border-subtle);
+    border-radius: calc(var(--bs-border-radius) * 1.25);
+    background: var(--bs-warning-bg-subtle);
+  }
+
+  .collection-exclusions__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--bs-warning-border-subtle);
+  }
+
+  .collection-exclusions__header small {
+    color: var(--bs-secondary-color);
+  }
+
+  .collection-exclusions__header input {
+    width: min(260px, 100%);
+    background: var(--bs-body-bg);
+  }
+
+  .collection-exclusions .table-responsive {
+    padding: 0 1rem 1rem;
+  }
+
+  .collection-exclusions .table {
+    --bs-table-bg: transparent;
+  }
+
   .rule-backend-note {
     display: block;
     margin-top: 0.75rem;
@@ -166,6 +249,15 @@
     .collection-rule-add-row input,
     .collection-rule-add-row button {
       grid-column: 2 / -1;
+    }
+
+    .collection-exclusions__header {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .collection-exclusions__header input {
+      width: 100%;
     }
   }
 }

@@ -141,6 +141,7 @@ class StoreCollectionProduct(BaseModel):
     collection_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("store_collections.id"), nullable=False, index=True)
     published_product_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("published_products.id"), nullable=False, index=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_excluded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     collection = relationship("StoreCollection", back_populates="collection_products")
     published_product = relationship("PublishedProduct", back_populates="collections")

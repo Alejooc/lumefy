@@ -156,12 +156,22 @@ def rule_matches_product(rule: Any, facts: dict[str, Any]) -> bool:
     return False
 
 
-def collection_matches_product(collection: StoreCollection, facts: dict[str, Any]) -> bool:
-    rules = [rule for rule in (collection.rules or []) if rule.is_active and rule.value is not None]
-    if collection.collection_mode != "automated" or not rules:
+def rules_match_product(rules: Iterable[Any], rule_match: str, facts: dict[str, Any]) -> bool:
+    active_rules = [
+        rule
+        for rule in rules
+        if getattr(rule, "is_active", True) and getattr(rule, "value", None) is not None
+    ]
+    if not active_rules:
         return False
-    results = [rule_matches_product(rule, facts) for rule in rules]
-    return any(results) if collection.rule_match == "any" else all(results)
+    results = [rule_matches_product(rule, facts) for rule in active_rules]
+    return any(results) if rule_match == "any" else all(results)
+
+
+def collection_matches_product(collection: StoreCollection, facts: dict[str, Any]) -> bool:
+    if collection.collection_mode != "automated":
+        return False
+    return rules_match_product(collection.rules or [], collection.rule_match, facts)
 
 
 async def _load_published_products(
@@ -240,6 +250,32 @@ async def _load_automated_collections(
     return list(result.scalars().all())
 
 
+async def preview_collection_rules(
+    db: AsyncSession,
+    *,
+    storefront_id: UUID,
+    company_id: UUID,
+    rules: Iterable[Any],
+    rule_match: str,
+) -> list[PublishedProduct]:
+    """Evaluate an unsaved rule draft with the same facts used by reconciliation."""
+    rule_list = list(rules)
+    products = await _load_published_products(
+        db,
+        storefront_id=storefront_id,
+        company_id=company_id,
+    )
+    return [
+        product
+        for product in products
+        if rules_match_product(
+            rule_list,
+            rule_match,
+            product_rule_facts(product, getattr(product, "_collection_inventory", 0)),
+        )
+    ]
+
+
 async def reconcile_automated_collections(
     db: AsyncSession,
     *,
@@ -267,7 +303,7 @@ async def reconcile_automated_collections(
         product_ids=product_ids,
     )
     if not collections:
-        return {"matched_count": 0, "added_count": 0, "removed_count": 0}
+        return {"matched_count": 0, "added_count": 0, "removed_count": 0, "excluded_count": 0}
 
     if not products:
         links_result = await db.execute(
@@ -282,7 +318,7 @@ async def reconcile_automated_collections(
             link.is_active = False
             link.updated_by_id = user_id
             removed_count += 1
-        return {"matched_count": 0, "added_count": 0, "removed_count": removed_count}
+        return {"matched_count": 0, "added_count": 0, "removed_count": removed_count, "excluded_count": 0}
 
     product_ids_for_query = [item.id for item in products]
     links_result = await db.execute(
@@ -297,7 +333,7 @@ async def reconcile_automated_collections(
         for link in links_result.scalars().all()
     }
 
-    stats = {"matched_count": 0, "added_count": 0, "removed_count": 0}
+    stats = {"matched_count": 0, "added_count": 0, "removed_count": 0, "excluded_count": 0}
     for collection in collections:
         collection_links = [link for link in links_by_key.values() if link.collection_id == collection.id]
         next_sort_order = max((link.sort_order or 0 for link in collection_links), default=-1) + 1
@@ -308,6 +344,13 @@ async def reconcile_automated_collections(
             matches = collection_matches_product(collection, facts)
             if matches:
                 stats["matched_count"] += 1
+                if link and link.is_excluded:
+                    stats["excluded_count"] += 1
+                    if link.is_active:
+                        link.is_active = False
+                        link.updated_by_id = user_id
+                        stats["removed_count"] += 1
+                    continue
                 if link:
                     if not link.is_active:
                         link.is_active = True
@@ -360,7 +403,7 @@ async def reconcile_products_collections(
 ) -> dict[str, int]:
     """Reconcile all storefront publications for a group of ERP products."""
     if not product_ids:
-        return {"matched_count": 0, "added_count": 0, "removed_count": 0}
+        return {"matched_count": 0, "added_count": 0, "removed_count": 0, "excluded_count": 0}
     result = await db.execute(
         select(PublishedProduct.storefront_id, PublishedProduct.id).where(
             PublishedProduct.company_id == company_id,
@@ -372,7 +415,7 @@ async def reconcile_products_collections(
     for storefront_id, published_product_id in result.all():
         ids_by_storefront.setdefault(storefront_id, []).append(published_product_id)
 
-    stats = {"matched_count": 0, "added_count": 0, "removed_count": 0}
+    stats = {"matched_count": 0, "added_count": 0, "removed_count": 0, "excluded_count": 0}
     for storefront_id, published_ids in ids_by_storefront.items():
         current = await reconcile_automated_collections(
             db,

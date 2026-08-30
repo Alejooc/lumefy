@@ -442,6 +442,20 @@ export interface CollectionRulesApplyResponse {
   matched_count: number;
   added_count: number;
   removed_count: number;
+  excluded_count: number;
+}
+
+export interface CollectionRulesPreviewProduct {
+  id: string;
+  title: string;
+  slug: string;
+}
+
+export interface CollectionRulesPreviewResponse {
+  matched_count: number;
+  included_count: number;
+  excluded_count: number;
+  products: CollectionRulesPreviewProduct[];
 }
 
 export interface PublishedProduct {
@@ -464,6 +478,8 @@ export interface StoreCollectionProduct {
   collection_id: string;
   published_product_id: string;
   sort_order: number;
+  is_active: boolean;
+  is_excluded: boolean;
 }
 
 export interface StoreNavigationItem {
@@ -854,6 +870,15 @@ export class StorefrontAdminService {
     );
   }
 
+  previewCollectionRules(payload: {
+    storefront_id: string;
+    collection_id?: string;
+    rule_match: 'all' | 'any';
+    rules: StoreCollectionRule[];
+  }): Observable<CollectionRulesPreviewResponse> {
+    return this.api.post<CollectionRulesPreviewResponse>('/storefront/collections/rules/preview', payload);
+  }
+
   getPublishedProducts(storefrontId?: string): Observable<PublishedProduct[]> {
     return this.api.get<PublishedProduct[]>('/storefront/published-products', storefrontId ? { storefront_id: storefrontId } : {});
   }
@@ -876,10 +901,16 @@ export class StorefrontAdminService {
     return this.api.get<StoreCollectionProduct[]>(`/storefront/collections/${collectionId}/products`);
   }
 
-  removeProductFromCollection(collectionId: string, publishedProductId: string): Observable<{ ok: boolean }> {
-    return this.api.delete<{ ok: boolean }>(`/storefront/collections/${collectionId}/products/${publishedProductId}`).pipe(
+  removeProductFromCollection(collectionId: string, publishedProductId: string): Observable<{ ok: boolean; excluded?: boolean }> {
+    return this.api.delete<{ ok: boolean; excluded?: boolean }>(`/storefront/collections/${collectionId}/products/${publishedProductId}`).pipe(
       tap(() => this.collectionsRequests.clear()),
     );
+  }
+
+  restoreProductToAutomatedCollection(collectionId: string, publishedProductId: string): Observable<StoreCollectionProduct> {
+    return this.api
+      .post<StoreCollectionProduct>(`/storefront/collections/${collectionId}/products/${publishedProductId}/restore`, {})
+      .pipe(tap(() => this.collectionsRequests.clear()));
   }
 
   getNavigation(storefrontId?: string): Observable<StoreNavigationItem[]> {
