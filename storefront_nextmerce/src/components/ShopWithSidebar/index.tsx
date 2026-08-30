@@ -16,6 +16,7 @@ import { toTemplateProduct } from "@/lib/product-view-model";
 import { PublicCatalogResponse } from "@/types/storefront";
 import { useStorefrontUi } from "@/lib/storefront-ui";
 import { isTrustedPreviewMessage } from "@/lib/preview";
+import PreLoader from "../Common/PreLoader";
 import {
   collectionTemplateContent,
   collectionTemplateSection,
@@ -466,17 +467,7 @@ const ShopWithSidebar = ({
       />
       <section className={`overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6] ${previewMode && selectionMode ? "lumefy-preview--selecting" : ""}`}>
         {isNavigating ? (
-          <div
-            className="absolute inset-0 z-[60] flex items-start justify-center bg-white/55 px-4 pt-28 backdrop-blur-[1px]"
-            role="status"
-            aria-live="polite"
-            aria-label="Actualizando catálogo"
-          >
-            <div className="sticky top-24 inline-flex items-center gap-3 rounded-full border border-gray-3 bg-white px-4 py-2.5 text-sm font-medium text-dark shadow-2">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue border-t-transparent" aria-hidden="true" />
-              Actualizando catálogo…
-            </div>
-          </div>
+          <PreLoader />
         ) : null}
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
           <div className="flex gap-7.5">
