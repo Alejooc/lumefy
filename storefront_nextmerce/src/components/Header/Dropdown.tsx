@@ -8,6 +8,7 @@ const Dropdown = ({ menuItem, stickyMenu }) => {
   const [dropdownToggler, setDropdownToggler] = useState(false);
   const pathUrl = usePathname();
   const columns = [];
+  const hasActiveSubmenuItem = menuItem.submenu.some((item) => item.path && pathUrl === item.path);
 
   for (let index = 0; index < menuItem.submenu.length; index += ITEMS_PER_COLUMN) {
     columns.push(menuItem.submenu.slice(index, index + ITEMS_PER_COLUMN));
@@ -23,7 +24,7 @@ const Dropdown = ({ menuItem, stickyMenu }) => {
         aria-expanded={dropdownToggler}
         className={`relative hover:text-blue text-custom-sm font-medium text-dark flex items-center gap-1.5 capitalize before:w-0 before:h-[3px] before:bg-blue before:absolute before:left-0 before:bottom-0 before:rounded-t-[3px] before:ease-out before:duration-200 hover:before:w-full ${
           stickyMenu ? "xl:py-4" : "xl:py-6"
-        } ${menuItem.path && pathUrl === menuItem.path && "!text-blue before:!w-full"}`}
+        } ${hasActiveSubmenuItem ? "!text-blue before:!w-full" : ""}`}
       >
         {menuItem.title}
         <svg

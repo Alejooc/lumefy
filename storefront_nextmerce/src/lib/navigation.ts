@@ -62,7 +62,9 @@ export function buildHeaderMenu(
       return {
         id: index + 1,
         title: item.label,
-        path: resolveMenuPath(item, collectionById),
+        // Groups are controls for their submenu, not links to the home page.
+        // Keeping `/` here makes every group look active on the storefront home.
+        path: item.item_type === "group" ? undefined : resolveMenuPath(item, collectionById),
         newTab: false,
         submenu: submenuItems.length ? submenuItems : undefined,
       };
