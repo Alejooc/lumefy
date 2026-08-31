@@ -24,6 +24,7 @@ import {
   ProductTemplateDocument,
 } from "@/lib/product-template";
 import { trackStorefrontEvent, trackingItem } from "@/lib/storefront-tracking";
+import AddiWidget, { AddiWidgetConfig } from "./AddiWidget";
 
 function toSwatchColor(value: string): string {
   const normalized = value.trim().toLowerCase();
@@ -137,10 +138,12 @@ const ShopDetails = ({
   product,
   relatedItems,
   productTemplate,
+  addiWidget,
 }: {
   product: Product;
   relatedItems: Product[];
   productTemplate?: ProductTemplateDocument;
+  addiWidget?: AddiWidgetConfig | null;
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { currency, format } = useStorefrontCurrency();
@@ -525,6 +528,10 @@ const ShopDetails = ({
                         <span className="line-through"> {format(displayedComparePrice)} </span>
                     ) : null}
                   </h3>
+
+                  {addiWidget && currency.toUpperCase() === "COP" ? (
+                    <AddiWidget price={displayedPrice} config={addiWidget} />
+                  ) : null}
 
                   <ul className="flex flex-col gap-2">
                     <li className="flex items-center gap-2.5">{content.free_delivery_text}</li>

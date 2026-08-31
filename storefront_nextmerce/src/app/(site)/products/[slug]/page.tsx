@@ -86,7 +86,12 @@ const ProductDetailsPage = async ({
             { name: data.product.title, path: `/products/${encodeURIComponent(data.product.slug || slug)}` },
           ])}
         />
-        <ShopDetails product={data.product} relatedItems={data.relatedItems} productTemplate={data.productTemplate} />
+        <ShopDetails
+          product={data.product}
+          relatedItems={data.relatedItems}
+          productTemplate={data.productTemplate}
+          addiWidget={data.addiWidget}
+        />
       </main>
     );
   } catch (error) {

@@ -5116,6 +5116,13 @@ async def read_public_payment_gateways(
                 "checkout_icon_url": (gateway.extra_config or {}).get("checkout_icon_url"),
                 "checkout_description": (gateway.extra_config or {}).get("checkout_description"),
                 "checkout_accent": (gateway.extra_config or {}).get("checkout_accent"),
+                # Addi's widget only needs the public ally identifier. Never
+                # expose client secrets or callback credentials here.
+                "ally_slug": (
+                    (gateway.extra_config or {}).get("ally_slug")
+                    if gateway.provider == "addi"
+                    else None
+                ),
             },
         )
         for gateway in gateways

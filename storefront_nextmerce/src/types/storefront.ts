@@ -60,6 +60,7 @@ export type PublicStorePaymentGateway = {
     checkout_icon_url?: string | null;
     checkout_description?: string | null;
     checkout_accent?: string | null;
+    ally_slug?: string | null;
     [key: string]: unknown;
   };
 };

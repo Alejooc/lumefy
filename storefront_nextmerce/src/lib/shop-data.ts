@@ -3,6 +3,7 @@ import { PublicCollection } from "@/types/storefront";
 
 import {
   getPublicCollections,
+  getPublicPaymentGateways,
   getPublicProducts,
   getPublicProductBySlug,
   resolveStorefront,
@@ -70,6 +71,10 @@ export type ShopDetailsViewModel = {
   relatedItems: Product[];
   productTemplate: ProductTemplateDocument;
   currency: string;
+  addiWidget: {
+    allySlug: string;
+    isSandbox: boolean;
+  } | null;
 };
 
 function normalizeTypeLabel(value?: string | null): string {
@@ -208,12 +213,21 @@ export async function loadShopViewModel(options?: {
 
 export async function loadShopDetailsViewModel(slug: string): Promise<ShopDetailsViewModel> {
   const storefront = await resolveStorefront();
-  const product = await getPublicProductBySlug(storefront.id, slug);
-  const catalog = await getPublicProducts(storefront.id, {
-    page: 1,
-    page_size: 50,
-    sort: "latest",
-  });
+  const [product, catalog, paymentGateways] = await Promise.all([
+    getPublicProductBySlug(storefront.id, slug),
+    getPublicProducts(storefront.id, {
+      page: 1,
+      page_size: 50,
+      sort: "latest",
+    }),
+    // A missing payment-gateway response must not prevent a product from
+    // rendering. The widget is an enhancement, not a checkout dependency.
+    getPublicPaymentGateways(storefront.id).catch(() => []),
+  ]);
+  const addiGateway = paymentGateways.find((gateway) => gateway.provider === "addi");
+  const allySlug = typeof addiGateway?.public_config?.ally_slug === "string"
+    ? addiGateway.public_config.ally_slug.trim()
+    : "";
   const normalize = (value?: string | null) => value?.trim().toLocaleLowerCase() || "";
   const category = normalize(product.category_name);
   const brand = normalize(product.brand_name);
@@ -237,5 +251,8 @@ export async function loadShopDetailsViewModel(slug: string): Promise<ShopDetail
     relatedItems,
     productTemplate: (storefront.theme_documents?.product || {}) as ProductTemplateDocument,
     currency: storefront.currency,
+    addiWidget: allySlug
+      ? { allySlug, isSandbox: Boolean(addiGateway?.is_sandbox) }
+      : null,
   };
 }
