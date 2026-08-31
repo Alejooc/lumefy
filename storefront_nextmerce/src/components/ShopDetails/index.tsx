@@ -295,6 +295,7 @@ const ShopDetails = ({
 
   const displayedPrice = selectedVariant?.price ?? product.discountedPrice;
   const displayedComparePrice = selectedVariant?.compareAtPrice ?? product.price;
+  const addiPurchaseAmount = displayedPrice * quantity;
   const hasComparePrice = displayedComparePrice > displayedPrice;
   const isInStock = selectedVariant
     ? selectedVariant.inStock && (selectedVariant.stockQuantity === undefined || selectedVariant.stockQuantity > 0)
@@ -523,7 +524,7 @@ const ShopDetails = ({
                   </h3>
 
                   {addiWidget && currency.toUpperCase() === "COP" ? (
-                    <AddiWidget price={displayedPrice} config={addiWidget} />
+                    <AddiWidget price={addiPurchaseAmount} config={addiWidget} />
                   ) : null}
 
                   <ul className="flex flex-col gap-2">

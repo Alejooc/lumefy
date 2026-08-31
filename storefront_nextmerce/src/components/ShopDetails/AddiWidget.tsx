@@ -4,6 +4,7 @@ import React from "react";
 import Script from "next/script";
 
 const ADDI_WIDGET_SCRIPT = "https://s3.amazonaws.com/widgets.addi.com/bundle.min.js";
+const ADDI_MINIMUM_AMOUNT_COP = 100_000;
 
 export type AddiWidgetConfig = {
   allySlug: string;
@@ -14,7 +15,7 @@ export default function AddiWidget({ price, config }: { price: number; config: A
   const normalizedPrice = Math.max(0, Math.round(Number(price) || 0));
   const allySlug = config.allySlug.trim();
 
-  if (!allySlug || normalizedPrice <= 0) return null;
+  if (!allySlug || normalizedPrice < ADDI_MINIMUM_AMOUNT_COP) return null;
 
   const widget = React.createElement("addi-widget", {
     key: `${allySlug}-${normalizedPrice}`,
