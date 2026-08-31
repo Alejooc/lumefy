@@ -393,9 +393,9 @@ const ShopDetails = ({
         pages={[
           "Productos",
           ...(product.categoryName ? [product.categoryName] : []),
-          product.title || content.breadcrumb_title,
         ]}
         headingLevel="h2"
+        hideTitle
       />
 
       {!product?.title ? (
@@ -493,18 +493,11 @@ const ShopDetails = ({
                     ) : null}
                   </div>
 
-                  {product.sellerName || product.brandName ? (
+                  {product.brandName ? (
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 text-custom-sm text-dark-3">
-                      {product.sellerName ? (
-                        <span>
-                          Vendido por: <span className="font-medium text-dark">{product.sellerName}</span>
-                        </span>
-                      ) : null}
-                      {product.brandName ? (
-                        <span>
-                          Marca: <span className="font-medium text-dark">{product.brandName}</span>
-                        </span>
-                      ) : null}
+                      <span>
+                        Marca: <span className="font-medium text-dark">{product.brandName}</span>
+                      </span>
                     </div>
                   ) : null}
 
@@ -592,10 +585,19 @@ const ShopDetails = ({
                     ) : null}
                   </div>
 
-                  {selectedVariant?.sku && informationSection.settings["show_sku"] !== false ? (
-                    <div className="mb-5 rounded-md bg-blue/5 px-4 py-3 text-sm text-dark">
-                      <span className="font-medium">SKU:</span>{" "}
-                      <strong>{selectedVariant.sku}</strong>
+                  {((selectedVariant?.sku && informationSection.settings["show_sku"] !== false) || product.sellerName) ? (
+                    <div className="mb-5 flex flex-col gap-2">
+                      {selectedVariant?.sku && informationSection.settings["show_sku"] !== false ? (
+                        <div className="rounded-md bg-blue/5 px-4 py-3 text-sm text-dark">
+                          <span className="font-medium">SKU:</span>{" "}
+                          <strong>{selectedVariant.sku}</strong>
+                        </div>
+                      ) : null}
+                      {product.sellerName ? (
+                        <div className="px-1 text-sm text-dark-3">
+                          Vendido por: <span className="font-medium text-dark">{product.sellerName}</span>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
 

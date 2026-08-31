@@ -890,6 +890,84 @@ def _normalize_checkout_text(value: Any) -> str | None:
     return _safe_string(value)
 
 
+def _format_whatsapp_money(currency: str, value: Any) -> str:
+    amount = _safe_float(value)
+    normalized_currency = (currency or "USD").upper()
+    if normalized_currency == "COP":
+        return f"{normalized_currency} ${amount:,.0f}".replace(",", ".")
+    return f"{normalized_currency} {amount:,.2f}"
+
+
+def _build_whatsapp_order_message(
+    storefront: Storefront,
+    storefront_order: StorefrontOrder,
+    sale: Sale,
+    payment_display_name: str,
+) -> str:
+    """Build the complete customer order summary used by the WhatsApp handoff."""
+    currency = (storefront_order.currency or storefront.currency or "USD").upper()
+    order_code = str(sale.id).split("-")[0].upper()
+    lines = [
+        f"Hola, quiero confirmar mi compra en {storefront.name}.",
+        f"Pedido: #{order_code}",
+        "",
+        "*Detalle del carrito:*",
+    ]
+
+    for index, item in enumerate(sale.items or [], start=1):
+        product_name = (item.product.name if item.product else "Producto").strip()
+        variant_name = (item.variant.name if item.variant else "").strip()
+        variant_label = f" | Variante: {variant_name}" if variant_name else ""
+        product_sku = (item.variant.sku if item.variant and item.variant.sku else None) or (
+            item.product.sku if item.product and item.product.sku else None
+        )
+        sku_label = f" | SKU: {product_sku}" if product_sku else ""
+        lines.extend([
+            f"{index}. {product_name}{variant_label}{sku_label}",
+            f"   Cantidad: {item.quantity:g} | Unitario: {_format_whatsapp_money(currency, item.price)}",
+            f"   Total línea: {_format_whatsapp_money(currency, item.total)}",
+        ])
+
+    lines.extend([
+        "",
+        "*Resumen del pago:*",
+        f"Subtotal: {_format_whatsapp_money(currency, sale.subtotal)}",
+        f"Descuento: {_format_whatsapp_money(currency, sale.discount)}",
+        f"Envío: {_format_whatsapp_money(currency, sale.shipping_cost)}",
+        f"Impuestos: {_format_whatsapp_money(currency, sale.tax)}",
+        f"*Total: {_format_whatsapp_money(currency, sale.total)}*",
+        f"Método de pago: {payment_display_name}",
+        "",
+        "*Datos del cliente:*",
+        f"Nombre: {storefront_order.customer_name}",
+        f"Correo: {storefront_order.customer_email}",
+    ])
+
+    if storefront_order.customer_phone:
+        lines.append(f"Teléfono: {storefront_order.customer_phone}")
+    if storefront_order.customer_document_id:
+        lines.append(f"Documento: {storefront_order.customer_document_id}")
+
+    lines.extend([
+        "",
+        "*Datos de envío:*",
+        f"Dirección: {storefront_order.shipping_line1}",
+        f"Ciudad: {storefront_order.shipping_city or 'No especificada'}",
+        f"Departamento/Estado: {storefront_order.shipping_state or 'No especificado'}",
+        f"País: {storefront_order.shipping_country or 'No especificado'}",
+    ])
+    if storefront_order.shipping_postal_code:
+        lines.append(f"Código postal: {storefront_order.shipping_postal_code}")
+    if storefront_order.shipping_method_name:
+        lines.append(f"Método de envío: {storefront_order.shipping_method_name}")
+    if storefront_order.shipping_rule_name:
+        lines.append(f"Tarifa de envío: {storefront_order.shipping_rule_name}")
+    if storefront_order.buyer_note:
+        lines.extend(["", f"*Notas:* {storefront_order.buyer_note}"])
+
+    return "\n".join(lines)
+
+
 def _build_checkout_order_response(
     storefront: Storefront,
     sale: Sale,
@@ -6361,6 +6439,9 @@ async def create_public_payment_intent(
             selectinload(StorefrontOrder.sale)
             .selectinload(Sale.items)
             .selectinload(SaleItem.product),
+            selectinload(StorefrontOrder.sale)
+            .selectinload(Sale.items)
+            .selectinload(SaleItem.variant),
         )
         .where(
             StorefrontOrder.storefront_id == storefront.id,
@@ -6408,21 +6489,14 @@ async def create_public_payment_intent(
         number = "".join(char for char in str(extra_config.get("whatsapp_number") or "") if char.isdigit())
         if len(number) < 8:
             raise HTTPException(status_code=400, detail="WhatsApp requires a valid number in the gateway configuration")
-        item_lines = [
-            f"- {(item.product.name if item.product else 'Producto')} x{item.quantity:g}"
-            for item in storefront_order.sale.items
-        ]
-        message = "\n".join([
-            f"Hola, quiero confirmar mi compra en {storefront.name}.",
-            f"Pedido: #{str(storefront_order.sale_id).split('-')[0].upper()}",
-            *item_lines,
-            f"Total: {currency} {amount:,.0f}",
-            f"Cliente: {storefront_order.customer_name}",
-            f"Correo: {storefront_order.customer_email}",
-            f"Dirección: {storefront_order.shipping_line1}",
-        ])
+        message = _build_whatsapp_order_message(
+            storefront,
+            storefront_order,
+            storefront_order.sale,
+            gateway.display_name,
+        )
         flow = "whatsapp"
-        checkout_url = f"https://wa.me/{number}?text={quote(message)}"
+        checkout_url = f"https://wa.me/{number}?text={quote(message, safe='')}"
         instructions = extra_config.get("instructions") or "Te llevaremos a WhatsApp para confirmar tu pedido."
     elif gateway.provider == "wompi":
         currency = currency

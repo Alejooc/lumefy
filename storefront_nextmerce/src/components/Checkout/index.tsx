@@ -115,6 +115,14 @@ function submitPaymentRedirect(intent: PaymentIntentResponse): boolean {
       ? (payload["fields"] as Record<string, unknown>)
       : {};
 
+  // A GET form submission replaces the query string in its action URL. That
+  // drops WhatsApp's `?text=...` payload, so direct GET redirects must keep
+  // the URL intact instead of going through a form.
+  if (method === "GET" && Object.keys(fields).length === 0) {
+    window.location.assign(action);
+    return true;
+  }
+
   const form = document.createElement("form");
   form.method = method;
   form.action = action;

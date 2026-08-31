@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from app.api.v1.endpoints.storefront import (
     _cancel_storefront_sale_and_release_reservation,
+    _build_whatsapp_order_message,
     _extract_variant_facets,
     _reserve_storefront_sale,
     _format_payu_confirmation_amount,
@@ -35,6 +36,49 @@ from app.models.inventory_movement import InventoryMovement, MovementType
 
 
 class StorefrontValidationTests(unittest.TestCase):
+    def test_whatsapp_order_message_contains_cart_payment_and_shipping_details(self):
+        product = SimpleNamespace(name="Cortina Blackout", sku="COR-001")
+        variant = SimpleNamespace(name="Gris / 1.40 x 2.20", sku="COR-001-GRIS")
+        sale = SimpleNamespace(
+            id=uuid4(),
+            items=[SimpleNamespace(product=product, variant=variant, quantity=2, price=25400, total=50800)],
+            subtotal=50800,
+            discount=1000,
+            shipping_cost=8000,
+            tax=9122,
+            total=62922,
+        )
+        storefront = SimpleNamespace(name="VaryaGo", currency="COP")
+        storefront_order = SimpleNamespace(
+            currency="COP",
+            customer_name="Ana Pérez",
+            customer_email="ana@example.com",
+            customer_phone="3001234567",
+            customer_document_id="123456789",
+            shipping_line1="Carrera 10 # 20-30",
+            shipping_city="Cali",
+            shipping_state="Valle del Cauca",
+            shipping_country="CO",
+            shipping_postal_code="760001",
+            shipping_method_name="Entrega estándar",
+            shipping_rule_name="Cali urbana",
+            buyer_note="Entregar después de las 5 pm",
+        )
+
+        message = _build_whatsapp_order_message(storefront, storefront_order, sale, "WhatsApp")
+
+        self.assertIn("*Detalle del carrito:*", message)
+        self.assertIn("Cortina Blackout", message)
+        self.assertIn("Variante: Gris / 1.40 x 2.20", message)
+        self.assertIn("Cantidad: 2", message)
+        self.assertIn("Total línea: COP $50.800", message)
+        self.assertIn("*Total: COP $62.922*", message)
+        self.assertIn("Método de pago: WhatsApp", message)
+        self.assertIn("Ana Pérez", message)
+        self.assertIn("Carrera 10 # 20-30", message)
+        self.assertIn("Entrega estándar", message)
+        self.assertIn("Entregar después de las 5 pm", message)
+
     def test_variant_facets_keep_measure_labels_together(self):
         variants = [
             SimpleNamespace(
