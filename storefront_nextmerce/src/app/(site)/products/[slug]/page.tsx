@@ -24,7 +24,7 @@ async function redirectCollectionIfPresent(slug: string): Promise<never> {
   let collection: Awaited<ReturnType<typeof getPublicCollectionBySlug>>;
   try {
     const storefront = await resolveStorefront();
-    collection = await getPublicCollectionBySlug(storefront.id, slug);
+    collection = await getPublicCollectionBySlug(storefront.id, slug, { includeProducts: false });
   } catch {
     notFound();
   }

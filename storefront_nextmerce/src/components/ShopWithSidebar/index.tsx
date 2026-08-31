@@ -16,7 +16,7 @@ import { toTemplateProduct } from "@/lib/product-view-model";
 import { PublicCatalogResponse } from "@/types/storefront";
 import { useStorefrontUi } from "@/lib/storefront-ui";
 import { isTrustedPreviewMessage } from "@/lib/preview";
-import PreLoader from "../Common/PreLoader";
+import CatalogLoading from "./CatalogLoading";
 import {
   collectionTemplateContent,
   collectionTemplateSection,
@@ -467,7 +467,7 @@ const ShopWithSidebar = ({
       />
       <section className={`overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6] ${previewMode && selectionMode ? "lumefy-preview--selecting" : ""}`}>
         {isNavigating ? (
-          <PreLoader />
+          <CatalogLoading overlay />
         ) : null}
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
           <div className="flex gap-7.5">

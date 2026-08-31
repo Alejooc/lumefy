@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 async function getCollection(slug: string) {
   const storefront = await resolveStorefront();
-  return getPublicCollectionBySlug(storefront.id, slug);
+  return getPublicCollectionBySlug(storefront.id, slug, { includeProducts: false });
 }
 
 export async function generateMetadata({

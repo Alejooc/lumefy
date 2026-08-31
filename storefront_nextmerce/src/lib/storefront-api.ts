@@ -243,10 +243,17 @@ export async function getPublicProducts(
   );
 }
 
-export async function getPublicCollectionBySlug(storefrontId: string, slug: string): Promise<PublicCollection> {
+export async function getPublicCollectionBySlug(
+  storefrontId: string,
+  slug: string,
+  options?: { includeProducts?: boolean },
+): Promise<PublicCollection> {
+  const includeProducts = options?.includeProducts !== false;
   return request<PublicCollection>(
-    `/storefront/public/${storefrontId}/collections/${encodeURIComponent(slug)}`,
-    { cache: "no-store" },
+    `/storefront/public/${storefrontId}/collections/${encodeURIComponent(slug)}${includeProducts ? "" : "?include_products=false"}`,
+    includeProducts
+      ? { cache: "no-store" }
+      : { cache: "force-cache", next: { revalidate: 60 } },
   );
 }
 

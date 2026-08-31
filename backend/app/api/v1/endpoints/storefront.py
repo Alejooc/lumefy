@@ -5159,10 +5159,23 @@ async def read_public_collection_detail(
     slug: str,
     response: Response,
     db: AsyncSession = Depends(get_db),
+    include_products: bool = True,
     preview_token: str | None = None,
 ) -> Any:
     _set_public_cache_headers(response, preview_token, PUBLIC_CATALOG_CACHE_MAX_AGE)
     collection = await _get_public_collection_or_404(db, storefront_id, slug, preview_token)
+    if not include_products:
+        return schemas.PublicCollection(
+            id=collection.id,
+            storefront_id=collection.storefront_id,
+            name=collection.name,
+            slug=collection.slug,
+            description=collection.description,
+            image_url=collection.image_url,
+            is_featured=collection.is_featured,
+            products=[],
+        )
+
     storefront = await _get_public_storefront_by_id(db, storefront_id, preview_token)
     result = await db.execute(
         select(StoreCollectionProduct)
@@ -5564,8 +5577,36 @@ async def read_public_products(
         published_query = published_query.where(Product.category_id.in_(selected_category_ids))
     if selected_types:
         published_query = published_query.where(Product.product_type.in_(selected_types))
+    if selected_brands:
+        # Brand values come from the public facet as human-readable names.
+        # Resolve them in SQL before loading variants and collection links so
+        # a brand filter does not materialize the entire storefront catalog.
+        published_query = published_query.where(
+            Product.brand.has(
+                func.lumefy_unaccent(func.lower(Brand.name)).in_(selected_brands)
+            )
+        )
     if requested_product_ids:
         published_query = published_query.where(PublishedProduct.id.in_(requested_product_ids))
+    if selected_collections and not include_facets:
+        # Infinite-scroll requests do not need global facet counts. Restrict
+        # the candidate set at the database level for collection pages rather
+        # than loading every published product just to discard it in Python.
+        selected_collection_exists = (
+            select(StoreCollectionProduct.id)
+            .join(StoreCollection, StoreCollection.id == StoreCollectionProduct.collection_id)
+            .where(
+                StoreCollectionProduct.published_product_id == PublishedProduct.id,
+                StoreCollectionProduct.is_active == True,
+                StoreCollection.storefront_id == storefront_id,
+                StoreCollection.is_active == True,
+                StoreCollection.is_visible == True,
+                StoreCollection.slug.in_(selected_collections),
+            )
+            .correlate(PublishedProduct)
+            .exists()
+        )
+        published_query = published_query.where(selected_collection_exists)
     available_inventory = (
         select(Inventory.id)
         .where(
