@@ -1,0 +1,1 @@
+export const ADDI_MINIMUM_AMOUNT_COP = 50_000;

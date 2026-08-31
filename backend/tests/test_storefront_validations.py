@@ -21,6 +21,7 @@ from app.api.v1.endpoints.storefront import (
     _resolve_public_checkout_adjustments,
     _public_product_has_available_stock,
     _serialize_public_product,
+    _validate_addi_checkout_amount,
     _validate_payment_gateway_provider,
 )
 from app.schemas.storefront import (
@@ -257,6 +258,15 @@ class StorefrontValidationTests(unittest.TestCase):
         self.assertEqual(_validate_payment_gateway_provider("whatsapp"), "whatsapp")
         with self.assertRaisesRegex(HTTPException, "Unsupported payment provider"):
             _validate_payment_gateway_provider("paypal")
+
+    def test_addi_checkout_requires_the_minimum_cop_amount(self):
+        _validate_addi_checkout_amount("COP", 50000)
+
+        with self.assertRaisesRegex(HTTPException, "monto mínimo"):
+            _validate_addi_checkout_amount("COP", 49999)
+
+        with self.assertRaisesRegex(HTTPException, "only supports COP"):
+            _validate_addi_checkout_amount("USD", 100000)
 
     def test_paid_checkout_confirmation_is_idempotent_after_fulfillment_begins(self):
         sale = SimpleNamespace(status=SaleStatus.PICKING)

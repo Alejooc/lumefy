@@ -115,6 +115,7 @@ router = APIRouter()
 
 PUBLIC_STOREFRONT_CACHE_MAX_AGE = 60
 PUBLIC_CATALOG_CACHE_MAX_AGE = 15
+ADDI_MINIMUM_AMOUNT_COP = 50_000
 
 
 def _set_public_cache_headers(response: Response, preview_token: str | None, max_age: int) -> None:
@@ -2029,6 +2030,17 @@ def _validate_payment_gateway_provider(provider: str) -> str:
             detail="Unsupported payment provider.",
         )
     return normalized
+
+
+def _validate_addi_checkout_amount(currency: str, amount: float) -> None:
+    normalized_currency = (currency or "").strip().upper()
+    if normalized_currency != "COP":
+        raise HTTPException(status_code=400, detail="Addi checkout only supports COP")
+    if amount < ADDI_MINIMUM_AMOUNT_COP:
+        raise HTTPException(
+            status_code=400,
+            detail="Para pagar con Addi, el monto mínimo de la compra es de $50.000 COP",
+        )
 
 
 def _validate_gateway_checkout_configuration(gateway: StorePaymentGateway) -> None:
@@ -6273,6 +6285,8 @@ async def create_public_checkout_order(
         raise HTTPException(status_code=400, detail="Selecciona un departamento y una ciudad para calcular el envío")
     tax = _calculate_checkout_tax(storefront, subtotal, discount, shipping)
     total = max(0.0, subtotal - discount + shipping + tax)
+    if payment_provider == "addi":
+        _validate_addi_checkout_amount(storefront.currency, total)
 
     warehouse = await _resolve_storefront_fulfillment_warehouse(db, storefront)
     await _validate_checkout_inventory(db, warehouse.id, rows)
@@ -6470,6 +6484,8 @@ async def create_public_payment_intent(
     if amount <= 0:
         raise HTTPException(status_code=400, detail="Order total must be greater than zero")
     currency = (storefront_order.currency or storefront.currency or "USD").upper()
+    if gateway.provider == "addi":
+        _validate_addi_checkout_amount(currency, amount)
 
     mode = "sandbox" if gateway.is_sandbox else "production"
     external_reference = str(storefront_order.sale_id)
@@ -6637,8 +6653,6 @@ async def create_public_payment_intent(
                 raise HTTPException(status_code=400, detail="Mercado Pago did not return a checkout URL")
             flow = "external_redirect"
     elif gateway.provider == "addi":
-        if currency != "COP":
-            raise HTTPException(status_code=400, detail="Addi checkout only supports COP")
         client_id = str(gateway.public_key or "").strip()
         client_secret = str(gateway.secret_key_encrypted or "").strip()
         callback_url = str(extra_config.get("callback_url") or "").strip().replace(

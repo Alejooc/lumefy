@@ -25,6 +25,7 @@ import { useStorefrontAuth } from "@/lib/storefront-auth";
 import { useStorefrontUi } from "@/lib/storefront-ui";
 import { storefrontImageUrl } from "@/lib/storefront-image";
 import { formatMoney } from "@/lib/money";
+import { ADDI_MINIMUM_AMOUNT_COP } from "@/lib/addi";
 import {
   checkoutAppearanceVariables,
   normalizeCheckoutAppearance,
@@ -398,6 +399,11 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
   });
 
   const noCoverage = /no tenemos cobertura|no hay una tarifa de envío|no hay una tarifa de envio/i.test(error);
+  const checkoutTotal = preview?.total ?? estimatedSubtotal;
+  const addiBelowMinimum =
+    form.payment_provider === "addi" &&
+    currency.toUpperCase() === "COP" &&
+    checkoutTotal < ADDI_MINIMUM_AMOUNT_COP;
 
   const canSubmit =
     payloadItems.length > 0 &&
@@ -415,7 +421,8 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
     !noCoverage &&
     (!requiresAccount || authenticatedForStorefront) &&
     (!settings.require_phone || Boolean(form.phone.trim())) &&
-    (form.payment_provider !== "addi" || (Boolean(form.phone.trim()) && Boolean(form.document_id.trim())));
+    (form.payment_provider !== "addi" || (Boolean(form.phone.trim()) && Boolean(form.document_id.trim()))) &&
+    !addiBelowMinimum;
 
   useEffect(() => {
     let active = true;
@@ -622,6 +629,16 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
     try {
       const latestPreview = await refreshPreview();
       if (!latestPreview) {
+        return;
+      }
+      if (
+        form.payment_provider === "addi" &&
+        latestPreview.currency.toUpperCase() === "COP" &&
+        latestPreview.total < ADDI_MINIMUM_AMOUNT_COP
+      ) {
+        setError(
+          `Para pagar con Addi, el total mínimo es ${moneyLabel("COP", ADDI_MINIMUM_AMOUNT_COP)}. Agrega más productos o selecciona otro método de pago.`,
+        );
         return;
       }
 
@@ -1374,6 +1391,11 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
                         Esta tienda todavía no tiene métodos de pago habilitados. Puedes continuar cuando el administrador configure uno.
                       </div>
                     )}
+                    {addiBelowMinimum ? (
+                      <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800" role="alert">
+                        Para pagar con Addi, el total mínimo es {moneyLabel("COP", ADDI_MINIMUM_AMOUNT_COP)}. Agrega más productos o selecciona otro método de pago.
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 

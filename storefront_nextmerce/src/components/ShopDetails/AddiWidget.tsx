@@ -2,9 +2,9 @@
 
 import React from "react";
 import Script from "next/script";
+import { ADDI_MINIMUM_AMOUNT_COP } from "@/lib/addi";
 
 const ADDI_WIDGET_SCRIPT = "https://s3.amazonaws.com/widgets.addi.com/bundle.min.js";
-const ADDI_MINIMUM_AMOUNT_COP = 100_000;
 
 export type AddiWidgetConfig = {
   allySlug: string;
