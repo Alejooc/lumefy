@@ -464,6 +464,7 @@ const ShopWithSidebar = ({
             : templateContent.breadcrumb_title || selectedCollectionName || "Todos los productos"
         }
         pages={breadcrumbPages || ["Productos"]}
+        hideTitle
       />
       <section className={`overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6] ${previewMode && selectionMode ? "lumefy-preview--selecting" : ""}`}>
         {isNavigating ? (
