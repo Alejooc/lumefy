@@ -204,11 +204,11 @@ export class AppMarketplaceService {
   }
 
   getInstalledEvents(slug: string, limit = 20): Observable<AppInstallEvent[]> {
-    return this.api.get<AppInstallEvent[]>(`/apps/installed/${slug}/events?limit=${limit}`);
+    return this.api.get<AppInstallEvent[]>(`/apps/installed/${slug}/events?limit=${limit}`, undefined, true);
   }
 
   getBillingSummary(slug: string): Observable<BillingSummary> {
-    return this.api.get<BillingSummary>(`/apps/installed/${slug}/billing`);
+    return this.api.get<BillingSummary>(`/apps/installed/${slug}/billing`, undefined, true);
   }
 
   rotateApiKey(slug: string): Observable<RotateApiKeyResponse> {
@@ -228,11 +228,11 @@ export class AppMarketplaceService {
   }
 
   getWebhookDeliveries(slug: string, limit = 25): Observable<WebhookDelivery[]> {
-    return this.api.get<WebhookDelivery[]>(`/apps/installed/${slug}/webhooks/deliveries?limit=${limit}`);
+    return this.api.get<WebhookDelivery[]>(`/apps/installed/${slug}/webhooks/deliveries?limit=${limit}`, undefined, true);
   }
 
   getTrackingDeliveries(slug: string, limit = 50): Observable<TrackingStatus> {
-    return this.api.get<TrackingStatus>(`/apps/installed/${slug}/tracking/deliveries?limit=${limit}`);
+    return this.api.get<TrackingStatus>(`/apps/installed/${slug}/tracking/deliveries?limit=${limit}`, undefined, true);
   }
 
   retryWebhookDelivery(slug: string, deliveryId: string): Observable<WebhookTestResponse> {
