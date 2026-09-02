@@ -371,7 +371,7 @@ const ShopDetails = ({
       value: displayedPrice,
       items: [item],
     });
-  }, [currency, displayedPrice, product.id, selectedVariantLabel]);
+  }, [currency, displayedPrice, product, selectedVariantLabel]);
 
   const tabs = [
     { id: "description", title: content.description_tab_label, enabled: descriptionSection.settings["show_description_tab"] !== false },

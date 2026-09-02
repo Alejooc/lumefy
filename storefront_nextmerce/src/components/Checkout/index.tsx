@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Breadcrumb from "../Common/Breadcrumb";
@@ -795,7 +796,13 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
           <div className="checkout-brand-header mb-7.5">
             <div className="checkout-brand-header__identity">
               {appearance.show_logo && resolvedLogoUrl ? (
-                <img src={resolvedLogoUrl} alt={storefrontName || "Tienda"} className="checkout-brand-header__logo" />
+                <Image
+                  src={resolvedLogoUrl}
+                  alt={storefrontName || "Tienda"}
+                  width={144}
+                  height={42}
+                  className="checkout-brand-header__logo"
+                />
               ) : null}
               {appearance.show_brand_name ? (
                 <div>

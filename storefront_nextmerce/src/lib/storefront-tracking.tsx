@@ -517,7 +517,7 @@ export function StorefrontTrackingProvider({
       const searchTerm = new URLSearchParams(window.location.search).get("q")?.trim();
       if (searchTerm) trackStorefrontEvent({ name: "search", search_term: searchTerm });
     }
-  }, [configurationResolved, consent, currency, integrations, pathname]);
+  }, [configurationResolved, consent, currency, integrations, pathname, storefrontId]);
 
   const saveConsent = (nextConsent: TrackingConsent) => {
     const shouldReload = Boolean(consent?.analytics && !nextConsent.analytics)
