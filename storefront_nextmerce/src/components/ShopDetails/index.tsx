@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useDispatch } from "react-redux";
 
@@ -145,6 +145,8 @@ function numericVariantId(value: string): number {
   for (const char of value) hash = (hash * 31 + char.charCodeAt(0)) | 0;
   return Math.abs(hash) || 1;
 }
+
+const DESCRIPTION_COLLAPSED_HEIGHT = 360;
 
 const ShopDetails = ({
   product,
@@ -348,6 +350,13 @@ const ShopDetails = ({
       ? `${stockQuantity} disponibles`
       : content.stock_in_label || "Disponible";
   const descriptionHtml = sanitizeProductDescription(product.description);
+  const descriptionRef = useRef<HTMLDivElement>(null);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [descriptionCanExpand, setDescriptionCanExpand] = useState(false);
+
+  useEffect(() => {
+    setDescriptionExpanded(false);
+  }, [product.id, descriptionHtml]);
 
   useEffect(() => {
     if (!activeSize || sizeAvailability.get(activeSize) !== false) return;
@@ -376,6 +385,22 @@ const ShopDetails = ({
     { id: "reviews", title: content.reviews_tab_label, enabled: descriptionSection.settings["show_reviews_tab"] !== false },
   ].filter((tab) => tab.enabled);
   const activeContentTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : tabs[0]?.id;
+
+  useEffect(() => {
+    const element = descriptionRef.current;
+    if (!element || !descriptionHtml || !descriptionEnabled || activeContentTab !== "description") {
+      setDescriptionCanExpand(false);
+      return;
+    }
+
+    const measureDescription = () => {
+      setDescriptionCanExpand(element.scrollHeight > DESCRIPTION_COLLAPSED_HEIGHT + 4);
+    };
+
+    measureDescription();
+    window.addEventListener("resize", measureDescription);
+    return () => window.removeEventListener("resize", measureDescription);
+  }, [activeContentTab, descriptionEnabled, descriptionHtml]);
 
   const handleAddToCart = () => {
     if (!hasValidVariantSelection) {
@@ -753,10 +778,40 @@ const ShopDetails = ({
               <div className={activeContentTab === "description" ? "mt-12.5" : "hidden"}>
                 <div className="rounded-xl bg-white shadow-1 p-4 sm:p-8">
                   {descriptionHtml ? (
-                    <div
-                      className="product-description-html text-dark"
-                      dangerouslySetInnerHTML={{ __html: descriptionHtml }}
-                    />
+                    <>
+                      <div className="relative">
+                        <div
+                          id="product-description-content"
+                          ref={descriptionRef}
+                          className={`product-description-html text-dark ${
+                            !descriptionExpanded && descriptionCanExpand ? "product-description-html--collapsed" : ""
+                          }`}
+                          dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+                        />
+                        {!descriptionExpanded && descriptionCanExpand ? (
+                          <div className="product-description-fade" aria-hidden="true" />
+                        ) : null}
+                      </div>
+                      {descriptionCanExpand ? (
+                        <button
+                          type="button"
+                          className="product-description-toggle"
+                          onClick={() => setDescriptionExpanded((expanded) => !expanded)}
+                          aria-controls="product-description-content"
+                          aria-expanded={descriptionExpanded}
+                        >
+                          <span>{descriptionExpanded ? "Ocultar descripción" : "Ver descripción completa"}</span>
+                          <svg
+                            className={`h-4 w-4 transition-transform duration-200 ${descriptionExpanded ? "rotate-180" : ""}`}
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      ) : null}
+                    </>
                   ) : (
                     <p className="text-dark">Este producto aún no tiene descripción detallada.</p>
                   )}
