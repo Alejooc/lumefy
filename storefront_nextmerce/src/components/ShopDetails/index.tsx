@@ -561,12 +561,17 @@ const ShopDetails = ({
                     </div> : null}
                   </div>
 
-                  <h3 className="font-medium text-custom-1 mb-4.5">
-                    <span className="text-sm sm:text-base text-dark">
-                      {content.price_label}: {format(displayedPrice)}
+                  <h3 className="mb-4.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span className="text-sm font-medium uppercase tracking-[0.08em] text-dark-3 sm:text-base">
+                      {content.price_label}:
+                    </span>
+                    <span className="text-2xl font-semibold leading-none text-dark sm:text-3xl">
+                      {format(displayedPrice)}
                     </span>
                     {hasComparePrice ? (
-                        <span className="line-through"> {format(displayedComparePrice)} </span>
+                      <span className="text-sm font-normal text-dark-3 line-through sm:text-base">
+                        {format(displayedComparePrice)}
+                      </span>
                     ) : null}
                   </h3>
 
