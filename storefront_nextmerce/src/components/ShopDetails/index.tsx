@@ -82,6 +82,21 @@ function variantAttribute(variant: ProductVariant, keys: string[]): string {
   return "";
 }
 
+const COLOR_ATTRIBUTE_KEYS = ["color", "colors", "colour", "colours", "colored", "colores"];
+const SIZE_ATTRIBUTE_KEYS = ["size", "sizes", "talla", "tallas", "medida", "medidas"];
+
+function variantMatchesValue(variant: ProductVariant, value: string, keys: string[]): boolean {
+  if (!value) return true;
+  const candidate = variantAttribute(variant, keys) || variant.name || "";
+  const normalizedCandidate = normalizeFacetValue(candidate);
+  const normalizedValue = normalizeFacetValue(value);
+  return normalizedCandidate === normalizedValue || normalizedCandidate.includes(normalizedValue);
+}
+
+function variantIsAvailable(variant: ProductVariant): boolean {
+  return variant.inStock !== false && (variant.stockQuantity === undefined || variant.stockQuantity > 0);
+}
+
 function looksLikeMeasure(value: string): boolean {
   const normalized = normalizeFacetValue(value);
   return Boolean(
@@ -245,17 +260,43 @@ const ShopDetails = ({
   const [activeSize, setActiveSize] = useState(sizeOptions[0] || "");
   const [activeTab, setActiveTab] = useState("description");
 
+  const sizeAvailability = useMemo(() => {
+    const variants = product.variants || [];
+    const hasStockData = variants.some(
+      (variant) => variant.stockQuantity !== undefined || variant.inStock === false,
+    );
+
+    // Products without variant-level inventory cannot tell us which measure
+    // is exhausted, so keep those options usable instead of guessing.
+    if (!variants.length || !hasStockData) {
+      return new Map(sizeOptions.map((size) => [size, true]));
+    }
+
+    return new Map(
+      sizeOptions.map((size) => {
+        const matchingVariants = variants.filter(
+          (variant) =>
+            variantMatchesValue(variant, activeColor, COLOR_ATTRIBUTE_KEYS) &&
+            variantMatchesValue(variant, size, SIZE_ATTRIBUTE_KEYS),
+        );
+
+        // If the product exposes a measure but the variant payload does not
+        // identify it clearly, leave it enabled rather than blocking a valid
+        // option based on incomplete metadata.
+        const available = matchingVariants.length
+          ? matchingVariants.some(variantIsAvailable)
+          : true;
+        return [size, available];
+      }),
+    );
+  }, [activeColor, product.variants, sizeOptions]);
+
   const selectedVariant = useMemo(() => {
     const variants = product.variants || [];
     if (!variants.length) return undefined;
-    const matches = (variant: ProductVariant, value: string, keys: string[]) => {
-      if (!value) return true;
-      const explicit = variantAttribute(variant, keys);
-      return normalizeFacetValue(explicit || variant.name || "").includes(normalizeFacetValue(value));
-    };
     const match = variants.find((variant) =>
-      matches(variant, activeColor, ["color", "colors", "colour", "colours", "colored", "colores"]) &&
-      matches(variant, activeSize, ["size", "sizes", "talla", "tallas", "medida", "medidas"]),
+      variantMatchesValue(variant, activeColor, COLOR_ATTRIBUTE_KEYS) &&
+      variantMatchesValue(variant, activeSize, SIZE_ATTRIBUTE_KEYS),
     );
     return match || (!activeColor && !activeSize ? variants[0] : undefined);
   }, [activeColor, activeSize, product.variants]);
@@ -310,6 +351,12 @@ const ShopDetails = ({
       ? `${stockQuantity} disponibles`
       : content.stock_in_label || "Disponible";
   const descriptionText = stripHtml(product.description);
+
+  useEffect(() => {
+    if (!activeSize || sizeAvailability.get(activeSize) !== false) return;
+    const firstAvailableSize = sizeOptions.find((size) => sizeAvailability.get(size) !== false) || "";
+    setActiveSize(firstAvailableSize);
+  }, [activeSize, sizeAvailability, sizeOptions]);
 
   useEffect(() => {
     const item = trackingItem({
@@ -566,21 +613,29 @@ const ShopDetails = ({
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
-                          {sizeOptions.map((size) => (
-                            <button
-                              key={size}
-                              type="button"
-                              aria-pressed={activeSize === size}
-                              onClick={() => setActiveSize(size)}
-                              className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                                activeSize === size
-                                  ? "border-blue bg-blue text-white shadow-1"
-                                  : "border-gray-3 bg-white text-dark hover:border-blue hover:text-blue"
-                              }`}
-                            >
-                              {size}
-                            </button>
-                          ))}
+                          {sizeOptions.map((size) => {
+                            const isAvailable = sizeAvailability.get(size) !== false;
+                            return (
+                              <button
+                                key={size}
+                                type="button"
+                                aria-pressed={activeSize === size}
+                                aria-label={`${size}${isAvailable ? "" : " (agotada)"}`}
+                                title={isAvailable ? undefined : "Medida agotada"}
+                                disabled={!isAvailable}
+                                onClick={() => setActiveSize(size)}
+                                className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                                  !isAvailable
+                                    ? "cursor-not-allowed border-gray-2 bg-gray-1 text-dark-3 line-through opacity-60"
+                                    : activeSize === size
+                                      ? "border-blue bg-blue text-white shadow-1"
+                                      : "border-gray-3 bg-white text-dark hover:border-blue hover:text-blue"
+                                }`}
+                              >
+                                {size}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     ) : null}
