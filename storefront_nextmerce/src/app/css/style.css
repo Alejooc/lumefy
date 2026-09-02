@@ -740,6 +740,110 @@ input[type='search']::-webkit-search-results-decoration {
   border-radius: var(--storefront-corner-radius, 16px);
 }
 
+.product-description-html {
+  overflow-wrap: anywhere;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.product-description-html :where(h1, h2, h3, h4, h5, h6) {
+  margin: 1.5rem 0 0.75rem;
+  color: var(--storefront-heading-text, inherit);
+  font-family: var(--storefront-heading-font, inherit);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.product-description-html :where(h1, h2, h3, h4, h5, h6):first-child {
+  margin-top: 0;
+}
+
+.product-description-html :where(p, ul, ol, blockquote, figure, pre, table) {
+  margin: 0 0 1rem;
+}
+
+.product-description-html :where(ul, ol) {
+  padding-left: 1.5rem;
+}
+
+.product-description-html ul {
+  list-style: disc;
+}
+
+.product-description-html ol {
+  list-style: decimal;
+}
+
+.product-description-html :where(ul ul, ol ol, ul ol, ol ul) {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+}
+
+.product-description-html blockquote {
+  border-left: 3px solid var(--storefront-primary, #0878e9);
+  padding-left: 1rem;
+  color: var(--storefront-body-text, inherit);
+}
+
+.product-description-html a {
+  color: var(--storefront-primary, #0878e9);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.product-description-html img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.25rem 0;
+  border-radius: var(--storefront-corner-radius, 16px);
+}
+
+.product-description-html figure {
+  max-width: 100%;
+}
+
+.product-description-html figcaption {
+  margin-top: 0.5rem;
+  color: var(--storefront-body-text, inherit);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.product-description-html table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.product-description-html :where(th, td) {
+  border: 1px solid rgba(28, 39, 76, 0.14);
+  padding: 0.65rem 0.8rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.product-description-html th {
+  color: var(--storefront-heading-text, inherit);
+  font-weight: 600;
+}
+
+.product-description-html :where(code, pre) {
+  border-radius: 0.5rem;
+  background: rgba(28, 39, 76, 0.06);
+}
+
+.product-description-html code {
+  padding: 0.1rem 0.3rem;
+}
+
+.product-description-html pre {
+  overflow-x: auto;
+  padding: 1rem;
+}
+
 .custom-embed__frame {
   display: block;
   width: 100%;

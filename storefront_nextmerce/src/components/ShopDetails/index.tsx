@@ -16,6 +16,7 @@ import { updateproductDetails } from "@/redux/features/product-details";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
 import { useStorefrontUi } from "@/lib/storefront-ui";
 import { isTrustedPreviewMessage } from "@/lib/preview";
+import { sanitizeProductDescription } from "@/lib/sanitize-html";
 import {
   normalizeProductTemplate,
   productTemplateContent,
@@ -55,10 +56,6 @@ function toSwatchColor(value: string): string {
     beige: "#d6d3d1",
   };
   return palette[normalized] || "#9ca3af";
-}
-
-function stripHtml(value: string | undefined): string {
-  return (value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function normalizeFacetValue(value: string): string {
@@ -350,7 +347,7 @@ const ShopDetails = ({
     : stockQuantity !== undefined
       ? `${stockQuantity} disponibles`
       : content.stock_in_label || "Disponible";
-  const descriptionText = stripHtml(product.description);
+  const descriptionHtml = sanitizeProductDescription(product.description);
 
   useEffect(() => {
     if (!activeSize || sizeAvailability.get(activeSize) !== false) return;
@@ -755,7 +752,14 @@ const ShopDetails = ({
 
               <div className={activeContentTab === "description" ? "mt-12.5" : "hidden"}>
                 <div className="rounded-xl bg-white shadow-1 p-4 sm:p-8">
-                  <p className="text-dark">{descriptionText || "Este producto aún no tiene descripción detallada."}</p>
+                  {descriptionHtml ? (
+                    <div
+                      className="product-description-html text-dark"
+                      dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+                    />
+                  ) : (
+                    <p className="text-dark">Este producto aún no tiene descripción detallada.</p>
+                  )}
                 </div>
               </div>
 
