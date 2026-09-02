@@ -10,8 +10,15 @@ import { storefrontImageUrl } from "@/lib/storefront-image";
 import { isTrustedPreviewMessage, previewParentOrigin } from "@/lib/preview";
 
 type SocialKey = "facebook" | "twitter" | "instagram" | "linkedin";
+const SOCIAL_KEYS: SocialKey[] = ["facebook", "twitter", "instagram", "linkedin"];
+
+function normalizeSocialKey(value: string): SocialKey | undefined {
+  const normalized = value.trim().toLowerCase();
+  return SOCIAL_KEYS.includes(normalized as SocialKey) ? (normalized as SocialKey) : undefined;
+}
 
 function SocialIcon({ name }: { name: string }) {
+  const normalizedName = normalizeSocialKey(name);
   const commonProps = {
     width: 17,
     height: 17,
@@ -20,7 +27,7 @@ function SocialIcon({ name }: { name: string }) {
     "aria-hidden": true,
   } as const;
 
-  switch (name) {
+  switch (normalizedName) {
     case "facebook":
       return (
         <svg {...commonProps}>
@@ -80,6 +87,14 @@ function previewHref(value: unknown): string {
   return /^\/(?!\/)/.test(normalized) || /^https?:\/\//i.test(normalized)
     ? normalized
     : "";
+}
+
+function previewSocialHref(value: unknown): string {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  const withProtocol = /^(?:www\.)?(?:facebook|instagram|linkedin|twitter|x)\.com\//i.test(normalized)
+    ? `https://${normalized}`
+    : normalized;
+  return previewHref(withProtocol);
 }
 
 function previewLinkList(value: unknown): Array<{ href: string; label: string }> {
@@ -300,9 +315,9 @@ const Footer = ({ initialStorefront }: FooterProps) => {
           (["facebook", "twitter", "instagram", "linkedin"] as const)
             .map((key) => {
               const value = social[key];
-              return typeof value === "string" && value.trim()
-                ? { key, href: value.trim() }
-                : null;
+              if (typeof value !== "string" || !value.trim()) return null;
+              const href = previewSocialHref(value);
+              return href ? { key, href } : null;
             })
             .filter(
               (item): item is {
@@ -374,18 +389,23 @@ const Footer = ({ initialStorefront }: FooterProps) => {
 
             {showSocialLinks && socialLinks.length > 0 ? (
               <div className="flex items-center gap-4 mt-7.5">
-                {socialLinks.map((social) => (
-                  <a
-                    key={social.key}
-                    href={social.href}
-                    aria-label={socialNames[social.key as SocialKey] || social.key}
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-3 ease-out duration-200 hover:border-blue hover:text-blue"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <SocialIcon name={social.key} />
-                  </a>
-                ))}
+                {socialLinks.map((social) => {
+                  const key = normalizeSocialKey(social.key);
+                  if (!key) return null;
+
+                  return (
+                    <a
+                      key={key}
+                      href={social.href}
+                      aria-label={socialNames[key]}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-3 ease-out duration-200 hover:border-blue hover:text-blue"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <SocialIcon name={key} />
+                    </a>
+                  );
+                })}
               </div>
             ) : null}
           </div>

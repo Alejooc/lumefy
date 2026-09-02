@@ -195,7 +195,12 @@ function validSocialProfileHref(
   key: "facebook" | "twitter" | "instagram" | "linkedin",
   value: string | undefined,
 ): string | undefined {
-  const href = validHref(value);
+  const normalizedValue = value?.trim() || "";
+  const href = validHref(
+    /^(?:www\.)?(?:facebook|instagram|linkedin|twitter|x)\.com\//i.test(normalizedValue)
+      ? `https://${normalizedValue}`
+      : normalizedValue,
+  );
   if (!href) return undefined;
 
   try {
