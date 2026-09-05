@@ -601,7 +601,12 @@ const ShopWithSidebar = ({
 
             {/* // <!-- Content Start --> */}
             <div className="catalog-template-content xl:max-w-[870px] w-full">
-              {headerEnabled ? (
+              {templateKey === "collection" && !previewMode ? (
+                <div className="sr-only">
+                  <h1>{selectedCollectionName || "Todos los productos"}</h1>
+                  {selectedCollectionDescription ? <p>{selectedCollectionDescription}</p> : null}
+                </div>
+              ) : headerEnabled ? (
                 <div
                   className={`${catalogPreviewClass(headerSection.id)} mb-6 rounded-lg bg-white px-6 py-7 shadow-1 sm:px-8 sm:py-9`}
                   data-lumefy-catalog-section={previewMode ? headerSectionType : undefined}

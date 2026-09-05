@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Breadcrumb from "../Common/Breadcrumb";
@@ -42,8 +41,6 @@ type Props = {
   storefrontId: string;
   currency: string;
   checkoutSettings?: Record<string, unknown>;
-  storefrontName?: string;
-  logoUrl?: string | null;
 };
 
 type CheckoutSettings = {
@@ -263,7 +260,7 @@ function paymentPresentation(option: PublicStorePaymentGateway): PaymentPresenta
   };
 }
 
-const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, logoUrl }: Props) => {
+const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const cartItems = useAppSelector((state) => state.cartReducer.items);
@@ -783,8 +780,6 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
     );
   }
 
-  const resolvedLogoUrl = storefrontImageUrl(logoUrl);
-
   return (
     <>
       <Breadcrumb title="Pago" pages={["Pago"]} />
@@ -793,27 +788,6 @@ const Checkout = ({ storefrontId, currency, checkoutSettings, storefrontName, lo
         style={appearanceStyle}
       >
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
-          <div className="checkout-brand-header mb-7.5">
-            <div className="checkout-brand-header__identity">
-              {appearance.show_logo && resolvedLogoUrl ? (
-                <Image
-                  src={resolvedLogoUrl}
-                  alt={storefrontName || "Tienda"}
-                  width={144}
-                  height={42}
-                  className="checkout-brand-header__logo"
-                />
-              ) : null}
-              {appearance.show_brand_name ? (
-                <div>
-                  <p className="checkout-brand-header__name">{storefrontName || "Tu tienda"}</p>
-                  <p className="checkout-brand-header__caption">Compra segura y acompañada</p>
-                </div>
-              ) : null}
-            </div>
-            <span className="checkout-brand-header__trust">Compra segura</span>
-          </div>
-
           {error ? (
             <div className="mb-7.5 rounded-md border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
               {error}
