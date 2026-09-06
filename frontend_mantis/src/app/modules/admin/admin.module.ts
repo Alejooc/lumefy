@@ -11,6 +11,7 @@ import { PlanListComponent } from './plan-list/plan-list.component';
 import { PlanFormComponent } from './plan-form/plan-form.component';
 import { AdminSettingsComponent } from './settings/admin-settings.component';
 import { AdminUserListComponent } from './user-list/admin-user-list.component';
+import { AdminBillingComponent } from './billing/admin-billing.component';
 import { SharedModule } from '../../theme/shared/shared.module';
 
 const routes: Routes = [
@@ -25,6 +26,7 @@ const routes: Routes = [
             { path: 'plans/new', component: PlanFormComponent },
             { path: 'plans/edit/:id', component: PlanFormComponent },
             { path: 'users', component: AdminUserListComponent },
+            { path: 'billing', component: AdminBillingComponent },
             { path: 'notifications', loadChildren: () => import('./notifications/notifications-routing.module').then(m => m.NotificationsRoutingModule) },
             { path: 'landing-cms', loadChildren: () => import('./landing-cms/landing-cms-routing-module').then(m => m.LandingCmsRoutingModule) },
             { path: 'settings', component: AdminSettingsComponent },
@@ -45,7 +47,8 @@ const routes: Routes = [
         AdminDashboardComponent,
         PlanListComponent,
         PlanFormComponent,
-        AdminSettingsComponent
+        AdminSettingsComponent,
+        AdminBillingComponent
     ]
 })
 export class AdminModule { }

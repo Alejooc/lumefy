@@ -79,6 +79,14 @@ export const routes: Routes = [
       {
         path: 'payments',
         loadComponent: () => import('./ecommerce/ecommerce-payments.component').then((c) => c.EcommercePaymentsComponent)
+      },
+      {
+        path: 'coupons',
+        loadComponent: () => import('./ecommerce/ecommerce-coupons.component').then((c) => c.EcommerceCouponsComponent)
+      },
+      {
+        path: 'promotions',
+        loadComponent: () => import('./ecommerce/ecommerce-promotions.component').then((c) => c.EcommercePromotionsComponent)
       }
     ]
   }

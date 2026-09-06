@@ -10,6 +10,8 @@ from app.core.permissions import PermissionChecker
 from app.models.user import User
 from app.models.company import Company
 from app.schemas import company as schemas
+from app.models.saas_billing import SaaSBillingRecord
+from app.schemas import saas_billing as billing_schemas
 
 router = APIRouter()
 
@@ -35,6 +37,27 @@ async def read_current_company(
         raise HTTPException(status_code=404, detail="Company not found")
         
     return company
+
+
+@router.get("/me/billing", response_model=list[billing_schemas.SaaSBillingRecordOut])
+async def read_current_company_billing(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(auth.get_current_user),
+) -> list[billing_schemas.SaaSBillingRecordOut]:
+    """Return the current tenant's SaaS billing history.
+
+    The tenant can see only its own records. Verification and subscription
+    changes remain restricted to the SaaS owner in the admin router.
+    """
+    if not current_user.company_id:
+        raise HTTPException(status_code=404, detail="User does not belong to any company")
+
+    result = await db.execute(
+        select(SaaSBillingRecord)
+        .where(SaaSBillingRecord.company_id == current_user.company_id)
+        .order_by(SaaSBillingRecord.period_start.desc(), SaaSBillingRecord.created_at.desc())
+    )
+    return [billing_schemas.SaaSBillingRecordOut.model_validate(record) for record in result.scalars().all()]
 
 @router.put("/me", response_model=schemas.Company)
 async def update_current_company(

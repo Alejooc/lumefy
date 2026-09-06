@@ -102,6 +102,36 @@ export class ReturnViewComponent implements OnInit {
         });
     }
 
+    registerRefund(ret: ReturnOrder) {
+        Swal.fire({
+            title: 'Registrar reembolso manual',
+            text: `La devolución aprobada es por ${this.formatCurrency(ret.total_refund)}. Escribe la referencia de la transferencia o reverso realizado.`,
+            input: 'text',
+            inputPlaceholder: 'Referencia del reembolso',
+            inputAttributes: { maxlength: '160', autocapitalize: 'off' },
+            showCancelButton: true,
+            confirmButtonText: 'Registrar reembolso',
+            cancelButtonText: 'Cancelar',
+            inputValidator: (value) => !value || value.trim().length < 3 ? 'Indica una referencia válida.' : undefined
+        }).then((result) => {
+            if (!result.isConfirmed || !result.value) return;
+            this.loading = true;
+            this.returnService.registerManualRefund(ret.id, result.value.trim()).subscribe({
+                next: (updated) => {
+                    this.returnOrder = updated;
+                    this.loading = false;
+                    this.cdr.detectChanges();
+                    Swal.fire('Reembolso registrado', 'La referencia quedó asociada a la devolución y se notificó al comprador.', 'success');
+                },
+                error: (err) => {
+                    this.loading = false;
+                    this.cdr.detectChanges();
+                    Swal.fire('Error', err.error?.detail || 'No se pudo registrar el reembolso', 'error');
+                }
+            });
+        });
+    }
+
     getStatusBadge(status: string): string {
         switch (status) {
             case 'PENDING': return 'badge bg-warning text-dark';
@@ -113,5 +143,13 @@ export class ReturnViewComponent implements OnInit {
 
     formatCurrency(value: number): string {
         return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
+    }
+
+    getRefundStatusLabel(status?: string): string {
+        return { PENDING: 'Pendiente de reembolso', REFUNDED: 'Reembolsado', NOT_REQUIRED: 'No requiere reembolso' }[status || 'NOT_REQUIRED'] || status || 'No definido';
+    }
+
+    getRefundStatusBadge(status?: string): string {
+        return { PENDING: 'badge bg-warning text-dark', REFUNDED: 'badge bg-success', NOT_REQUIRED: 'badge bg-secondary' }[status || 'NOT_REQUIRED'] || 'badge bg-secondary';
     }
 }

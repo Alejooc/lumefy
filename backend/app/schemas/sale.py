@@ -75,6 +75,7 @@ class Sale(SaleBase):
     total: float
     payment_provider: Optional[str] = None
     payment_status: Optional[str] = None
+    payment_pending_until: Optional[datetime] = None
     shipping_city: Optional[str] = None
     shipping_state: Optional[str] = None
     shipping_country: Optional[str] = None
@@ -119,6 +120,10 @@ class SaleSummary(SaleBase):
     user_id: UUID
     origin_channel: Optional[str] = None
     integration_source_id: Optional[UUID] = None
+    storefront_id: Optional[UUID] = None
+    storefront_name: Optional[str] = None
+    storefront_customer_name: Optional[str] = None
+    storefront_customer_email: Optional[str] = None
     status: str
     subtotal: float
     tax: float
@@ -127,6 +132,7 @@ class SaleSummary(SaleBase):
     total: float
     payment_provider: Optional[str] = None
     payment_status: Optional[str] = None
+    payment_pending_until: Optional[datetime] = None
     shipping_city: Optional[str] = None
     shipping_state: Optional[str] = None
     shipping_country: Optional[str] = None

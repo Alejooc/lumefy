@@ -7,6 +7,7 @@ from app.models.plan import Plan
 from app.models.user import User
 from app.schemas import plan as schemas
 from app.core.permissions import PermissionChecker
+from app.core.audit import log_activity
 import uuid
 
 router = APIRouter()
@@ -50,6 +51,15 @@ async def create_plan(
     """
     plan = Plan(**plan_in.model_dump())
     db.add(plan)
+    await db.flush()
+    await log_activity(
+        db,
+        action="SAAS_PLAN_CREATED",
+        entity_type="Plan",
+        entity_id=plan.id,
+        user_id=current_user.id,
+        details={"after": plan_in.model_dump()},
+    )
     await db.commit()
     await db.refresh(plan)
     return plan
@@ -71,8 +81,20 @@ async def update_plan(
         raise HTTPException(status_code=404, detail="Plan not found")
         
     update_data = plan_in.model_dump(exclude_unset=True)
+    before = {field: getattr(plan, field) for field in update_data}
     for field, value in update_data.items():
         setattr(plan, field, value)
+
+    after = {field: getattr(plan, field) for field in update_data}
+    if before != after:
+        await log_activity(
+            db,
+            action="SAAS_PLAN_UPDATED",
+            entity_type="Plan",
+            entity_id=plan.id,
+            user_id=current_user.id,
+            details={"before": before, "after": after},
+        )
         
     db.add(plan)
     await db.commit()

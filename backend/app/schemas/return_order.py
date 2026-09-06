@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
@@ -29,6 +29,14 @@ class ReturnOrderCreate(BaseModel):
     items: List[ReturnItemCreate]
 
 
+class RefundConfirmation(BaseModel):
+    """Manual refund confirmation; automatic provider refunds are not implied."""
+
+    method: Literal["MANUAL"] = "MANUAL"
+    reference: str
+    notes: Optional[str] = None
+
+
 # --- Response ---
 from app.schemas.product import Product
 from app.schemas.user import User
@@ -56,6 +64,11 @@ class ReturnOrderResponse(BaseModel):
     reason: Optional[str] = None
     total_refund: float
     notes: Optional[str] = None
+    refund_status: str = "NOT_REQUIRED"
+    refund_method: Optional[str] = None
+    refund_reference: Optional[str] = None
+    refund_processed_at: Optional[datetime] = None
+    refund_processed_by: Optional[UUID] = None
     created_at: datetime
     approved_at: Optional[datetime] = None
     items: List[ReturnItemResponse] = []

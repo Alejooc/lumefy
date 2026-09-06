@@ -1,0 +1,127 @@
+<div class="ecommerce-section coupons-page">
+  <div class="section-header d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div>
+      <div class="settings-hero__eyebrow">Promociones</div>
+      <h3 class="mb-2">Cupones</h3>
+      <p class="text-muted mb-0">Crea descuentos controlados por tienda, vigencia y compra mínima.</p>
+    </div>
+    @if (storefronts.length > 1) {
+      <select class="form-select storefront-selector" [(ngModel)]="selectedStorefrontId" (ngModelChange)="onStorefrontChange()">
+        @for (storefront of storefronts; track storefront.id) {
+          <option [value]="storefront.id">{{ storefront.name }}</option>
+        }
+      </select>
+    }
+  </div>
+
+  @if (errorMessage) {
+    <div class="alert alert-danger mt-3" role="alert">{{ errorMessage }}</div>
+  }
+
+  @if (!storefronts.length && !loading) {
+    <div class="empty-state border rounded p-4 text-center text-muted mt-3">
+      <p class="mb-1">Primero configura una tienda</p>
+      <small>Los cupones se aplican sobre una tienda ecommerce activa.</small>
+    </div>
+  }
+
+  @if (storefronts.length) {
+    <div class="row g-3 mt-1">
+      <div class="col-12 col-xl-4">
+        <div class="card section-card">
+          <div class="card-body">
+            <div class="settings-block__header">
+              <div>
+                <h5 class="mb-1">{{ editingCouponId ? 'Editar cupón' : 'Nuevo cupón' }}</h5>
+                <small class="text-muted">{{ storefrontName(form.storefront_id) }}</small>
+              </div>
+              @if (editingCouponId) {
+                <button class="btn btn-outline-secondary btn-sm" type="button" (click)="cancelEdit()">Cancelar</button>
+              }
+            </div>
+
+            <form (ngSubmit)="saveCoupon()">
+              <div class="mb-3">
+                <label class="form-label" for="coupon-code">Código</label>
+                <input id="coupon-code" class="form-control" name="code" [(ngModel)]="form.code" maxlength="30" placeholder="BIENVENIDA10" />
+              </div>
+              <div class="row g-2">
+                <div class="col-7">
+                  <label class="form-label" for="coupon-value">Valor</label>
+                  <input id="coupon-value" class="form-control" name="value" type="number" min="0.01" step="0.01" [(ngModel)]="form.value" />
+                </div>
+                <div class="col-5">
+                  <label class="form-label" for="coupon-type">Tipo</label>
+                  <select id="coupon-type" class="form-select" name="discount_type" [(ngModel)]="form.discount_type">
+                    <option value="PERCENT">Porcentaje</option>
+                    <option value="FIXED">Valor fijo</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mb-3 mt-3">
+                <label class="form-label" for="coupon-minimum">Compra mínima</label>
+                <input id="coupon-minimum" class="form-control" name="minimum_amount" type="number" min="0" step="0.01" [(ngModel)]="form.minimum_amount" />
+              </div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label" for="coupon-start">Desde</label>
+                  <input id="coupon-start" class="form-control" name="starts_at" type="datetime-local" [(ngModel)]="form.starts_at" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label" for="coupon-end">Hasta</label>
+                  <input id="coupon-end" class="form-control" name="ends_at" type="datetime-local" [(ngModel)]="form.ends_at" />
+                </div>
+              </div>
+              <div class="form-check form-switch mt-3">
+                <input id="coupon-enabled" class="form-check-input" name="is_enabled" type="checkbox" [(ngModel)]="form.is_enabled" />
+                <label class="form-check-label" for="coupon-enabled">Disponible en checkout</label>
+              </div>
+              <button class="btn btn-primary w-100 mt-4" type="submit" [disabled]="saving">
+                {{ saving ? 'Guardando…' : (editingCouponId ? 'Guardar cambios' : 'Crear cupón') }}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-xl-8">
+        <div class="card section-card">
+          <div class="card-body">
+            <div class="settings-block__header">
+              <div>
+                <h5 class="mb-1">Cupones de {{ storefrontName(selectedStorefrontId) }}</h5>
+                <small class="text-muted">{{ coupons.length }} configurado{{ coupons.length === 1 ? '' : 's' }}</small>
+              </div>
+            </div>
+
+            @if (loading) {
+              <div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando</span></div></div>
+            } @else if (!coupons.length) {
+              <div class="empty-state border rounded p-4 text-center text-muted">
+                <p class="mb-1">Aún no hay cupones</p>
+                <small>Crea el primero desde el formulario.</small>
+              </div>
+            } @else {
+              <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                  <thead><tr><th>Código</th><th>Descuento</th><th>Vigencia</th><th>Estado</th><th></th></tr></thead>
+                  <tbody>
+                    @for (coupon of coupons; track coupon.id) {
+                      <tr>
+                        <td><strong>{{ coupon.code }}</strong><small class="d-block text-muted">Mínimo: {{ coupon.minimum_amount }}</small></td>
+                        <td>{{ coupon.discount_type === 'PERCENT' ? coupon.value + '%' : coupon.value }}</td>
+                        <td><small>{{ coupon.starts_at ? (coupon.starts_at | date:'dd/MM/yyyy HH:mm') : 'Desde ahora' }}</small><small class="d-block text-muted">{{ coupon.ends_at ? (coupon.ends_at | date:'dd/MM/yyyy HH:mm') : 'Sin vencimiento' }}</small></td>
+                        <td><span class="badge" [ngClass]="coupon.is_enabled ? 'text-bg-success' : 'text-bg-secondary'">{{ coupon.is_enabled ? 'Activo' : 'Desactivado' }}</span></td>
+                        <td class="text-end text-nowrap"><button class="btn btn-outline-primary btn-sm me-1" type="button" (click)="startEdit(coupon)">Editar</button><button class="btn btn-outline-danger btn-sm" type="button" (click)="disableCoupon(coupon)" [disabled]="!coupon.is_enabled || saving">Desactivar</button></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

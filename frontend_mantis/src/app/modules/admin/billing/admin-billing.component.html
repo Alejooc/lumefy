@@ -1,0 +1,132 @@
+<div class="billing-page">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+    <div>
+      <div class="text-uppercase text-muted small fw-semibold">Operación SaaS</div>
+      <h3 class="mb-1">Cartera y renovaciones</h3>
+      <p class="text-muted mb-0">Registra pagos manuales, valida comprobantes y renueva empresas con trazabilidad.</p>
+    </div>
+    <a class="btn btn-outline-primary" routerLink="/admin/companies">Ver empresas</a>
+  </div>
+
+  @if (errorMessage) {
+    <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+  }
+
+  <div class="row g-3">
+    <div class="col-12 col-xl-4">
+      <div class="card">
+        <div class="card-header"><h5 class="mb-0">Registrar cobro manual</h5></div>
+        <div class="card-body">
+          <form (ngSubmit)="saveRecord()">
+            <div class="mb-3">
+              <label class="form-label" for="billing-company">Empresa</label>
+              <select id="billing-company" class="form-select" name="company_id" [(ngModel)]="form.company_id">
+                <option value="">Selecciona una empresa</option>
+                @for (company of portfolio; track company.company_id) {
+                  <option [value]="company.company_id">{{ company.company_name }}</option>
+                }
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="billing-plan">Plan</label>
+              <select id="billing-plan" class="form-select" name="plan_code" [(ngModel)]="form.plan_code" (ngModelChange)="onPlanChange()">
+                @for (plan of plans; track plan.id) {
+                  <option [value]="plan.code">{{ plan.name }} ({{ plan.code }})</option>
+                }
+              </select>
+            </div>
+            <div class="row g-2">
+              <div class="col-8">
+                <label class="form-label" for="billing-amount">Importe</label>
+                <input id="billing-amount" class="form-control" name="amount" type="number" min="0.01" step="0.01" [(ngModel)]="form.amount" />
+              </div>
+              <div class="col-4">
+                <label class="form-label" for="billing-currency">Moneda</label>
+                <input id="billing-currency" class="form-control" name="currency" maxlength="8" [(ngModel)]="form.currency" />
+              </div>
+            </div>
+            <div class="row g-2 mt-1">
+              <div class="col-6">
+                <label class="form-label" for="billing-start">Inicio</label>
+                <input id="billing-start" class="form-control" name="period_start" type="datetime-local" [(ngModel)]="form.period_start" />
+              </div>
+              <div class="col-6">
+                <label class="form-label" for="billing-end">Fin</label>
+                <input id="billing-end" class="form-control" name="period_end" type="datetime-local" [(ngModel)]="form.period_end" />
+              </div>
+            </div>
+            <div class="mb-3 mt-3">
+              <label class="form-label" for="billing-method">Medio</label>
+              <select id="billing-method" class="form-select" name="payment_method" [(ngModel)]="form.payment_method">
+                <option value="MANUAL_TRANSFER">Transferencia</option>
+                <option value="CASH">Efectivo</option>
+                <option value="CARD">Tarjeta</option>
+                <option value="OTHER">Otro</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="billing-reference">Referencia</label>
+              <input id="billing-reference" class="form-control" name="reference" maxlength="160" [(ngModel)]="form.reference" placeholder="Opcional mientras se valida" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="billing-proof">URL del comprobante</label>
+              <input id="billing-proof" class="form-control" name="proof_url" maxlength="500" [(ngModel)]="form.proof_url" placeholder="https://…" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="billing-notes">Notas</label>
+              <textarea id="billing-notes" class="form-control" name="notes" rows="2" maxlength="4000" [(ngModel)]="form.notes"></textarea>
+            </div>
+            <button class="btn btn-primary w-100" type="submit" [disabled]="saving">{{ saving ? 'Guardando…' : 'Registrar pendiente' }}</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-8">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Cartera de empresas</h5>
+          <span class="text-muted small">{{ portfolio.length }} empresas</span>
+        </div>
+        <div class="card-body p-0">
+          @if (loading) {
+            <div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando</span></div></div>
+          } @else if (!portfolio.length) {
+            <div class="p-4 text-center text-muted">No hay empresas registradas.</div>
+          } @else {
+            <div class="table-responsive">
+              <table class="table align-middle mb-0">
+                <thead><tr><th>Empresa</th><th>Plan</th><th>Vencimiento</th><th>Estado</th><th>Último cobro</th><th></th></tr></thead>
+                <tbody>
+                  @for (company of portfolio; track company.company_id) {
+                    <tr>
+                      <td><strong>{{ company.company_name }}</strong><small class="d-block text-muted">{{ company.subscription_status || 'Sin estado' }}</small></td>
+                      <td>{{ company.plan || 'Sin plan' }}</td>
+                      <td>{{ company.valid_until ? (company.valid_until | date:'dd/MM/yyyy') : 'Indefinido' }}</td>
+                      <td><span class="badge" [ngClass]="stateClass(company.billing_state)">{{ stateLabel(company.billing_state) }}</span></td>
+                      <td>
+                        @if (company.latest_record) {
+                          <strong>{{ company.latest_record.amount | currency:company.latest_record.currency }}</strong>
+                          <small class="d-block text-muted">{{ company.latest_record.status }} · {{ company.latest_record.period_end | date:'dd/MM/yyyy' }}</small>
+                        } @else {
+                          <span class="text-muted">Sin registro</span>
+                        }
+                      </td>
+                      <td class="text-end text-nowrap">
+                        <button class="btn btn-outline-primary btn-sm me-1" type="button" (click)="selectCompany(company)">Registrar</button>
+                        @if (company.latest_record?.status === 'PENDING') {
+                          <button class="btn btn-success btn-sm me-1" type="button" (click)="approve(company.latest_record!)" [disabled]="saving">Aprobar</button>
+                          <button class="btn btn-outline-danger btn-sm" type="button" (click)="reject(company.latest_record!)" [disabled]="saving">Rechazar</button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

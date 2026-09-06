@@ -21,6 +21,11 @@ export interface ReturnOrder {
     reason?: string;
     total_refund: number;
     notes?: string;
+    refund_status: 'NOT_REQUIRED' | 'PENDING' | 'REFUNDED' | string;
+    refund_method?: string;
+    refund_reference?: string;
+    refund_processed_at?: string;
+    refund_processed_by?: string;
     created_at: string;
     approved_at?: string;
     items: ReturnItem[];
@@ -70,5 +75,13 @@ export class ReturnService {
 
     rejectReturn(id: string): Observable<ReturnOrder> {
         return this.api.post<ReturnOrder>(`${this.basePath}/${id}/reject`, {});
+    }
+
+    registerManualRefund(id: string, reference: string, notes?: string): Observable<ReturnOrder> {
+        return this.api.post<ReturnOrder>(`${this.basePath}/${id}/refund`, {
+            method: 'MANUAL',
+            reference,
+            notes
+        });
     }
 }

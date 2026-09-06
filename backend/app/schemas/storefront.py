@@ -634,6 +634,8 @@ class PublicProductVariant(BaseModel):
     attributes: dict[str, Any] = Field(default_factory=dict)
     price: float
     compare_at_price: Optional[float] = None
+    promotion_name: Optional[str] = None
+    promotion_discount_percent: Optional[float] = None
     in_stock: bool = True
     stock_quantity: Optional[float] = None
 
@@ -655,6 +657,8 @@ class PublicProduct(BaseModel):
     price: float
     base_price: float
     compare_at_price: Optional[float] = None
+    promotion_name: Optional[str] = None
+    promotion_discount_percent: Optional[float] = None
     is_featured: bool = False
     show_stock: bool = True
     in_stock: bool = True
@@ -754,12 +758,17 @@ class PublicCheckoutPreviewItem(BaseModel):
     quantity: float
     unit_price: float
     line_subtotal: float
+    original_unit_price: float | None = None
+    promotion_discount_amount: float = 0
+    promotion_name: Optional[str] = None
+    promotion_discount_percent: Optional[float] = None
 
 
 class PublicCheckoutPreviewResponse(BaseModel):
     currency: str
     items: list[PublicCheckoutPreviewItem] = Field(default_factory=list)
     subtotal: float
+    promotion_discount: float = 0
     discount: float
     shipping: float
     tax: float

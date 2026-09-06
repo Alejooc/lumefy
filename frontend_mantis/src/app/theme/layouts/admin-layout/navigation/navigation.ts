@@ -72,6 +72,14 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'appstore'
       },
       {
+        id: 'billing',
+        title: 'Cobros y renovaciones',
+        type: 'item',
+        url: '/admin/billing',
+        classes: 'nav-item',
+        icon: 'wallet'
+      },
+      {
         id: 'settings',
         title: 'Configuración',
         type: 'item',
@@ -440,7 +448,9 @@ export const NavigationItems: NavigationItem[] = [
           ]},
           { id: 'commerce-checkout', title: 'Cobros y checkout', type: 'collapse', icon: 'credit-card', permissions: ['manage_company'], children: [
             { id: 'commerce-checkout-rules', title: 'Checkout', type: 'item', url: '/commerce/checkout', icon: 'setting', breadcrumbs: false, permissions: ['manage_company'] },
-            { id: 'commerce-payments', title: 'Métodos de pago', type: 'item', url: '/commerce/payments', icon: 'credit-card', breadcrumbs: false, permissions: ['manage_company'] }
+            { id: 'commerce-payments', title: 'Métodos de pago', type: 'item', url: '/commerce/payments', icon: 'credit-card', breadcrumbs: false, permissions: ['manage_company'] },
+            { id: 'commerce-coupons', title: 'Cupones', type: 'item', url: '/commerce/coupons', icon: 'discount', breadcrumbs: false, permissions: ['manage_company'] },
+            { id: 'commerce-promotions', title: 'Promociones', type: 'item', url: '/commerce/promotions', icon: 'gift', breadcrumbs: false, permissions: ['manage_company'] }
           ]},
           { id: 'commerce-logistics', title: 'Envíos y entregas', type: 'item', url: '/commerce/logistics', icon: 'truck', breadcrumbs: false, permissions: ['manage_company'] }
         ]

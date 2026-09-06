@@ -14,7 +14,7 @@ Usage:
         user: User = Depends(PlanLimitChecker(resource="users", count_model=User))
     ):
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Type
 
 from fastapi import Depends, HTTPException, status
@@ -25,6 +25,43 @@ from app.core.database import get_db
 from app.core import auth
 from app.models.user import User
 from app.models.plan import Plan
+
+
+def subscription_access_state(
+    *,
+    is_active: bool,
+    subscription_status: str | None,
+    valid_until: str | None,
+    now: datetime | None = None,
+) -> str:
+    """Return the explicit access policy state for a tenant subscription.
+
+    PAST_DUE is a short operational grace state only while its contracted
+    expiry remains in the future. Unknown statuses and malformed dates fail
+    closed so they cannot silently bypass subscription enforcement.
+    """
+
+    if not is_active:
+        return "DISABLED"
+    status = (subscription_status or "ACTIVE").strip().upper()
+    if status not in {"ACTIVE", "PAST_DUE"}:
+        return "SUSPENDED"
+    if not valid_until:
+        return status
+
+    raw_expiry = str(valid_until).strip()
+    try:
+        expiry = datetime.fromisoformat(raw_expiry.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return "INVALID_EXPIRY"
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    if len(raw_expiry) == 10 and "T" not in raw_expiry and " " not in raw_expiry:
+        expiry = expiry.replace(hour=23, minute=59, second=59, microsecond=999999)
+    reference_time = now or datetime.now(timezone.utc)
+    if reference_time.tzinfo is None:
+        reference_time = reference_time.replace(tzinfo=timezone.utc)
+    return "EXPIRED" if reference_time >= expiry else status
 
 
 class PlanLimitChecker:
@@ -64,37 +101,50 @@ class PlanLimitChecker:
         result = await db.execute(select(Company).where(Company.id == user.company_id))
         company = result.scalar_one_or_none()
 
-        if not company or not company.is_active:
+        if not company:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="La empresa no existe o está desactivada. Contacta soporte.",
+            )
+
+        access_state = subscription_access_state(
+            is_active=bool(company.is_active),
+            subscription_status=company.subscription_status,
+            valid_until=company.valid_until,
+        )
+        if access_state == "DISABLED":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="La empresa está desactivada. Contacta soporte.",
             )
-
-        if company.subscription_status in {"SUSPENDED", "CANCELED"}:
+        if access_state in {"SUSPENDED", "INVALID_EXPIRY"}:
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail="La suscripción de la empresa no está activa. Contacta soporte.",
             )
-
-        if company.valid_until:
-            try:
-                expiry = datetime.fromisoformat(company.valid_until)
-                if datetime.utcnow() > expiry:
-                    raise HTTPException(
-                        status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                        detail="Tu suscripción ha expirado. Renueva tu plan para continuar.",
-                    )
-            except ValueError:
-                pass  # Malformed date — skip check rather than block
+        if access_state == "EXPIRED":
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Tu suscripción ha expirado. Renueva tu plan para continuar.",
+            )
 
         # --- 2. Check resource limit (optional) ---
         if self.resource and self.count_model:
             plan_result = await db.execute(
-                select(Plan).where(Plan.code == company.plan, Plan.is_active == True)
+                select(Plan).where(
+                    func.upper(Plan.code) == (company.plan or "").strip().upper(),
+                    Plan.is_active.is_(True),
+                )
             )
             plan = plan_result.scalar_one_or_none()
 
-            if plan and plan.limits:
+            if not plan:
+                raise HTTPException(
+                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                    detail="El plan de la empresa no está configurado. Contacta soporte.",
+                )
+
+            if plan.limits:
                 max_allowed = plan.limits.get(self.resource)
                 if max_allowed is not None:
                     count_result = await db.execute(

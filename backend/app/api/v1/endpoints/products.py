@@ -46,6 +46,11 @@ from app.services.storefront_collections import reconcile_products_collections
 
 router = APIRouter()
 
+# Physical catalog purges are reserved for controlled data-reset operations.
+# Normal inventory roles may retire products, but must never remove business
+# document lines that make the product part of the audit trail.
+PURGE_CATALOG_PERMISSION = "purge_catalog"
+
 
 def _slugify(value: str) -> str:
     value = (value or "").strip().lower()
@@ -554,6 +559,29 @@ async def _purge_products_physically(
         archived=0,
         archived_ids=[],
     )
+
+
+async def _load_products_for_guarded_delete(
+    db: AsyncSession,
+    *,
+    product_ids: list[Any],
+    company_id: Any,
+) -> tuple[list[Any], dict[Any, Product], list[Any]]:
+    """Load a company-scoped product batch with the relations safe delete needs."""
+
+    requested_ids = list(dict.fromkeys(product_ids))
+    if not requested_ids:
+        return [], {}, []
+
+    result = await db.execute(
+        select(Product)
+        .options(selectinload(Product.variants), selectinload(Product.images))
+        .where(Product.company_id == company_id, Product.id.in_(requested_ids))
+    )
+    products = result.scalars().all()
+    products_by_id = {product.id: product for product in products}
+    not_found = [product_id for product_id in requested_ids if product_id not in products_by_id]
+    return requested_ids, products_by_id, not_found
 
 
 def _delete_blocker_detail(product: Product, reasons: list[str]) -> str:
@@ -1154,13 +1182,17 @@ async def bulk_delete_products(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> schemas.ProductBulkDeleteResponse:
-    """Physically delete the selected products and their owned relations."""
-    # Keep the response deterministic and do not process the same product twice
-    # if a client accidentally submits duplicate checkbox values.
-    product_ids = list(dict.fromkeys(product_in.product_ids))
-    return await _purge_products_physically(
+    """Retire selected products without destroying business history."""
+    product_ids, products_by_id, not_found = await _load_products_for_guarded_delete(
+        db=db,
+        product_ids=product_in.product_ids,
+        company_id=current_user.company_id,
+    )
+    return await _delete_products_guarded(
         db=db,
         product_ids=product_ids,
+        products_by_id=products_by_id,
+        not_found=not_found,
         current_user=current_user,
     )
 
@@ -1295,7 +1327,7 @@ async def bulk_delete_all_products(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> schemas.ProductBulkDeleteResponse:
-    """Physically delete every product in the company, including archives."""
+    """Retire every matching product while preserving historical relations."""
     product_in = product_in or schemas.ProductBulkDeleteAllRequest()
     query = (
         select(Product.id)
@@ -1319,9 +1351,16 @@ async def bulk_delete_all_products(
         query = query.where(Product.product_type == product_in.product_type)
 
     result = await db.execute(query.order_by(Product.created_at.asc(), Product.id.asc()))
-    return await _purge_products_physically(
+    product_ids, products_by_id, not_found = await _load_products_for_guarded_delete(
         db=db,
         product_ids=list(result.scalars().all()),
+        company_id=current_user.company_id,
+    )
+    return await _delete_products_guarded(
+        db=db,
+        product_ids=product_ids,
+        products_by_id=products_by_id,
+        not_found=not_found,
         current_user=current_user,
     )
 
@@ -1331,7 +1370,7 @@ async def purge_all_products(
     *,
     product_in: schemas.ProductPurgeAllRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(PermissionChecker("manage_inventory")),
+    current_user: User = Depends(PermissionChecker(PURGE_CATALOG_PERMISSION)),
 ) -> schemas.ProductBulkDeleteResponse:
     """Physically empty the company catalog after an explicit confirmation.
 
@@ -1422,26 +1461,35 @@ async def bulk_delete_archived_products(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> schemas.ProductBulkDeleteResponse:
-    """Permanently delete selected archived products, or one archived batch."""
+    """Remove only archived products that have no protected business history."""
     product_in = product_in or schemas.ProductBulkDeleteArchivedRequest()
     requested_ids = list(dict.fromkeys(product_in.product_ids))
-    query = select(Product.id).where(Product.company_id == current_user.company_id)
+    query = select(Product.id).where(
+        Product.company_id == current_user.company_id,
+        Product.is_active.is_(False),
+    )
     if requested_ids:
-        # A browser may still have the previous mixed active/archived view in
-        # memory after a deployment. Explicitly selected IDs are therefore
-        # purged regardless of their active flag. The company condition above
-        # remains the authorization boundary.
+        # A stale browser selection must not turn this archived-only action into
+        # a delete endpoint for active products.
         query = query.where(Product.id.in_(requested_ids))
     else:
-        query = query.where(Product.is_active.is_(False))
         if product_in.exclude_product_ids:
             query = query.where(Product.id.not_in(product_in.exclude_product_ids))
         query = query.order_by(Product.created_at.asc(), Product.id.asc()).limit(product_in.limit)
 
     result = await db.execute(query)
-    return await _purge_products_physically(
+    selected_ids, products_by_id, not_found = await _load_products_for_guarded_delete(
         db=db,
         product_ids=list(result.scalars().all()),
+        company_id=current_user.company_id,
+    )
+    # This remains available to ordinary inventory operators from the archived
+    # view, but protected rows are reported instead of losing their history.
+    return await _delete_products_guarded(
+        db=db,
+        product_ids=selected_ids,
+        products_by_id=products_by_id,
+        not_found=not_found,
         current_user=current_user,
     )
 
@@ -1680,14 +1728,31 @@ async def delete_product(
     product_id: str,
     current_user: User = Depends(PermissionChecker("manage_inventory")),
 ) -> Any:
-    """Physically delete a product, including its product-owned relations."""
-    result = await _purge_products_physically(
+    """Delete a product only when no business document protects its history."""
+    product_ids, products_by_id, not_found = await _load_products_for_guarded_delete(
         db=db,
         product_ids=[product_id],
+        company_id=current_user.company_id,
+    )
+    result = await _delete_products_guarded(
+        db=db,
+        product_ids=product_ids,
+        products_by_id=products_by_id,
+        not_found=not_found,
         current_user=current_user,
     )
     if result.not_found:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
+    if result.blocked:
+        blocked = result.blocked[0]
+        reasons = ", ".join(blocked.reasons).lower()
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"No se puede eliminar '{blocked.name}' porque {reasons}. "
+                "El producto se conserva para proteger el historial."
+            ),
+        )
     return {"ok": True, "deleted": result.deleted}
 
 # --- Variant Sub-Endpoints ---

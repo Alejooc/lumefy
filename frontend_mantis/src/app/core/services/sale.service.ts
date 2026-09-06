@@ -37,6 +37,10 @@ export interface Sale {
     id: string;
     origin_channel?: string | null;
     integration_source_id?: string | null;
+    storefront_id?: string | null;
+    storefront_name?: string | null;
+    storefront_customer_name?: string | null;
+    storefront_customer_email?: string | null;
     branch_id: string;
     client_id?: string;
     user_id: string;
@@ -48,6 +52,7 @@ export interface Sale {
     total: number;
     payment_provider?: string;
     payment_status?: string;
+    payment_pending_until?: string | null;
     payment_method?: string;
     valid_until?: string;
     shipping_address?: string;
@@ -98,10 +103,23 @@ export class SaleService {
 
     private apiUrl = `${environment.apiUrl}/sales`;
 
-    getSales(status?: string, clientId?: string): Observable<Sale[]> {
+    getSales(
+        status?: string,
+        clientId?: string,
+        filters?: {
+            storefrontId?: string;
+            onlineOnly?: boolean;
+            paymentStatus?: string;
+            paymentProvider?: string;
+        }
+    ): Observable<Sale[]> {
         const params: Record<string, string> = {};
         if (status) params['status'] = status;
         if (clientId) params['client_id'] = clientId;
+        if (filters?.storefrontId) params['storefront_id'] = filters.storefrontId;
+        if (filters?.onlineOnly) params['online_only'] = 'true';
+        if (filters?.paymentStatus) params['payment_status'] = filters.paymentStatus;
+        if (filters?.paymentProvider) params['payment_provider'] = filters.paymentProvider;
         return this.http.get<Sale[]>(this.apiUrl, { params });
     }
 

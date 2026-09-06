@@ -76,6 +76,32 @@ class Sale(BaseModel):
         return storefront_order.payment_provider if storefront_order else None
 
     @property
+    def payment_pending_until(self) -> datetime | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.payment_pending_until if storefront_order else None
+
+    @property
+    def storefront_id(self) -> uuid.UUID | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.storefront_id if storefront_order else None
+
+    @property
+    def storefront_name(self) -> str | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        storefront = storefront_order.__dict__.get("storefront") if storefront_order else None
+        return storefront.name if storefront else None
+
+    @property
+    def storefront_customer_name(self) -> str | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.customer_name if storefront_order else None
+
+    @property
+    def storefront_customer_email(self) -> str | None:
+        storefront_order = self.__dict__.get("storefront_order")
+        return storefront_order.customer_email if storefront_order else None
+
+    @property
     def shipping_city(self) -> str | None:
         storefront_order = self.__dict__.get("storefront_order")
         return storefront_order.shipping_city if storefront_order else None

@@ -1,4 +1,5 @@
 from typing import Any, List
+from html import escape
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
@@ -11,9 +12,12 @@ from app.models.inventory_movement import InventoryMovement, MovementType
 from app.models.user import User
 from app.models.product import Product
 from app.models.client import Client
+from app.models.storefront import StorefrontOrder
 from app.models.account_ledger import AccountLedger, LedgerType, PartnerType
 from app.core.permissions import PermissionChecker
+from app.core.audit import log_activity, log_sale_event
 from app.schemas import return_order as schemas
+from app.services.email import EmailService
 from datetime import datetime, timezone
 import uuid
 
@@ -295,6 +299,20 @@ async def approve_return(
                 )
             )
     
+    storefront_order = await db.scalar(
+        select(StorefrontOrder).where(
+            StorefrontOrder.sale_id == sale.id,
+            StorefrontOrder.is_active == True,
+        )
+    )
+    if storefront_order and (storefront_order.payment_status or "pending").lower() in {
+        "approved",
+        "approved_partial",
+    }:
+        ret.refund_status = "PENDING"
+    else:
+        ret.refund_status = "NOT_REQUIRED"
+
     ret.status = ReturnStatus.APPROVED
     ret.approved_at = datetime.now(timezone.utc)
     ret.approved_by = current_user.id
@@ -305,6 +323,107 @@ async def approve_return(
     result = await db.execute(
         select(ReturnOrder).options(*_return_options()).where(ReturnOrder.id == ret.id)
     )
+    return result.scalars().first()
+
+
+@router.post("/{return_id}/refund", response_model=schemas.ReturnOrderResponse)
+async def register_manual_refund(
+    return_id: uuid.UUID,
+    refund_in: schemas.RefundConfirmation,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(PermissionChecker("manage_sales")),
+) -> Any:
+    """Record a manual refund after a paid storefront return is approved."""
+    reference = (refund_in.reference or "").strip()
+    if len(reference) < 3:
+        raise HTTPException(status_code=422, detail="La referencia del reembolso es obligatoria")
+
+    ret = await db.scalar(
+        select(ReturnOrder)
+        .where(ReturnOrder.id == return_id, ReturnOrder.company_id == current_user.company_id)
+        .with_for_update()
+    )
+    if not ret:
+        raise HTTPException(status_code=404, detail="Return order not found")
+    if ret.refund_status == "REFUNDED":
+        result = await db.execute(select(ReturnOrder).options(*_return_options()).where(ReturnOrder.id == ret.id))
+        return result.scalars().first()
+    if ret.status != ReturnStatus.APPROVED:
+        raise HTTPException(status_code=400, detail="La devolución debe estar aprobada antes de reembolsar")
+    if ret.refund_status != "PENDING":
+        raise HTTPException(status_code=409, detail="Esta devolución no requiere un reembolso online pendiente")
+
+    storefront_order = await db.scalar(
+        select(StorefrontOrder)
+        .where(StorefrontOrder.sale_id == ret.sale_id, StorefrontOrder.is_active == True)
+        .with_for_update()
+    )
+    if not storefront_order or (storefront_order.payment_status or "").lower() not in {
+        "approved",
+        "approved_partial",
+    }:
+        raise HTTPException(status_code=409, detail="No hay un pago online aprobado asociado a esta devolución")
+
+    now = datetime.now(timezone.utc)
+    before = {
+        "refund_status": ret.refund_status,
+        "refund_reference": ret.refund_reference,
+    }
+    ret.refund_status = "REFUNDED"
+    ret.refund_method = refund_in.method
+    ret.refund_reference = reference
+    ret.refund_processed_at = now
+    ret.refund_processed_by = current_user.id
+    if refund_in.notes and refund_in.notes.strip():
+        ret.notes = f"{ret.notes}\nReembolso: {refund_in.notes.strip()}" if ret.notes else f"Reembolso: {refund_in.notes.strip()}"
+
+    await log_activity(
+        db,
+        action="STOREFRONT_REFUND_RECORDED",
+        entity_type="ReturnOrder",
+        entity_id=ret.id,
+        user_id=current_user.id,
+        company_id=current_user.company_id,
+        details={
+            "before": before,
+            "after": {"refund_status": ret.refund_status, "refund_reference": reference},
+            "sale_id": str(ret.sale_id),
+            "method": refund_in.method,
+        },
+    )
+    await log_sale_event(
+        db,
+        sale_id=str(ret.sale_id),
+        company_id=str(current_user.company_id),
+        event_type="STOREFRONT_REFUND_RECORDED",
+        title="Reembolso manual registrado",
+        description="Se registró la referencia del reembolso asociado a la devolución aprobada.",
+        status="success",
+        provider=refund_in.method,
+        reference=reference,
+        metadata={"return_id": str(ret.id), "amount": float(ret.total_refund or 0.0)},
+    )
+    db.add(ret)
+    await db.commit()
+
+    if storefront_order.customer_email:
+        try:
+            await EmailService.send_email(
+                storefront_order.customer_email,
+                f"Reembolso registrado · Pedido #{str(ret.sale_id).split('-')[0].upper()}",
+                (
+                    f"<p>Registramos el reembolso de <strong>{escape(str(storefront_order.currency))} "
+                    f"{float(ret.total_refund or 0):,.2f}</strong> para tu pedido "
+                    f"<strong>#{escape(str(ret.sale_id).split('-')[0].upper())}</strong>.</p>"
+                    f"<p>Referencia: <strong>{escape(reference)}</strong>.</p>"
+                ),
+            )
+        except Exception:
+            # The refund record is already durable; SMTP failure must not make
+            # the operator repeat a financial action.
+            pass
+
+    result = await db.execute(select(ReturnOrder).options(*_return_options()).where(ReturnOrder.id == ret.id))
     return result.scalars().first()
 
 

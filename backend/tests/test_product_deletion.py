@@ -10,7 +10,10 @@ from app.api.v1.endpoints.products import (
     _PRODUCT_DELETE_RELATIONS,
     _find_product_delete_blockers,
     _product_filter_conditions,
+    bulk_delete_all_products,
     bulk_delete_archived_products,
+    bulk_delete_products,
+    purge_all_products,
 )
 from app.schemas.product import ProductBulkDeleteArchivedRequest, ProductBulkDeleteRequest
 from app.services.integration_service import (
@@ -81,27 +84,103 @@ class ProductBulkDeleteSchemaTests(unittest.TestCase):
 
 
 class ProductArchivedDeletionTests(unittest.IsolatedAsyncioTestCase):
-    async def test_explicit_selection_is_purged_even_if_browser_view_was_stale(self):
+    async def test_selected_products_use_guarded_delete(self):
         product_id = uuid.uuid4()
         company_id = uuid.uuid4()
         selected = _ScalarResult([product_id])
-        db = SimpleNamespace(execute=AsyncMock(return_value=selected))
+        product = SimpleNamespace(id=product_id)
+        db = SimpleNamespace(
+            execute=AsyncMock(side_effect=[selected, _ScalarResult([product])])
+        )
         response = SimpleNamespace(deleted=1)
 
         with patch(
-            "app.api.v1.endpoints.products._purge_products_physically",
+            "app.api.v1.endpoints.products._delete_products_guarded",
             new=AsyncMock(return_value=response),
-        ) as purge:
+        ) as guarded:
             result = await bulk_delete_archived_products(
                 product_in=ProductBulkDeleteArchivedRequest(product_ids=[product_id]),
                 db=db,
                 current_user=SimpleNamespace(company_id=company_id),
             )
 
-        query = db.execute.await_args.args[0]
-        self.assertNotIn("products.is_active IS false", str(query))
-        purge.assert_awaited_once()
+        query = db.execute.await_args_list[0].args[0]
+        self.assertIn("products.is_active IS false", str(query))
+        guarded.assert_awaited_once()
         self.assertIs(result, response)
+
+    async def test_stale_active_selection_is_not_in_archived_scope(self):
+        product_id = uuid.uuid4()
+        company_id = uuid.uuid4()
+        db = SimpleNamespace(execute=AsyncMock(return_value=_ScalarResult([])))
+
+        with patch(
+            "app.api.v1.endpoints.products._delete_products_guarded",
+            new=AsyncMock(return_value=SimpleNamespace(deleted=0)),
+        ) as guarded:
+            await bulk_delete_archived_products(
+                product_in=ProductBulkDeleteArchivedRequest(product_ids=[product_id]),
+                db=db,
+                current_user=SimpleNamespace(company_id=company_id),
+            )
+
+        guarded.assert_awaited_once()
+        self.assertEqual(guarded.await_args.kwargs["product_ids"], [])
+
+
+class ProductHistoryProtectionRouteTests(unittest.IsolatedAsyncioTestCase):
+    async def test_bulk_delete_delegates_to_guarded_flow(self):
+        product_id = uuid.uuid4()
+        company_id = uuid.uuid4()
+        product = SimpleNamespace(id=product_id)
+        db = SimpleNamespace(execute=AsyncMock(return_value=_ScalarResult([product])))
+        response = SimpleNamespace(deleted=0, blocked=[product_id])
+
+        with patch(
+            "app.api.v1.endpoints.products._delete_products_guarded",
+            new=AsyncMock(return_value=response),
+        ) as guarded, patch(
+            "app.api.v1.endpoints.products._purge_products_physically",
+            new=AsyncMock(),
+        ) as purge:
+            result = await bulk_delete_products(
+                product_in=ProductBulkDeleteRequest(product_ids=[product_id]),
+                db=db,
+                current_user=SimpleNamespace(company_id=company_id),
+            )
+
+        guarded.assert_awaited_once()
+        purge.assert_not_awaited()
+        self.assertIs(result, response)
+
+    async def test_bulk_delete_all_delegates_to_guarded_flow(self):
+        product_id = uuid.uuid4()
+        company_id = uuid.uuid4()
+        product = SimpleNamespace(id=product_id)
+        db = SimpleNamespace(
+            execute=AsyncMock(side_effect=[_ScalarResult([product_id]), _ScalarResult([product])])
+        )
+        response = SimpleNamespace(deleted=0, blocked=[product_id])
+
+        with patch(
+            "app.api.v1.endpoints.products._delete_products_guarded",
+            new=AsyncMock(return_value=response),
+        ) as guarded:
+            result = await bulk_delete_all_products(
+                product_in=None,
+                db=db,
+                current_user=SimpleNamespace(company_id=company_id),
+            )
+
+        guarded.assert_awaited_once()
+        self.assertIs(result, response)
+
+    def test_physical_purge_requires_dedicated_permission(self):
+        import inspect
+
+        dependency = inspect.signature(purge_all_products).parameters["current_user"].default
+
+        self.assertEqual(dependency.dependency.required_permission, "purge_catalog")
 
 
 class LocalIntegrationAssetCleanupTests(unittest.IsolatedAsyncioTestCase):

@@ -43,6 +43,7 @@
                   <th>Estado</th>
                   <th>Motivo</th>
                   <th class="text-end">Reembolso</th>
+                  <th>Pago online</th>
                   <th>Creado por</th>
                   <th>Fecha</th>
                   <th class="text-center">Acciones</th>
@@ -67,6 +68,14 @@
                     </td>
                     <td>{{ ret.reason || '—' }}</td>
                     <td class="text-end fw-bold">{{ formatCurrency(ret.total_refund) }}</td>
+                    <td>
+                      <span class="badge" [class]="ret.refund_status === 'REFUNDED' ? 'bg-success' : ret.refund_status === 'PENDING' ? 'bg-warning text-dark' : 'bg-secondary'">
+                        {{ ret.refund_status === 'REFUNDED' ? 'Reembolsado' : ret.refund_status === 'PENDING' ? 'Pendiente' : 'No aplica' }}
+                      </span>
+                      @if (ret.refund_reference) {
+                        <small class="d-block text-muted">{{ ret.refund_reference }}</small>
+                      }
+                    </td>
                     <td>{{ ret.creator?.full_name || '—' }}</td>
                     <td>{{ ret.created_at | date:'short' }}</td>
                     <td class="text-center">

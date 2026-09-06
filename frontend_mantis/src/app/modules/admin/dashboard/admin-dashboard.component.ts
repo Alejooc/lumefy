@@ -14,6 +14,11 @@ interface SummaryCard {
   tone: string;
 }
 
+interface SubscriptionEntry {
+  code: string;
+  count: number;
+}
+
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
@@ -26,6 +31,7 @@ export class AdminDashboardComponent implements OnInit {
   loading = true;
   loadFailed = false;
   summaryCards: SummaryCard[] = [];
+  subscriptionEntries: SubscriptionEntry[] = [];
 
   private adminService = inject(AdminService);
   private iconService = inject(IconService);
@@ -45,11 +51,17 @@ export class AdminDashboardComponent implements OnInit {
     this.adminService.getStats().subscribe({
       next: (stats) => {
         this.stats = stats;
+        this.subscriptionEntries = Object.entries(stats.active_subscriptions)
+          .map(([code, count]) => ({ code, count }))
+          .sort((a, b) => a.code.localeCompare(b.code));
+        const mrrValue = stats.mrr_currency
+          ? `${stats.mrr_currency} ${stats.mrr.toLocaleString('es-CO', { minimumFractionDigits: 2 })}`
+          : 'Multi-moneda';
         this.summaryCards = [
           {
             title: 'MRR estimado',
-            value: `$${stats.mrr.toLocaleString('es-CO')}`,
-            detail: `${stats.active_subscriptions.PRO + stats.active_subscriptions.ENTERPRISE} suscripciones de pago`,
+            value: mrrValue,
+            detail: `${stats.paid_subscription_count} suscripciones de pago · cálculo estimado`,
             icon: 'dollar',
             tone: 'text-primary bg-light-primary'
           },
@@ -69,8 +81,8 @@ export class AdminDashboardComponent implements OnInit {
           },
           {
             title: 'Planes de pago',
-            value: (stats.active_subscriptions.PRO + stats.active_subscriptions.ENTERPRISE).toString(),
-            detail: `${stats.active_subscriptions.FREE} suscripciones Free`,
+            value: stats.paid_subscription_count.toString(),
+            detail: `${stats.active_subscription_count} suscripciones vigentes`,
             icon: 'trophy',
             tone: 'text-danger bg-light-danger'
           }

@@ -18,6 +18,7 @@ export interface User {
     branch_id?: string;
     is_superuser?: boolean;
     is_active?: boolean;
+    mfa_enabled?: boolean;
     role?: Role;
     company?: Company;
 }
@@ -50,7 +51,32 @@ export interface UserRegister {
 }
 
 interface AuthTokenResponse {
-    access_token: string;
+    access_token?: string;
+    mfa_required?: boolean;
+    mfa_challenge?: string;
+}
+
+export interface LoginResult {
+    user: User | null;
+    mfaRequired: boolean;
+    challengeToken?: string;
+}
+
+export interface MfaStatus {
+    enabled: boolean;
+    configured: boolean;
+    recovery_codes_remaining: number;
+}
+
+export interface MfaSetup {
+    enabled: boolean;
+    secret: string;
+    otpauth_uri: string;
+}
+
+export interface MfaEnableResult {
+    enabled: boolean;
+    recovery_codes: string[];
 }
 
 interface ImpersonationOrigin {
@@ -93,21 +119,57 @@ export class AuthService {
         return this.getImpersonationOrigin()?.user ?? null;
     }
 
-    login(username: string, password: string): Observable<User | null> {
+    login(username: string, password: string): Observable<LoginResult> {
         const formData = new FormData();
         formData.append('username', username);
         formData.append('password', password);
 
         return this.api.post<AuthTokenResponse>('/login/access-token', formData).pipe(
             switchMap(response => {
-                if (response && response.access_token) {
-                    this.clearImpersonationOrigin();
-                    localStorage.setItem('access_token', response.access_token);
-                    return this.fetchMe();
+                if (response?.mfa_required && response.mfa_challenge) {
+                    return of({
+                        user: null,
+                        mfaRequired: true,
+                        challengeToken: response.mfa_challenge
+                    });
                 }
-                return of(null);
+                if (response?.access_token) {
+                    return this.completeLogin(response.access_token).pipe(
+                        map(user => ({ user, mfaRequired: false }))
+                    );
+                }
+                return of({ user: null, mfaRequired: false });
             })
         );
+    }
+
+    verifyMfa(challengeToken: string, code: string): Observable<User | null> {
+        return this.api.post<AuthTokenResponse>('/login/mfa/verify', {
+            challenge_token: challengeToken,
+            code
+        }).pipe(
+            switchMap(response => response?.access_token ? this.completeLogin(response.access_token) : of(null))
+        );
+    }
+
+    getMfaStatus(): Observable<MfaStatus> {
+        return this.api.get<MfaStatus>('/login/mfa/status');
+    }
+
+    setupMfa(): Observable<MfaSetup> {
+        return this.api.post<MfaSetup>('/login/mfa/setup', {});
+    }
+
+    enableMfa(code: string): Observable<MfaEnableResult> {
+        return this.api.post<MfaEnableResult>('/login/mfa/enable', { code });
+    }
+
+    disableMfa(code: string): Observable<MfaStatus> {
+        return this.api.post<MfaStatus>('/login/mfa/disable', { code });
+    }
+
+    revokeSessions(): Observable<{ msg: string }> {
+        return this.api.post<{ msg: string }>('/login/sessions/revoke', {});
     }
 
     fetchMe(): Observable<User> {
@@ -140,10 +202,8 @@ export class AuthService {
     register(user: UserRegister): Observable<User | null> {
         return this.api.post<AuthTokenResponse>('/register', user).pipe(
             switchMap(response => {
-                if (response && response.access_token) {
-                    this.clearImpersonationOrigin();
-                    localStorage.setItem('access_token', response.access_token);
-                    return this.fetchMe();
+                if (response?.access_token) {
+                    return this.completeLogin(response.access_token);
                 }
                 return of(null);
             })
@@ -173,8 +233,13 @@ export class AuthService {
             return of(null);
         }
 
-        localStorage.setItem('access_token', origin.access_token);
-        return this.fetchMe().pipe(tap(() => this.clearImpersonationOrigin()));
+        return this.api.post<{ ok: boolean }>('/admin/users/impersonation/end', {}).pipe(
+            switchMap(() => {
+                localStorage.setItem('access_token', origin.access_token);
+                return this.fetchMe();
+            }),
+            tap(() => this.clearImpersonationOrigin())
+        );
     }
 
     isImpersonating(): boolean {
@@ -199,6 +264,12 @@ export class AuthService {
             this.clearImpersonationOrigin();
             return null;
         }
+    }
+
+    private completeLogin(accessToken: string): Observable<User> {
+        this.clearImpersonationOrigin();
+        localStorage.setItem('access_token', accessToken);
+        return this.fetchMe();
     }
 
     private clearImpersonationOrigin(): void {

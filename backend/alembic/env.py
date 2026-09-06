@@ -30,6 +30,7 @@ from app.models.category import Category
 from app.models.inventory import Inventory
 from app.models.inventory_movement import InventoryMovement
 from app.models.sale import Sale, SaleItem, Payment
+from app.models.return_order import ReturnOrder, ReturnOrderItem
 from app.models.client import Client
 from app.models.audit import AuditLog
 from app.models.supplier import Supplier
@@ -39,6 +40,7 @@ from app.models.pricelist import PriceList
 from app.models.pricelist_item import PriceListItem
 from app.models.pricelist_source_rule import PriceListSourceRule
 from app.models.plan import Plan
+from app.models.saas_billing import SaaSBillingRecord
 from app.models.system_setting import SystemSetting
 from app.models.brand import Brand
 from app.models.unit_of_measure import UnitOfMeasure
@@ -66,6 +68,7 @@ from app.models.integration import (
 from app.models.storefront_newsletter import StorefrontNewsletterSubscription
 from app.models.storefront_theme import StorefrontThemeDocument, StorefrontThemeRevision
 from app.models.storefront_media import StorefrontMediaAsset
+from app.models.storefront_promotion import StorefrontPromotion
 
 from app.core.config import settings
 

@@ -49,6 +49,12 @@ export class AdminUserListComponent implements OnInit {
         Swal.fire({
             title: '¿Iniciar sesión como este usuario?',
             text: `Entrarás a la cuenta de ${user.full_name} (${user.email})`,
+            input: 'textarea',
+            inputLabel: 'Motivo de soporte',
+            inputPlaceholder: 'Describe por qué necesitas acceder a este usuario',
+            inputValidator: (value) => value?.trim().length >= 3
+                ? undefined
+                : 'Indica un motivo de al menos 3 caracteres.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
@@ -57,7 +63,7 @@ export class AdminUserListComponent implements OnInit {
         }).then((result) => {
             if (result.isConfirmed) {
                 this.loading = true;
-                this.adminService.impersonateUser(user.id).subscribe({
+                this.adminService.impersonateUser(user.id, result.value.trim()).subscribe({
                     next: (res) => {
                         this.authService.startImpersonation(res.access_token).subscribe({
                             next: (impersonatedUser) => {

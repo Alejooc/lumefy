@@ -196,7 +196,7 @@ export class ProductListComponent implements OnInit {
         this.swal
             .confirm(
                 '¿Eliminar definitivamente productos archivados?',
-                `${scopeText} También se eliminarán sus existencias, lotes, movimientos y conteos de inventario, además de variantes, imágenes y publicaciones de ecommerce. Los encabezados de ventas, compras y facturas se conservarán para el historial, pero los productos y sus líneas se borrarán físicamente. Esta acción no se puede deshacer.`
+                `${scopeText} Solo se eliminarán físicamente los productos sin relaciones protegidas. Los que tengan ventas, compras, facturas, inventario u otra trazabilidad se conservarán y aparecerán como bloqueados.`
             )
             .then((result) => {
                 if (!result.isConfirmed) {
@@ -433,7 +433,7 @@ export class ProductListComponent implements OnInit {
         this.swal
             .confirm(
                 '¿Eliminar productos seleccionados?',
-                `Se eliminarán físicamente ${productIds.length} producto(s), incluyendo variantes, imágenes, existencias y líneas relacionadas. Los encabezados de ventas, compras y facturas se conservarán para el historial.`
+                `Se retirarán ${productIds.length} producto(s) del catálogo. Los productos con ventas, compras, facturas, inventario u otra trazabilidad se conservarán para proteger el historial.`
             )
             .then((result) => {
                 if (!result.isConfirmed) {

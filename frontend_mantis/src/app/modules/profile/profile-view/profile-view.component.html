@@ -44,6 +44,58 @@
                       <i class="ti ti-edit"></i> Editar Perfil
                     </button>
                   </div>
+
+                  @if (user.is_superuser) {
+                    <div class="card border mt-4 mb-0">
+                      <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                          <div>
+                            <h5 class="mb-1">Protección de la cuenta dueña</h5>
+                            <p class="text-muted mb-0">Usa una aplicación autenticadora para proteger el acceso de superadministrador.</p>
+                          </div>
+                          @if (mfaStatus?.enabled) {
+                            <span class="badge bg-success">MFA activo</span>
+                          } @else {
+                            <span class="badge bg-warning text-dark">MFA pendiente</span>
+                          }
+                        </div>
+
+                        @if (mfaStatus?.enabled) {
+                          <div class="alert alert-success mt-3 mb-3">
+                            MFA está activo. Quedan {{ mfaStatus?.recovery_codes_remaining }} códigos de recuperación.
+                          </div>
+                          <label class="form-label" for="disable-mfa-code">Código TOTP para deshabilitar</label>
+                          <div class="input-group mb-3">
+                            <input id="disable-mfa-code" class="form-control" inputmode="numeric" [(ngModel)]="mfaCode" placeholder="123456" />
+                            <button type="button" class="btn btn-outline-danger" [disabled]="mfaLoading || !mfaCode" (click)="disableMfa()">Deshabilitar MFA</button>
+                          </div>
+                        } @else if (mfaSetup) {
+                          <div class="alert alert-info mt-3">
+                            Registra esta cuenta en tu aplicación autenticadora usando el URI o la clave manual.
+                          </div>
+                          <label class="form-label">Clave manual</label>
+                          <code class="d-block bg-light rounded p-2 mb-2 user-select-all">{{ mfaSetup.secret }}</code>
+                          <label class="form-label">URI otpauth</label>
+                          <textarea class="form-control mb-3" rows="2" readonly>{{ mfaSetup.otpauth_uri }}</textarea>
+                          <label class="form-label" for="enable-mfa-code">Código de confirmación</label>
+                          <div class="input-group mb-3">
+                            <input id="enable-mfa-code" class="form-control" inputmode="numeric" [(ngModel)]="mfaCode" placeholder="123456" />
+                            <button type="button" class="btn btn-primary" [disabled]="mfaLoading || !mfaCode" (click)="enableMfa()">Activar MFA</button>
+                          </div>
+                        } @else {
+                          <button type="button" class="btn btn-primary mt-3" [disabled]="mfaLoading" (click)="startMfaSetup()">Configurar MFA</button>
+                        }
+
+                        @if (recoveryCodes.length) {
+                          <div class="alert alert-warning mt-3 mb-0">
+                            <strong>Guarda estos códigos ahora.</strong> Se muestran una sola vez y cada uno puede utilizarse una vez.
+                            <code class="d-block mt-2">{{ recoveryCodes.join(' · ') }}</code>
+                          </div>
+                        }
+                        <button type="button" class="btn btn-link px-0 mt-3" [disabled]="mfaLoading" (click)="revokeSessions()">Revocar todas las sesiones</button>
+                      </div>
+                    </div>
+                  }
                 </div>
               </div>
             }

@@ -203,6 +203,7 @@ async def update_user(
             hashed_password = get_password_hash(update_data["password"])
             del update_data["password"]
             update_data["hashed_password"] = hashed_password
+            user.auth_token_version += 1
             
         editable_fields = {"email", "full_name", "is_active", "role_id", "hashed_password"}
         for field, value in update_data.items():
@@ -221,6 +222,10 @@ async def update_user(
         user = result.scalars().first()
         
         # Log Activity
+        audit_details = {
+            field: "[redacted]" if field == "hashed_password" else value
+            for field, value in update_data.items()
+        }
         await log_activity(
             db,
             action="UPDATE",
@@ -228,7 +233,7 @@ async def update_user(
             entity_id=user.id,
             user_id=current_user.id,
             company_id=current_user.company_id,
-            details=update_data
+            details=audit_details
         )
 
         return user

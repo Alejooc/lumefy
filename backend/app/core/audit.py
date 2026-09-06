@@ -3,8 +3,24 @@ from app.models.audit import AuditLog
 from fastapi.encoders import jsonable_encoder
 from datetime import datetime, timezone
 import logging
+from contextvars import ContextVar
 
 logger = logging.getLogger(__name__)
+
+_impersonation_context: ContextVar[dict | None] = ContextVar(
+    "impersonation_context",
+    default=None,
+)
+
+
+def set_impersonation_context(context: dict | None) -> None:
+    """Attach the signed support-session context to the current request task."""
+
+    _impersonation_context.set(context)
+
+
+def get_impersonation_context() -> dict | None:
+    return _impersonation_context.get()
 
 async def log_activity(
     db: AsyncSession,
@@ -19,13 +35,20 @@ async def log_activity(
     Logs an activity to the audit_logs table.
     """
     try:
+        event_details = dict(details or {})
+        impersonation = get_impersonation_context()
+        if impersonation:
+            # Keep the target in user_id for backwards compatibility, while
+            # retaining the operator and session that authorized the action.
+            event_details.setdefault("impersonation", impersonation)
+
         audit_log = AuditLog(
             user_id=user_id,
             company_id=company_id,
             action=action,
             entity_type=entity_type,
             entity_id=str(entity_id) if entity_id else None,
-            details=jsonable_encoder(details) if details else None,
+            details=jsonable_encoder(event_details) if event_details else None,
             # Application time preserves event order when several events share
             # one database transaction (PostgreSQL transaction timestamps tie).
             created_at=datetime.now(timezone.utc),

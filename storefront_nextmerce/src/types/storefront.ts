@@ -189,6 +189,8 @@ export type PublicProduct = {
   price: number;
   base_price: number;
   compare_at_price?: number | null;
+  promotion_name?: string | null;
+  promotion_discount_percent?: number | null;
   is_featured: boolean;
   show_stock: boolean;
   in_stock: boolean;
@@ -204,6 +206,8 @@ export type PublicProductVariant = {
   attributes: Record<string, unknown>;
   price: number;
   compare_at_price?: number | null;
+  promotion_name?: string | null;
+  promotion_discount_percent?: number | null;
   in_stock: boolean;
   stock_quantity?: number | null;
 };
@@ -271,12 +275,17 @@ export type CheckoutPreviewItem = {
   quantity: number;
   unit_price: number;
   line_subtotal: number;
+  original_unit_price?: number | null;
+  promotion_discount_amount?: number;
+  promotion_name?: string | null;
+  promotion_discount_percent?: number | null;
 };
 
 export type CheckoutPreviewResponse = {
   currency: string;
   items: CheckoutPreviewItem[];
   subtotal: number;
+  promotion_discount?: number;
   discount: number;
   shipping: number;
   tax: number;

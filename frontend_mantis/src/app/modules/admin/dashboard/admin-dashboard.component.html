@@ -31,18 +31,15 @@
     <div class="col-xl-7">
       <app-card cardTitle="Distribucion de suscripciones">
         <div class="plan-summary">
-          <div class="plan-row">
-            <div><span class="plan-dot bg-primary"></span>Free</div>
-            <strong>{{ stats.active_subscriptions.FREE }}</strong>
-          </div>
-          <div class="plan-row">
-            <div><span class="plan-dot bg-success"></span>Pro</div>
-            <strong>{{ stats.active_subscriptions.PRO }}</strong>
-          </div>
-          <div class="plan-row">
-            <div><span class="plan-dot bg-danger"></span>Enterprise</div>
-            <strong>{{ stats.active_subscriptions.ENTERPRISE }}</strong>
-          </div>
+          @for (plan of subscriptionEntries; track plan.code) {
+            <div class="plan-row">
+              <div><span class="plan-dot bg-primary"></span>{{ plan.code }}</div>
+              <strong>{{ plan.count }}</strong>
+            </div>
+          }
+          @if (!subscriptionEntries.length) {
+            <p class="mb-0 text-muted">No hay suscripciones vigentes.</p>
+          }
         </div>
       </app-card>
     </div>

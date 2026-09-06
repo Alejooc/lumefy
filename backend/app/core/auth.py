@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.schemas.token import TokenPayload
 from app.models.user import User
 from app.models.storefront_customer import StorefrontCustomerAccount
+from app.core.audit import set_impersonation_context
 
 import logging
 
@@ -60,6 +61,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    set_impersonation_context(None)
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         token_data = TokenPayload(**payload)
@@ -73,6 +75,34 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         raise credentials_exception
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Inactive user")
+
+    # Tokens issued after the MFA/session-revocation migration carry the
+    # user's current version. Once MFA is enabled, legacy tokens without a
+    # version are rejected so enabling MFA cannot leave an old session open.
+    token_version = payload.get("auth_version")
+    if getattr(user, "mfa_enabled", False) and token_version is None:
+        raise credentials_exception
+    if token_version is not None:
+        try:
+            if int(token_version) != int(getattr(user, "auth_token_version", 0) or 0):
+                raise credentials_exception
+        except (TypeError, ValueError):
+            raise credentials_exception
+
+    if payload.get("scope") == "impersonation":
+        operator_id = payload.get("impersonated_by_user_id")
+        session_id = payload.get("impersonation_session_id")
+        started_at = payload.get("impersonation_started_at")
+        reason = payload.get("impersonation_reason")
+        if operator_id and session_id and started_at and reason:
+            set_impersonation_context({
+                "operator_user_id": str(operator_id),
+                "target_user_id": str(user.id),
+                "target_company_id": str(user.company_id) if user.company_id else None,
+                "session_id": str(session_id),
+                "started_at": str(started_at),
+                "reason": str(reason),
+            })
     return user
 
 

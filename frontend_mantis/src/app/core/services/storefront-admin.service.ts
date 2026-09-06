@@ -482,6 +482,28 @@ export interface StoreCollectionProduct {
   is_excluded: boolean;
 }
 
+export type StorefrontPromotionTargetType = 'COLLECTION' | 'PRODUCT';
+
+export interface StorefrontPromotion {
+  id: string;
+  storefront_id: string;
+  name: string;
+  target_type: StorefrontPromotionTargetType;
+  collection_id?: string | null;
+  published_product_id?: string | null;
+  collection_name?: string | null;
+  product_name?: string | null;
+  target_label: string;
+  discount_percent: number;
+  priority: number;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  is_enabled: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface StoreNavigationItem {
   id: string;
   storefront_id: string;
@@ -905,6 +927,22 @@ export class StorefrontAdminService {
     return this.api.delete<{ ok: boolean; excluded?: boolean }>(`/storefront/collections/${collectionId}/products/${publishedProductId}`).pipe(
       tap(() => this.collectionsRequests.clear()),
     );
+  }
+
+  getPromotions(storefrontId?: string): Observable<StorefrontPromotion[]> {
+    return this.api.get<StorefrontPromotion[]>('/storefront/promotions/', storefrontId ? { storefront_id: storefrontId } : {});
+  }
+
+  createPromotion(payload: Partial<StorefrontPromotion>): Observable<StorefrontPromotion> {
+    return this.api.post<StorefrontPromotion>('/storefront/promotions/', payload);
+  }
+
+  updatePromotion(id: string, payload: Partial<StorefrontPromotion>): Observable<StorefrontPromotion> {
+    return this.api.put<StorefrontPromotion>(`/storefront/promotions/${id}`, payload);
+  }
+
+  disablePromotion(id: string): Observable<StorefrontPromotion> {
+    return this.api.delete<StorefrontPromotion>(`/storefront/promotions/${id}`);
   }
 
   restoreProductToAutomatedCollection(collectionId: string, publishedProductId: string): Observable<StoreCollectionProduct> {

@@ -382,7 +382,6 @@ const ShopDetails = ({
   const tabs = [
     { id: "description", title: content.description_tab_label, enabled: descriptionSection.settings["show_description_tab"] !== false },
     { id: "details", title: content.details_tab_label, enabled: descriptionSection.settings["show_details_tab"] !== false },
-    { id: "reviews", title: content.reviews_tab_label, enabled: descriptionSection.settings["show_reviews_tab"] !== false },
   ].filter((tab) => tab.enabled);
   const activeContentTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : tabs[0]?.id;
 
@@ -839,18 +838,6 @@ const ShopDetails = ({
                 </div>
               </div>
 
-              <div className={activeContentTab === "reviews" ? "mt-12.5" : "hidden"}>
-                <div className="rounded-xl bg-white shadow-1 p-6 sm:p-8 text-center">
-                  <h2 className="font-medium text-2xl text-dark mb-3">{content.reviews_empty_title}</h2>
-                  <p className="mb-6 text-dark-3">{content.reviews_empty_description}</p>
-                  <button
-                    type="button"
-                    className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark"
-                  >
-                    {content.submit_review_label}
-                  </button>
-                </div>
-              </div>
             </div>
           </section>
 

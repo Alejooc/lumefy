@@ -53,6 +53,8 @@ from app.models.storefront_customer import StorefrontCustomerAccount
 from app.models.storefront_newsletter import StorefrontNewsletterSubscription
 from app.services.email import EmailService
 from app.services.outbox import enqueue_outbox_event
+from app.services.storefront_payment_expiry import payment_pending_deadline
+from app.services.storefront_promotions import apply_promotion, load_storefront_promotion_context
 from app.models.storefront import (
     PublishedProduct,
     StoreCollection,
@@ -68,6 +70,7 @@ from app.models.storefront import (
     StorefrontOrder,
 )
 from app.models.storefront_coupon import StorefrontCoupon
+from app.models.storefront_promotion import StorefrontPromotion
 from app.models.storefront_theme import (
     StorefrontThemeDocument as StorefrontThemeDocumentModel,
     StorefrontThemeRevision as StorefrontThemeRevisionModel,
@@ -581,6 +584,7 @@ async def _get_storefront_order_for_payment_webhook(
             StorefrontOrder.sale_id == sale_id,
             StorefrontOrder.is_active == True,
         )
+        .with_for_update()
     )
     if not storefront_order or not storefront_order.sale or not storefront_order.storefront:
         raise HTTPException(status_code=404, detail="Checkout order not found")
@@ -610,6 +614,26 @@ async def _apply_gateway_payment_status(
             event_type="PAYMENT_STATUS_IGNORED",
             title="Actualización de pago ignorada",
             description="Se recibió un estado posterior distinto a un pago ya aprobado.",
+            status="warning",
+            provider=provider,
+            reference=transaction_id,
+            metadata={"current": previous_status, "received": normalized_status},
+        )
+        await db.commit()
+        return "ignored"
+    if previous_status in {"expired", "declined", "rejected", "cancelled"} and normalized_status in {
+        "approved",
+        "approved_partial",
+    }:
+        # A late provider approval must never resurrect a cancelled order or
+        # silently consume stock. Keep it visible for manual reconciliation.
+        await log_sale_event(
+            db,
+            sale_id=str(sale.id),
+            company_id=str(sale.company_id),
+            event_type="PAYMENT_STATUS_IGNORED",
+            title="Pago posterior requiere conciliación",
+            description="El proveedor aprobó un pedido cuyo plazo ya terminó o que fue cancelado.",
             status="warning",
             provider=provider,
             reference=transaction_id,
@@ -1199,7 +1223,7 @@ def _published_unit_price(
         if variant and pricing
         else float(variant.price) if variant and variant.price is not None
         else float(product.price or 0) + float(variant.price_extra or 0) if variant
-        else float(product.price or 0)
+        else base_price if pricing else float(product.price or 0)
     )
     unit_price = _safe_float(published_product.price_override, raw_price)
     if variant and published_product.price_override is not None and base_price:
@@ -1239,6 +1263,7 @@ def _serialize_public_product(
     *,
     compact: bool = False,
     pricing: ProductPricing | None = None,
+    promotion: StorefrontPromotion | None = None,
 ) -> schemas.PublicProduct:
     title = (published_product.custom_title or product.name or "").strip()
     seo_title = (getattr(published_product, "seo_title", None) or title).strip() or title
@@ -1263,8 +1288,16 @@ def _serialize_public_product(
     stock_map = stock_map or {}
     variants: list[schemas.PublicProductVariant] = []
     for variant in product.variants or []:
-        variant_price = _published_unit_price(published_product, product, variant, pricing)
+        regular_variant_price = _published_unit_price(published_product, product, variant, pricing)
+        variant_price, _variant_discount = apply_promotion(regular_variant_price, promotion)
         variant_stock = max(0.0, _safe_float(stock_map.get((product.id, variant.id), 0.0)))
+        variant_compare_at = (
+            float(published_product.compare_at_price)
+            if published_product.compare_at_price is not None
+            else None
+        )
+        if promotion and regular_variant_price > variant_price:
+            variant_compare_at = max(variant_compare_at or 0.0, regular_variant_price)
         variants.append(
             schemas.PublicProductVariant(
                 id=variant.id,
@@ -1272,16 +1305,25 @@ def _serialize_public_product(
                 sku=variant.sku,
                 attributes=variant.attributes if isinstance(variant.attributes, dict) else {},
                 price=variant_price,
-                compare_at_price=(
-                    float(published_product.compare_at_price)
-                    if published_product.compare_at_price is not None
-                    else None
-                ),
+                compare_at_price=variant_compare_at,
+                promotion_name=promotion.name if promotion else None,
+                promotion_discount_percent=float(promotion.discount_percent) if promotion else None,
                 in_stock=not bool(product.track_inventory) or variant_stock > 0,
                 stock_quantity=variant_stock if product.track_inventory else None,
             )
         )
-    price = min((variant.price for variant in variants), default=_safe_float(published_product.price_override, base_price))
+    regular_product_price = min(
+        (_published_unit_price(published_product, product, variant, pricing) for variant in product.variants or []),
+        default=_published_unit_price(published_product, product, None, pricing),
+    )
+    price, _product_discount = apply_promotion(regular_product_price, promotion)
+    compare_at_price = (
+        _safe_float(published_product.compare_at_price)
+        if published_product.compare_at_price is not None
+        else None
+    )
+    if promotion and regular_product_price > price:
+        compare_at_price = max(compare_at_price or 0.0, regular_product_price)
     image_url = published_product.product.image_url or product.image_url
     gallery: list[str] = []
     seen_gallery: set[str] = set()
@@ -1317,11 +1359,9 @@ def _serialize_public_product(
         gallery=gallery,
         price=price,
         base_price=base_price,
-        compare_at_price=(
-            _safe_float(published_product.compare_at_price)
-            if published_product.compare_at_price is not None
-            else None
-        ),
+        compare_at_price=compare_at_price,
+        promotion_name=promotion.name if promotion else None,
+        promotion_discount_percent=float(promotion.discount_percent) if promotion else None,
         is_featured=bool(published_product.is_featured),
         show_stock=is_tracked,
         in_stock=not is_tracked or bool(available_stock and available_stock > 0),
@@ -1335,12 +1375,17 @@ def _public_product_starting_price(
     published_product: PublishedProduct,
     product: Product,
     pricing: ProductPricing | None = None,
+    promotion: StorefrontPromotion | None = None,
 ) -> float:
     """Return the lowest sellable variant price used by catalog filters/sort."""
     base_price = pricing.base_price if pricing else float(product.price or 0)
     if not product.variants:
-        return _safe_float(published_product.price_override, base_price)
-    prices = [_published_unit_price(published_product, product, variant, pricing) for variant in product.variants]
+        regular_price = _published_unit_price(published_product, product, None, pricing)
+        return apply_promotion(regular_price, promotion)[0]
+    prices = [
+        apply_promotion(_published_unit_price(published_product, product, variant, pricing), promotion)[0]
+        for variant in product.variants
+    ]
     return min(prices, default=_safe_float(published_product.price_override, base_price))
 
 
@@ -2201,6 +2246,11 @@ async def _load_checkout_products(
         price_list_id,
         [published.product_id for published in published_map.values()],
     )
+    promotion_context = await load_storefront_promotion_context(
+        db,
+        storefront_id,
+        published_ids,
+    )
 
     rows: list[schemas.PublicCheckoutPreviewItem] = []
     subtotal = 0.0
@@ -2225,7 +2275,9 @@ async def _load_checkout_products(
             else:
                 raise HTTPException(status_code=400, detail=f"Selecciona una variante para '{product.name}'")
         pricing = resolve_product_pricing(pricing_context, product)
-        unit_price = _published_unit_price(published, product, variant, pricing)
+        original_unit_price = _published_unit_price(published, product, variant, pricing)
+        promotion = promotion_context.by_published_product.get(published.id)
+        unit_price, promotion_discount_amount = apply_promotion(original_unit_price, promotion)
         line_subtotal = unit_price * quantity
         subtotal += line_subtotal
         rows.append(
@@ -2239,6 +2291,10 @@ async def _load_checkout_products(
                 quantity=quantity,
                 unit_price=unit_price,
                 line_subtotal=line_subtotal,
+                original_unit_price=original_unit_price,
+                promotion_discount_amount=promotion_discount_amount,
+                promotion_name=promotion.name if promotion else None,
+                promotion_discount_percent=float(promotion.discount_percent) if promotion else None,
             )
         )
 
@@ -5312,6 +5368,11 @@ async def read_public_collection_detail(
         storefront.price_list_id,
         [link.published_product.product_id for link in links if link.published_product and link.published_product.product],
     )
+    promotion_context = await load_storefront_promotion_context(
+        db,
+        storefront.id,
+        [link.published_product.id for link in links if link.published_product and link.published_product.product],
+    )
 
     products: list[schemas.PublicProduct] = []
     for link in links:
@@ -5330,6 +5391,7 @@ async def read_public_collection_detail(
                 published_product.product,
                 stock_map,
                 pricing=resolve_product_pricing(pricing_context, published_product.product),
+                promotion=promotion_context.by_published_product.get(published_product.id),
             )
         )
     return schemas.PublicCollection(
@@ -5495,6 +5557,11 @@ async def _read_simple_public_catalog(
         product_id: resolve_product_pricing(pricing_context, product)
         for product_id, product in products_by_id.items()
     }
+    promotion_context = await load_storefront_promotion_context(
+        db,
+        storefront.id,
+        [published_product.id for published_product in published_products],
+    )
     if product_ids:
         images_result = await db.execute(
             select(ProductImage)
@@ -5521,6 +5588,7 @@ async def _read_simple_public_catalog(
                 stock_map,
                 compact=True,
                 pricing=pricing_by_product.get(published_product.product_id),
+                promotion=promotion_context.by_published_product.get(published_product.id),
             )
             for published_product in published_products
             if published_product.product
@@ -5813,6 +5881,11 @@ async def read_public_products(
         product_id: resolve_product_pricing(pricing_context, product)
         for product_id, product in products_by_id.items()
     }
+    promotion_context = await load_storefront_promotion_context(
+        db,
+        storefront_id,
+        [published_product.id for published_product in published_products],
+    )
 
     product_collection_map: dict[uuid.UUID, list[str]] = {}
     published_ids = [item.id for item in published_products]
@@ -5866,6 +5939,7 @@ async def read_public_products(
                 published_product,
                 product,
                 pricing_by_product.get(product.id),
+                promotion_context.by_published_product.get(published_product.id),
             ),
             "search_values": (
                 _normalize_catalog_text(product.name),
@@ -6096,6 +6170,7 @@ async def read_public_products(
                 stock_map,
                 compact=True,
                 pricing=pricing_by_product.get(published_product.product_id),
+                promotion=promotion_context.by_published_product.get(published_product.id),
             )
             for published_product in paginated_products
             if published_product.product
@@ -6180,11 +6255,13 @@ async def read_public_product_detail(
     published_product = await _get_public_published_product_or_404(db, storefront_id, slug, preview_token)
     stock_map = await _get_storefront_stock_map(db, storefront, [published_product.product_id])
     pricing_context = await load_price_list_context(db, storefront.price_list_id, [published_product.product_id])
+    promotion_context = await load_storefront_promotion_context(db, storefront.id, [published_product.id])
     return _serialize_public_product(
         published_product,
         published_product.product,
         stock_map,
         pricing=resolve_product_pricing(pricing_context, published_product.product),
+        promotion=promotion_context.by_published_product.get(published_product.id),
     )
 
 
@@ -6196,6 +6273,10 @@ async def preview_public_checkout(
 ) -> Any:
     storefront = await _get_public_storefront_by_id(db, storefront_id)
     rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
+    promotion_discount = sum(
+        float(row.promotion_discount_amount or 0.0) * float(row.quantity)
+        for row in rows
+    )
 
     discount, shipping_result = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal, rows)
     shipping = shipping_result.shipping
@@ -6206,6 +6287,7 @@ async def preview_public_checkout(
         currency=storefront.currency,
         items=rows,
         subtotal=subtotal,
+        promotion_discount=promotion_discount,
         discount=discount,
         shipping=shipping,
         tax=tax,
@@ -6278,6 +6360,10 @@ async def create_public_checkout_order(
     gateway = await _get_enabled_gateway_for_storefront(db, storefront_id, payment_provider)
     _validate_gateway_checkout_configuration(gateway)
     rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
+    promotion_discount = sum(
+        float(row.promotion_discount_amount or 0.0) * float(row.quantity)
+        for row in rows
+    )
 
     discount, shipping_result = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal, rows)
     shipping = shipping_result.shipping
@@ -6305,6 +6391,7 @@ async def create_public_checkout_order(
         warehouse_id=warehouse.id,
         user_id=sale_user.id,
         client_id=storefront_client.id if storefront_client else None,
+        origin_channel="STOREFRONT",
         # A checkout is already a commercial order. Reserve stock immediately
         # so another customer cannot buy the same last unit while payment is
         # pending or a manual transfer is being verified.
@@ -6355,6 +6442,8 @@ async def create_public_checkout_order(
             "source": "storefront",
             "storefront_id": str(storefront.id),
             "payment_provider": gateway.provider,
+            "promotion_discount": promotion_discount,
+            "promotions": sorted({row.promotion_name for row in rows if row.promotion_name}),
         },
     )
     shipping_quote_required = shipping_result.quote_required
@@ -6390,6 +6479,9 @@ async def create_public_checkout_order(
             buyer_note=buyer_note,
             payment_provider=gateway.provider,
             payment_status="shipping_quote_required" if shipping_quote_required else "pending",
+            payment_pending_until=(
+                None if shipping_quote_required else payment_pending_deadline(gateway.provider)
+            ),
             currency=storefront.currency,
             tracking_consent_analytics=bool(payload.tracking_consent.analytics),
             tracking_consent_marketing=bool(payload.tracking_consent.marketing),
@@ -6844,6 +6936,7 @@ async def read_public_payment_status(
                     StorefrontOrder.sale_id == sale_id,
                     StorefrontOrder.is_active == True,
                 )
+                .with_for_update()
             )
             storefront_order = result.scalars().first()
             sale = storefront_order.sale if storefront_order else None
@@ -6853,6 +6946,32 @@ async def read_public_payment_status(
     result_status = status
     if storefront_order:
         previous_status = (storefront_order.payment_status or "").lower()
+        if previous_status in {"expired", "declined", "rejected", "cancelled"} and status in {
+            "APPROVED",
+            "APPROVED_PARTIAL",
+        }:
+            await log_sale_event(
+                db,
+                sale_id=str(sale.id),
+                company_id=str(sale.company_id),
+                event_type="PAYMENT_STATUS_IGNORED",
+                title="Pago posterior requiere conciliación",
+                description="Wompi aprobó un pedido cuyo plazo ya terminó o que fue cancelado.",
+                status="warning",
+                provider="wompi",
+                reference=clean_transaction_id,
+                metadata={"current": previous_status, "received": status.lower(), "source": "status_api"},
+            )
+            await db.commit()
+            return schemas.PublicPaymentStatusResponse(
+                provider=clean_provider,
+                transaction_id=clean_transaction_id,
+                external_reference=str(external_reference) if external_reference else None,
+                status=previous_status.upper(),
+                status_message="El pago requiere conciliación manual porque el pedido ya venció o fue cancelado.",
+                order_id=sale.id,
+                order_code=str(sale.id).split("-")[0].upper(),
+            )
         storefront_order.payment_status = status.lower()
         storefront_order.updated_by_id = storefront_order.updated_by_id or storefront_order.created_by_id
         db.add(storefront_order)
@@ -7125,6 +7244,7 @@ async def receive_wompi_payment_event(
             selectinload(StorefrontOrder.storefront),
         )
         .where(StorefrontOrder.sale_id == sale_id, StorefrontOrder.is_active == True)
+        .with_for_update()
     )
     if not storefront_order or not storefront_order.sale or not storefront_order.storefront:
         raise HTTPException(status_code=404, detail="Checkout order not found")
@@ -7157,6 +7277,24 @@ async def receive_wompi_payment_event(
         metadata={"provider_status": status},
     )
     if existing_status in {"approved", "approved_partial"} and status not in {"APPROVED", "APPROVED_PARTIAL"}:
+        await db.commit()
+        return {"received": True, "ignored": True}
+    if existing_status in {"expired", "declined", "rejected", "cancelled"} and status in {
+        "APPROVED",
+        "APPROVED_PARTIAL",
+    }:
+        await log_sale_event(
+            db,
+            sale_id=str(sale.id),
+            company_id=str(sale.company_id),
+            event_type="PAYMENT_STATUS_IGNORED",
+            title="Pago posterior requiere conciliación",
+            description="Wompi aprobó un pedido cuyo plazo ya terminó o que fue cancelado.",
+            status="warning",
+            provider="wompi",
+            reference=transaction_id,
+            metadata={"current": existing_status, "received": status.lower(), "source": "webhook"},
+        )
         await db.commit()
         return {"received": True, "ignored": True}
 

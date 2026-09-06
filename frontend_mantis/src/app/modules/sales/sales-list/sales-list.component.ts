@@ -8,6 +8,7 @@ import { SaleService, Sale } from '../../../core/services/sale.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { ExportService } from '../../../core/services/export.service';
 import { IntegrationService, IntegrationSource } from '../../../core/services/integration.service';
+import { StorefrontAdminService, Storefront } from '../../../core/services/storefront-admin.service';
 import { SkeletonComponent } from '../../../theme/shared/components/skeleton/skeleton.component';
 
 @Component({
@@ -28,6 +29,11 @@ export class SalesListComponent implements OnInit {
     sales: Sale[] = [];
     loading = false;
     filterStatus = '';
+    filterStorefrontId = '';
+    filterPaymentStatus = '';
+    filterPaymentProvider = '';
+    onlineOnly = false;
+    storefronts: Storefront[] = [];
     canCreateSales = false;
     canManageCompany = false;
     elegantHomeSources: IntegrationSource[] = [];
@@ -38,12 +44,28 @@ export class SalesListComponent implements OnInit {
     private cdr = inject(ChangeDetectorRef);
     private exportService = inject(ExportService);
     private integrationService = inject(IntegrationService);
+    private storefrontAdminService = inject(StorefrontAdminService);
 
     ngOnInit() {
         this.canCreateSales = this.permissionService.hasPermission('create_sales');
         this.canManageCompany = this.permissionService.hasPermission('manage_company');
         this.loadSales();
-        if (this.canManageCompany) this.loadElegantHomeSources();
+        if (this.canManageCompany) {
+            this.loadElegantHomeSources();
+            this.loadStorefronts();
+        }
+    }
+
+    loadStorefronts() {
+        this.storefrontAdminService.getStorefronts().subscribe({
+            next: (storefronts) => {
+                this.storefronts = storefronts;
+                this.cdr.detectChanges();
+            },
+            error: () => {
+                this.storefronts = [];
+            }
+        });
     }
 
     loadElegantHomeSources() {
@@ -105,7 +127,12 @@ export class SalesListComponent implements OnInit {
 
     loadSales() {
         this.loading = true;
-        this.saleService.getSales(this.filterStatus).subscribe({
+        this.saleService.getSales(this.filterStatus, undefined, {
+            storefrontId: this.filterStorefrontId || undefined,
+            onlineOnly: this.onlineOnly,
+            paymentStatus: this.filterPaymentStatus || undefined,
+            paymentProvider: this.filterPaymentProvider || undefined
+        }).subscribe({
             next: (data) => {
                 this.sales = data;
                 this.loading = false;
@@ -147,6 +174,58 @@ export class SalesListComponent implements OnInit {
             case 'CANCELLED': return 'Cancelada';
             default: return status;
         }
+    }
+
+    getPaymentStatusClass(status?: string): string {
+        switch ((status || '').toLowerCase()) {
+            case 'approved':
+            case 'approved_partial': return 'badge bg-success';
+            case 'pending':
+            case 'shipping_quote_required': return 'badge bg-warning text-dark';
+            case 'declined':
+            case 'rejected':
+            case 'cancelled':
+            case 'expired':
+            case 'approved_stock_unavailable': return 'badge bg-danger';
+            default: return 'badge bg-secondary';
+        }
+    }
+
+    getPaymentStatusLabel(status?: string): string {
+        switch ((status || '').toLowerCase()) {
+            case 'approved': return 'Aprobado';
+            case 'approved_partial': return 'Aprobado parcial';
+            case 'pending': return 'Pendiente';
+            case 'shipping_quote_required': return 'Pendiente de envío';
+            case 'declined': return 'Rechazado';
+            case 'rejected': return 'Rechazado';
+            case 'cancelled': return 'Cancelado';
+            case 'expired': return 'Vencido';
+            case 'approved_stock_unavailable': return 'Aprobado sin stock';
+            default: return status || 'No aplica';
+        }
+    }
+
+    getPaymentProviderLabel(provider?: string): string {
+        switch ((provider || '').toLowerCase()) {
+            case 'wompi': return 'Wompi';
+            case 'payu': return 'PayU';
+            case 'mercadopago': return 'Mercado Pago';
+            case 'addi': return 'Addi';
+            case 'sistecredito': return 'Sistecrédito';
+            case 'manual_transfer': return 'Transferencia manual';
+            case 'cod': return 'Contraentrega';
+            case 'whatsapp': return 'WhatsApp';
+            default: return provider || '—';
+        }
+    }
+
+    getSaleCustomerName(sale: Sale): string {
+        return sale.storefront_customer_name || sale.client?.name || 'Cliente ocasional';
+    }
+
+    isOnlineSale(sale: Sale): boolean {
+        return Boolean(sale.storefront_id || sale.storefront_customer_email || sale.origin_channel === 'STOREFRONT');
     }
 
     deleteSale(id: string) {
@@ -204,6 +283,10 @@ export class SalesListComponent implements OnInit {
     exportData(format: 'excel' | 'csv') {
         const params: Record<string, string> = {};
         if (this.filterStatus) params['status'] = this.filterStatus;
+        if (this.filterStorefrontId) params['storefront_id'] = this.filterStorefrontId;
+        if (this.onlineOnly) params['online_only'] = 'true';
+        if (this.filterPaymentStatus) params['payment_status'] = this.filterPaymentStatus;
+        if (this.filterPaymentProvider) params['payment_provider'] = this.filterPaymentProvider;
         this.exportService.download('/sales/export', format, params);
     }
 }

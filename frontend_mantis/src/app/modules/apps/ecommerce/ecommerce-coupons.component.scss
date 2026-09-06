@@ -1,0 +1,17 @@
+.coupons-page {
+  .storefront-selector {
+    max-width: 260px;
+  }
+
+  .table {
+    th {
+      color: var(--bs-secondary-color);
+      font-size: .75rem;
+      text-transform: uppercase;
+    }
+
+    td {
+      min-width: 100px;
+    }
+  }
+}

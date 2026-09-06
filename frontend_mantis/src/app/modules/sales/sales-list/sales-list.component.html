@@ -22,9 +22,9 @@
       </div>
       <div class="card-body">
         <div class="row mb-3">
-          <div class="col-md-3">
+          <div class="col-md-3 mb-2 mb-md-0">
             <select class="form-select" [(ngModel)]="filterStatus" (change)="loadSales()">
-              <option value="">Todos los Estados</option>
+              <option value="">Estado de despacho: todos</option>
               <option value="DRAFT">Borrador</option>
               <option value="QUOTE">Cotización</option>
               <option value="CONFIRMED">Confirmada</option>
@@ -36,6 +36,55 @@
               <option value="CANCELLED">Cancelada</option>
             </select>
           </div>
+          <div class="col-md-3 mb-2 mb-md-0">
+            <select class="form-select" [(ngModel)]="filterPaymentStatus" (change)="loadSales()">
+              <option value="">Estado de pago: todos</option>
+              <option value="pending">Pendiente</option>
+              <option value="approved">Aprobado</option>
+              <option value="approved_partial">Aprobado parcial</option>
+              <option value="declined">Rechazado</option>
+              <option value="rejected">Rechazado</option>
+              <option value="cancelled">Cancelado</option>
+              <option value="expired">Vencido</option>
+              <option value="approved_stock_unavailable">Aprobado sin stock</option>
+            </select>
+          </div>
+          <div class="col-md-3 mb-2 mb-md-0">
+            <select class="form-select" [(ngModel)]="filterPaymentProvider" (change)="loadSales()">
+              <option value="">Proveedor: todos</option>
+              <option value="wompi">Wompi</option>
+              <option value="payu">PayU</option>
+              <option value="mercadopago">Mercado Pago</option>
+              <option value="addi">Addi</option>
+              <option value="sistecredito">Sistecrédito</option>
+              <option value="manual_transfer">Transferencia manual</option>
+              <option value="cod">Contraentrega</option>
+              <option value="whatsapp">WhatsApp</option>
+            </select>
+          </div>
+          <div class="col-md-3 mb-2 mb-md-0">
+            @if (canManageCompany) {
+              <select class="form-select" [(ngModel)]="filterStorefrontId" (change)="loadSales()">
+                <option value="">Tienda online: todas</option>
+                @for (storefront of storefronts; track storefront.id) {
+                  <option [value]="storefront.id">{{ storefront.name }}</option>
+                }
+              </select>
+            } @else {
+              <div class="form-check form-switch pt-2">
+                <input class="form-check-input" type="checkbox" id="onlineOnly" [(ngModel)]="onlineOnly" (change)="loadSales()">
+                <label class="form-check-label" for="onlineOnly">Solo pedidos online</label>
+              </div>
+            }
+          </div>
+          @if (canManageCompany) {
+            <div class="col-12 mt-2">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="onlineOnlyManaged" [(ngModel)]="onlineOnly" (change)="loadSales()">
+                <label class="form-check-label" for="onlineOnlyManaged">Mostrar solo pedidos recibidos en tienda online</label>
+              </div>
+            </div>
+          }
         </div>
 
         @if (sales.length > 0) {
@@ -44,11 +93,12 @@
               <thead>
                 <tr>
                   <th># ID</th>
-                  <th>Cliente</th>
+                  <th>Cliente / canal</th>
                   <th>Sucursal</th>
                   <th>Fecha</th>
                   <th>Total</th>
-                  <th>Estado</th>
+                  <th>Pago</th>
+                  <th>Despacho</th>
                   <th class="text-end">Acciones</th>
                 </tr>
               </thead>
@@ -56,11 +106,36 @@
                 @for (sale of sales; track sale) {
                   <tr>
                     <td>{{ sale.id | slice:0:8 }}</td>
-                    <td>{{ sale.client?.name || 'Cliente Casual' }}</td>
+                    <td>
+                      <div>{{ getSaleCustomerName(sale) }}</div>
+                      @if (isOnlineSale(sale)) {
+                        <span class="badge bg-light-info text-info">Tienda online</span>
+                        @if (sale.storefront_name) {
+                          <small class="d-block text-muted">{{ sale.storefront_name }}</small>
+                        }
+                        @if (sale.storefront_customer_email) {
+                          <small class="d-block text-muted text-truncate" style="max-width: 190px">{{ sale.storefront_customer_email }}</small>
+                        }
+                      } @else {
+                        <small class="d-block text-muted">Venta interna</small>
+                      }
+                    </td>
                     <td>{{ sale.branch?.name }}</td>
                     <td>{{ sale.created_at | date:'short' }}</td>
                     <td>{{ sale.total | currency }}</td>
-                    <td class="text-end">
+                    <td>
+                      @if (sale.payment_status) {
+                        <span [ngClass]="getPaymentStatusClass(sale.payment_status)">
+                          {{ getPaymentStatusLabel(sale.payment_status) }}
+                        </span>
+                        @if (sale.payment_provider) {
+                          <small class="d-block text-muted mt-1">{{ getPaymentProviderLabel(sale.payment_provider) }}</small>
+                        }
+                      } @else {
+                        <span class="text-muted">No aplica</span>
+                      }
+                    </td>
+                    <td>
                       <span [ngClass]="getStatusClass(sale.status)">
                         {{ getStatusLabel(sale.status) }}
                       </span>
@@ -126,7 +201,7 @@
 
         @if (loading) {
           <div>
-            <app-skeleton type="table" [rowCount]="5" [colCount]="7"></app-skeleton>
+            <app-skeleton type="table" [rowCount]="5" [colCount]="8"></app-skeleton>
           </div>
         }
       </div>

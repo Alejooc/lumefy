@@ -179,7 +179,12 @@
                     </div>
                   }
                   @if (sale.payment_status === 'pending') {
-                    <small class="text-muted ms-auto">La orden puede estar confirmada logísticamente, pero todavía no está pagada.</small>
+                    <small class="text-muted ms-auto">
+                      La orden puede estar confirmada logísticamente, pero todavía no está pagada.
+                      @if (sale.payment_pending_until) {
+                        <span class="d-block">Reserva vigente hasta {{ sale.payment_pending_until | date:'medium' }}.</span>
+                      }
+                    </small>
                   }
                 </div>
               </div>

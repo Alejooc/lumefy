@@ -143,6 +143,14 @@ services:
       operations-consumer:
         condition: service_started
 
+  storefront-order-expiry-worker:
+    <<: *backend-service
+    restart: unless-stopped
+    command: python -m app.workers.storefront_order_expiry_worker
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   integration-sync-worker:
     <<: *backend-service
     restart: unless-stopped

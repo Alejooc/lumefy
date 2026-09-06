@@ -292,6 +292,7 @@ class StorefrontOrder(BaseModel):
     buyer_note: Mapped[str] = mapped_column(Text, nullable=True)
     payment_provider: Mapped[str] = mapped_column(String, nullable=False)
     payment_status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    payment_pending_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     currency: Mapped[str] = mapped_column(String, nullable=False, default="USD")
     tracking_consent_analytics: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     tracking_consent_marketing: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

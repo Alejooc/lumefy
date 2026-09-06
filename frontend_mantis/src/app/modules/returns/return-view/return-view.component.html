@@ -22,6 +22,11 @@
                 <i class="ti ti-x me-1"></i>Rechazar
               </button>
             }
+            @if (returnOrder.status === 'APPROVED' && returnOrder.refund_status === 'PENDING') {
+              <button class="btn btn-warning btn-sm" (click)="registerRefund(returnOrder)">
+                <i class="ti ti-cash me-1"></i>Registrar reembolso
+              </button>
+            }
           </div>
         </div>
         <div class="card-body">
@@ -37,6 +42,14 @@
             <p class="mb-1"><strong>Tipo:</strong> {{ returnOrder.return_type === 'TOTAL' ? 'Total' :
           'Parcial' }}</p>
           <p class="mb-1"><strong>Estado:</strong> {{ returnOrder.status }}</p>
+          <p class="mb-1"><strong>Reembolso:</strong>
+            <span [ngClass]="getRefundStatusBadge(returnOrder.refund_status)">
+              {{ getRefundStatusLabel(returnOrder.refund_status) }}
+            </span>
+          </p>
+          @if (returnOrder.refund_reference) {
+            <p class="mb-1 text-muted"><strong>Referencia:</strong> {{ returnOrder.refund_reference }}</p>
+          }
         </div>
         <div class="col-md-3">
           <h6>Detalles</h6>

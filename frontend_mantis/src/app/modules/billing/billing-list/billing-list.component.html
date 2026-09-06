@@ -24,26 +24,52 @@
         }
 
         <h5 class="mt-4">Historial de Pagos</h5>
+        @if (billingLoading) {
+          <div class="d-flex align-items-center gap-2 text-muted py-3">
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            Cargando historial...
+          </div>
+        } @else if (records.length) {
         <div class="table-responsive">
           <table class="table table-hover">
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th>Factura #</th>
+                <th>Periodo</th>
+                <th>Plan</th>
                 <th>Monto</th>
                 <th>Estado</th>
-                <th>Acciones</th>
+                <th>Referencia / comprobante</th>
               </tr>
             </thead>
             <tbody>
+              @for (record of records; track record.id) {
               <tr>
-                <td colspan="5" class="text-center text-muted py-4">
-                  Aún no hay facturas generadas. El historial aparecerá cuando se integre el proveedor de cobro.
+                <td>
+                  {{ record.period_start | date:'shortDate' }}
+                  <span class="text-muted">—</span>
+                  {{ record.period_end | date:'shortDate' }}
+                </td>
+                <td>{{ record.plan_code }}</td>
+                <td>{{ record.amount | currency:record.currency:'code' }}</td>
+                <td><span class="badge" [class]="billingStatusClass(record.status)">{{ billingStatusLabel(record.status) }}</span></td>
+                <td>
+                  @if (record.reference) { <span class="d-block">{{ record.reference }}</span> }
+                  @if (record.proof_url) {
+                    <a [href]="record.proof_url" target="_blank" rel="noopener noreferrer">Ver comprobante</a>
+                  }
+                  @if (!record.reference && !record.proof_url) { <span class="text-muted">Sin referencia</span> }
+                  @if (record.rejection_reason) { <small class="d-block text-danger">{{ record.rejection_reason }}</small> }
                 </td>
               </tr>
+              }
             </tbody>
           </table>
         </div>
+        } @else {
+          <div class="alert alert-light border text-muted">
+            Aún no hay cobros registrados. Cuando el equipo de Lumefy registre una renovación, aquí verás el periodo, importe, estado y comprobante.
+          </div>
+        }
       </div>
     </div>
   </div>

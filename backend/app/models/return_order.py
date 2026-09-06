@@ -29,6 +29,11 @@ class ReturnOrder(BaseModel):
     reason: Mapped[str] = mapped_column(Text, nullable=True)
     total_refund: Mapped[float] = mapped_column(Float, default=0.0)
     notes: Mapped[str] = mapped_column(Text, nullable=True)
+    refund_status: Mapped[str] = mapped_column(String(30), nullable=False, default="NOT_REQUIRED")
+    refund_method: Mapped[str] = mapped_column(String(30), nullable=True)
+    refund_reference: Mapped[str] = mapped_column(String(160), nullable=True)
+    refund_processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    refund_processed_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     approved_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 

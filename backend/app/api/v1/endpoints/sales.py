@@ -18,6 +18,7 @@ from app.models.client import Client
 from app.models.pricelist import PriceList
 from app.models.logistics import SalePackage, SalePackageItem
 from app.models.user import User
+from app.models.storefront import StorefrontOrder
 from app.core.permissions import PermissionChecker
 from app.core.audit import log_sale_event
 from app.services.inventory_consumption import consume_fifo_lots
@@ -98,6 +99,10 @@ async def read_sales(
     limit: int = 100,
     status: str = None,
     client_id: str = None,
+    storefront_id: uuid.UUID | None = None,
+    online_only: bool = False,
+    payment_status: str | None = None,
+    payment_provider: str | None = None,
     current_user: User = Depends(PermissionChecker("view_sales")),
 ) -> Any:
     """
@@ -107,7 +112,7 @@ async def read_sales(
         selectinload(Sale.client),
         selectinload(Sale.user),
         selectinload(Sale.branch),
-        selectinload(Sale.storefront_order)
+        selectinload(Sale.storefront_order).selectinload(StorefrontOrder.storefront),
     ).where(
         Sale.company_id == current_user.company_id
     ).offset(skip).limit(limit).order_by(Sale.created_at.desc())
@@ -116,6 +121,18 @@ async def read_sales(
         query = query.where(Sale.status == status)
     if client_id:
         query = query.where(Sale.client_id == uuid.UUID(client_id))
+    if online_only:
+        query = query.where(Sale.storefront_order.has())
+    if storefront_id:
+        query = query.where(Sale.storefront_order.has(StorefrontOrder.storefront_id == storefront_id))
+    if payment_status:
+        query = query.where(
+            Sale.storefront_order.has(func.lower(StorefrontOrder.payment_status) == payment_status.strip().lower())
+        )
+    if payment_provider:
+        query = query.where(
+            Sale.storefront_order.has(func.lower(StorefrontOrder.payment_provider) == payment_provider.strip().lower())
+        )
         
     result = await db.execute(query)
     sales = result.scalars().all()
@@ -128,6 +145,10 @@ async def export_sales(
     status: str = None,
     date_from: str = None,
     date_to: str = None,
+    storefront_id: uuid.UUID | None = None,
+    online_only: bool = False,
+    payment_status: str | None = None,
+    payment_provider: str | None = None,
     current_user: User = Depends(PermissionChecker("view_sales")),
 ) -> Any:
     """Export sales to Excel or CSV."""
@@ -137,7 +158,7 @@ async def export_sales(
         selectinload(Sale.client),
         selectinload(Sale.user),
         selectinload(Sale.branch),
-        selectinload(Sale.storefront_order),
+        selectinload(Sale.storefront_order).selectinload(StorefrontOrder.storefront),
     ).where(Sale.company_id == current_user.company_id).order_by(Sale.created_at.desc())
 
     if status:
@@ -146,6 +167,18 @@ async def export_sales(
         query = query.where(Sale.created_at >= datetime.fromisoformat(date_from))
     if date_to:
         query = query.where(Sale.created_at <= datetime.fromisoformat(date_to))
+    if online_only:
+        query = query.where(Sale.storefront_order.has())
+    if storefront_id:
+        query = query.where(Sale.storefront_order.has(StorefrontOrder.storefront_id == storefront_id))
+    if payment_status:
+        query = query.where(
+            Sale.storefront_order.has(func.lower(StorefrontOrder.payment_status) == payment_status.strip().lower())
+        )
+    if payment_provider:
+        query = query.where(
+            Sale.storefront_order.has(func.lower(StorefrontOrder.payment_provider) == payment_provider.strip().lower())
+        )
 
     result = await db.execute(query)
     sales = result.scalars().all()

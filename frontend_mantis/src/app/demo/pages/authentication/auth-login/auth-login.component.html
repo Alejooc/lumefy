@@ -11,6 +11,7 @@
             <a [routerLink]="['/register']" class="link-primary">¿No tienes cuenta?</a>
           </div>
 
+          @if (!mfaRequired) {
           <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
             <div class="form-group mb-3">
               <label class="form-label" for="email">Correo electrónico</label>
@@ -51,6 +52,30 @@
                 </button>
               </div>
             </form>
+          } @else {
+            <div class="alert alert-info">
+              Tu cuenta requiere autenticación de dos factores. Ingresa el código de tu aplicación autenticadora o un código de recuperación.
+            </div>
+            <form [formGroup]="mfaForm" (ngSubmit)="onMfaSubmit()">
+              <div class="form-group mb-3">
+                <label class="form-label" for="mfa-code">Código MFA</label>
+                <input type="text" inputmode="numeric" autocomplete="one-time-code" class="form-control"
+                  id="mfa-code" formControlName="code" placeholder="123456" />
+                @if (mfaForm.get('code')?.touched && mfaForm.get('code')?.invalid) {
+                  <div class="text-danger small">Ingresa un código válido.</div>
+                }
+              </div>
+              @if (errorMessage) {
+                <div class="alert alert-danger">{{ errorMessage }}</div>
+              }
+              <div class="d-grid mt-4">
+                <button type="submit" class="btn btn-primary" [disabled]="isLoading">
+                  {{ isLoading ? 'Verificando...' : 'Verificar código' }}
+                </button>
+              </div>
+              <button type="button" class="btn btn-link w-100 mt-2" (click)="cancelMfa()">Volver</button>
+            </form>
+          }
 
           </div>
         </div>

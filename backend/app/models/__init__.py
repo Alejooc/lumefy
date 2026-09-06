@@ -45,6 +45,7 @@ from .manufacturing import BillOfMaterials, BillOfMaterialsLine, ManufacturingOr
 from .accounting import ChartAccount, JournalEntry, JournalEntryLine, AccountType, JournalEntryStatus
 from .inventory_location import InventoryLocation
 from .storefront_coupon import StorefrontCoupon
+from .storefront_promotion import StorefrontPromotion
 from .pos_session import POSSession, POSSessionStatus
 from .storefront import (
     Storefront,

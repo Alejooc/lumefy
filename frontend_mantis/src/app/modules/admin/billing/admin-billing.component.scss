@@ -1,0 +1,14 @@
+.billing-page {
+  .table {
+    th {
+      color: var(--bs-secondary-color);
+      font-size: .75rem;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    td {
+      min-width: 105px;
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import unittest
 from inspect import signature
 
-from app.api.v1.endpoints.companies import read_current_company, update_current_company
+from app.api.v1.endpoints.companies import read_current_company, read_current_company_billing, update_current_company
 from app.core import auth
 from app.core.permissions import PermissionChecker
 
@@ -15,6 +15,10 @@ class CompanyAccessTests(unittest.TestCase):
         dependency = signature(update_current_company).parameters["current_user"].default.dependency
         self.assertIsInstance(dependency, PermissionChecker)
         self.assertEqual(dependency.required_permission, "manage_company")
+
+    def test_all_tenant_users_can_read_only_their_billing_history(self):
+        dependency = signature(read_current_company_billing).parameters["current_user"].default.dependency
+        self.assertIs(dependency, auth.get_current_user)
 
 
 if __name__ == "__main__":

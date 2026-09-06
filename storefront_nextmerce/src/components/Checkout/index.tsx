@@ -1106,6 +1106,11 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                                 {item.title} x {item.quantity}
                                 {item.variant_name ? ` · ${item.variant_name}` : ""}
                               </p>
+                              {item.promotion_name ? (
+                                <span className="mt-1 block text-xs text-green-700">
+                                  {item.promotion_name} · -{item.promotion_discount_percent || 0}%
+                                </span>
+                              ) : null}
                             </div>
                             <div>
                               <p className="text-dark text-right">
@@ -1154,6 +1159,19 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                         </p>
                       </div>
                     </div>
+
+                    {preview && preview.promotion_discount && preview.promotion_discount > 0 ? (
+                      <div className="flex items-center justify-between py-5 border-b border-gray-3">
+                        <div>
+                          <p className="text-dark">Promoción</p>
+                        </div>
+                        <div>
+                          <p className="text-green-700 text-right">
+                            -{moneyLabel(preview.currency, preview.promotion_discount)}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
 
                     {preview && preview.discount > 0 ? (
                       <div className="flex items-center justify-between py-5 border-b border-gray-3">
