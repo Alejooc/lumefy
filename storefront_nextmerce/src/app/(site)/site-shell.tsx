@@ -27,11 +27,11 @@ import {
 } from "@/lib/storefront-branding";
 import type { StorefrontThemeStyleViewModel } from "@/lib/storefront-branding";
 import { storefrontImageUrl } from "@/lib/storefront-image";
-import { resolveStorefront } from "@/lib/storefront-api";
 import { StorefrontUiProvider } from "@/lib/storefront-ui";
 import type { JsonLdDocument } from "@/lib/structured-data";
 import { serializeJsonLd } from "@/lib/structured-data";
 import { StorefrontTrackingProvider } from "@/lib/storefront-tracking";
+import type { PublicCollection, PublicStoreNavigationItem } from "@/types/storefront";
 
 function themeStyleVariables(styles: StorefrontThemeStyleViewModel): CSSProperties {
   return {
@@ -50,10 +50,14 @@ function themeStyleVariables(styles: StorefrontThemeStyleViewModel): CSSProperti
 export default function SiteShell({
   children,
   initialStorefront,
+  initialNavigation,
+  initialCollections,
   globalStructuredData,
 }: {
   children: React.ReactNode;
   initialStorefront: PublicStorefront;
+  initialNavigation: PublicStoreNavigationItem[];
+  initialCollections: PublicCollection[];
   globalStructuredData?: JsonLdDocument;
 }) {
   const [themeStyles, setThemeStyles] = useState(() => getStorefrontThemeStyles(initialStorefront));
@@ -62,18 +66,6 @@ export default function SiteShell({
   );
 
   useEffect(() => {
-    let active = true;
-
-    resolveStorefront()
-      .then((storefront) => {
-        if (!active) return;
-        setThemeStyles(getStorefrontThemeStyles(storefront));
-        setFaviconUrl(getStorefrontBranding(storefront).faviconUrl || "");
-      })
-      .catch(() => {
-        // The server-provided storefront remains usable if the refresh fails.
-      });
-
     const handlePreviewMessage = (event: MessageEvent) => {
       if (!isTrustedPreviewMessage(event)) return;
       const message = event.data;
@@ -113,7 +105,6 @@ export default function SiteShell({
 
     window.addEventListener("message", handlePreviewMessage);
     return () => {
-      active = false;
       window.removeEventListener("message", handlePreviewMessage);
     };
   }, [initialStorefront]);
@@ -132,7 +123,11 @@ export default function SiteShell({
                   <ModalProvider>
                     <PreviewSliderProvider>
                       <StorefrontUiProvider initialStorefront={initialStorefront}>
-                        <Header initialStorefront={initialStorefront} />
+                        <Header
+                          initialStorefront={initialStorefront}
+                          initialNavigation={initialNavigation}
+                          initialCollections={initialCollections}
+                        />
                         {children}
                         <CartFeedback />
                         <QuickViewModal />

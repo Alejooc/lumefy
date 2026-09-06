@@ -9,12 +9,11 @@ import { selectTotalPrice } from "@/redux/features/cart-slice";
 import { useCartModalContext } from "@/app/context/CartSidebarModalContext";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import type { PublicStorefront } from "@/types/storefront";
-import {
-  getPublicCollections,
-  getPublicNavigation,
-  resolveStorefront,
-} from "@/lib/storefront-api";
+import type {
+  PublicCollection,
+  PublicStoreNavigationItem,
+  PublicStorefront,
+} from "@/types/storefront";
 import { buildHeaderMenu } from "@/lib/navigation";
 import { getStorefrontBranding, getStorefrontThemeStyles } from "@/lib/storefront-branding";
 import { storefrontImageUrl } from "@/lib/storefront-image";
@@ -55,9 +54,11 @@ function previewImage(value: unknown): string | undefined {
 
 type HeaderProps = {
   initialStorefront?: PublicStorefront | null;
+  initialNavigation?: PublicStoreNavigationItem[];
+  initialCollections?: PublicCollection[];
 };
 
-const Header = ({ initialStorefront }: HeaderProps) => {
+const Header = ({ initialStorefront, initialNavigation, initialCollections }: HeaderProps) => {
   const initialBranding = initialStorefront ? getStorefrontBranding(initialStorefront) : null;
   const router = useRouter();
   const pathname = usePathname();
@@ -66,7 +67,11 @@ const Header = ({ initialStorefront }: HeaderProps) => {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [mobileOpenSubmenu, setMobileOpenSubmenu] = useState<number | null>(null);
   const [stickyMenu, setStickyMenu] = useState(false);
-  const [menuItems, setMenuItems] = useState<Menu[]>(menuData);
+  const [menuItems] = useState<Menu[]>(() =>
+    initialNavigation?.length
+      ? buildHeaderMenu(initialNavigation, initialCollections || [])
+      : menuData,
+  );
   const [logoUrl, setLogoUrl] = useState<string | undefined>(initialBranding?.logoUrl);
   const [mobileLogoUrl, setMobileLogoUrl] = useState<string | undefined>(initialBranding?.mobileLogoUrl);
   const [logoAlt, setLogoAlt] = useState(initialBranding?.logoAlt || "");
@@ -177,59 +182,32 @@ const Header = ({ initialStorefront }: HeaderProps) => {
   }, [navigationOpen]);
 
   useEffect(() => {
-    let active = true;
-
-    async function loadNavigation() {
-      try {
-        const storefront = await resolveStorefront();
-        const branding = getStorefrontBranding(storefront);
-        const [navigation, collections] = await Promise.all([
-          getPublicNavigation(storefront.id),
-          getPublicCollections(storefront.id),
-        ]);
-
-        if (!active || previewDocumentApplied.current) {
-          return;
-        }
-
-        setLogoUrl(branding.logoUrl);
-        setMobileLogoUrl(branding.mobileLogoUrl);
-        setLogoAlt(branding.logoAlt);
-        setBrandingLoaded(true);
-        const themeStyles = getStorefrontThemeStyles(storefront);
-        setNavigationStyle(themeStyles.navigationStyle);
-        setNavigationVariant(themeStyles.navigationVariant);
-        setAnnouncementEnabled(branding.announcement.enabled);
-        setAnnouncementText(branding.announcement.text);
-        setAnnouncementHref(branding.announcement.href || "");
-        setAnnouncementBackgroundColor(branding.announcement.backgroundColor);
-        setAnnouncementTextColor(branding.announcement.textColor);
-        setHeaderBackgroundColor(branding.header.backgroundColor);
-        setHeaderTextColor(branding.header.textColor);
-        setSearchPlaceholder(branding.header.searchPlaceholder);
-        setAccountHeading(branding.header.accountHeading);
-        setGuestAccountLabel(branding.header.guestAccountLabel);
-        setSignOutLabel(branding.header.signOutLabel);
-        setCartHeading(branding.header.cartHeading);
-        setRecentlyViewedLabel(branding.header.recentlyViewedLabel);
-        setWishlistLabel(branding.header.wishlistLabel);
-
-        if (!navigation.length) {
-          return;
-        }
-
-        setMenuItems(buildHeaderMenu(navigation, collections));
-      } catch {
-        if (active) setBrandingLoaded(true);
-      }
+    if (!initialStorefront || previewDocumentApplied.current) {
+      return;
     }
 
-    loadNavigation();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    const branding = getStorefrontBranding(initialStorefront);
+    const themeStyles = getStorefrontThemeStyles(initialStorefront);
+    setLogoUrl(branding.logoUrl);
+    setMobileLogoUrl(branding.mobileLogoUrl);
+    setLogoAlt(branding.logoAlt);
+    setNavigationStyle(themeStyles.navigationStyle);
+    setNavigationVariant(themeStyles.navigationVariant);
+    setAnnouncementEnabled(branding.announcement.enabled);
+    setAnnouncementText(branding.announcement.text);
+    setAnnouncementHref(branding.announcement.href || "");
+    setAnnouncementBackgroundColor(branding.announcement.backgroundColor);
+    setAnnouncementTextColor(branding.announcement.textColor);
+    setHeaderBackgroundColor(branding.header.backgroundColor);
+    setHeaderTextColor(branding.header.textColor);
+    setSearchPlaceholder(branding.header.searchPlaceholder);
+    setAccountHeading(branding.header.accountHeading);
+    setGuestAccountLabel(branding.header.guestAccountLabel);
+    setSignOutLabel(branding.header.signOutLabel);
+    setCartHeading(branding.header.cartHeading);
+    setRecentlyViewedLabel(branding.header.recentlyViewedLabel);
+    setWishlistLabel(branding.header.wishlistLabel);
+  }, [initialStorefront]);
 
   useEffect(() => {
     setPreviewMode(window.parent !== window);
@@ -456,6 +434,7 @@ const Header = ({ initialStorefront }: HeaderProps) => {
               <div className="flex shrink-0 gap-2">
                 <Link
                   href={session ? "/account" : "/login"}
+                  prefetch={false}
                   onClick={() => {
                     setNavigationOpen(false);
                     setMobileOpenSubmenu(null);
@@ -527,6 +506,7 @@ const Header = ({ initialStorefront }: HeaderProps) => {
                               <Link
                                 key={item.id}
                                 href={item.path || "/"}
+                                prefetch={false}
                                 onClick={() => {
                                   setNavigationOpen(false);
                                   setMobileOpenSubmenu(null);
@@ -544,6 +524,7 @@ const Header = ({ initialStorefront }: HeaderProps) => {
                     <li key={menuItem.id}>
                       <Link
                         href={menuItem.path || "/"}
+                        prefetch={false}
                         onClick={() => {
                           setNavigationOpen(false);
                           setMobileOpenSubmenu(null);
@@ -608,6 +589,7 @@ const Header = ({ initialStorefront }: HeaderProps) => {
 
               <Link
                 href="/wishlist"
+                prefetch={false}
                 onClick={() => {
                   setNavigationOpen(false);
                   setMobileOpenSubmenu(null);
@@ -686,6 +668,7 @@ const Header = ({ initialStorefront }: HeaderProps) => {
               <div className="flex shrink-0 items-center gap-2 lg:hidden sm:gap-3">
                 <Link
                   href={session ? "/account" : "/login"}
+                  prefetch={false}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-blue/20 bg-blue/5 text-blue transition hover:border-blue hover:bg-blue hover:text-white sm:h-10 sm:w-10"
                   aria-label="Mi cuenta"
                 >
@@ -979,6 +962,7 @@ const Header = ({ initialStorefront }: HeaderProps) => {
                 <li className="py-4">
                   <Link
                     href="/products"
+                    prefetch={false}
                     className="flex items-center gap-1.5 font-medium text-custom-sm text-dark hover:text-blue"
                   >
                     <svg

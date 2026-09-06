@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 import type { PublicStorefront } from "@/types/storefront";
-import { resolveStorefront } from "@/lib/storefront-api";
 import { getStorefrontBranding } from "@/lib/storefront-branding";
 import { storefrontImageUrl } from "@/lib/storefront-image";
 import { isTrustedPreviewMessage, previewParentOrigin } from "@/lib/preview";
@@ -165,54 +164,41 @@ const Footer = ({ initialStorefront }: FooterProps) => {
   const previewDocumentApplied = useRef(false);
 
   useEffect(() => {
-    let active = true;
+    if (!initialStorefront) return;
 
-    async function loadBranding() {
-      try {
-        const storefront = await resolveStorefront();
-        const branding = getStorefrontBranding(storefront);
+    const branding = getStorefrontBranding(initialStorefront);
 
-        if (!active || previewDocumentApplied.current) {
-          return;
-        }
-
-        setSupportPhone(branding.supportPhone);
-        setSupportEmail(branding.supportEmail);
-        setSupportAddress(branding.supportAddress);
-        setFooterText(branding.footerText);
-        setFooterBackgroundColor(branding.footer.backgroundColor);
-        setFooterTextColor(branding.footer.textColor);
-        setFooterBottomBackgroundColor(branding.footer.bottomBackgroundColor);
-        setSocialLinks(branding.socialLinks);
-        setHelpTitle(branding.footer.helpTitle);
-        setAccountTitle(branding.footer.accountTitle);
-        setQuickLinksTitle(branding.footer.quickLinksTitle);
-        setAppTitle(branding.footer.appTitle);
-        setAppDescription(branding.footer.appDescription);
-        setAppStoreSubtitle(branding.footer.appStoreSubtitle);
-        setAppStoreLabel(branding.footer.appStoreLabel);
-        setAppStoreUrl(branding.footer.appStoreUrl);
-        setPlayStoreSubtitle(branding.footer.playStoreSubtitle);
-        setPlayStoreLabel(branding.footer.playStoreLabel);
-        setPlayStoreUrl(branding.footer.playStoreUrl);
-        setPaymentTitle(branding.footer.paymentTitle);
-        setShowSocialLinks(branding.footer.showSocialLinks);
-        setShowAppDownloads(branding.footer.showAppDownloads);
-        setShowPaymentMethods(branding.footer.showPaymentMethods);
-        setAccountLinks(branding.footer.accountLinks);
-        setQuickLinks(branding.footer.quickLinks);
-        setPaymentMethods(branding.footer.paymentMethods);
-      } catch {
-        // keep template defaults when storefront branding is unavailable
-      }
+    if (previewDocumentApplied.current) {
+      return;
     }
 
-    loadBranding();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    setSupportPhone(branding.supportPhone);
+    setSupportEmail(branding.supportEmail);
+    setSupportAddress(branding.supportAddress);
+    setFooterText(branding.footerText);
+    setFooterBackgroundColor(branding.footer.backgroundColor);
+    setFooterTextColor(branding.footer.textColor);
+    setFooterBottomBackgroundColor(branding.footer.bottomBackgroundColor);
+    setSocialLinks(branding.socialLinks);
+    setHelpTitle(branding.footer.helpTitle);
+    setAccountTitle(branding.footer.accountTitle);
+    setQuickLinksTitle(branding.footer.quickLinksTitle);
+    setAppTitle(branding.footer.appTitle);
+    setAppDescription(branding.footer.appDescription);
+    setAppStoreSubtitle(branding.footer.appStoreSubtitle);
+    setAppStoreLabel(branding.footer.appStoreLabel);
+    setAppStoreUrl(branding.footer.appStoreUrl);
+    setPlayStoreSubtitle(branding.footer.playStoreSubtitle);
+    setPlayStoreLabel(branding.footer.playStoreLabel);
+    setPlayStoreUrl(branding.footer.playStoreUrl);
+    setPaymentTitle(branding.footer.paymentTitle);
+    setShowSocialLinks(branding.footer.showSocialLinks);
+    setShowAppDownloads(branding.footer.showAppDownloads);
+    setShowPaymentMethods(branding.footer.showPaymentMethods);
+    setAccountLinks(branding.footer.accountLinks);
+    setQuickLinks(branding.footer.quickLinks);
+    setPaymentMethods(branding.footer.paymentMethods);
+  }, [initialStorefront]);
 
   useEffect(() => {
     setPreviewMode(window.parent !== window);
