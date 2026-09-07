@@ -5,6 +5,7 @@ import Image from "@/components/Common/StorefrontImage";
 import { Product } from "@/types/product";
 
 import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
 import { useCallback, useRef } from "react";
 
 const RecentlyViewdItems = ({

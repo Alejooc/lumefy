@@ -3,6 +3,7 @@
 import { useCallback, useRef } from "react";
 import type { Swiper as SwiperInstance } from "swiper";
 import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
 
 import type { HomeTestimonials } from "@/types/home";
 import type { Testimonial } from "@/types/testimonial";

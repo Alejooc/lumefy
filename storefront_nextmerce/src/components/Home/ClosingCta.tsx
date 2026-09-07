@@ -8,11 +8,11 @@ const ClosingCta = ({ storeName }: { storeName: string }) => (
         <div className="absolute -bottom-28 right-[22%] h-64 w-64 rounded-full bg-[#17233f]/15 blur-2xl" />
         <div className="relative z-10 grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
           <div className="max-w-[720px]">
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/70">Estamos para ayudarte</p>
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white">Estamos para ayudarte</p>
             <h2 className="text-[32px] font-semibold leading-[1.08] tracking-[-0.025em] sm:text-[46px]">
               Encuentra eso que hará sentir tu casa aún más tuya
             </h2>
-            <p className="mt-4 max-w-[590px] text-sm leading-7 text-white/80 sm:text-base">
+            <p className="mt-4 max-w-[590px] text-sm leading-7 text-white sm:text-base">
               Explora el catálogo de {storeName} o escríbenos si necesitas ayuda para elegir medidas, colores o combinaciones.
             </p>
           </div>

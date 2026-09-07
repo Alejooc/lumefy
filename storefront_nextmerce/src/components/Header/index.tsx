@@ -394,7 +394,7 @@ const Header = ({ initialStorefront, initialNavigation, initialCollections }: He
           setMobileOpenSubmenu(null);
         }}
       >
-        <aside
+        <div
           role="dialog"
           aria-modal="true"
           aria-label="Menú de navegación"
@@ -617,7 +617,7 @@ const Header = ({ initialStorefront, initialNavigation, initialCollections }: He
             </div>
 
           </div>
-        </aside>
+        </div>
       </div>
 
       <div className="max-w-[1170px] mx-auto px-4 sm:px-7.5 xl:px-0">
@@ -673,7 +673,7 @@ const Header = ({ initialStorefront, initialNavigation, initialCollections }: He
                   href={session ? "/account" : "/login"}
                   prefetch={false}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-blue/20 bg-blue/5 text-blue transition hover:border-blue hover:bg-blue hover:text-white sm:h-10 sm:w-10"
-                  aria-label="Mi cuenta"
+                  aria-label={session ? "Mi cuenta" : "Iniciar sesión"}
                 >
                   <svg
                     width="22"
@@ -788,14 +788,14 @@ const Header = ({ initialStorefront, initialNavigation, initialCollections }: He
                     placeholder={searchPlaceholder}
                     autoComplete="off"
                     onFocus={() => setSearchModalOpen(true)}
-                    className="custom-search w-full rounded-[5px] bg-gray-1 border border-gray-3 py-2.5 pl-4 pr-10 outline-none ease-in duration-200 lg:min-w-[420px] xl:min-w-[520px]"
+                    className="custom-search w-full rounded-[5px] bg-gray-1 border border-gray-3 py-2.5 pl-4 pr-12 outline-none ease-in duration-200 lg:min-w-[420px] xl:min-w-[520px]"
                   />
 
                   <button
                     type="submit"
                     id="search-btn"
                     aria-label="Buscar"
-                    className="flex items-center justify-center absolute right-3 top-1/2 -translate-y-1/2 ease-in duration-200 hover:text-blue"
+                    className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center ease-in duration-200 hover:text-blue"
                   >
                     <svg
                       className="fill-current"

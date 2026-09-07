@@ -12,7 +12,7 @@ const BestSeller = ({ items, section }: { items: Product[]; section: HomeSection
       <div className="mx-auto w-full max-w-[1240px] px-4 sm:px-8 xl:px-0">
         <div className="mb-8 grid gap-4 sm:mb-10 sm:grid-cols-[1fr_auto] sm:items-end">
           <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6d7d68]">{section.eyebrow || "Lo más elegido"}</p>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#556451]">{section.eyebrow || "Lo más elegido"}</p>
             <h2 className="text-[30px] font-semibold leading-tight tracking-[-0.025em] text-[#17233f] sm:text-[42px]">{section.title}</h2>
             <p className="mt-3 max-w-[560px] text-sm leading-6 text-[#6f7480] sm:text-base">
               Favoritos para renovar el dormitorio, el baño y esos pequeños rincones que hacen hogar.

@@ -8,7 +8,7 @@ const SingleItem = ({ item }: { item: Category }) => (
     <div className="relative aspect-[4/5] overflow-hidden rounded-[20px] bg-[#eeeae4]">
       <Image
         src={item.img}
-        alt={item.title}
+        alt=""
         fill
         sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 230px"
         className="object-cover transition duration-700 group-hover:scale-[1.045]"

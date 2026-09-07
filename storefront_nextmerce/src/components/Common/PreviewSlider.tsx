@@ -1,6 +1,8 @@
 "use client";
 
 import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
+import "swiper/css/navigation";
 import { useCallback, useMemo, useRef } from "react";
 import Image from "@/components/Common/StorefrontImage";
 

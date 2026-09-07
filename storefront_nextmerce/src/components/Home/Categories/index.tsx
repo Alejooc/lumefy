@@ -1,25 +1,48 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import type { Swiper as SwiperInstance } from "swiper";
-import { Swiper, SwiperSlide } from "swiper/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Category } from "@/types/category";
 import type { HomeSection } from "@/types/home";
 import SingleItem from "./SingleItem";
 
 const Categories = ({ items, section }: { items: Category[]; section: HomeSection }) => {
-  const [swiper, setSwiper] = useState<SwiperInstance | null>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const [isBeginning, setIsBeginning] = useState(true);
   const [isEnd, setIsEnd] = useState(false);
 
-  const syncNavigationState = useCallback((instance: SwiperInstance | null) => {
-    if (!instance) return;
-    setIsBeginning(instance.isBeginning);
-    setIsEnd(instance.isEnd);
+  const syncNavigationState = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    setIsBeginning(scroller.scrollLeft <= 1);
+    setIsEnd(scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 1);
   }, []);
 
-  useEffect(() => syncNavigationState(swiper), [swiper, items.length, syncNavigationState]);
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    let frame = 0;
+    const handleScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(syncNavigationState);
+    };
+    const observer = new ResizeObserver(syncNavigationState);
+    observer.observe(scroller);
+    scroller.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      scroller.removeEventListener("scroll", handleScroll);
+    };
+  }, [items.length, syncNavigationState]);
+
+  const move = (direction: -1 | 1) => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    scroller.scrollBy({ left: direction * scroller.clientWidth * 0.82, behavior: "smooth" });
+  };
+
   if (!items.length) return null;
 
   return (
@@ -33,47 +56,41 @@ const Categories = ({ items, section }: { items: Category[]; section: HomeSectio
             </h2>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {[
-              { label: "Categoría anterior", disabled: isBeginning, action: () => swiper?.slidePrev(), direction: "left" },
-              { label: "Categoría siguiente", disabled: isEnd, action: () => swiper?.slideNext(), direction: "right" },
-            ].map((button) => (
-              <button
-                key={button.label}
-                type="button"
-                aria-label={button.label}
-                disabled={!swiper || button.disabled}
-                onClick={button.action}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#dcd5cc] text-[#17233f] transition hover:border-[#17233f] hover:bg-[#17233f] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true" className={button.direction === "left" ? "rotate-180" : ""}>
-                  <path d="M3 8.5h10M9.5 5l3.5 3.5L9.5 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            ))}
+            <button
+              type="button"
+              aria-label="Categoría anterior"
+              disabled={isBeginning}
+              onClick={() => move(-1)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[#dcd5cc] text-[#17233f] transition hover:border-[#17233f] hover:bg-[#17233f] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true" className="rotate-180">
+                <path d="M3 8.5h10M9.5 5l3.5 3.5L9.5 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              aria-label="Categoría siguiente"
+              disabled={isEnd}
+              onClick={() => move(1)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[#dcd5cc] text-[#17233f] transition hover:border-[#17233f] hover:bg-[#17233f] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true">
+                <path d="M3 8.5h10M9.5 5l3.5 3.5L9.5 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </div>
         </div>
 
-        <Swiper
-          onSwiper={(instance) => { setSwiper(instance); syncNavigationState(instance); }}
-          onSlideChange={syncNavigationState}
-          onResize={syncNavigationState}
-          observer
-          observeParents
-          watchOverflow
-          spaceBetween={14}
-          breakpoints={{
-            0: { slidesPerView: 2.05 },
-            640: { slidesPerView: 3.15, spaceBetween: 18 },
-            1024: { slidesPerView: 4.25, spaceBetween: 20 },
-            1280: { slidesPerView: 5, spaceBetween: 22 },
-          }}
+        <div
+          ref={scrollerRef}
+          className="grid snap-x snap-mandatory grid-flow-col auto-cols-[calc((100%-14px)/2.05)] gap-3.5 overflow-x-auto scroll-smooth [scrollbar-width:none] sm:auto-cols-[calc((100%-36px)/3.15)] sm:gap-[18px] lg:auto-cols-[calc((100%-60px)/4.25)] lg:gap-5 xl:auto-cols-[calc((100%-88px)/5)] xl:gap-[22px] [&::-webkit-scrollbar]:hidden"
         >
           {items.map((item) => (
-            <SwiperSlide key={item.id}>
+            <div key={item.id} className="min-w-0 snap-start">
               <SingleItem item={item} />
-            </SwiperSlide>
+            </div>
           ))}
-        </Swiper>
+        </div>
       </div>
     </section>
   );

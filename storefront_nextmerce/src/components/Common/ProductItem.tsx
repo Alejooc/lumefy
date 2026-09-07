@@ -106,7 +106,7 @@ const ProductItem = ({ item }: { item: Product }) => {
       </div>
 
       {item.categoryName ? (
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9b7662]">{item.categoryName}</p>
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#765343]">{item.categoryName}</p>
       ) : null}
       <h3 className="line-clamp-2 min-h-[44px] text-[15px] font-medium leading-[22px] text-[#17233f] transition group-hover:text-[#b65332]">
         <Link href={productHref} onClick={rememberProduct}>{item.title}</Link>

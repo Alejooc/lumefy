@@ -1,9 +1,12 @@
 import Image from "@/components/Common/StorefrontImage";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 
 import type { HomeFeature, HeroPromo, HeroSlide } from "@/types/home";
-import HeroCarousel from "./HeroCarousel";
 import HeroFeature from "./HeroFeature";
+import HeroSlideContent from "./HeroSlideContent";
+
+const HeroCarousel = dynamic(() => import("./HeroCarousel"));
 
 const Hero = ({ slides, promos, features }: { slides: HeroSlide[]; promos: HeroPromo[]; features: HomeFeature[] }) => {
   if (!slides.length) return null;
@@ -18,7 +21,7 @@ const Hero = ({ slides, promos, features }: { slides: HeroSlide[]; promos: HeroP
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.9fr)_minmax(300px,0.85fr)] lg:gap-5">
           <div className="min-w-0 overflow-hidden rounded-[26px] bg-gray-2 shadow-[0_24px_70px_rgba(28,39,76,0.10)]">
-            <HeroCarousel slides={slides} />
+            {slides.length === 1 ? <HeroSlideContent slide={slides[0]} headingLevel={1} /> : <HeroCarousel slides={slides} />}
           </div>
 
           <div className="grid min-w-0 grid-cols-2 gap-4 lg:grid-cols-1 lg:grid-rows-2 lg:gap-5">

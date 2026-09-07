@@ -3,19 +3,21 @@
 import React from "react";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Hero from "./Hero";
 import Categories from "./Categories";
 import NewArrival from "./NewArrivals";
 import PromoBanner from "./PromoBanner";
 import BestSeller from "./BestSeller";
 import CounDown from "./Countdown";
-import Testimonials from "./Testimonials";
 import ClosingCta from "./ClosingCta";
 import CustomEmbed from "./CustomEmbed";
 import Newsletter from "../Common/Newsletter";
 
 import { HomeLayoutSection, HomeLayoutSectionType, HomeViewModel } from "@/types/home";
 import { storefrontImageUrl } from "@/lib/storefront-image";
+
+const Testimonials = dynamic(() => import("./Testimonials"));
 
 const HOME_SECTION_TYPES = new Set<HomeLayoutSectionType>([
   "hero",
