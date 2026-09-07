@@ -113,20 +113,23 @@ const Header = ({ initialStorefront, initialNavigation, initialCollections }: He
     openCartModal();
   };
 
-  // Sticky menu
-  const handleStickyMenu = () => {
-    if (window.scrollY >= 80) {
-      setStickyMenu(true);
-    } else {
-      setStickyMenu(false);
-    }
-  };
-
   useEffect(() => {
-    window.addEventListener("scroll", handleStickyMenu);
+    let frameId: number | null = null;
+
+    const handleStickyMenu = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        const nextStickyMenu = window.scrollY >= 80;
+        setStickyMenu((current) => (current === nextStickyMenu ? current : nextStickyMenu));
+      });
+    };
+
+    window.addEventListener("scroll", handleStickyMenu, { passive: true });
 
     return () => {
       window.removeEventListener("scroll", handleStickyMenu);
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
     };
   }, []);
 

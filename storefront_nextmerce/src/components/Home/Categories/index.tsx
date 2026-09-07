@@ -16,7 +16,6 @@ const Categories = ({ items, section }: { items: Category[]; section: HomeSectio
 
   const syncNavigationState = useCallback((instance: SwiperInstance | null) => {
     if (!instance) return;
-    instance.update();
     setIsBeginning(instance.isBeginning);
     setIsEnd(instance.isEnd);
   }, []);
