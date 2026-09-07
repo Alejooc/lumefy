@@ -1,7 +1,7 @@
 import React from "react";
 import Breadcrumb from "../Common/Breadcrumb";
 import Link from "next/link";
-import Image from "next/image";
+import Image from "@/components/Common/StorefrontImage";
 
 const Error = () => {
   return (

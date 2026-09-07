@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/Common/StorefrontImage";
 
 import type { Testimonial } from "@/types/testimonial";
 

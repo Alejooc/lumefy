@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/Common/StorefrontImage";
 import Link from "next/link";
 
 import type { HomeFeature, HeroPromo, HeroSlide } from "@/types/home";

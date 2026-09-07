@@ -4,7 +4,7 @@ import SearchForm from "../Blog/SearchForm";
 import LatestPosts from "../Blog/LatestPosts";
 import LatestProducts from "../Blog/LatestProducts";
 import blogData from "../BlogGrid/blogData";
-import Image from "next/image";
+import Image from "@/components/Common/StorefrontImage";
 import shopData from "../Shop/shopData"; 
 
 const BlogDetailsWithSidebar = () => {

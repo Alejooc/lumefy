@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "@/components/Common/StorefrontImage";
 import Link from "next/link";
 
 import type { Category } from "@/types/category";

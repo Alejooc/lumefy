@@ -6,7 +6,7 @@ import {
   updateCartItemQuantity,
 } from "@/redux/features/cart-slice";
 
-import Image from "next/image";
+import Image from "@/components/Common/StorefrontImage";
 import Link from "next/link";
 import { useStorefrontCurrency } from "@/lib/storefront-currency";
 import { CartItem } from "@/redux/features/cart-slice";
