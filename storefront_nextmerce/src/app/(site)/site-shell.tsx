@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 
 import "../css/euclid-circular-a-font.css";
 import "../css/style.css";
@@ -9,14 +10,14 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import { ModalProvider } from "../context/QuickViewModalContext";
 import { CartModalProvider } from "../context/CartSidebarModalContext";
+import { useCartModalContext } from "../context/CartSidebarModalContext";
+import { useModalContext } from "../context/QuickViewModalContext";
+import { usePreviewSlider } from "../context/PreviewSliderContext";
 import { ReduxProvider } from "@/redux/provider";
 import type { PublicStorefront } from "@/types/storefront";
 import { StorefrontAuthProvider } from "@/lib/storefront-auth";
 import { StorefrontCurrencyProvider } from "@/lib/storefront-currency";
-import QuickViewModal from "@/components/Common/QuickViewModal";
-import CartSidebarModal from "@/components/Common/CartSidebarModal";
 import { PreviewSliderProvider } from "../context/PreviewSliderContext";
-import PreviewSliderModal from "@/components/Common/PreviewSlider";
 import ScrollToTop from "@/components/Common/ScrollToTop";
 import CartFeedback from "@/components/Common/CartFeedback";
 import { isTrustedPreviewMessage } from "@/lib/preview";
@@ -32,6 +33,25 @@ import type { JsonLdDocument } from "@/lib/structured-data";
 import { serializeJsonLd } from "@/lib/structured-data";
 import { StorefrontTrackingProvider } from "@/lib/storefront-tracking";
 import type { PublicCollection, PublicStoreNavigationItem } from "@/types/storefront";
+
+const QuickViewModal = dynamic(() => import("@/components/Common/QuickViewModal"), { ssr: false });
+const CartSidebarModal = dynamic(() => import("@/components/Common/CartSidebarModal"), { ssr: false });
+const PreviewSliderModal = dynamic(() => import("@/components/Common/PreviewSlider"), { ssr: false });
+
+function DeferredQuickViewModal() {
+  const { isModalOpen } = useModalContext();
+  return isModalOpen ? <QuickViewModal /> : null;
+}
+
+function DeferredCartSidebarModal() {
+  const { isCartModalOpen } = useCartModalContext();
+  return isCartModalOpen ? <CartSidebarModal /> : null;
+}
+
+function DeferredPreviewSliderModal() {
+  const { isModalPreviewOpen } = usePreviewSlider();
+  return isModalPreviewOpen ? <PreviewSliderModal /> : null;
+}
 
 function themeStyleVariables(styles: StorefrontThemeStyleViewModel): CSSProperties {
   return {
@@ -130,9 +150,9 @@ export default function SiteShell({
                         />
                         {children}
                         <CartFeedback />
-                        <QuickViewModal />
-                        <CartSidebarModal />
-                        <PreviewSliderModal />
+                        <DeferredQuickViewModal />
+                        <DeferredCartSidebarModal />
+                        <DeferredPreviewSliderModal />
                       </StorefrontUiProvider>
                     </PreviewSliderProvider>
                   </ModalProvider>

@@ -6,7 +6,6 @@ import { Swiper, SwiperSlide } from "swiper/react";
 
 import type { HomeTestimonials } from "@/types/home";
 import type { Testimonial } from "@/types/testimonial";
-import "swiper/css";
 import SingleItem from "./SingleItem";
 
 const Testimonials = ({ section, items }: { section: HomeTestimonials; items: Testimonial[] }) => {

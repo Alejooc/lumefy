@@ -6,7 +6,6 @@ import { Swiper, SwiperSlide } from "swiper/react";
 
 import type { Category } from "@/types/category";
 import type { HomeSection } from "@/types/home";
-import "swiper/css";
 import SingleItem from "./SingleItem";
 
 const Categories = ({ items, section }: { items: Category[]; section: HomeSection }) => {

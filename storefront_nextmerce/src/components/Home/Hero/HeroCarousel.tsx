@@ -6,8 +6,6 @@ import { Autoplay, Pagination } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
 
 import type { HeroSlide } from "@/types/home";
-import "swiper/css";
-import "swiper/css/pagination";
 
 const HeroCarousel = ({ slides }: { slides: HeroSlide[] }) => {
   if (!slides.length) return null;
@@ -30,6 +28,7 @@ const HeroCarousel = ({ slides }: { slides: HeroSlide[] }) => {
                 alt={slide.title}
                 fill
                 priority={index === 0}
+                quality={index === 0 ? 65 : 75}
                 sizes="(max-width: 1024px) 100vw, 820px"
                 className="object-cover"
                 style={{ objectPosition: slide.imagePosition || "center" }}

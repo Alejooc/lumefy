@@ -6,8 +6,6 @@ import { Product } from "@/types/product";
 
 import { Swiper, SwiperSlide } from "swiper/react";
 import { useCallback, useRef } from "react";
-import "swiper/css/navigation";
-import "swiper/css";
 
 const RecentlyViewdItems = ({
   items,
