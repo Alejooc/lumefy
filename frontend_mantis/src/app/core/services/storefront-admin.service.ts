@@ -482,20 +482,51 @@ export interface StoreCollectionProduct {
   is_excluded: boolean;
 }
 
-export type StorefrontPromotionTargetType = 'COLLECTION' | 'PRODUCT';
+export type StorefrontPromotionMethod = 'AUTOMATIC' | 'CODE';
+export type StorefrontPromotionKind = 'AMOUNT_OFF' | 'BUY_X_GET_Y';
+export type StorefrontPromotionTargetType = 'COLLECTION' | 'PRODUCT' | 'ORDER' | 'SHIPPING';
+export type StorefrontPromotionDiscountType = 'PERCENT' | 'FIXED' | 'FREE_SHIPPING';
+export type StorefrontPromotionMinimumRequirement = 'NONE' | 'AMOUNT' | 'QUANTITY';
+export type StorefrontPromotionCustomerEligibility = 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
+export type StorefrontPromotionRewardTargetType = 'COLLECTION' | 'PRODUCT';
+export type StorefrontPromotionGetDiscountType = 'PERCENT' | 'FIXED';
 
 export interface StorefrontPromotion {
   id: string;
   storefront_id: string;
   name: string;
+  method: StorefrontPromotionMethod;
+  code?: string | null;
+  promotion_type: StorefrontPromotionKind;
   target_type: StorefrontPromotionTargetType;
   collection_id?: string | null;
   published_product_id?: string | null;
   collection_name?: string | null;
   product_name?: string | null;
+  reward_target_type?: StorefrontPromotionRewardTargetType | null;
+  reward_collection_id?: string | null;
+  reward_published_product_id?: string | null;
+  reward_collection_name?: string | null;
+  reward_product_name?: string | null;
+  buy_quantity: number;
+  get_quantity: number;
+  get_discount_type: StorefrontPromotionGetDiscountType;
+  get_discount_value: number;
   target_label: string;
-  discount_percent: number;
+  discount_type: StorefrontPromotionDiscountType;
+  discount_value: number;
+  discount_percent?: number | null;
   priority: number;
+  minimum_requirement: StorefrontPromotionMinimumRequirement;
+  minimum_amount: number;
+  minimum_quantity: number;
+  usage_limit?: number | null;
+  usage_count: number;
+  once_per_customer: boolean;
+  combines_with_product: boolean;
+  combines_with_order: boolean;
+  combines_with_shipping: boolean;
+  customer_eligibility: StorefrontPromotionCustomerEligibility;
   starts_at?: string | null;
   ends_at?: string | null;
   is_enabled: boolean;
@@ -624,6 +655,7 @@ export interface PublicCheckoutPreviewRequest {
   shipping_amount?: number;
   discount_amount?: number;
   coupon_code?: string | null;
+  customer_email?: string | null;
   address?: PublicCheckoutAddress | null;
   payment_provider?: string | null;
   shipping_method_id?: string | null;
@@ -939,6 +971,10 @@ export class StorefrontAdminService {
 
   updatePromotion(id: string, payload: Partial<StorefrontPromotion>): Observable<StorefrontPromotion> {
     return this.api.put<StorefrontPromotion>(`/storefront/promotions/${id}`, payload);
+  }
+
+  duplicatePromotion(id: string): Observable<StorefrontPromotion> {
+    return this.api.post<StorefrontPromotion>(`/storefront/promotions/${id}/duplicate`, {});
   }
 
   disablePromotion(id: string): Observable<StorefrontPromotion> {

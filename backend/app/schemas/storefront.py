@@ -635,6 +635,8 @@ class PublicProductVariant(BaseModel):
     price: float
     compare_at_price: Optional[float] = None
     promotion_name: Optional[str] = None
+    promotion_discount_type: Optional[str] = None
+    promotion_discount_value: Optional[float] = None
     promotion_discount_percent: Optional[float] = None
     in_stock: bool = True
     stock_quantity: Optional[float] = None
@@ -658,6 +660,8 @@ class PublicProduct(BaseModel):
     base_price: float
     compare_at_price: Optional[float] = None
     promotion_name: Optional[str] = None
+    promotion_discount_type: Optional[str] = None
+    promotion_discount_value: Optional[float] = None
     promotion_discount_percent: Optional[float] = None
     is_featured: bool = False
     show_stock: bool = True
@@ -743,6 +747,7 @@ class PublicCheckoutPreviewRequest(BaseModel):
     shipping_amount: float = 0
     discount_amount: float = 0
     coupon_code: Optional[str] = None
+    customer_email: Optional[EmailStr] = None
     address: Optional[PublicCheckoutAddress] = None
     payment_provider: Optional[str] = None
     shipping_method_id: Optional[UUID] = None
@@ -761,6 +766,8 @@ class PublicCheckoutPreviewItem(BaseModel):
     original_unit_price: float | None = None
     promotion_discount_amount: float = 0
     promotion_name: Optional[str] = None
+    promotion_discount_type: Optional[str] = None
+    promotion_discount_value: Optional[float] = None
     promotion_discount_percent: Optional[float] = None
 
 

@@ -54,7 +54,20 @@ from app.models.storefront_newsletter import StorefrontNewsletterSubscription
 from app.services.email import EmailService
 from app.services.outbox import enqueue_outbox_event
 from app.services.storefront_payment_expiry import payment_pending_deadline
-from app.services.storefront_promotions import apply_promotion, load_storefront_promotion_context
+from app.services.storefront_promotions import (
+    apply_promotion,
+    apply_buy_x_get_y_promotions,
+    calculate_order_promotion,
+    consume_code_usage,
+    customer_has_used_code,
+    get_storefront_promotion_by_code,
+    load_storefront_order_promotion,
+    load_storefront_buy_x_get_y_promotions,
+    load_storefront_promotion_context,
+    load_storefront_shipping_promotion,
+    meets_minimum_requirement,
+    promotion_cart_totals,
+)
 from app.models.storefront import (
     PublishedProduct,
     StoreCollection,
@@ -385,6 +398,7 @@ async def _resolve_public_checkout_adjustments(
     payload: Any,
     subtotal: float,
     rows: list[Any] | None = None,
+    customer_email: str | None = None,
 ) -> tuple[float, Any]:
     """Calculate checkout adjustments exclusively from storefront server settings."""
     discount = _safe_float(getattr(payload, "discount_amount", 0))
@@ -399,21 +413,99 @@ async def _resolve_public_checkout_adjustments(
             detail="Descuentos, cupones y envío deben calcularse con las reglas configuradas de la tienda",
         )
     calculated_discount = 0.0
+    promotion = None
+    shipping_promotion = None
+    now = datetime.now(timezone.utc)
     if coupon_code:
-        now = datetime.now(timezone.utc)
-        coupon = await db.scalar(select(StorefrontCoupon).where(
-            StorefrontCoupon.storefront_id == storefront.id,
-            StorefrontCoupon.code == coupon_code.upper(),
-            StorefrontCoupon.company_id == storefront.company_id,
-            StorefrontCoupon.is_active == True,
-            StorefrontCoupon.is_enabled == True,
-        ))
-        if not coupon or (coupon.starts_at and coupon.starts_at > now) or (coupon.ends_at and coupon.ends_at < now):
-            raise HTTPException(status_code=400, detail="Cupón inválido o vencido")
-        if subtotal < coupon.minimum_amount:
-            raise HTTPException(status_code=400, detail=f"El cupón requiere una compra mínima de {coupon.minimum_amount:g}")
-        calculated_discount = subtotal * coupon.value / 100 if coupon.discount_type == "PERCENT" else coupon.value
-        calculated_discount = min(subtotal, calculated_discount)
+        promotion = await get_storefront_promotion_by_code(
+            db,
+            storefront.id,
+            coupon_code,
+            now=now,
+            customer_email=customer_email,
+        )
+        if promotion:
+            promotion_subtotal, quantity = await promotion_cart_totals(db, promotion, rows or [])
+            if not meets_minimum_requirement(promotion, subtotal=promotion_subtotal, quantity=quantity):
+                if promotion.minimum_requirement == "AMOUNT":
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"La promoción requiere una compra mínima de {promotion.minimum_amount:g} en los productos seleccionados",
+                    )
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"La promoción requiere al menos {promotion.minimum_quantity:g} artículos",
+                )
+            if customer_email and await customer_has_used_code(db, promotion, customer_email):
+                if promotion.once_per_customer:
+                    raise HTTPException(status_code=400, detail="Ya utilizaste esta promoción anteriormente")
+            if promotion.target_type == "ORDER":
+                calculated_discount = calculate_order_promotion(subtotal, promotion)
+            if promotion.combines_with_order and promotion.target_type != "ORDER":
+                order_promotion = await load_storefront_order_promotion(
+                    db,
+                    storefront.id,
+                    now=now,
+                    customer_email=customer_email,
+                )
+                if order_promotion and meets_minimum_requirement(
+                    order_promotion,
+                    subtotal=subtotal,
+                    quantity=quantity,
+                ):
+                    calculated_discount = calculate_order_promotion(subtotal, order_promotion)
+            if promotion.combines_with_shipping and promotion.target_type != "SHIPPING":
+                shipping_promotion = await load_storefront_shipping_promotion(
+                    db,
+                    storefront.id,
+                    now=now,
+                    customer_email=customer_email,
+                )
+                if shipping_promotion and not meets_minimum_requirement(
+                    shipping_promotion,
+                    subtotal=subtotal,
+                    quantity=quantity,
+                ):
+                    shipping_promotion = None
+        elif coupon_code:
+            coupon = await db.scalar(select(StorefrontCoupon).where(
+                StorefrontCoupon.storefront_id == storefront.id,
+                StorefrontCoupon.code == coupon_code.upper(),
+                StorefrontCoupon.company_id == storefront.company_id,
+                StorefrontCoupon.is_active == True,
+                StorefrontCoupon.is_enabled == True,
+            ))
+            if not coupon or (coupon.starts_at and coupon.starts_at > now) or (coupon.ends_at and coupon.ends_at < now):
+                raise HTTPException(status_code=400, detail="Cupón inválido o vencido")
+            if subtotal < coupon.minimum_amount:
+                raise HTTPException(status_code=400, detail=f"El cupón requiere una compra mínima de {coupon.minimum_amount:g}")
+            calculated_discount = subtotal * coupon.value / 100 if coupon.discount_type == "PERCENT" else coupon.value
+            calculated_discount = min(subtotal, calculated_discount)
+    elif rows is not None:
+        promotion = await load_storefront_order_promotion(
+            db,
+            storefront.id,
+            now=now,
+            customer_email=customer_email,
+        )
+        if promotion and meets_minimum_requirement(
+            promotion,
+            subtotal=subtotal,
+            quantity=sum(float(row.quantity or 0) for row in rows),
+        ):
+            calculated_discount = calculate_order_promotion(subtotal, promotion)
+        shipping_promotion = await load_storefront_shipping_promotion(
+            db,
+            storefront.id,
+            now=now,
+            customer_email=customer_email,
+        )
+        if shipping_promotion and not meets_minimum_requirement(
+            shipping_promotion,
+            subtotal=subtotal,
+            quantity=sum(float(row.quantity or 0) for row in rows),
+        ):
+            shipping_promotion = None
     if rows is None:
         settings = storefront.checkout_settings or {}
         flat_shipping = max(0.0, _safe_float(settings.get("flat_shipping_rate")))
@@ -430,6 +522,8 @@ async def _resolve_public_checkout_adjustments(
         payment_provider=getattr(payload, "payment_provider", None),
         method_id=getattr(payload, "shipping_method_id", None),
     )
+    if (promotion and promotion.target_type == "SHIPPING") or shipping_promotion:
+        shipping = 0.0
     return calculated_discount, shipping
 
 
@@ -1307,7 +1401,13 @@ def _serialize_public_product(
                 price=variant_price,
                 compare_at_price=variant_compare_at,
                 promotion_name=promotion.name if promotion else None,
-                promotion_discount_percent=float(promotion.discount_percent) if promotion else None,
+                promotion_discount_type=promotion.discount_type if promotion else None,
+                promotion_discount_value=float(promotion.discount_value) if promotion else None,
+                promotion_discount_percent=(
+                    float(promotion.discount_value)
+                    if promotion and promotion.discount_type == "PERCENT"
+                    else None
+                ),
                 in_stock=not bool(product.track_inventory) or variant_stock > 0,
                 stock_quantity=variant_stock if product.track_inventory else None,
             )
@@ -1361,7 +1461,13 @@ def _serialize_public_product(
         base_price=base_price,
         compare_at_price=compare_at_price,
         promotion_name=promotion.name if promotion else None,
-        promotion_discount_percent=float(promotion.discount_percent) if promotion else None,
+        promotion_discount_type=promotion.discount_type if promotion else None,
+        promotion_discount_value=float(promotion.discount_value) if promotion else None,
+        promotion_discount_percent=(
+            float(promotion.discount_value)
+            if promotion and promotion.discount_type == "PERCENT"
+            else None
+        ),
         is_featured=bool(published_product.is_featured),
         show_stock=is_tracked,
         in_stock=not is_tracked or bool(available_stock and available_stock > 0),
@@ -2208,6 +2314,8 @@ async def _load_checkout_products(
     db: AsyncSession,
     storefront_id: uuid.UUID,
     items: list[schemas.PublicCheckoutItemInput],
+    promotion_code: str | None = None,
+    customer_email: str | None = None,
 ) -> tuple[list[schemas.PublicCheckoutPreviewItem], float]:
     if not items:
         raise HTTPException(status_code=400, detail="At least one item is required")
@@ -2246,10 +2354,43 @@ async def _load_checkout_products(
         price_list_id,
         [published.product_id for published in published_map.values()],
     )
+    explicit_promotion = (
+        await get_storefront_promotion_by_code(
+            db,
+            storefront_id,
+            promotion_code,
+            customer_email=customer_email,
+        )
+        if promotion_code
+        else None
+    )
+    include_automatic = not (
+        explicit_promotion
+        and not explicit_promotion.combines_with_product
+        and explicit_promotion.target_type in {"COLLECTION", "PRODUCT", "ORDER", "SHIPPING"}
+    )
+    buy_get_promotions = await load_storefront_buy_x_get_y_promotions(
+        db,
+        storefront_id,
+        code=promotion_code,
+        customer_email=customer_email,
+    )
+    if (
+        explicit_promotion
+        and explicit_promotion.promotion_type != "BUY_X_GET_Y"
+        and not explicit_promotion.combines_with_product
+    ):
+        buy_get_promotions = []
+    if any(not promotion.combines_with_product for promotion in buy_get_promotions):
+        include_automatic = False
     promotion_context = await load_storefront_promotion_context(
         db,
         storefront_id,
         published_ids,
+        code=promotion_code,
+        include_automatic=include_automatic,
+        include_minimum=True,
+        customer_email=customer_email,
     )
 
     rows: list[schemas.PublicCheckoutPreviewItem] = []
@@ -2294,10 +2435,43 @@ async def _load_checkout_products(
                 original_unit_price=original_unit_price,
                 promotion_discount_amount=promotion_discount_amount,
                 promotion_name=promotion.name if promotion else None,
-                promotion_discount_percent=float(promotion.discount_percent) if promotion else None,
+                promotion_discount_type=promotion.discount_type if promotion else None,
+                promotion_discount_value=float(promotion.discount_value) if promotion else None,
+                promotion_discount_percent=(
+                    float(promotion.discount_value)
+                    if promotion and promotion.discount_type == "PERCENT"
+                    else None
+                ),
             )
         )
 
+    # A product/collection promotion with a minimum requirement cannot be
+    # shown as active in the catalog, where the cart is unknown. At checkout
+    # we have the full cart, so remove it when its selected target does not
+    # reach the configured minimum.
+    minimum_promotions = {
+        promotion.id: promotion
+        for promotion in promotion_context.by_published_product.values()
+        if promotion.minimum_requirement != "NONE"
+    }
+    for promotion in minimum_promotions.values():
+        promotion_subtotal, promotion_quantity = await promotion_cart_totals(db, promotion, rows)
+        if meets_minimum_requirement(
+            promotion,
+            subtotal=promotion_subtotal,
+            quantity=promotion_quantity,
+        ):
+            continue
+        for row in rows:
+            row_promotion = promotion_context.by_published_product.get(row.published_product_id)
+            if row_promotion and row_promotion.id == promotion.id:
+                row.unit_price = row.original_unit_price or 0.0
+                row.line_subtotal = row.unit_price * row.quantity
+                row.promotion_discount_amount = 0.0
+                row.promotion_name = None
+                row.promotion_discount_percent = None
+    await apply_buy_x_get_y_promotions(db, rows, buy_get_promotions)
+    subtotal = sum(float(row.line_subtotal or 0.0) for row in rows)
     return rows, subtotal
 
 
@@ -6272,13 +6446,26 @@ async def preview_public_checkout(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     storefront = await _get_public_storefront_by_id(db, storefront_id)
-    rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
+    rows, subtotal = await _load_checkout_products(
+        db,
+        storefront_id,
+        payload.items,
+        payload.coupon_code,
+        customer_email=payload.customer_email,
+    )
     promotion_discount = sum(
         float(row.promotion_discount_amount or 0.0) * float(row.quantity)
         for row in rows
     )
 
-    discount, shipping_result = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal, rows)
+    discount, shipping_result = await _resolve_public_checkout_adjustments(
+        db,
+        storefront,
+        payload,
+        subtotal,
+        rows,
+        customer_email=payload.customer_email,
+    )
     shipping = shipping_result.shipping
     tax = _calculate_checkout_tax(storefront, subtotal, discount, shipping)
     total = max(0.0, subtotal - discount + shipping + tax)
@@ -6359,13 +6546,26 @@ async def create_public_checkout_order(
 
     gateway = await _get_enabled_gateway_for_storefront(db, storefront_id, payment_provider)
     _validate_gateway_checkout_configuration(gateway)
-    rows, subtotal = await _load_checkout_products(db, storefront_id, payload.items)
+    rows, subtotal = await _load_checkout_products(
+        db,
+        storefront_id,
+        payload.items,
+        payload.coupon_code,
+        customer_email=customer_email,
+    )
     promotion_discount = sum(
         float(row.promotion_discount_amount or 0.0) * float(row.quantity)
         for row in rows
     )
 
-    discount, shipping_result = await _resolve_public_checkout_adjustments(db, storefront, payload, subtotal, rows)
+    discount, shipping_result = await _resolve_public_checkout_adjustments(
+        db,
+        storefront,
+        payload,
+        subtotal,
+        rows,
+        customer_email=customer_email,
+    )
     shipping = shipping_result.shipping
     if shipping_result.requires_destination:
         raise HTTPException(status_code=400, detail="Selecciona un departamento y una ciudad para calcular el envío")
@@ -6475,7 +6675,7 @@ async def create_public_checkout_order(
             shipping_rule_name=shipping_result.rule.name if shipping_result.rule else None,
             shipping_weight=shipping_result.total_weight,
             shipping_quote_required=shipping_quote_required,
-            coupon_code=payload.coupon_code,
+            coupon_code=(payload.coupon_code or "").strip().upper() or None,
             buyer_note=buyer_note,
             payment_provider=gateway.provider,
             payment_status="shipping_quote_required" if shipping_quote_required else "pending",
@@ -6492,6 +6692,22 @@ async def create_public_checkout_order(
     )
     sale.storefront_order = storefront_order
     db.add(storefront_order)
+
+    code_promotion = (
+        await get_storefront_promotion_by_code(
+            db,
+            storefront.id,
+            payload.coupon_code,
+            customer_email=customer_email,
+        )
+        if payload.coupon_code
+        else None
+    )
+    if code_promotion:
+        try:
+            await consume_code_usage(db, code_promotion)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     if not shipping_quote_required:
         db.add(

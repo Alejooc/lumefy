@@ -524,6 +524,7 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
       const response = await checkoutPreview(storefrontId, {
         items: payloadItems,
         coupon_code: appliedCoupon,
+        customer_email: form.email.trim() || null,
         payment_provider: form.payment_provider,
         shipping_method_id: form.shipping_method_id || null,
         address: form.address_line1.trim().length >= 4

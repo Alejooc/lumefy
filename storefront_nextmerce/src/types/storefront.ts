@@ -260,6 +260,7 @@ export type CheckoutPreviewRequest = {
   shipping_amount?: number;
   discount_amount?: number;
   coupon_code?: string | null;
+  customer_email?: string | null;
   address?: CheckoutAddress | null;
   payment_provider?: string | null;
   shipping_method_id?: string | null;

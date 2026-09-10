@@ -2,85 +2,80 @@
   <section class="promotion-hero">
     <div class="promotion-hero__copy">
       <span class="promotion-hero__eyebrow">Motor comercial</span>
-      <h3 class="mb-2">Promociones que sí llegan al checkout</h3>
-      <p class="mb-0">Aplica un porcentaje a una colección completa o a un producto puntual. La lista de precios sigue siendo la base y la promo se resuelve automáticamente.</p>
+      <h3 class="mb-2">Promociones que llegan al checkout</h3>
+      <p class="mb-0">Crea descuentos automáticos, códigos promocionales y ofertas de tipo “compra X y lleva Y”.</p>
     </div>
-    <div class="promotion-hero__signal">
-      <span class="promotion-hero__signal-dot"></span>
-      <div><strong>{{ promotions.length }}</strong><small>regla{{ promotions.length === 1 ? '' : 's' }} configurada{{ promotions.length === 1 ? '' : 's' }}</small></div>
-    </div>
+    <div class="promotion-hero__signal"><span class="promotion-hero__signal-dot"></span><div><strong>{{ promotions.length }}</strong><small>regla{{ promotions.length === 1 ? '' : 's' }} configurada{{ promotions.length === 1 ? '' : 's' }}</small></div></div>
   </section>
 
-  @if (errorMessage) {
-    <div class="alert alert-danger mt-3" role="alert">{{ errorMessage }}</div>
-  }
+  @if (errorMessage) { <div class="alert alert-danger mt-3" role="alert">{{ errorMessage }}</div> }
 
   <div class="promotion-toolbar mt-3">
-    <div>
-      <span class="text-muted small">Tienda activa</span>
-      @if (storefronts.length > 1) {
-        <select class="form-select form-select-sm" [(ngModel)]="selectedStorefrontId" (ngModelChange)="onStorefrontChange()">
-          @for (storefront of storefronts; track storefront.id) { <option [value]="storefront.id">{{ storefront.name }}</option> }
-        </select>
-      } @else {
-        <strong>{{ storefronts[0]?.name || 'Sin tienda configurada' }}</strong>
-      }
-    </div>
+    <div><span class="text-muted small">Tienda activa</span>@if (storefronts.length > 1) { <select class="form-select form-select-sm" [(ngModel)]="selectedStorefrontId" (ngModelChange)="onStorefrontChange()">@for (storefront of storefronts; track storefront.id) { <option [value]="storefront.id">{{ storefront.name }}</option> }</select> } @else { <strong>{{ storefronts[0]?.name || 'Sin tienda configurada' }}</strong> }</div>
     <span class="promotion-toolbar__note"><i class="ti ti-shield-check"></i> Precio validado en servidor</span>
   </div>
 
-  @if (!storefronts.length && !loading) {
-    <div class="empty-state border rounded p-4 text-center text-muted mt-3"><p class="mb-1">Primero configura una tienda</p><small>Las promociones se aplican sobre una tienda ecommerce activa.</small></div>
-  }
+  @if (!storefronts.length && !loading) { <div class="empty-state border rounded p-4 text-center text-muted mt-3"><p class="mb-1">Primero configura una tienda</p><small>Las promociones se aplican sobre una tienda ecommerce activa.</small></div> }
 
   @if (storefronts.length) {
     <div class="row g-3 mt-1">
-      <div class="col-12 col-xl-5">
+      <div class="col-12 col-xl-7">
         <div class="card section-card promotion-builder">
           <div class="card-body">
-            <div class="promotion-card-heading">
-              <div>
-                <span class="promotion-card-heading__kicker">{{ editingPromotionId ? 'Ajuste existente' : 'Nueva regla' }}</span>
-                <h5 class="mb-1">{{ editingPromotionId ? 'Editar promoción' : 'Crear promoción' }}</h5>
-                <small class="text-muted">Elige el alcance y el descuento porcentual.</small>
-              </div>
-              @if (editingPromotionId) { <button class="btn btn-outline-secondary btn-sm" type="button" (click)="cancelEdit()">Cancelar</button> }
-            </div>
+            <div class="promotion-card-heading"><div><span class="promotion-card-heading__kicker">{{ editingPromotionId ? 'Ajuste existente' : 'Nueva regla' }}</span><h5 class="mb-1">{{ editingPromotionId ? 'Editar promoción' : 'Crear promoción' }}</h5><small class="text-muted">Configúrala como una campaña de Shopify y pruébala antes de publicarla.</small></div>@if (editingPromotionId) { <button class="btn btn-outline-secondary btn-sm" type="button" (click)="cancelEdit()">Cancelar</button> }</div>
 
             <form (ngSubmit)="savePromotion()">
-              <div class="mb-3">
-                <label class="form-label" for="promotion-name">Nombre interno</label>
-                <input id="promotion-name" class="form-control" name="name" [(ngModel)]="form.name" maxlength="120" placeholder="Verano · colección denim" />
-              </div>
+              <div class="mb-3"><label class="form-label" for="promotion-name">Nombre interno</label><input id="promotion-name" class="form-control" name="name" [(ngModel)]="form.name" maxlength="120" placeholder="Verano · colección denim" /><small class="form-hint">Solo lo verá tu equipo.</small></div>
 
-              <label class="form-label">Aplicar a</label>
-              <div class="promotion-target-switch mb-3">
-                <label [class.active]="form.target_type === 'COLLECTION'"><input type="radio" name="target_type" value="COLLECTION" [(ngModel)]="form.target_type" (ngModelChange)="onTargetTypeChange()" /><span><i class="ti ti-tags"></i><strong>Colección</strong><small>Todos sus productos</small></span></label>
-                <label [class.active]="form.target_type === 'PRODUCT'"><input type="radio" name="target_type" value="PRODUCT" [(ngModel)]="form.target_type" (ngModelChange)="onTargetTypeChange()" /><span><i class="ti ti-box"></i><strong>Producto</strong><small>Una referencia puntual</small></span></label>
+              <div class="promotion-section-label"><span>Tipo y método</span><small>Cómo se activa la promoción</small></div>
+              <div class="promotion-target-switch promotion-target-switch--four mb-3">
+                <label [class.active]="form.promotion_type === 'AMOUNT_OFF' && (form.target_type === 'COLLECTION' || form.target_type === 'PRODUCT')"><input type="radio" name="discount_target_group" value="PRODUCT" [checked]="form.promotion_type === 'AMOUNT_OFF' && (form.target_type === 'COLLECTION' || form.target_type === 'PRODUCT')" (change)="form.promotion_type = 'AMOUNT_OFF'; form.target_type = form.target_type === 'PRODUCT' ? 'PRODUCT' : 'COLLECTION'; onTargetTypeChange()" /><span><i class="ti ti-tag"></i><strong>Productos</strong><small>Producto o colección</small></span></label>
+                <label [class.active]="form.promotion_type === 'AMOUNT_OFF' && form.target_type === 'ORDER'"><input type="radio" name="discount_target_group" value="ORDER" [checked]="form.promotion_type === 'AMOUNT_OFF' && form.target_type === 'ORDER'" (change)="form.promotion_type = 'AMOUNT_OFF'; form.target_type = 'ORDER'; onTargetTypeChange()" /><span><i class="ti ti-shopping-cart"></i><strong>Pedido</strong><small>Total de la compra</small></span></label>
+                <label [class.active]="form.promotion_type === 'AMOUNT_OFF' && form.target_type === 'SHIPPING'"><input type="radio" name="discount_target_group" value="SHIPPING" [checked]="form.promotion_type === 'AMOUNT_OFF' && form.target_type === 'SHIPPING'" (change)="form.promotion_type = 'AMOUNT_OFF'; form.target_type = 'SHIPPING'; onTargetTypeChange()" /><span><i class="ti ti-truck"></i><strong>Envío gratis</strong><small>En todo el pedido</small></span></label>
+                <label [class.active]="form.promotion_type === 'BUY_X_GET_Y'"><input type="radio" name="discount_target_group" value="BUY_X_GET_Y" [checked]="form.promotion_type === 'BUY_X_GET_Y'" (change)="form.promotion_type = 'BUY_X_GET_Y'; onPromotionTypeChange()" /><span><i class="ti ti-gift"></i><strong>Compra X + Y</strong><small>Premia unidades</small></span></label>
               </div>
+              @if (form.target_type === 'COLLECTION' || form.target_type === 'PRODUCT') {
+                <div class="promotion-target-switch mb-3"><label [class.active]="form.target_type === 'COLLECTION'"><input type="radio" name="product_target_type" value="COLLECTION" [(ngModel)]="form.target_type" (ngModelChange)="onTargetTypeChange()" /><span><i class="ti ti-tags"></i><strong>Colección</strong><small>Todos sus productos</small></span></label><label [class.active]="form.target_type === 'PRODUCT'"><input type="radio" name="product_target_type" value="PRODUCT" [(ngModel)]="form.target_type" (ngModelChange)="onTargetTypeChange()" /><span><i class="ti ti-box"></i><strong>Producto</strong><small>Una referencia puntual</small></span></label></div>
+              }
 
-              <div class="target-picker mb-3">
-                <div class="d-flex justify-content-between gap-2 align-items-center mb-2"><label class="form-label mb-0" for="promotion-target-search">{{ form.target_type === 'COLLECTION' ? 'Colección' : 'Producto publicado' }}</label><span class="settings-pill">{{ selectedTargetLabel }}</span></div>
-                <input id="promotion-target-search" class="form-control mb-2" name="target_search" [(ngModel)]="targetSearch" [placeholder]="form.target_type === 'COLLECTION' ? 'Buscar colección…' : 'Buscar producto o slug…'" />
-                @if (form.target_type === 'COLLECTION') {
-                  <select class="form-select" name="collection_id" [(ngModel)]="form.collection_id" size="4">
-                    @for (collection of filteredCollections; track collection.id) { <option [value]="collection.id">{{ collection.name }} · {{ collection.slug }}</option> }
-                  </select>
-                } @else {
-                  <select class="form-select" name="published_product_id" [(ngModel)]="form.published_product_id" size="4">
-                    @for (product of filteredProducts; track product.id) { <option [value]="product.id">{{ product.product_name || product.slug }}</option> }
-                  </select>
+              <div class="promotion-method mb-3"><div class="promotion-method__title"><label class="form-label mb-0">Método</label><small>{{ form.method === 'CODE' ? 'El cliente lo escribe en checkout.' : 'Se aplica automáticamente al cumplir las condiciones.' }}</small></div><div class="promotion-segmented"><label [class.active]="form.method === 'AUTOMATIC'"><input type="radio" name="method" value="AUTOMATIC" [(ngModel)]="form.method" (ngModelChange)="onMethodChange()" /> Automática</label><label [class.active]="form.method === 'CODE'"><input type="radio" name="method" value="CODE" [(ngModel)]="form.method" (ngModelChange)="onMethodChange()" /> Código</label></div></div>
+              @if (form.method === 'CODE') { <div class="input-group mb-3"><input class="form-control text-uppercase" name="code" [(ngModel)]="form.code" maxlength="80" placeholder="VERANO10" /><button class="btn btn-outline-primary" type="button" (click)="generateCode()">Generar código</button></div> }
+
+              @if (form.promotion_type === 'BUY_X_GET_Y') {
+                <div class="promotion-section-label"><span>Oferta Compra X y lleva Y</span><small>Se aplica por unidades calificadas y beneficia primero las más económicas</small></div>
+                <div class="buy-get-builder mb-3">
+                  <div><label class="form-label" for="buy-quantity">Compra</label><div class="input-group"><input id="buy-quantity" class="form-control" name="buy_quantity" type="number" min="1" step="1" [(ngModel)]="form.buy_quantity" /><span class="input-group-text">unidades</span></div></div>
+                  <span class="buy-get-builder__arrow" aria-hidden="true"><i class="ti ti-arrow-right"></i></span>
+                  <div><label class="form-label" for="get-quantity">Lleva</label><div class="input-group"><input id="get-quantity" class="form-control" name="get_quantity" type="number" min="1" step="1" [(ngModel)]="form.get_quantity" /><span class="input-group-text">unidades</span></div></div>
+                  <div><label class="form-label" for="get-discount-type">Beneficio</label><div class="input-group"><select id="get-discount-type" class="form-select" name="get_discount_type" [(ngModel)]="form.get_discount_type"><option value="PERCENT">% de descuento</option><option value="FIXED">Monto fijo</option></select><input class="form-control" name="get_discount_value" type="number" min="0.01" [max]="form.get_discount_type === 'PERCENT' ? 100 : null" step="0.01" [(ngModel)]="form.get_discount_value" /></div></div>
+                </div>
+              } @else {
+                <div class="promotion-section-label"><span>Valor del descuento</span><small>Se calcula sobre el precio de la lista activa</small></div>
+                <div class="row g-2 mb-3">
+                  <div class="col-7"><label class="form-label" for="discount-type">Tipo</label><select id="discount-type" class="form-select" name="discount_type" [(ngModel)]="form.discount_type" (ngModelChange)="onDiscountTypeChange()"><option value="PERCENT">Porcentaje</option><option value="FIXED">Monto fijo</option>@if (form.target_type === 'SHIPPING') { <option value="FREE_SHIPPING">Envío gratis</option> }</select></div>
+                  @if (form.discount_type !== 'FREE_SHIPPING') { <div class="col-5"><label class="form-label" for="discount-value">Valor</label><div class="input-group"><input id="discount-value" class="form-control" name="discount_value" type="number" min="0.01" [max]="form.discount_type === 'PERCENT' ? 100 : null" step="0.01" [(ngModel)]="form.discount_value" /><span class="input-group-text">{{ form.discount_type === 'PERCENT' ? '%' : 'fijo' }}</span></div></div> }
+                </div>
+              }
+
+              @if (targetNeedsSelection) {
+                <div class="target-picker mb-3"><div class="d-flex justify-content-between gap-2 align-items-center mb-2"><label class="form-label mb-0" for="promotion-target-search">{{ form.promotion_type === 'BUY_X_GET_Y' ? 'Compra: ' : '' }}{{ form.target_type === 'COLLECTION' ? 'Colección' : 'Producto publicado' }}</label><span class="settings-pill">{{ selectedTargetLabel }}</span></div><input id="promotion-target-search" class="form-control mb-2" name="target_search" [(ngModel)]="targetSearch" [placeholder]="form.target_type === 'COLLECTION' ? 'Buscar colección…' : 'Buscar producto o slug…'" />@if (form.target_type === 'COLLECTION') { <select class="form-select" name="collection_id" [(ngModel)]="form.collection_id" size="4">@for (collection of filteredCollections; track collection.id) { <option [value]="collection.id">{{ collection.name }} · {{ collection.slug }}</option> }</select> } @else { <select class="form-select" name="published_product_id" [(ngModel)]="form.published_product_id" size="4">@for (product of filteredProducts; track product.id) { <option [value]="product.id">{{ product.product_name || product.slug }}</option> }</select> }</div>
+                @if (form.promotion_type === 'BUY_X_GET_Y') {
+                  <div class="target-picker mb-3"><div class="d-flex justify-content-between gap-2 align-items-center mb-2"><label class="form-label mb-0" for="promotion-reward-search">Lleva: producto o colección</label><span class="settings-pill">{{ selectedRewardLabel }}</span></div><div class="promotion-target-switch mb-2"><label [class.active]="form.reward_target_type === 'COLLECTION'"><input type="radio" name="reward_target_type" value="COLLECTION" [(ngModel)]="form.reward_target_type" (ngModelChange)="onRewardTargetTypeChange()" /><span><i class="ti ti-tags"></i><strong>Colección</strong><small>Unidades beneficiadas</small></span></label><label [class.active]="form.reward_target_type === 'PRODUCT'"><input type="radio" name="reward_target_type" value="PRODUCT" [(ngModel)]="form.reward_target_type" (ngModelChange)="onRewardTargetTypeChange()" /><span><i class="ti ti-box"></i><strong>Producto</strong><small>Referencia beneficiada</small></span></label></div><input id="promotion-reward-search" class="form-control mb-2" name="reward_search" [(ngModel)]="rewardSearch" [placeholder]="form.reward_target_type === 'COLLECTION' ? 'Buscar colección…' : 'Buscar producto o slug…'" />@if (form.reward_target_type === 'COLLECTION') { <select class="form-select" name="reward_collection_id" [(ngModel)]="form.reward_collection_id" size="4">@for (collection of filteredRewardCollections; track collection.id) { <option [value]="collection.id">{{ collection.name }} · {{ collection.slug }}</option> }</select> } @else { <select class="form-select" name="reward_published_product_id" [(ngModel)]="form.reward_published_product_id" size="4">@for (product of filteredRewardProducts; track product.id) { <option [value]="product.id">{{ product.product_name || product.slug }}</option> }</select> }</div>
                 }
-              </div>
+              } @else { <div class="promotion-static-target mb-3"><i class="ti ti-sparkles"></i><div><strong>{{ selectedTargetLabel }}</strong><small>La regla se evalúa sobre el pedido completo.</small></div></div> }
 
-              <div class="row g-2">
-                <div class="col-7"><label class="form-label" for="promotion-discount">Descuento</label><div class="input-group"><input id="promotion-discount" class="form-control" name="discount_percent" type="number" min="0.01" max="100" step="0.01" [(ngModel)]="form.discount_percent" /><span class="input-group-text">%</span></div></div>
-                <div class="col-5"><label class="form-label" for="promotion-priority">Prioridad</label><input id="promotion-priority" class="form-control" name="priority" type="number" min="0" max="1000" step="1" [(ngModel)]="form.priority" /><small class="form-hint">Mayor gana</small></div>
-              </div>
+              <div class="promotion-preview mb-3"><div><span class="promotion-preview__eyebrow">Vista rápida</span><strong>{{ selectedTargetLabel }}</strong><small>{{ previewDiscountLabel }} aplicado sobre la lista de precios.</small></div><div class="promotion-preview__prices">@if (form.discount_type !== 'FREE_SHIPPING') { <span>{{ previewBasePrice | number:'1.0-2' }}</span><strong>{{ previewPrice | number:'1.0-2' }}</strong> } @else { <strong><i class="ti ti-truck"></i> $0 envío</strong> }</div></div>
 
-              <div class="promotion-preview mt-3"><div><span class="promotion-preview__eyebrow">Vista rápida</span><strong>{{ selectedTargetLabel }}</strong><small>{{ form.discount_percent || 0 }}% de descuento aplicado sobre la lista de precios.</small></div><div class="promotion-preview__prices"><span>{{ previewBasePrice | number:'1.0-2' }}</span><strong>{{ previewPrice | number:'1.0-2' }}</strong></div></div>
+              <div class="promotion-section-label"><span>Condiciones</span><small>Controla cuándo puede utilizarse</small></div>
+              <div class="promotion-options-card mb-3"><label class="form-label mb-2">Compra mínima</label><div class="promotion-radio-list"><label><input type="radio" name="minimum_requirement" value="NONE" [(ngModel)]="form.minimum_requirement" /> Sin mínimo</label><label><input type="radio" name="minimum_requirement" value="AMOUNT" [(ngModel)]="form.minimum_requirement" /> Monto mínimo <input class="form-control form-control-sm" name="minimum_amount" type="number" min="0" step="0.01" [disabled]="form.minimum_requirement !== 'AMOUNT'" [(ngModel)]="form.minimum_amount" /></label><label><input type="radio" name="minimum_requirement" value="QUANTITY" [(ngModel)]="form.minimum_requirement" /> Cantidad mínima <input class="form-control form-control-sm" name="minimum_quantity" type="number" min="1" step="1" [disabled]="form.minimum_requirement !== 'QUANTITY'" [(ngModel)]="form.minimum_quantity" /></label></div></div>
+              <div class="promotion-options-card mb-3"><label class="form-label mb-2">Elegibilidad</label><select class="form-select" name="customer_eligibility" [(ngModel)]="form.customer_eligibility"><option value="ALL">Todos los clientes</option><option value="NEW_CUSTOMERS">Clientes nuevos</option><option value="RETURNING_CUSTOMERS">Clientes recurrentes</option></select><small class="form-hint">Se valida con el correo del checkout y el historial de pedidos de esta tienda.</small></div>
 
-              <div class="row g-2 mt-1"><div class="col-6"><label class="form-label" for="promotion-start">Desde</label><input id="promotion-start" class="form-control" name="starts_at" type="datetime-local" [(ngModel)]="form.starts_at" /></div><div class="col-6"><label class="form-label" for="promotion-end">Hasta</label><input id="promotion-end" class="form-control" name="ends_at" type="datetime-local" [(ngModel)]="form.ends_at" /></div></div>
+              <div class="promotion-options-card mb-3"><label class="form-label mb-2">Máximo de usos</label><label class="promotion-check-row"><input type="checkbox" name="has_usage_limit" [checked]="form.usage_limit !== null" (change)="form.usage_limit = $any($event.target).checked ? (form.usage_limit || 100) : null" /> Limitar cantidad de usos totales @if (form.usage_limit !== null) { <input class="form-control form-control-sm promotion-inline-input" name="usage_limit" type="number" min="1" step="1" [(ngModel)]="form.usage_limit" /> }</label><label class="promotion-check-row"><input type="checkbox" name="once_per_customer" [(ngModel)]="form.once_per_customer" /> Una vez por cliente</label></div>
+
+              <div class="promotion-options-card mb-3"><div class="d-flex justify-content-between align-items-center"><label class="form-label mb-1">Combinaciones</label><span class="text-muted small">Por defecto no se acumula</span></div><small class="d-block text-muted mb-2">Permite combinar esta promoción con otros descuentos.</small><label class="promotion-check-row"><input type="checkbox" name="combines_with_product" [(ngModel)]="form.combines_with_product" /> Descuentos de producto</label><label class="promotion-check-row"><input type="checkbox" name="combines_with_order" [(ngModel)]="form.combines_with_order" /> Descuentos de pedido</label><label class="promotion-check-row"><input type="checkbox" name="combines_with_shipping" [(ngModel)]="form.combines_with_shipping" /> Descuentos de envío</label></div>
+
+              <div class="promotion-section-label"><span>Fechas activas</span><small>Programa la campaña o déjala sin vencimiento</small></div>
+              <div class="row g-2"><div class="col-6"><label class="form-label" for="promotion-start">Desde</label><input id="promotion-start" class="form-control" name="starts_at" type="datetime-local" [(ngModel)]="form.starts_at" /></div><div class="col-6"><label class="form-label" for="promotion-end">Hasta</label><input id="promotion-end" class="form-control" name="ends_at" type="datetime-local" [(ngModel)]="form.ends_at" /></div></div>
               <div class="form-check form-switch mt-3"><input id="promotion-enabled" class="form-check-input" name="is_enabled" type="checkbox" [(ngModel)]="form.is_enabled" /><label class="form-check-label" for="promotion-enabled">Activar inmediatamente</label></div>
               <button class="btn btn-primary w-100 mt-4" type="submit" [disabled]="saving || loading">{{ saving ? 'Guardando…' : (editingPromotionId ? 'Guardar cambios' : 'Crear promoción') }}</button>
             </form>
@@ -88,19 +83,10 @@
         </div>
       </div>
 
-      <div class="col-12 col-xl-7">
-        <div class="card section-card promotion-list-card">
-          <div class="card-body">
-            <div class="promotion-card-heading"><div><span class="promotion-card-heading__kicker">Reglas de precio</span><h5 class="mb-1">Promociones de {{ selectedStorefrontName }}</h5><small class="text-muted">Las reglas activas se reflejan en catálogo, carrito y checkout.</small></div><span class="promotion-count">{{ promotions.length }} total</span></div>
-            @if (loading) { <div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando</span></div></div> } @else if (!promotions.length) { <div class="empty-state border rounded p-4 text-center text-muted"><p class="mb-1">Tu primera campaña empieza aquí</p><small>Crea una regla para que el descuento se aplique automáticamente.</small></div> } @else {
-              <div class="promotion-list">
-                @for (promotion of promotions; track promotion.id) {
-                  <article class="promotion-row" [class.promotion-row--muted]="promotionState(promotion) === 'disabled'"><div class="promotion-row__mark"><span>{{ promotion.discount_percent | number:'1.0-2' }}%</span></div><div class="promotion-row__body"><div class="d-flex align-items-start justify-content-between gap-2"><div><strong>{{ promotion.name }}</strong><span class="d-block text-muted small">{{ promotion.target_type === 'COLLECTION' ? 'Colección' : 'Producto' }} · {{ promotion.target_label }}</span></div><span class="badge" [ngClass]="{'text-bg-success': promotionState(promotion) === 'active', 'text-bg-info': promotionState(promotion) === 'scheduled', 'text-bg-secondary': promotionState(promotion) === 'disabled', 'text-bg-warning': promotionState(promotion) === 'expired'}">{{ stateLabel(promotion) }}</span></div><div class="promotion-row__meta"><span><i class="ti ti-arrows-sort"></i> Prioridad {{ promotion.priority }}</span><span>{{ promotion.starts_at ? (promotion.starts_at | date:'dd/MM/yyyy HH:mm') : 'Desde ahora' }} → {{ promotion.ends_at ? (promotion.ends_at | date:'dd/MM/yyyy HH:mm') : 'Sin vencimiento' }}</span></div></div><div class="promotion-row__actions"><button class="btn btn-outline-primary btn-sm" type="button" (click)="startEdit(promotion)">Editar</button><button class="btn btn-outline-danger btn-sm" type="button" (click)="disablePromotion(promotion)" [disabled]="!promotion.is_enabled || saving">Desactivar</button></div></article>
-                }
-              </div>
-            }
-          </div>
-        </div>
+      <div class="col-12 col-xl-5">
+        <div class="card section-card promotion-summary-card"><div class="card-body"><span class="promotion-card-heading__kicker">Resumen en vivo</span><h5 class="mb-1">{{ form.name || 'Nueva promoción' }}</h5><p class="text-muted small mb-3">Así la verá tu equipo y así se aplicará en la tienda.</p><div class="promotion-summary-badge"><i class="ti ti-discount-2"></i><div><strong>{{ previewDiscountLabel }}</strong><small>{{ form.method === 'CODE' ? 'Código ' + (form.code || 'pendiente') : 'Descuento automático' }}</small></div></div><dl class="promotion-summary-list"><div><dt>Aplica a</dt><dd>{{ selectedTargetLabel }}</dd></div>@if (form.promotion_type === 'BUY_X_GET_Y') { <div><dt>Beneficio en</dt><dd>{{ selectedRewardLabel }}</dd></div> }<div><dt>Clientes</dt><dd>{{ customerEligibilityLabel(form.customer_eligibility) }}</dd></div><div><dt>Compra mínima</dt><dd>{{ form.minimum_requirement === 'AMOUNT' ? (form.minimum_amount | number:'1.0-2') : form.minimum_requirement === 'QUANTITY' ? form.minimum_quantity + ' artículos' : 'Sin mínimo' }}</dd></div><div><dt>Usos</dt><dd>{{ form.usage_limit ? form.usage_limit + ' usos' : 'Sin límite' }}{{ form.once_per_customer ? ' · 1 por cliente' : '' }}</dd></div><div><dt>Combinaciones</dt><dd>{{ form.combines_with_product || form.combines_with_order || form.combines_with_shipping ? 'Permitidas según selección' : 'No permitidas' }}</dd></div><div><dt>Vigencia</dt><dd>{{ form.starts_at ? (form.starts_at | date:'dd/MM/yyyy HH:mm') : 'Desde ahora' }} → {{ form.ends_at ? (form.ends_at | date:'dd/MM/yyyy HH:mm') : 'Sin vencimiento' }}</dd></div></dl><div class="promotion-summary-foot"><i class="ti ti-shield-check"></i><span>El servidor vuelve a validar el código, las fechas y las condiciones antes de crear el pedido.</span></div></div></div>
+
+        <div class="card section-card promotion-list-card mt-3"><div class="card-body"><div class="promotion-card-heading"><div><span class="promotion-card-heading__kicker">Reglas de precio</span><h5 class="mb-1">Promociones activas</h5><small class="text-muted">{{ selectedStorefrontName }}</small></div><span class="promotion-count">{{ promotions.length }} total</span></div>@if (loading) { <div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando</span></div></div> } @else if (!promotions.length) { <div class="empty-state border rounded p-4 text-center text-muted"><p class="mb-1">Tu primera campaña empieza aquí</p><small>Crea una regla para que el descuento se aplique automáticamente.</small></div> } @else { <div class="promotion-list">@for (promotion of promotions; track promotion.id) { <article class="promotion-row" [class.promotion-row--muted]="promotionState(promotion) === 'disabled'"><div class="promotion-row__mark"><span>{{ promotionValueLabel(promotion) }}</span></div><div class="promotion-row__body"><div class="d-flex align-items-start justify-content-between gap-2"><div><strong>{{ promotion.name }}</strong><span class="d-block text-muted small">{{ methodLabel(promotion.method) }} · {{ promotion.promotion_type === 'BUY_X_GET_Y' ? 'Compra X + Y' : targetTypeLabel(promotion.target_type) }} · {{ promotion.target_label }}</span>@if (promotion.code) { <span class="promotion-code">{{ promotion.code }}</span> }</div><span class="badge" [ngClass]="{'text-bg-success': promotionState(promotion) === 'active', 'text-bg-info': promotionState(promotion) === 'scheduled', 'text-bg-secondary': promotionState(promotion) === 'disabled', 'text-bg-warning': promotionState(promotion) === 'expired'}">{{ stateLabel(promotion) }}</span></div><div class="promotion-row__meta"><span><i class="ti ti-arrows-sort"></i> Prioridad {{ promotion.priority }}</span><span><i class="ti ti-chart-bar"></i> {{ promotion.usage_count || 0 }}{{ promotion.usage_limit ? ' / ' + promotion.usage_limit : '' }} usos</span><span>{{ promotion.starts_at ? (promotion.starts_at | date:'dd/MM/yyyy HH:mm') : 'Desde ahora' }} → {{ promotion.ends_at ? (promotion.ends_at | date:'dd/MM/yyyy HH:mm') : 'Sin vencimiento' }}</span></div></div><div class="promotion-row__actions"><button class="btn btn-outline-primary btn-sm" type="button" (click)="startEdit(promotion)">Editar</button><button class="btn btn-outline-secondary btn-sm" type="button" (click)="duplicatePromotion(promotion)" [disabled]="saving">Duplicar</button><button class="btn btn-outline-danger btn-sm" type="button" (click)="disablePromotion(promotion)" [disabled]="!promotion.is_enabled || saving">Desactivar</button></div></article> }</div> }</div></div>
       </div>
     </div>
   }
