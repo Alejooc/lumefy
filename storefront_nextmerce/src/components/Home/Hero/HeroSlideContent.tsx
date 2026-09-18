@@ -13,7 +13,8 @@ export default function HeroSlideContent({ slide, headingLevel = 2 }: { slide: H
         src={slide.image}
         alt={slide.title}
         fill
-        priority={headingLevel === 1}
+        preload={headingLevel === 1}
+        fetchPriority={headingLevel === 1 ? "high" : undefined}
         sizes="(max-width: 1024px) 100vw, 820px"
         className="object-cover"
         style={{ objectPosition: slide.imagePosition || "center" }}

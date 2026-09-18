@@ -1,18 +1,19 @@
 "use client";
 
-import { useCallback, useRef } from "react";
-import type { Swiper as SwiperInstance } from "swiper";
-import { Swiper, SwiperSlide } from "swiper/react";
-import "swiper/css";
+import { useRef } from "react";
 
 import type { HomeTestimonials } from "@/types/home";
 import type { Testimonial } from "@/types/testimonial";
 import SingleItem from "./SingleItem";
 
 const Testimonials = ({ section, items }: { section: HomeTestimonials; items: Testimonial[] }) => {
-  const sliderRef = useRef<{ swiper: SwiperInstance } | null>(null);
-  const handlePrev = useCallback(() => sliderRef.current?.swiper.slidePrev(), []);
-  const handleNext = useCallback(() => sliderRef.current?.swiper.slideNext(), []);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  const move = (direction: -1 | 1) => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    scroller.scrollBy({ left: direction * scroller.clientWidth * 0.9, behavior: "smooth" });
+  };
 
   if (!section.enabled || !items.length) return null;
 
@@ -25,12 +26,12 @@ const Testimonials = ({ section, items }: { section: HomeTestimonials; items: Te
             <h2 className="max-w-[640px] text-[30px] font-semibold leading-tight tracking-[-0.025em] sm:text-[42px]">{section.title}</h2>
           </div>
           <div className="flex gap-2">
-            <button type="button" aria-label="Anterior" onClick={handlePrev} className="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 transition hover:bg-white hover:text-[#17233f]">
+            <button type="button" aria-label="Anterior" onClick={() => move(-1)} className="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 transition hover:bg-white hover:text-[#17233f]">
               <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true" className="rotate-180">
                 <path d="M3 8.5h10M9.5 5l3.5 3.5L9.5 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
-            <button type="button" aria-label="Siguiente" onClick={handleNext} className="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 transition hover:bg-white hover:text-[#17233f]">
+            <button type="button" aria-label="Siguiente" onClick={() => move(1)} className="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 transition hover:bg-white hover:text-[#17233f]">
               <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true">
                 <path d="M3 8.5h10M9.5 5l3.5 3.5L9.5 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -38,16 +39,14 @@ const Testimonials = ({ section, items }: { section: HomeTestimonials; items: Te
           </div>
         </div>
 
-        <Swiper
-          ref={sliderRef}
-          slidesPerView={1.08}
-          spaceBetween={16}
-          breakpoints={{ 640: { slidesPerView: 2, spaceBetween: 20 }, 1100: { slidesPerView: 3, spaceBetween: 22 } }}
+        <div
+          ref={scrollerRef}
+          className="grid snap-x snap-mandatory grid-flow-col auto-cols-[92%] gap-4 overflow-x-auto scroll-smooth [scrollbar-width:none] sm:auto-cols-[calc((100%-20px)/2)] sm:gap-5 min-[1100px]:auto-cols-[calc((100%-44px)/3)] min-[1100px]:gap-[22px] [&::-webkit-scrollbar]:hidden"
         >
           {items.map((item, index) => (
-            <SwiperSlide key={`${item.authorName}-${index}`}><SingleItem testimonial={item} /></SwiperSlide>
+            <div key={`${item.authorName}-${index}`} className="min-w-0 snap-start"><SingleItem testimonial={item} /></div>
           ))}
-        </Swiper>
+        </div>
       </div>
     </section>
   );

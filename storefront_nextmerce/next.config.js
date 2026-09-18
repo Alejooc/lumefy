@@ -5,6 +5,11 @@ const allowLocalIp =
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  experimental: {
+    // The storefront has one small global stylesheet. Inlining it removes an
+    // extra render-blocking round trip on throttled mobile connections.
+    inlineCss: true,
+  },
   async redirects() {
     return [
       {
