@@ -128,7 +128,7 @@ export class AppInstalledDetailComponent implements OnInit {
         } else {
           this.webhookDeliveries = [];
         }
-        if (this.isTrackingApp()) {
+        if (this.supportsTrackingDeliveries()) {
           this.loadTrackingDeliveries();
         } else {
           this.trackingStatus = null;
@@ -180,7 +180,7 @@ export class AppInstalledDetailComponent implements OnInit {
   }
 
   loadTrackingDeliveries(): void {
-    if (!this.isTrackingApp()) {
+    if (!this.supportsTrackingDeliveries()) {
       this.trackingStatus = null;
       return;
     }
@@ -276,6 +276,10 @@ export class AppInstalledDetailComponent implements OnInit {
   }
 
   isTrackingApp(): boolean {
+    return ['google-analytics', 'google-tag-manager', 'meta-pixel', 'tiktok-pixel'].includes(this.appDetail?.slug || '');
+  }
+
+  supportsTrackingDeliveries(): boolean {
     return ['google-analytics', 'meta-pixel', 'tiktok-pixel'].includes(this.appDetail?.slug || '');
   }
 
@@ -286,6 +290,7 @@ export class AppInstalledDetailComponent implements OnInit {
   trackingProviderLabel(): string {
     const labels: Record<string, string> = {
       'google-analytics': 'Google Analytics 4',
+      'google-tag-manager': 'Google Tag Manager',
       'meta-pixel': 'Meta Pixel',
       'tiktok-pixel': 'TikTok Pixel'
     };
@@ -294,17 +299,25 @@ export class AppInstalledDetailComponent implements OnInit {
 
   trackingIdentifierLabel(): string {
     if (this.appDetail?.slug === 'google-analytics') return 'ID de medición';
+    if (this.appDetail?.slug === 'google-tag-manager') return 'ID del contenedor';
     return 'ID del píxel';
   }
 
   trackingIdentifierValue(): unknown {
-    const key = this.appDetail?.slug === 'google-analytics' ? 'measurement_id' : 'pixel_id';
+    const key = this.appDetail?.slug === 'google-analytics'
+      ? 'measurement_id'
+      : this.appDetail?.slug === 'google-tag-manager'
+        ? 'container_id'
+        : 'pixel_id';
     return this.configForm[key];
   }
 
   trackingConfigCopy(): string {
     if (this.appDetail?.slug === 'google-analytics') {
       return 'Conecta tu propiedad GA4 para medir visitas, productos, carritos y compras del storefront.';
+    }
+    if (this.appDetail?.slug === 'google-tag-manager') {
+      return 'Conecta tu contenedor GTM para administrar etiquetas y recibir eventos del storefront en dataLayer.';
     }
     if (this.appDetail?.slug === 'meta-pixel') {
       return 'Conecta Meta para enviar eventos del storefront a tus campañas y audiencias.';

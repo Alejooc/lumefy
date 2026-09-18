@@ -66,7 +66,7 @@ export type PublicStorePaymentGateway = {
 };
 
 export type PublicTrackingIntegration = {
-  provider: "google_analytics" | "meta" | "tiktok";
+  provider: "google_analytics" | "google_tag_manager" | "meta" | "tiktok";
   app_slug: string;
   tracking_id: string;
   enabled: boolean;

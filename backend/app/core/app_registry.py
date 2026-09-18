@@ -223,6 +223,46 @@ APP_REGISTRY: List[Dict[str, Any]] = [
         "setup_url": "/apps/installed/google-analytics",
     },
     {
+        "slug": "google-tag-manager",
+        "name": "Google Tag Manager",
+        "description": "Administra etiquetas de medición y publicidad de tu tienda desde un contenedor de Google Tag Manager.",
+        "category": "Marketing y analítica",
+        "version": "1.0.0",
+        "icon": "brand-google",
+        "requested_scopes": ["storefront:read", "tracking:write"],
+        "capabilities": ["browser_tracking", "ecommerce_events", "consent_aware"],
+        "pricing_model": "free",
+        "monthly_price": 0,
+        "config_schema": {
+            "type": "object",
+            "required": ["container_id"],
+            "properties": {
+                "container_id": {
+                    "type": "string",
+                    "title": "ID del contenedor de GTM",
+                    "description": "Lo encuentras en Google Tag Manager, en la parte superior del espacio de trabajo.",
+                    "placeholder": "GTM-XXXXXXX",
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "title": "Activar Google Tag Manager",
+                    "description": "Carga el contenedor cuando el visitante acepta cookies de marketing.",
+                },
+                "track_ecommerce": {
+                    "type": "boolean",
+                    "title": "Eventos de comercio electrónico",
+                    "description": "Publica visitas, productos, carrito, checkout y compras en dataLayer.",
+                },
+            },
+        },
+        "default_config": {
+            "container_id": "",
+            "enabled": False,
+            "track_ecommerce": True,
+        },
+        "setup_url": "/apps/installed/google-tag-manager",
+    },
+    {
         "slug": "meta-pixel",
         "name": "Meta Pixel",
         "description": "Conecta tu storefront con Meta para medir el recorrido de compra y optimizar campañas.",

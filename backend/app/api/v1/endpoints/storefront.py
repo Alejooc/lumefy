@@ -4835,7 +4835,7 @@ async def read_public_tracking_integrations(
                 CompanyAppInstall.company_id == storefront.company_id,
                 CompanyAppInstall.is_enabled == True,
                 AppDefinition.is_active == True,
-                AppDefinition.slug.in_(["google-analytics", "meta-pixel", "tiktok-pixel"]),
+                AppDefinition.slug.in_(["google-analytics", "google-tag-manager", "meta-pixel", "tiktok-pixel"]),
             )
         )
     ).all()
@@ -4848,16 +4848,19 @@ async def read_public_tracking_integrations(
         if not browser_enabled and not server_side_enabled:
             continue
 
-        raw_tracking_id = str(
-            app_settings.get("measurement_id")
-            if app.slug == "google-analytics"
-            else app_settings.get("pixel_id")
-            or ""
-        ).strip()
+        identifier_key = {
+            "google-analytics": "measurement_id",
+            "google-tag-manager": "container_id",
+        }.get(app.slug, "pixel_id")
+        raw_tracking_id = str(app_settings.get(identifier_key) or "").strip()
         if app.slug == "google-analytics":
             valid_tracking_id = re.fullmatch(r"G-[A-Z0-9]+", raw_tracking_id.upper())
             provider = "google_analytics"
             consent_category = "analytics"
+        elif app.slug == "google-tag-manager":
+            valid_tracking_id = re.fullmatch(r"GTM-[A-Z0-9]+", raw_tracking_id.upper())
+            provider = "google_tag_manager"
+            consent_category = "marketing"
         elif app.slug == "meta-pixel":
             valid_tracking_id = re.fullmatch(r"[0-9]{5,32}", raw_tracking_id)
             provider = "meta"
@@ -4873,7 +4876,9 @@ async def read_public_tracking_integrations(
             schemas.PublicTrackingIntegration(
                 provider=provider,
                 app_slug=app.slug,
-                tracking_id=raw_tracking_id.upper() if app.slug == "google-analytics" else raw_tracking_id,
+                tracking_id=raw_tracking_id.upper()
+                if app.slug in {"google-analytics", "google-tag-manager"}
+                else raw_tracking_id,
                 enabled=browser_enabled,
                 track_ecommerce=app_settings.get("track_ecommerce") is not False,
                 server_side_enabled=server_side_enabled,

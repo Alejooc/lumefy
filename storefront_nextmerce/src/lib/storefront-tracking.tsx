@@ -143,6 +143,18 @@ function initializeGoogleAnalytics(trackingId: string): void {
   appendScript(`lumefy-ga-${trackingId}`, `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(trackingId)}`);
 }
 
+function initializeGoogleTagManager(containerId: string): void {
+  const key = `gtm:${containerId}`;
+  if (initializedIntegrations.has(key)) return;
+  initializedIntegrations.add(key);
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ "gtm.start": Date.now(), event: "gtm.js" });
+  appendScript(
+    `lumefy-gtm-${containerId}`,
+    `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(containerId)}`,
+  );
+}
+
 function initializeMetaPixel(pixelId: string): void {
   const key = `meta:${pixelId}`;
   if (initializedIntegrations.has(key)) return;
@@ -209,6 +221,21 @@ function sendGoogleEvent(integration: PublicTrackingIntegration, event: Storefro
     ...ecommercePayload(event),
     event_id: event.event_id,
     page_location: window.location.href,
+  });
+}
+
+function sendGoogleTagManagerEvent(
+  integration: PublicTrackingIntegration,
+  event: StorefrontTrackingEvent,
+): void {
+  if (!window.dataLayer) return;
+  if (!integration.track_ecommerce && event.name !== "page_view") return;
+  window.dataLayer.push({ ecommerce: null });
+  window.dataLayer.push({
+    event: event.name,
+    event_id: event.event_id,
+    page_location: event.page_location || window.location.href,
+    ecommerce: ecommercePayload(event),
   });
 }
 
@@ -300,6 +327,7 @@ function dispatchTrackingEvent(event: StorefrontTrackingEvent): void {
     if (!integrationAllowed(integration)) continue;
     if (!integration.enabled) continue;
     if (integration.provider === "google_analytics") sendGoogleEvent(integration, event);
+    if (integration.provider === "google_tag_manager") sendGoogleTagManagerEvent(integration, event);
     if (integration.provider === "meta") sendMetaEvent(integration, event);
     if (integration.provider === "tiktok") sendTikTokEvent(integration, event);
   }
@@ -338,6 +366,7 @@ function configureTracking(
     if (!integrationAllowed(integration)) continue;
     if (!integration.enabled) continue;
     if (integration.provider === "google_analytics") initializeGoogleAnalytics(integration.tracking_id);
+    if (integration.provider === "google_tag_manager") initializeGoogleTagManager(integration.tracking_id);
     if (integration.provider === "meta") initializeMetaPixel(integration.tracking_id);
     if (integration.provider === "tiktok") initializeTikTokPixel(integration.tracking_id);
   }

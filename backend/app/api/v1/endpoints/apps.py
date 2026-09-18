@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, List
@@ -1010,6 +1011,14 @@ async def update_app_config(
 
     install, app = await _load_install_by_slug(db, current_user.company_id, slug)
     incoming_settings = dict(payload.settings or {})
+    if app.slug == "google-tag-manager":
+        container_id = str(incoming_settings.get("container_id") or "").strip().upper()
+        if container_id and not re.fullmatch(r"GTM-[A-Z0-9]+", container_id):
+            raise HTTPException(
+                status_code=422,
+                detail="El ID del contenedor debe tener el formato GTM-XXXXXXX.",
+            )
+        incoming_settings["container_id"] = container_id
     private_keys = TRACKING_PRIVATE_CONFIG_KEYS.get(app.slug, set())
     private_settings = dict(install.private_settings or {})
     for private_key in private_keys:

@@ -61,6 +61,14 @@ export class AppStoreComponent implements OnInit {
       icon: 'brand-google-analytics',
       note: 'Visitas, productos, carritos y conversiones en GA4.'
     },
+    'google-tag-manager': {
+      eyebrow: 'Gestión de etiquetas',
+      tagline: 'Controla tus etiquetas desde un solo contenedor.',
+      accent: '#4285f4',
+      soft: '#eaf2ff',
+      icon: 'brand-google',
+      note: 'Eventos del storefront disponibles en dataLayer para GTM.'
+    },
     'meta-pixel': {
       eyebrow: 'Publicidad social',
       tagline: 'Convierte el recorrido de compra en mejores campañas.',
