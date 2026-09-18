@@ -53,6 +53,7 @@ const nextConfig = {
     // Keep modern formats first for the template's local assets. Tenant media
     // uses the StorefrontImage wrapper and is optimized by /media itself.
     formats: ["image/avif", "image/webp"],
+    qualities: [65, 75],
     // Include mobile widths so a 360–480px viewport does not fall back to
     // the default 640px candidate for the first hero image.
     deviceSizes: [320, 375, 414, 480, 640, 750, 828, 1080, 1200, 1440, 1920, 2400],

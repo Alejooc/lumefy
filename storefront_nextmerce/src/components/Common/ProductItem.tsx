@@ -88,6 +88,7 @@ const ProductItem = ({ item }: { item: Product }) => {
             <Link
               href={productHref}
               onClick={rememberProduct}
+              aria-label={`${buttonLabels.selectOptions}: ${item.title}`}
               className="flex w-full items-center justify-center rounded-full bg-[#17233f] px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(15,23,42,.2)] transition hover:bg-[#b65332]"
             >
               {buttonLabels.selectOptions}

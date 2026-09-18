@@ -843,7 +843,7 @@ const Header = ({ initialStorefront, initialNavigation, initialCollections }: He
                   </svg>
 
                   <div>
-                    <span className="block text-2xs text-dark-4 uppercase">
+                    <span className="block text-2xs text-dark-3 uppercase">
                       {accountHeading}
                     </span>
                     <p className="font-medium text-custom-sm text-dark">
@@ -906,7 +906,7 @@ const Header = ({ initialStorefront, initialNavigation, initialCollections }: He
                   </span>
 
                   <div>
-                    <span className="block text-2xs text-dark-4 uppercase">
+                    <span className="block text-2xs text-dark-3 uppercase">
                       {cartHeading}
                     </span>
                     <p className="font-medium text-custom-sm text-dark">
