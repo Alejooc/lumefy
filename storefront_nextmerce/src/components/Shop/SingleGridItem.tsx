@@ -14,7 +14,15 @@ import { useStorefrontCurrency } from "@/lib/storefront-currency";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
 import { useStorefrontUi } from "@/lib/storefront-ui";
 
-const SingleGridItem = ({ item, preload = false }: { item: Product; preload?: boolean }) => {
+const SingleGridItem = ({
+  item,
+  preload = false,
+  deferRendering = false,
+}: {
+  item: Product;
+  preload?: boolean;
+  deferRendering?: boolean;
+}) => {
   const { openModal } = useModalContext();
   const { format } = useStorefrontCurrency();
   const { session, loading: authLoading } = useStorefrontAuth();
@@ -54,7 +62,10 @@ const SingleGridItem = ({ item, preload = false }: { item: Product; preload?: bo
   };
 
   return (
-    <div className="group">
+    <article
+      className="group"
+      style={deferRendering ? { contentVisibility: "auto", containIntrinsicSize: "auto 420px" } : undefined}
+    >
       <div className="relative mb-4 aspect-[4/5] overflow-hidden rounded-lg bg-gray-2 shadow-1">
         <Link
           href={item.href || "/products"}
@@ -139,7 +150,7 @@ const SingleGridItem = ({ item, preload = false }: { item: Product; preload?: bo
         </div>
       </div>
 
-      <div className="flex items-center gap-2.5 mb-2">
+      {item.reviews > 0 ? <div className="flex items-center gap-2.5 mb-2">
         <div className="flex items-center gap-1">
           <Image
             src="/images/icons/icon-star.svg"
@@ -174,7 +185,7 @@ const SingleGridItem = ({ item, preload = false }: { item: Product; preload?: bo
         </div>
 
         <p className="text-custom-sm">({item.reviews})</p>
-      </div>
+      </div> : null}
 
       <h2 className="font-medium text-dark ease-out duration-200 hover:text-blue mb-1.5">
         <Link href={item.href || "/products"}> {item.title} </Link>
@@ -186,7 +197,7 @@ const SingleGridItem = ({ item, preload = false }: { item: Product; preload?: bo
           <span className="text-dark-4 line-through">{format(item.price)}</span>
         ) : null}
       </span>
-    </div>
+    </article>
   );
 };
 
