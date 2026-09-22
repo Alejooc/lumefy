@@ -1409,6 +1409,17 @@ const Checkout = ({ storefrontId, currency, checkoutSettings }: Props) => {
                   </div>
                 ) : null}
 
+                <p className="mt-4 text-center text-xs leading-5 text-dark-5">
+                  Al finalizar tu compra, aceptas nuestros{" "}
+                  <Link href="/pages/terms" className="font-medium text-blue hover:text-blue-dark">
+                    Términos y condiciones
+                  </Link>{" "}
+                  y confirmas que leíste nuestra{" "}
+                  <Link href="/pages/privacy" className="font-medium text-blue hover:text-blue-dark">
+                    Política de tratamiento de datos personales
+                  </Link>.
+                </p>
+
                 <div className="mt-7.5 flex flex-col gap-3 sm:flex-row">
                   <button
                     type="button"

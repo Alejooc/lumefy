@@ -57,9 +57,9 @@ declare global {
   }
 }
 
-const CONSENT_STORAGE_KEY = "lumefy-tracking-consent-v1";
 const CLIENT_ID_STORAGE_KEY = "lumefy-tracking-client-id-v1";
 const PURCHASE_STORAGE_KEY = "lumefy-pending-purchase-v1";
+const STOREFRONT_TRACKING_POLICY: TrackingConsent = { analytics: true, marketing: true };
 const CONFIRMED_PAYMENT_STATUSES = new Set([
   "approved",
   "approved_partial",
@@ -71,7 +71,7 @@ const CONFIRMED_PAYMENT_STATUSES = new Set([
 const MAX_PENDING_EVENTS = 50;
 const initializedIntegrations = new Set<string>();
 let activeIntegrations: PublicTrackingIntegration[] = [];
-let activeConsent: TrackingConsent | null = null;
+let activeConsent: TrackingConsent | null = STOREFRONT_TRACKING_POLICY;
 let activeCurrency = "USD";
 let activeStorefrontId: string | null = null;
 let configurationLoaded = false;
@@ -85,28 +85,8 @@ function uniqueEventId(prefix: string): string {
   return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function scopedConsentKey(): string {
-  if (typeof window === "undefined") return CONSENT_STORAGE_KEY;
-  return `${CONSENT_STORAGE_KEY}:${window.location.host.toLowerCase()}`;
-}
-
-function readConsent(): TrackingConsent | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const value = JSON.parse(window.localStorage.getItem(scopedConsentKey()) || "null") as unknown;
-    if (!value || typeof value !== "object") return null;
-    const record = value as Record<string, unknown>;
-    return {
-      analytics: record.analytics === true,
-      marketing: record.marketing === true,
-    };
-  } catch {
-    return null;
-  }
-}
-
 export function getStorefrontTrackingConsent(): TrackingConsent {
-  return readConsent() || { analytics: false, marketing: false };
+  return STOREFRONT_TRACKING_POLICY;
 }
 
 function getTrackingClientId(): string {
@@ -382,7 +362,7 @@ function configureTracking(
 
 export function trackStorefrontEvent(event: StorefrontTrackingEvent): void {
   if (typeof window === "undefined") return;
-  if (!activeConsent) activeConsent = readConsent();
+  if (!activeConsent) activeConsent = STOREFRONT_TRACKING_POLICY;
   if (!activeConsent) return;
   const normalizedEvent = {
     ...event,
@@ -462,47 +442,6 @@ export function trackingItem(input: {
   };
 }
 
-function CookiePreferences({
-  consent,
-  onSave,
-  onClose,
-}: {
-  consent: TrackingConsent;
-  onSave: (consent: TrackingConsent) => void;
-  onClose?: () => void;
-}) {
-  const [draft, setDraft] = useState(consent);
-  return (
-    <div className="fixed inset-x-4 bottom-4 z-[10000] mx-auto max-w-[720px] overflow-hidden rounded-[22px] border border-white/10 bg-[#17233f] text-white shadow-[0_24px_80px_rgba(15,23,42,.36)] sm:bottom-6">
-      <div className="grid gap-5 p-5 sm:grid-cols-[1fr_auto] sm:p-6">
-        <div>
-          <span className="mb-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#f4c7a8]">Privacidad</span>
-          <h2 className="text-lg font-semibold">Tú eliges cómo medimos la experiencia</h2>
-          <p className="mt-2 max-w-[520px] text-sm leading-6 text-white/70">Usamos cookies de analítica y marketing únicamente con tu permiso. Las necesarias mantienen funcionando la tienda y el checkout.</p>
-        </div>
-        {onClose ? (
-          <button type="button" onClick={onClose} className="absolute right-4 top-4 text-xl text-white/50 hover:text-white" aria-label="Cerrar preferencias">×</button>
-        ) : null}
-        <div className="flex min-w-[190px] flex-col justify-center gap-3 text-sm">
-          <label className="flex cursor-pointer items-center justify-between gap-5 rounded-xl bg-white/[0.08] px-4 py-3">
-            <span>Analítica</span>
-            <input type="checkbox" checked={draft.analytics} onChange={(event) => setDraft((current) => ({ ...current, analytics: event.target.checked }))} className="h-4 w-4 accent-[#f4c7a8]" />
-          </label>
-          <label className="flex cursor-pointer items-center justify-between gap-5 rounded-xl bg-white/[0.08] px-4 py-3">
-            <span>Marketing</span>
-            <input type="checkbox" checked={draft.marketing} onChange={(event) => setDraft((current) => ({ ...current, marketing: event.target.checked }))} className="h-4 w-4 accent-[#f4c7a8]" />
-          </label>
-        </div>
-      </div>
-      <div className="flex flex-wrap justify-end gap-2 border-t border-white/10 bg-black/10 px-5 py-4 sm:px-6">
-        <button type="button" onClick={() => onSave({ analytics: false, marketing: false })} className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold transition hover:bg-white/10">Solo necesarias</button>
-        <button type="button" onClick={() => onSave(draft)} className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#17233f] transition hover:bg-[#f4c7a8]">Guardar preferencias</button>
-        <button type="button" onClick={() => onSave({ analytics: true, marketing: true })} className="rounded-full bg-[#b65332] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#cf6744]">Aceptar todas</button>
-      </div>
-    </div>
-  );
-}
-
 export function StorefrontTrackingProvider({
   storefrontId,
   currency,
@@ -515,8 +454,6 @@ export function StorefrontTrackingProvider({
   const pathname = usePathname();
   const [integrations, setIntegrations] = useState<PublicTrackingIntegration[]>([]);
   const [configurationResolved, setConfigurationResolved] = useState(false);
-  const [consent, setConsent] = useState<TrackingConsent | null>(() => readConsent());
-  const [preferencesOpen, setPreferencesOpen] = useState(() => readConsent() === null);
 
   useEffect(() => {
     let active = true;
@@ -540,41 +477,13 @@ export function StorefrontTrackingProvider({
 
   useEffect(() => {
     if (!configurationResolved) return;
-    configureTracking(storefrontId, integrations, consent, currency);
-    if (consent && integrations.some(integrationAllowed)) {
+    configureTracking(storefrontId, integrations, STOREFRONT_TRACKING_POLICY, currency);
+    if (integrations.some(integrationAllowed)) {
       trackStorefrontEvent({ name: "page_view" });
       const searchTerm = new URLSearchParams(window.location.search).get("q")?.trim();
       if (searchTerm) trackStorefrontEvent({ name: "search", search_term: searchTerm });
     }
-  }, [configurationResolved, consent, currency, integrations, pathname, storefrontId]);
+  }, [configurationResolved, currency, integrations, pathname, storefrontId]);
 
-  const saveConsent = (nextConsent: TrackingConsent) => {
-    const shouldReload = Boolean(consent?.analytics && !nextConsent.analytics)
-      || Boolean(consent?.marketing && !nextConsent.marketing);
-    window.localStorage.setItem(scopedConsentKey(), JSON.stringify(nextConsent));
-    setConsent(nextConsent);
-    setPreferencesOpen(false);
-    if (shouldReload) window.location.reload();
-  };
-
-  return (
-    <>
-      {children}
-      {configurationResolved && integrations.length > 0 && preferencesOpen ? (
-        <CookiePreferences
-          consent={consent || { analytics: false, marketing: false }}
-          onSave={saveConsent}
-          onClose={consent ? () => setPreferencesOpen(false) : undefined}
-        />
-      ) : configurationResolved && integrations.length > 0 ? (
-        <button
-          type="button"
-          onClick={() => setPreferencesOpen(true)}
-          className="fixed bottom-3 left-3 z-[9998] rounded-full border border-gray-3 bg-white/95 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#17233f] shadow-sm backdrop-blur transition hover:border-[#17233f] sm:bottom-4 sm:left-4"
-        >
-          Privacidad
-        </button>
-      ) : null}
-    </>
-  );
+  return <>{children}</>;
 }
