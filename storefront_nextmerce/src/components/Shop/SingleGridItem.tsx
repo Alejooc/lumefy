@@ -14,7 +14,7 @@ import { useStorefrontCurrency } from "@/lib/storefront-currency";
 import { useStorefrontAuth } from "@/lib/storefront-auth";
 import { useStorefrontUi } from "@/lib/storefront-ui";
 
-const SingleGridItem = ({ item }: { item: Product }) => {
+const SingleGridItem = ({ item, preload = false }: { item: Product; preload?: boolean }) => {
   const { openModal } = useModalContext();
   const { format } = useStorefrontCurrency();
   const { session, loading: authLoading } = useStorefrontAuth();
@@ -65,6 +65,7 @@ const SingleGridItem = ({ item }: { item: Product }) => {
             src={item.imgs?.previews?.[0] || "/images/products/product-1-bg-1.png"}
             alt={item.title}
             fill
+            preload={preload}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 300px"
             className="object-cover object-center transition duration-500 group-hover:scale-[1.03]"
           />
@@ -175,9 +176,9 @@ const SingleGridItem = ({ item }: { item: Product }) => {
         <p className="text-custom-sm">({item.reviews})</p>
       </div>
 
-      <h3 className="font-medium text-dark ease-out duration-200 hover:text-blue mb-1.5">
+      <h2 className="font-medium text-dark ease-out duration-200 hover:text-blue mb-1.5">
         <Link href={item.href || "/products"}> {item.title} </Link>
-      </h3>
+      </h2>
 
       <span className="flex items-center gap-2 font-medium text-lg">
         <span className="text-dark">{format(item.discountedPrice)}</span>

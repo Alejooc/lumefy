@@ -3565,8 +3565,6 @@ async def retry_storefront_domain_provisioning(
         raise HTTPException(status_code=409, detail="Primero verifica el registro TXT del dominio.")
     if not settings.NPM_PROVISIONING_ENABLED:
         raise HTTPException(status_code=503, detail="El aprovisionamiento automático de dominios no está configurado.")
-    if domain.provisioning_status == "ACTIVE":
-        return _serialize_domain(domain)
     domain.provisioning_status = "QUEUED"
     domain.provisioning_attempts = 0
     domain.provisioning_error = None

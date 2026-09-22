@@ -230,16 +230,13 @@ export async function getPublicProducts(
     search.set(key, String(value));
   }
   const suffix = search.toString() ? `?${search.toString()}` : "";
-  const hasCollectionFilter = Boolean(params?.collection);
   // A short cache prevents every navigation/infinite-scroll request from
   // recalculating the same catalog. Checkout still validates stock in the
   // backend, so a few seconds of catalog cache cannot oversell inventory.
-  // Collection membership can change when an automated rule is saved, so
-  // collection-filtered requests must always use the current links.
+  // Collection links are also safe to cache briefly and this removes the
+  // largest source of TTFB on collection landing pages.
   return request<PublicCatalogResponse>(`/storefront/public/${storefrontId}/products${suffix}`,
-    hasCollectionFilter
-      ? { cache: "no-store" }
-      : { cache: "force-cache", next: { revalidate: 15 } },
+    { cache: "force-cache", next: { revalidate: 15 } },
   );
 }
 

@@ -34,16 +34,14 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("preview_token") ||
       request.cookies.get("lumefy_preview_token")?.value,
     );
-    const isCollectionRequest = Boolean(params.collection);
     return NextResponse.json(catalog, {
       headers: {
         // Inventory is checked again when an order is created. This lets the
         // public catalog responses be reused briefly at the edge while
-        // preview and collection responses remain isolated from the public
-        // cache. Collection membership is materialized from automated rules,
-        // so a cached incremental batch could otherwise show products that
-        // were just removed from the collection.
-        "Cache-Control": isPreviewRequest || isCollectionRequest
+        // preview responses remain isolated from the public cache. Collection
+        // membership may be reused for only a few seconds; checkout still
+        // performs the authoritative stock and pricing validation.
+        "Cache-Control": isPreviewRequest
           ? "private, no-store"
           : "public, max-age=15, s-maxage=15, stale-while-revalidate=30",
       },

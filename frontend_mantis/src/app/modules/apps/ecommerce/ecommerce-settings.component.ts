@@ -316,7 +316,11 @@ export class EcommerceSettingsComponent implements OnInit, OnDestroy {
   }
 
   canRetryDomainProvisioning(domain: StorefrontDomain): boolean {
-    return domain.is_verified && ['FAILED', 'NOT_CONFIGURED'].includes(domain.provisioning_status);
+    return domain.is_verified && ['ACTIVE', 'FAILED', 'NOT_CONFIGURED'].includes(domain.provisioning_status);
+  }
+
+  domainProvisioningActionLabel(domain: StorefrontDomain): string {
+    return domain.provisioning_status === 'ACTIVE' ? 'Sincronizar proxy' : 'Reintentar';
   }
 
   themeLabel(themeKey?: string | null): string {

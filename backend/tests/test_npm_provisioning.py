@@ -52,6 +52,65 @@ def client_with_responses(*responses):
 
 
 class NpmProvisioningClientTests(unittest.TestCase):
+    def test_root_domain_creates_one_host_and_certificate_for_apex_and_www(self):
+        client, session = client_with_responses(
+            FakeResponse(200, {"token": "jwt"}),
+            FakeResponse(200, []),
+            FakeResponse(200, {"example.com": "ok", "www.example.com": "ok"}),
+            FakeResponse(201, {"id": 12, "certificate_id": 0}),
+            FakeResponse(200, []),
+            FakeResponse(201, {"id": 33}),
+            FakeResponse(200, {"id": 12}),
+        )
+
+        client.provision_domain("example.com")
+
+        create_host_payload = next(
+            call[2]["json"]
+            for call in session.calls
+            if call[0] == "POST" and call[1].endswith("/nginx/proxy-hosts")
+        )
+        create_certificate_payload = next(
+            call[2]["json"]
+            for call in session.calls
+            if call[0] == "POST" and call[1].endswith("/nginx/certificates")
+        )
+        self.assertEqual(create_host_payload["domain_names"], ["example.com", "www.example.com"])
+        self.assertEqual(create_certificate_payload["domain_names"], ["example.com", "www.example.com"])
+        self.assertEqual(session.calls[-1][2]["json"]["domain_names"], ["example.com", "www.example.com"])
+
+    def test_subdomain_does_not_create_a_www_alias(self):
+        client, _session = client_with_responses()
+
+        self.assertEqual(client._managed_domain_names("shop.example.com"), ["shop.example.com"])
+        self.assertEqual(
+            client._managed_domain_names("example.com.co"),
+            ["example.com.co", "www.example.com.co"],
+        )
+
+    def test_upgrades_a_legacy_apex_only_host_to_apex_and_www(self):
+        client, session = client_with_responses(
+            FakeResponse(200, {"token": "jwt"}),
+            FakeResponse(200, [{
+                "id": 12,
+                "domain_names": ["example.com"],
+                "forward_scheme": "http",
+                "forward_host": "lumefy-storefront-1",
+                "forward_port": 3000,
+                "certificate_id": 21,
+            }]),
+            FakeResponse(200, {"example.com": "ok", "www.example.com": "ok"}),
+            FakeResponse(200, []),
+            FakeResponse(201, {"id": 33}),
+            FakeResponse(200, {"id": 12}),
+        )
+
+        result = client.provision_domain("example.com")
+
+        self.assertEqual(result.certificate_id, 33)
+        self.assertEqual(session.calls[-1][2]["json"]["domain_names"], ["example.com", "www.example.com"])
+        self.assertEqual(session.calls[-1][2]["json"]["certificate_id"], 33)
+
     def test_creates_proxy_host_certificate_and_enables_ssl(self):
         client, session = client_with_responses(
             FakeResponse(200, {"token": "jwt"}),

@@ -93,17 +93,21 @@ const ColorsDropdwon = ({
         >
           Todos
         </button>
-        {colors.map((color, key) => (
+        {colors.map((color, key) => {
+          const inputId = `catalog-color-${key}`;
+          return (
           <label
             key={key}
-            htmlFor={color.value}
+            htmlFor={inputId}
+            title={`${color.value} (${color.products})`}
             className="cursor-pointer select-none flex items-center"
           >
             <div className="relative">
               <input
                 type="radio"
                 name="color"
-                id={color.value}
+                id={inputId}
+                aria-label={`Filtrar por color ${color.value}`}
                 className="sr-only"
                 checked={color.isRefined}
                 onChange={() => onSelect(color.value)}
@@ -121,7 +125,8 @@ const ColorsDropdwon = ({
               </div>
             </div>
           </label>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

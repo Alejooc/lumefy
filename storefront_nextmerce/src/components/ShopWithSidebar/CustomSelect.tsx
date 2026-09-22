@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useId } from "react";
 
 type Option = {
   label: string;
@@ -14,46 +14,21 @@ const CustomSelect = ({
   value?: string;
   onChange?: (value: string) => void;
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectRef = useRef<HTMLDivElement | null>(null);
-  const selectedOption =
-    options.find((option) => option.value === value) || options[0];
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, []);
+  const selectId = useId();
 
   return (
-    <div className="custom-select custom-select-2 flex-shrink-0 relative" ref={selectRef}>
-      <div
-        className={`select-selected whitespace-nowrap ${isOpen ? "select-arrow-active" : ""}`}
-        onClick={() => setIsOpen((current) => !current)}
+    <div className="relative flex-shrink-0">
+      <label htmlFor={selectId} className="sr-only">Ordenar productos</label>
+      <select
+        id={selectId}
+        value={value || options[0]?.value}
+        onChange={(event) => onChange?.(event.target.value)}
+        className="min-h-9 cursor-pointer rounded-md border border-gray-3 bg-white py-1.5 pl-3 pr-9 text-sm font-medium text-dark outline-none transition focus:border-blue focus:ring-2 focus:ring-blue/20"
       >
-        {selectedOption?.label}
-      </div>
-      <div className={`select-items ${isOpen ? "" : "select-hide"}`}>
         {options.map((option) => (
-          <div
-            key={option.value}
-            onClick={() => {
-              onChange?.(option.value);
-              setIsOpen(false);
-            }}
-            className={`select-item ${selectedOption?.value === option.value ? "same-as-selected" : ""}`}
-          >
-            {option.label}
-          </div>
+          <option key={option.value} value={option.value}>{option.label}</option>
         ))}
-      </div>
+      </select>
     </div>
   );
 };

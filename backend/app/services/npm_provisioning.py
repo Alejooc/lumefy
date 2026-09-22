@@ -155,9 +155,10 @@ class NginxProxyManagerClient:
 
     def provision_domain(self, domain: str) -> NpmProvisioningResult:
         normalized = domain.strip().lower().rstrip(".")
+        domain_names = self._managed_domain_names(normalized)
         proxy_host = self._find_proxy_host(normalized)
         if proxy_host:
-            self._assert_managed_proxy_host(proxy_host, normalized)
+            self._assert_managed_proxy_host(proxy_host, normalized, domain_names)
             # NPM only includes its shared ACME webroot location in a host
             # that already has a certificate. Disable an incomplete host so
             # the request falls through to NPM's default challenge server.
@@ -171,22 +172,31 @@ class NginxProxyManagerClient:
         reachability = self._request(
             "POST",
             "/nginx/certificates/test-http",
-            payload={"domains": [normalized]},
+            payload={"domains": domain_names},
         )
-        result = reachability.get(normalized) if isinstance(reachability, dict) else None
-        if str(result).lower() != "ok":
-            detail = str(result or "sin respuesta")[:300]
+        failed_reachability = {
+            name: reachability.get(name) if isinstance(reachability, dict) else None
+            for name in domain_names
+            if not isinstance(reachability, dict) or str(reachability.get(name)).lower() != "ok"
+        }
+        if failed_reachability:
+            detail = str(failed_reachability)[:300]
             raise NpmApiError(
-                f"El dominio todavía no llega por HTTP a NPM: {detail}",
+                f"Uno o más dominios todavía no llegan por HTTP a NPM: {detail}",
                 retryable=True,
             )
 
         if not proxy_host:
-            proxy_host = self._create_proxy_host(normalized)
+            proxy_host = self._create_proxy_host(domain_names)
         proxy_host_id = int(proxy_host["id"])
         certificate_id = int(proxy_host.get("certificate_id") or 0)
+        current_names = self._normalized_names(proxy_host.get("domain_names"))
+        if current_names != set(domain_names):
+            # Upgrade legacy apex-only hosts to a certificate shared by the
+            # root domain and its canonical www alias.
+            certificate_id = 0
         if certificate_id <= 0:
-            certificate = self._find_certificate(normalized)
+            certificate = self._find_certificate(domain_names)
             if not certificate:
                 certificate = self._request(
                     "POST",
@@ -194,7 +204,7 @@ class NginxProxyManagerClient:
                     payload={
                         "provider": "letsencrypt",
                         "nice_name": f"Lumefy - {normalized}",
-                        "domain_names": [normalized],
+                        "domain_names": domain_names,
                         "meta": {"dns_challenge": False},
                     },
                     expected_statuses={201},
@@ -206,6 +216,7 @@ class NginxProxyManagerClient:
             "PUT",
             f"/nginx/proxy-hosts/{proxy_host_id}",
             payload={
+                "domain_names": domain_names,
                 "certificate_id": certificate_id,
                 "ssl_forced": True,
                 "http2_support": True,
@@ -227,7 +238,11 @@ class NginxProxyManagerClient:
             proxy_host = self._find_proxy_host(normalized)
             if not proxy_host:
                 return
-            self._assert_managed_proxy_host(proxy_host, normalized)
+            self._assert_managed_proxy_host(
+                proxy_host,
+                normalized,
+                self._managed_domain_names(normalized),
+            )
             host_id = int(proxy_host["id"])
         try:
             self._request(
@@ -239,9 +254,9 @@ class NginxProxyManagerClient:
             if exc.status_code != 404:
                 raise
 
-    def _create_proxy_host(self, domain: str) -> dict[str, Any]:
+    def _create_proxy_host(self, domain_names: list[str]) -> dict[str, Any]:
         payload = {
-            "domain_names": [domain],
+            "domain_names": domain_names,
             "forward_scheme": self.forward_scheme,
             "forward_host": self.forward_host,
             "forward_port": self.forward_port,
@@ -280,33 +295,55 @@ class NginxProxyManagerClient:
     def _find_proxy_host(self, domain: str) -> dict[str, Any] | None:
         hosts = self._request("GET", "/nginx/proxy-hosts")
         for host in hosts if isinstance(hosts, list) else []:
-            names = {str(item).strip().lower().rstrip(".") for item in host.get("domain_names") or []}
+            names = self._normalized_names(host.get("domain_names"))
             if domain in names:
                 return host
         return None
 
-    def _find_certificate(self, domain: str) -> dict[str, Any] | None:
+    def _find_certificate(self, domain_names: list[str]) -> dict[str, Any] | None:
         certificates = self._request("GET", "/nginx/certificates")
         candidates = []
+        expected_names = set(domain_names)
         for certificate in certificates if isinstance(certificates, list) else []:
-            names = {str(item).strip().lower().rstrip(".") for item in certificate.get("domain_names") or []}
-            if names == {domain} and certificate.get("provider") == "letsencrypt":
+            names = self._normalized_names(certificate.get("domain_names"))
+            if names == expected_names and certificate.get("provider") == "letsencrypt":
                 candidates.append(certificate)
         return max(candidates, key=lambda item: int(item.get("id") or 0), default=None)
 
-    def _assert_managed_proxy_host(self, proxy_host: dict[str, Any], domain: str) -> None:
-        names = {str(item).strip().lower().rstrip(".") for item in proxy_host.get("domain_names") or []}
+    def _assert_managed_proxy_host(
+        self,
+        proxy_host: dict[str, Any],
+        domain: str,
+        expected_names: list[str],
+    ) -> None:
+        names = self._normalized_names(proxy_host.get("domain_names"))
         target_matches = (
             proxy_host.get("forward_scheme") == self.forward_scheme
             and proxy_host.get("forward_host") == self.forward_host
             and int(proxy_host.get("forward_port") or 0) == self.forward_port
         )
-        if names != {domain} or not target_matches:
+        if names not in ({domain}, set(expected_names)) or not target_matches:
             raise NpmApiError(
                 "El dominio ya existe en un Proxy Host de NPM que Lumefy no puede administrar con seguridad.",
                 retryable=False,
                 status_code=409,
             )
+
+    @staticmethod
+    def _normalized_names(values: Any) -> set[str]:
+        return {str(item).strip().lower().rstrip(".") for item in values or []}
+
+    @staticmethod
+    def _managed_domain_names(domain: str) -> list[str]:
+        """Add www only for registrable-looking root domains, never subdomains."""
+        labels = domain.split(".")
+        common_country_second_levels = {"ac", "co", "com", "edu", "gov", "net", "org"}
+        is_root = len(labels) == 2 or (
+            len(labels) == 3
+            and len(labels[-1]) == 2
+            and labels[-2] in common_country_second_levels
+        )
+        return [domain, f"www.{domain}"] if is_root else [domain]
 
     @staticmethod
     def _response_json(response: requests.Response) -> Any:

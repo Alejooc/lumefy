@@ -781,9 +781,13 @@ const ShopWithSidebar = ({
                 }`}
                 style={{ display: gridEnabled ? undefined : "none", order: sectionOrder(gridSectionType) }}
               >
-                {loadedItems.map((item) =>
+                {loadedItems.map((item, index) =>
                   productStyle === "grid" ? (
-                    <SingleGridItem item={item} key={item.publishedProductId || item.id} />
+                    <SingleGridItem
+                      item={item}
+                      key={item.publishedProductId || item.id}
+                      preload={index === 0}
+                    />
                   ) : (
                     <SingleListItem item={item} key={item.publishedProductId || item.id} />
                   )

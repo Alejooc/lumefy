@@ -349,7 +349,7 @@
                           <button class="btn btn-outline-primary btn-sm" (click)="verifyDomain(domain)" [disabled]="saving">Verificar DNS</button>
                         }
                         @if (canRetryDomainProvisioning(domain)) {
-                          <button class="btn btn-outline-primary btn-sm" (click)="retryDomainProvisioning(domain)" [disabled]="saving">Reintentar</button>
+                          <button class="btn btn-outline-primary btn-sm" (click)="retryDomainProvisioning(domain)" [disabled]="saving">{{ domainProvisioningActionLabel(domain) }}</button>
                         }
                         <button class="btn btn-outline-secondary btn-sm" (click)="editDomain(domain)">Principal</button>
                         <button class="btn btn-outline-danger btn-sm" (click)="deleteDomain(domain)">Borrar</button>

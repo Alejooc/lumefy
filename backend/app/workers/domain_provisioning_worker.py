@@ -155,7 +155,7 @@ async def record_failure(
 
 def public_error_message(error: NpmApiError) -> str:
     message = str(error)
-    if message.startswith("El dominio todavía no llega por HTTP"):
+    if message.startswith(("El dominio todavía no llega por HTTP", "Uno o más dominios todavía no llegan por HTTP")):
         return message
     if error.status_code == 409:
         return message
