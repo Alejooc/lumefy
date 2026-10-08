@@ -611,10 +611,6 @@ const ShopDetails = ({
                     ) : null}
                   </h3>
 
-                  {addiWidget && currency.toUpperCase() === "COP" ? (
-                    <AddiWidget price={addiPurchaseAmount} config={addiWidget} />
-                  ) : null}
-
                   <ul className="flex flex-col gap-2">
                     <li className="flex items-center gap-2.5">{content.free_delivery_text}</li>
                     <li className="flex items-center gap-2.5">{content.promo_text}</li>
@@ -635,10 +631,9 @@ const ShopDetails = ({
                               aria-label={color}
                               aria-pressed={activeColor === color}
                               onClick={() => setActiveColor(color)}
-                              className={`flex items-center justify-center w-5.5 h-5.5 rounded-full ${
-                                activeColor === color ? "border" : ""
+                              className={`flex items-center justify-center w-5.5 h-5.5 rounded-full border border-black/10 transition-shadow ${
+                                activeColor === color ? "ring-1 ring-blue" : ""
                               }`}
-                              style={{ borderColor: toSwatchColor(color) }}
                             >
                               <span className="block w-3 h-3 rounded-full" style={{ backgroundColor: toSwatchColor(color) }} />
                             </button>
@@ -681,6 +676,10 @@ const ShopDetails = ({
                       </div>
                     ) : null}
                   </div>
+
+                  {addiWidget && currency.toUpperCase() === "COP" ? (
+                    <AddiWidget price={addiPurchaseAmount} config={addiWidget} />
+                  ) : null}
 
                   {((selectedVariant?.sku && informationSection.settings["show_sku"] !== false) || product.sellerName) ? (
                     <div className="mb-5 flex flex-col gap-2">

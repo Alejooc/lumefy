@@ -124,6 +124,7 @@ const ShopWithSidebar = ({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isNavigating, startNavigation] = useTransition();
+  const [optimisticQuery, setOptimisticQuery] = useState<string | null>(null);
   const [productStyle, setProductStyle] = useState("grid");
   const [productSidebar, setProductSidebar] = useState(false);
   const [loadedItems, setLoadedItems] = useState<Product[]>(items);
@@ -179,11 +180,32 @@ const ShopWithSidebar = ({
   const showMobileFilterButton = filtersSection.settings["show_mobile_button"] !== false;
   const startProduct = loadedItems.length ? (currentPage - 1) * PRODUCTS_PER_BATCH + 1 : 0;
   const endProduct = loadedItems.length ? startProduct + loadedItems.length - 1 : 0;
-  const activeMinPrice = searchParams.get("minPrice");
-  const activeMaxPrice = searchParams.get("maxPrice");
+  const effectiveSearchParams = useMemo(
+    () => new URLSearchParams(optimisticQuery ?? searchParams.toString()),
+    [optimisticQuery, searchParams],
+  );
+  const queryValues = useCallback(
+    (key: string) => (effectiveSearchParams.get(key) || "").split(",").map((value) => value.trim()).filter(Boolean),
+    [effectiveSearchParams],
+  );
+  const visibleCategories = queryValues("category");
+  const visibleCollections = queryValues("collection");
+  const visibleBrands = queryValues("brand");
+  const visibleTypes = queryValues("type");
+  const visibleSizes = queryValues("size");
+  const visibleColors = queryValues("color");
+  const activeMinPrice = effectiveSearchParams.get("minPrice");
+  const activeMaxPrice = effectiveSearchParams.get("maxPrice");
+
+  useEffect(() => {
+    if (optimisticQuery !== null && searchParams.toString() === optimisticQuery) {
+      setOptimisticQuery(null);
+    }
+  }, [optimisticQuery, searchParams]);
 
   const navigateTo = (url: string) => {
     setProductSidebar(false);
+    setOptimisticQuery(new URL(url, window.location.href).searchParams.toString());
     startNavigation(() => router.push(url));
   };
 
@@ -311,7 +333,7 @@ const ShopWithSidebar = ({
   ];
 
   const toggleMultiFilter = (key: string, value?: string) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(effectiveSearchParams.toString());
     if (!value) {
       params.delete(key);
       navigateTo(`${pathname}?${params.toString()}`);
@@ -337,7 +359,7 @@ const ShopWithSidebar = ({
   };
 
   const updateFilters = (entries: Record<string, string | undefined>) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(effectiveSearchParams.toString());
     for (const [key, value] of Object.entries(entries)) {
       if (!value) {
         params.delete(key);
@@ -350,7 +372,7 @@ const ShopWithSidebar = ({
   };
 
   const removeFilterValue = (key: string, value?: string) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(effectiveSearchParams.toString());
     if (!value) {
       params.delete(key);
     } else {
@@ -371,7 +393,7 @@ const ShopWithSidebar = ({
   };
 
   const clearAllFilters = () => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(effectiveSearchParams.toString());
     ["collection", "category", "brand", "type", "size", "color", "minPrice", "maxPrice", "page"].forEach((key) =>
       params.delete(key),
     );
@@ -379,7 +401,7 @@ const ShopWithSidebar = ({
   };
 
   const removePriceFilter = () => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(effectiveSearchParams.toString());
     params.delete("minPrice");
     params.delete("maxPrice");
     params.delete("page");
@@ -391,32 +413,32 @@ const ShopWithSidebar = ({
   const brandLabelMap = new Map(brands.map((item) => [item.value.toLowerCase(), item.value]));
   const typeLabelMap = new Map(productTypes.map((item) => [item.value, item.name]));
   const activeFilterChips = [
-    ...activeCategories.map((value) => ({
+    ...visibleCategories.map((value) => ({
       key: `category:${value}`,
       label: categoryLabelMap.get(value) || value,
       onRemove: () => removeFilterValue("category", value),
     })),
-    ...activeCollections.map((value) => ({
+    ...visibleCollections.map((value) => ({
       key: `collection:${value}`,
       label: collectionLabelMap.get(value) || value,
       onRemove: () => removeFilterValue("collection", value),
     })),
-    ...activeBrands.map((value) => ({
+    ...visibleBrands.map((value) => ({
       key: `brand:${value}`,
       label: brandLabelMap.get(value.toLowerCase()) || value,
       onRemove: () => removeFilterValue("brand", value),
     })),
-    ...activeTypes.map((value) => ({
+    ...visibleTypes.map((value) => ({
       key: `type:${value}`,
       label: typeLabelMap.get(value) || value,
       onRemove: () => removeFilterValue("type", value),
     })),
-    ...activeSizes.map((value) => ({
+    ...visibleSizes.map((value) => ({
       key: `size:${value}`,
       label: `Talla ${value}`,
       onRemove: () => removeFilterValue("size", value),
     })),
-    ...activeColors.map((value) => ({
+    ...visibleColors.map((value) => ({
       key: `color:${value}`,
       label: `Color ${value}`,
       onRemove: () => removeFilterValue("color", value),
@@ -516,7 +538,10 @@ const ShopWithSidebar = ({
 
                   {/* <!-- category box --> */}
                   <CategoryDropdown
-                    categories={categories}
+                    categories={categories.map((category) => ({
+                      ...category,
+                      isRefined: visibleCategories.includes(category.slug),
+                    }))}
                     onSelect={(slug) => toggleMultiFilter("category", slug)}
                   />
 
@@ -524,7 +549,10 @@ const ShopWithSidebar = ({
                     <CategoryDropdown
                       title="Colecciones"
                       allLabel="Todas las colecciones"
-                      categories={collections}
+                      categories={collections.map((collection) => ({
+                        ...collection,
+                        isRefined: visibleCollections.includes(collection.slug),
+                      }))}
                       onSelect={(slug) => toggleMultiFilter("collection", slug)}
                     />
                   )}
@@ -537,21 +565,24 @@ const ShopWithSidebar = ({
                         name: brand.value,
                         slug: brand.value,
                         products: brand.products,
-                        isRefined: brand.isRefined,
+                        isRefined: visibleBrands.includes(brand.value),
                       }))}
                       onSelect={(value) => toggleMultiFilter("brand", value)}
                     />
                   )}
 
                   <GenderDropdown
-                    types={productTypes}
+                    types={productTypes.map((type) => ({
+                      ...type,
+                      isRefined: visibleTypes.includes(type.value),
+                    }))}
                     onSelect={(value) => toggleMultiFilter("type", value)}
                   />
 
                   {!!sizes.length && (
                     <SizeDropdown
                       sizes={sizes}
-                      activeSize={activeSizes}
+                      activeSize={visibleSizes}
                       onSelect={(value) => toggleMultiFilter("size", value)}
                     />
                   )}
@@ -559,7 +590,7 @@ const ShopWithSidebar = ({
                   {!!colors.length && (
                     <ColorsDropdwon
                       colors={colors}
-                      activeColor={activeColors}
+                      activeColor={visibleColors}
                       onSelect={(value) => toggleMultiFilter("color", value)}
                     />
                   )}
@@ -568,8 +599,8 @@ const ShopWithSidebar = ({
                   <PriceDropdown
                     min={priceRangeMin}
                     max={Math.max(priceRangeMax, priceRangeMin + 1)}
-                    selectedMin={minPrice}
-                    selectedMax={maxPrice}
+                    selectedMin={activeMinPrice ? Number(activeMinPrice) : minPrice}
+                    selectedMax={activeMaxPrice ? Number(activeMaxPrice) : maxPrice}
                     onApply={(nextMin, nextMax) =>
                       updateFilters({
                         minPrice: String(nextMin),
