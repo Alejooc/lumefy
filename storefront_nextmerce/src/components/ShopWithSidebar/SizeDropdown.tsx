@@ -47,7 +47,7 @@ const SizeDropdown = ({
 
       {/* // <!-- dropdown menu --> */}
       <div
-        className={`flex-wrap gap-2.5 p-6 ${
+        className={`max-h-60 flex-wrap gap-2.5 overflow-y-auto overscroll-contain p-6 pr-4 ${
           toggleDropdown ? "flex" : "hidden"
         }`}
       >

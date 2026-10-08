@@ -50,6 +50,7 @@ const CategoryDropdown = ({
         >
           <span>{allLabel}</span>
         </button>
+        <div className="flex max-h-60 flex-col gap-3 overflow-y-auto overscroll-contain pr-2">
         {categories.map((category) => (
           <button
             key={category.slug}
@@ -92,6 +93,7 @@ const CategoryDropdown = ({
             </span>
           </button>
         ))}
+        </div>
       </div>
     </div>
   );

@@ -629,7 +629,7 @@ const ShopWithSidebar = ({
                   <h1>{selectedCollectionName || "Todos los productos"}</h1>
                   {selectedCollectionDescription ? <p>{selectedCollectionDescription}</p> : null}
                 </div>
-              ) : headerEnabled ? (
+              ) : templateKey !== "search" && headerEnabled ? (
                 <div
                   className={`${catalogPreviewClass(headerSection.id)} mb-6 rounded-lg bg-white px-6 py-7 shadow-1 sm:px-8 sm:py-9`}
                   data-lumefy-catalog-section={previewMode ? headerSectionType : undefined}
@@ -640,9 +640,7 @@ const ShopWithSidebar = ({
                     {templateContent.breadcrumb_title}
                   </p>
                   <h1 className="font-semibold text-3xl text-dark sm:text-4xl">
-                    {templateKey === "search"
-                      ? (searchTerm?.trim() ? `Resultados para “${searchTerm}”` : templateContent.breadcrumb_title)
-                      : (selectedCollectionName || "Todos los productos")}
+                    {selectedCollectionName || "Todos los productos"}
                   </h1>
                   {selectedCollectionDescription && headerSection.settings["show_description"] !== false ? (
                     <p className="mt-3 max-w-2xl text-dark-4" style={{ marginRight: headerSection.settings["alignment"] === "center" ? "auto" : undefined, marginLeft: headerSection.settings["alignment"] === "center" ? "auto" : undefined }}>

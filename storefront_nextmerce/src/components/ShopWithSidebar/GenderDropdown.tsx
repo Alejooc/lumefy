@@ -43,6 +43,7 @@ const GenderDropdown = ({
         >
           <span>Todos los tipos</span>
         </button>
+        <div className="flex max-h-60 flex-col gap-3 overflow-y-auto overscroll-contain pr-2">
         {types.map((type) => (
           <button
             key={type.value}
@@ -84,6 +85,7 @@ const GenderDropdown = ({
             </span>
           </button>
         ))}
+        </div>
       </div>
     </div>
   );
