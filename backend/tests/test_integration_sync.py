@@ -23,6 +23,12 @@ from app.services.integration_service import (
     _incremental_request_url,
     IntegrationRequestError,
     _mapped,
+    _attribute_key_names,
+    _attribute_cleanup_keys,
+    _collect_product_attributes,
+    _collect_variant_attributes,
+    _normalize_catalog_rows,
+    _remove_attribute_keys,
     preflight_source,
     _suggest_mapping_from_sample,
     _sync_brand,
@@ -53,6 +59,72 @@ class IntegrationScheduleSchemaTests(unittest.TestCase):
 
 
 class IntegrationProviderShapeTests(unittest.TestCase):
+    def test_attribute_mapping_detects_individual_keys_in_product_and_variant_arrays(self):
+        sample = {
+            "id": "p-1",
+            "name": "Juego de sábanas",
+            "specs": [{"spec": "Material", "value": "Algodón"}],
+            "props": [{"property": "Color", "value": "Blanco"}, {"property": "Estilo", "value": "Liso"}],
+            "variants": [{
+                "id": "v-1",
+                "sku": "SKU-1",
+                "attributes": [{"name": "Color", "value": "Blanco"}, {"name": "Medida", "value": "1.90"}],
+            }],
+        }
+
+        suggestion = _suggest_mapping_from_sample(sample)
+        suggestions = {item["canonical"]: item for item in suggestion["suggestions"]}
+
+        self.assertEqual(suggestions["product.attributes.specs"]["attribute_keys"], ["Material"])
+        self.assertEqual(suggestions["product.attributes.props"]["attribute_keys"], ["Color", "Estilo"])
+        self.assertEqual(suggestions["variant.attributes"]["attribute_keys"], ["Color", "Medida"])
+
+    def test_attribute_selection_excludes_only_unchecked_product_and_variant_keys(self):
+        product = {
+            "props": [{"property": "Color", "value": "Blanco"}, {"property": "Estilo", "value": "Liso"}],
+        }
+        variant = {
+            "attributes": [{"name": "Color", "value": "Blanco"}, {"name": "Medida", "value": "1.90"}],
+        }
+        mapping = {"product.attributes.props": "props[]", "variant.attributes": "variants[].attributes[]"}
+
+        self.assertEqual(
+            _collect_product_attributes(product, mapping, {"product.attributes.props": ["Estilo"]}),
+            {"Estilo": "Liso"},
+        )
+        self.assertEqual(
+            _collect_variant_attributes(variant, mapping, "variants[]", {"variant.attributes": ["Medida"]}),
+            {"Medida": "1.90"},
+        )
+
+    def test_attribute_keys_include_entries_without_values_for_stale_value_cleanup(self):
+        self.assertEqual(_attribute_key_names([{"spec": "Color", "value": ""}]), ["Color"])
+
+    def test_stale_attribute_cleanup_matches_keys_without_case_sensitivity(self):
+        self.assertEqual(
+            _remove_attribute_keys({"color": "Blanco", "Material": "Algodón"}, {"Color"}),
+            {"Material": "Algodón"},
+        )
+
+    def test_unselected_attribute_keys_are_scheduled_for_product_and_variant_cleanup(self):
+        product_keys, variant_keys = _attribute_cleanup_keys(
+            {
+                "product.attributes.props": ["Color", "Material"],
+                "variant.attributes": ["Color", "Size"],
+            },
+            {
+                "product.attributes.props": ["Material"],
+                "variant.attributes": ["Size"],
+            },
+            {
+                "product.attributes.props": "props[]",
+                "variant.attributes": "variants[].attributes[]",
+            },
+        )
+
+        self.assertEqual(product_keys, {"Color"})
+        self.assertEqual(variant_keys, {"Color"})
+
     def test_webhook_verification_classifies_event_and_sync_type(self):
         body = b'{"id":"evt-123","type":"product.updated"}'
         secret = "provider-webhook-secret"

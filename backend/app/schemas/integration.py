@@ -110,6 +110,7 @@ class IntegrationMappingSuggestionOut(BaseModel):
     kind: str = "scalar"
     reason: str | None = None
     candidates: list[str] = Field(default_factory=list)
+    attribute_keys: list[str] = Field(default_factory=list)
 
 
 class IntegrationMappingOut(BaseModel):
@@ -121,6 +122,7 @@ class IntegrationMappingOut(BaseModel):
     catalog_mode: str = "auto"
     detected_shape: str = "unknown"
     mapping: dict[str, Any] = Field(default_factory=dict)
+    attribute_selection: dict[str, list[str]] = Field(default_factory=dict)
     collections: dict[str, Any] = Field(default_factory=dict)
     suggestions: list[IntegrationMappingSuggestionOut] = Field(default_factory=list)
     detected_paths: list[str] = Field(default_factory=list)
@@ -131,6 +133,8 @@ class IntegrationMappingConfirm(BaseModel):
     mapping: dict[str, Any] = Field(default_factory=dict)
     catalog_mode: str = "auto"
     collections: dict[str, Any] = Field(default_factory=dict)
+    attribute_keys: dict[str, list[str]] = Field(default_factory=dict)
+    attribute_selection: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class IntegrationInventoryScheduleUpdate(BaseModel):

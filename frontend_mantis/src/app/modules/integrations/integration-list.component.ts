@@ -90,6 +90,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
   mappingDraft: IntegrationMapping | null = null;
   mappingSourceName: string | null = null;
   mappingValues: JsonObject = {};
+  mappingAttributeSelections: Record<string, Record<string, boolean>> = {};
   mappingSourceId: string | null = null;
   mappingRunningId: string | null = null;
   confirmingMapping = false;
@@ -520,6 +521,17 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
         this.mappingRunningId = null;
         this.mappingDraft = result;
         this.mappingValues = { ...result.mapping };
+        this.mappingAttributeSelections = Object.fromEntries(
+          result.suggestions
+            .filter((suggestion) => suggestion.kind === 'attributes' && suggestion.attribute_keys.length)
+            .map((suggestion) => {
+              const savedSelection = result.attribute_selection?.[suggestion.canonical];
+              const selectedKeys = savedSelection === undefined ? suggestion.attribute_keys : savedSelection;
+              return [suggestion.canonical, Object.fromEntries(
+                suggestion.attribute_keys.map((key) => [key, selectedKeys.includes(key)])
+              )];
+            })
+        );
       },
       error: (error) => {
         this.mappingRunningId = null;
@@ -534,10 +546,21 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     const mapping = Object.fromEntries(
       Object.entries(this.mappingValues).filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
     );
+    const attributeKeys: Record<string, string[]> = {};
+    const attributeSelection: Record<string, string[]> = {};
+    for (const suggestion of this.mappingDraft.suggestions) {
+      if (suggestion.kind !== 'attributes' || !suggestion.attribute_keys.length) continue;
+      attributeKeys[suggestion.canonical] = suggestion.attribute_keys;
+      attributeSelection[suggestion.canonical] = suggestion.attribute_keys.filter(
+        (key) => this.mappingAttributeSelections[suggestion.canonical]?.[key] !== false
+      );
+    }
     this.integrationService.confirmMapping(this.mappingSourceId, {
       mapping,
       catalog_mode: this.mappingDraft.catalog_mode,
-      collections: this.mappingDraft.collections
+      collections: this.mappingDraft.collections,
+      attribute_keys: attributeKeys,
+      attribute_selection: attributeSelection
     }).subscribe({
       next: (updated) => {
         this.confirmingMapping = false;
@@ -557,6 +580,7 @@ export class IntegrationListComponent implements OnInit, OnDestroy {
     this.mappingSourceId = null;
     this.mappingSourceName = null;
     this.mappingValues = {};
+    this.mappingAttributeSelections = {};
   }
 
   canonicalLabel(canonical: string): string {

@@ -19,6 +19,7 @@ from app.schemas import integration as schemas
 from app.services.integration_service import (
     IntegrationRequestError,
     IntegrationSyncConflict,
+    _attribute_cleanup_keys,
     enqueue_sync,
     preflight_source,
     preview_source,
@@ -372,6 +373,7 @@ async def confirm_mapping(
     previous_mapping = (source.configuration or {}).get("field_map") or {}
     pending_cleanup = (source.configuration or {}).get("pending_attribute_cleanup") or {}
     product_cleanup = set(pending_cleanup.get("product", []))
+    variant_cleanup = set(pending_cleanup.get("variant", []))
     for canonical, old_value in previous_mapping.items():
         if not canonical.startswith("product.attributes."):
             continue
@@ -381,15 +383,35 @@ async def confirm_mapping(
         if old_path and old_path != new_path:
             product_cleanup.add(canonical.removeprefix("product.attributes."))
 
+    previous_attribute_keys = (source.configuration or {}).get("attribute_keys") or {}
+    next_attribute_keys = payload.attribute_keys or previous_attribute_keys
+    next_attribute_selection = payload.attribute_selection or (
+        (source.configuration or {}).get("attribute_selection") or {}
+    )
+    all_attribute_keys = {
+        canonical: list(dict.fromkeys(
+            previous_attribute_keys.get(canonical, []) + next_attribute_keys.get(canonical, [])
+        ))
+        for canonical in set(previous_attribute_keys) | set(next_attribute_keys)
+    }
+    mapped_product_cleanup, mapped_variant_cleanup = _attribute_cleanup_keys(
+        all_attribute_keys, next_attribute_selection, payload.mapping
+    )
+    product_cleanup.update(mapped_product_cleanup)
+    variant_cleanup.update(mapped_variant_cleanup)
+
     configuration = {
         **(source.configuration or {}),
         "catalog_mode": payload.catalog_mode or "auto",
         "mapping_status": "confirmed",
         "field_map": payload.mapping,
         "collections": payload.collections,
+        "attribute_keys": next_attribute_keys,
+        "attribute_selection": next_attribute_selection,
         "pending_attribute_cleanup": {
             **pending_cleanup,
             "product": sorted(product_cleanup),
+            "variant": sorted(variant_cleanup),
         },
     }
     source.configuration = configuration

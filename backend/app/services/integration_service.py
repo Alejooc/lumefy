@@ -1349,7 +1349,10 @@ def _suggestion(
     )
 
 
-def _suggest_mapping_from_sample(sample: dict[str, Any]) -> dict[str, Any]:
+def _suggest_mapping_from_sample(
+    sample: dict[str, Any], samples: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    sample_rows = samples or [sample]
     mapping: dict[str, Any] = {}
     suggestions: list[dict[str, Any]] = []
 
@@ -1412,9 +1415,15 @@ def _suggest_mapping_from_sample(sample: dict[str, Any]) -> dict[str, Any]:
         if key:
             path = f"{key}[]"
             product_attribute_paths.append(path)
+            attribute_keys = list(dict.fromkeys(
+                attribute_key
+                for row in sample_rows
+                for attribute_key in _attribute_key_names(row.get(key))
+            ))
             suggestion, _ = _suggestion(
                 f"product.attributes.{key}", [(path, 90)], kind="attributes", reason=f"{label} en formato clave/valor."
             )
+            suggestion["attribute_keys"] = attribute_keys
             suggestions.append(suggestion)
             mapping[f"product.attributes.{key}"] = path
 
@@ -1443,9 +1452,17 @@ def _suggest_mapping_from_sample(sample: dict[str, Any]) -> dict[str, Any]:
         variant_attribute_key = _list_key(first_variant, ("properties", "attributes", "options"))
         if variant_attribute_key:
             path = f"{prefix}.{variant_attribute_key}[]"
+            attribute_keys = list(dict.fromkeys(
+                attribute_key
+                for row in sample_rows
+                for row_variant in (row.get(variants_key) or [])
+                if isinstance(row_variant, dict)
+                for attribute_key in _attribute_key_names(row_variant.get(variant_attribute_key))
+            ))
             suggestion, _ = _suggestion(
                 "variant.attributes", [(path, 90)], kind="attributes", reason="Atributos propios de la variante."
             )
+            suggestion["attribute_keys"] = attribute_keys
             suggestions.append(suggestion)
             mapping["variant.attributes"] = path
 
@@ -1484,7 +1501,7 @@ async def suggest_mapping_source(source: IntegrationSource) -> dict[str, Any]:
     rows = _normalize_catalog_rows(source, _extract_entity_rows(payload, endpoint, "products", status_code))
     if not rows:
         raise IntegrationRequestError("La API respondió sin registros para detectar el mapeo.", status_code)
-    suggestion = _suggest_mapping_from_sample(rows[0])
+    suggestion = _suggest_mapping_from_sample(rows[0], rows)
     return {
         "source_id": source.id,
         "success": True,
@@ -1492,6 +1509,7 @@ async def suggest_mapping_source(source: IntegrationSource) -> dict[str, Any]:
         "request_url": _safe_preview_url(request_url),
         "sample_count": len(rows),
         "catalog_mode": "auto",
+        "attribute_selection": (source.configuration or {}).get("attribute_selection") or {},
         **suggestion,
     }
 
@@ -1547,7 +1565,53 @@ def _attribute_pairs(value: Any) -> dict[str, Any]:
     return attributes
 
 
-def _collect_product_attributes(item: dict[str, Any], mapping: dict[str, Any]) -> dict[str, Any]:
+def _attribute_key_names(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        return [str(key).strip() for key in value if str(key).strip()]
+    if not isinstance(value, list):
+        return []
+    keys: list[str] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        key = item.get("spec") or item.get("property") or item.get("name") or item.get("key")
+        if key not in (None, "") and str(key).strip():
+            keys.append(str(key).strip())
+    return list(dict.fromkeys(keys))
+
+
+def _selected_attribute_pairs(attributes: dict[str, Any], selected_keys: list[str] | None) -> dict[str, Any]:
+    if selected_keys is None:
+        return attributes
+    selected = {_normal_key(key) for key in selected_keys}
+    return {key: value for key, value in attributes.items() if _normal_key(key) in selected}
+
+
+def _remove_attribute_keys(attributes: dict[str, Any], removed_keys: set[str]) -> dict[str, Any]:
+    removed = {_normal_key(key) for key in removed_keys}
+    return {key: value for key, value in attributes.items() if _normal_key(key) not in removed}
+
+
+def _attribute_cleanup_keys(
+    attribute_keys: dict[str, list[str]],
+    attribute_selection: dict[str, list[str]],
+    mapping: dict[str, Any],
+) -> tuple[set[str], set[str]]:
+    product_keys: set[str] = set()
+    variant_keys: set[str] = set()
+    for canonical, keys in attribute_keys.items():
+        selected = set(attribute_selection.get(canonical, keys))
+        stale = set(keys) if not _mapping_path(mapping, canonical) else set(keys) - selected
+        if canonical.startswith("product.attributes."):
+            product_keys.update(stale)
+        elif canonical == "variant.attributes":
+            variant_keys.update(stale)
+    return product_keys, variant_keys
+
+
+def _collect_product_attributes(
+    item: dict[str, Any], mapping: dict[str, Any], attribute_selection: dict[str, list[str]] | None = None
+) -> dict[str, Any]:
     attributes: dict[str, Any] = {}
     for canonical, path_value in mapping.items():
         if not canonical.startswith("product.attributes."):
@@ -1557,14 +1621,21 @@ def _collect_product_attributes(item: dict[str, Any], mapping: dict[str, Any]) -
         key = canonical.removeprefix("product.attributes.")
         if isinstance(raw, (list, dict)):
             pairs = _attribute_pairs(raw)
-            attributes.update(pairs or {key: raw})
+            if canonical in (attribute_selection or {}):
+                pairs = _selected_attribute_pairs(pairs, (attribute_selection or {})[canonical])
+                attributes.update(pairs)
+            else:
+                attributes.update(pairs or {key: raw})
         elif raw not in (None, ""):
             attributes[key] = raw
     return attributes
 
 
 def _collect_variant_attributes(
-    variant: dict[str, Any], mapping: dict[str, Any], collection_prefix: str
+    variant: dict[str, Any],
+    mapping: dict[str, Any],
+    collection_prefix: str,
+    attribute_selection: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     path = _mapping_path(mapping, "variant.attributes")
     if not path:
@@ -1574,7 +1645,10 @@ def _collect_variant_attributes(
         path = path[len(prefix) + 1 :]
     elif path.startswith(f"{prefix}[]"):
         path = path[len(prefix) + 2 :].lstrip(".")
-    return _attribute_pairs(_value(variant, path))
+    attributes = _attribute_pairs(_value(variant, path))
+    if "variant.attributes" in (attribute_selection or {}):
+        attributes = _selected_attribute_pairs(attributes, (attribute_selection or {})["variant.attributes"])
+    return attributes
 
 
 def _asset_url(source: IntegrationSource, value: Any) -> str | None:
@@ -3415,15 +3489,21 @@ async def _sync_products(
         if purchase_unit:
             product.purchase_uom_id = purchase_unit.id
 
-        product_attributes = _collect_product_attributes(item, mapping)
+        attribute_selection = (source.configuration or {}).get("attribute_selection") or {}
+        detected_attribute_keys = (source.configuration or {}).get("attribute_keys") or {}
+        product_attributes = _collect_product_attributes(item, mapping, attribute_selection)
         pending_attribute_cleanup = (source.configuration or {}).get("pending_attribute_cleanup") or {}
-        stale_product_attribute_keys = pending_attribute_cleanup.get("product", [])
+        stale_product_attribute_keys = set(pending_attribute_cleanup.get("product", []))
+        for canonical, keys in detected_attribute_keys.items():
+            if canonical.startswith("product.attributes."):
+                stale_product_attribute_keys.update(
+                    set(keys) - set(attribute_selection.get(canonical, keys))
+                )
         if stale_product_attribute_keys:
-            existing_product_attributes = (
-                product.attributes if isinstance(product.attributes, dict) else {}
-            ).copy()
-            for stale_key in stale_product_attribute_keys:
-                existing_product_attributes.pop(str(stale_key), None)
+            existing_product_attributes = _remove_attribute_keys(
+                product.attributes if isinstance(product.attributes, dict) else {},
+                {str(key) for key in stale_product_attribute_keys},
+            )
             product.attributes = existing_product_attributes
         category_external_id = _mapped(item, mapping, "product.category.external_id", "category_id", "category_external_id")
         category_name = _mapped(
@@ -3629,16 +3709,27 @@ async def _sync_products(
             variant_barcode = _mapped_context(variant_item, mapping, "variant.barcode", variants_prefix, "barcode", "ean", "upc", "gtin", "item_code")
             if variant_barcode not in (None, ""):
                 variant.barcode = str(variant_barcode)
-            variant_attributes = _collect_variant_attributes(variant_item, mapping, variants_prefix)
+            variant_attributes = _collect_variant_attributes(
+                variant_item, mapping, variants_prefix, attribute_selection
+            )
             variant_stock_temp = _mapped_context(
                 variant_item, mapping, "variant.stock_temp", variants_prefix, "stock_temp", "temporary_stock", "reserved"
             )
             if variant_stock_temp not in (None, ""):
                 variant_attributes["stock_temp"] = variant_stock_temp
-            # Variant attributes are provider-mapped data. Replace them instead
-            # of merging so values removed from the mapping (or source payload),
-            # such as color, do not remain stale after a catalog sync.
-            variant.attributes = variant_attributes
+            previous_variant_attributes = (
+                variant.attributes if isinstance(variant.attributes, dict) else {}
+            ).copy()
+            stale_variant_attribute_keys = set(pending_attribute_cleanup.get("variant", []))
+            detected_variant_keys = detected_attribute_keys.get("variant.attributes", [])
+            selected_variant_keys = attribute_selection.get("variant.attributes", detected_variant_keys)
+            stale_variant_attribute_keys.update(set(detected_variant_keys) - set(selected_variant_keys))
+            previous_variant_attributes = _remove_attribute_keys(
+                previous_variant_attributes, {str(key) for key in stale_variant_attribute_keys}
+            )
+            # Update mapped keys while retaining unrelated locally-managed
+            # attributes; keys excluded in the mapping are explicitly pruned.
+            variant.attributes = {**previous_variant_attributes, **variant_attributes}
 
             # The integration link has a foreign key to the variant, but no ORM
             # relationship tells SQLAlchemy about this dependency. Flush the

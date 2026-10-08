@@ -377,6 +377,19 @@
                   </td>
                   <td>
                     <input class="form-control form-control-sm" [(ngModel)]="mappingValues[suggestion.canonical]" [placeholder]="suggestion.source_path || 'No detectado'">
+                    @if (suggestion.kind === 'attributes' && suggestion.attribute_keys.length) {
+                      <div class="mt-2 rounded border bg-light p-2">
+                        <div class="small text-muted">Elige las propiedades que se sincronizarán. Las desmarcadas se quitarán del catálogo en la próxima sincronización.</div>
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                          @for (key of suggestion.attribute_keys; track key) {
+                            <label class="form-check form-check-inline m-0 rounded border bg-white px-2 py-1">
+                              <input class="form-check-input me-1" type="checkbox" [(ngModel)]="mappingAttributeSelections[suggestion.canonical][key]">
+                              <span class="small">{{ key }}</span>
+                            </label>
+                          }
+                        </div>
+                      </div>
+                    }
                   </td>
                   <td [class]="mappingConfidenceClass(suggestion.confidence)"><strong>{{ suggestion.confidence }}%</strong></td>
                   <td class="small text-muted">{{ suggestion.candidates.join(', ') || '—' }}</td>

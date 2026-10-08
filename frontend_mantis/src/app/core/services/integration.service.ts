@@ -106,6 +106,7 @@ export interface IntegrationMappingSuggestion {
   kind: string;
   reason: string | null;
   candidates: string[];
+  attribute_keys: string[];
 }
 
 export interface IntegrationMapping {
@@ -117,6 +118,7 @@ export interface IntegrationMapping {
   catalog_mode: string;
   detected_shape: string;
   mapping: JsonObject;
+  attribute_selection: Record<string, string[]>;
   collections: JsonObject;
   suggestions: IntegrationMappingSuggestion[];
   detected_paths: string[];
@@ -210,7 +212,13 @@ export class IntegrationService {
     return this.api.post<IntegrationMapping>(`/integrations/sources/${id}/mapping-suggestion`, {});
   }
 
-  confirmMapping(id: string, payload: { mapping: JsonObject; catalog_mode: string; collections: JsonObject }): Observable<IntegrationSource> {
+  confirmMapping(id: string, payload: {
+    mapping: JsonObject;
+    catalog_mode: string;
+    collections: JsonObject;
+    attribute_keys: Record<string, string[]>;
+    attribute_selection: Record<string, string[]>;
+  }): Observable<IntegrationSource> {
     return this.api.post<IntegrationSource>(`/integrations/sources/${id}/mapping-confirm`, payload);
   }
 
