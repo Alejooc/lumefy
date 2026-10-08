@@ -369,12 +369,28 @@ async def confirm_mapping(
             status_code=422,
             detail=f"Confirma al menos estos campos requeridos: {', '.join(missing_fields)}",
         )
+    previous_mapping = (source.configuration or {}).get("field_map") or {}
+    pending_cleanup = (source.configuration or {}).get("pending_attribute_cleanup") or {}
+    product_cleanup = set(pending_cleanup.get("product", []))
+    for canonical, old_value in previous_mapping.items():
+        if not canonical.startswith("product.attributes."):
+            continue
+        new_value = payload.mapping.get(canonical)
+        old_path = old_value.get("path") if isinstance(old_value, dict) else old_value
+        new_path = new_value.get("path") if isinstance(new_value, dict) else new_value
+        if old_path and old_path != new_path:
+            product_cleanup.add(canonical.removeprefix("product.attributes."))
+
     configuration = {
         **(source.configuration or {}),
         "catalog_mode": payload.catalog_mode or "auto",
         "mapping_status": "confirmed",
         "field_map": payload.mapping,
         "collections": payload.collections,
+        "pending_attribute_cleanup": {
+            **pending_cleanup,
+            "product": sorted(product_cleanup),
+        },
     }
     source.configuration = configuration
     source.status = "DRAFT" if source.is_active else "DISABLED"

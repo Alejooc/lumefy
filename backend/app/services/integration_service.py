@@ -3416,6 +3416,15 @@ async def _sync_products(
             product.purchase_uom_id = purchase_unit.id
 
         product_attributes = _collect_product_attributes(item, mapping)
+        pending_attribute_cleanup = (source.configuration or {}).get("pending_attribute_cleanup") or {}
+        stale_product_attribute_keys = pending_attribute_cleanup.get("product", [])
+        if stale_product_attribute_keys:
+            existing_product_attributes = (
+                product.attributes if isinstance(product.attributes, dict) else {}
+            ).copy()
+            for stale_key in stale_product_attribute_keys:
+                existing_product_attributes.pop(str(stale_key), None)
+            product.attributes = existing_product_attributes
         category_external_id = _mapped(item, mapping, "product.category.external_id", "category_id", "category_external_id")
         category_name = _mapped(
             item,
@@ -3626,8 +3635,10 @@ async def _sync_products(
             )
             if variant_stock_temp not in (None, ""):
                 variant_attributes["stock_temp"] = variant_stock_temp
-            if variant_attributes:
-                variant.attributes = {**(variant.attributes or {}), **variant_attributes}
+            # Variant attributes are provider-mapped data. Replace them instead
+            # of merging so values removed from the mapping (or source payload),
+            # such as color, do not remain stale after a catalog sync.
+            variant.attributes = variant_attributes
 
             # The integration link has a foreign key to the variant, but no ORM
             # relationship tells SQLAlchemy about this dependency. Flush the
