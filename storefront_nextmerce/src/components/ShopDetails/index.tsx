@@ -84,10 +84,20 @@ const SIZE_ATTRIBUTE_KEYS = ["size", "sizes", "talla", "tallas", "medida", "medi
 
 function variantMatchesValue(variant: ProductVariant, value: string, keys: string[]): boolean {
   if (!value) return true;
-  const candidate = variantAttribute(variant, keys) || variant.name || "";
-  const normalizedCandidate = normalizeFacetValue(candidate);
   const normalizedValue = normalizeFacetValue(value);
-  return normalizedCandidate === normalizedValue || normalizedCandidate.includes(normalizedValue);
+  const explicitValue = variantAttribute(variant, keys);
+  if (explicitValue) return normalizeFacetValue(explicitValue) === normalizedValue;
+
+  // Integrated catalogs often encode dimensions in the variant name, e.g.
+  // "Azul - 40x60". Match whole tokens so "Azul" cannot accidentally match
+  // another value such as "Azul oscuro".
+  return (variant.name || "")
+    .split(/\s*(?:\/|\||,\s+|-)\s*/)
+    .some((token) => normalizeFacetValue(token) === normalizedValue);
+}
+
+function variantHasFacetValue(variant: ProductVariant, keys: string[], options: string[]): boolean {
+  return Boolean(variantAttribute(variant, keys)) || options.some((option) => variantMatchesValue(variant, option, keys));
 }
 
 function variantIsAvailable(variant: ProductVariant): boolean {
@@ -259,15 +269,15 @@ const ShopDetails = ({
   const [activeSize, setActiveSize] = useState(sizeOptions[0] || "");
   const [activeTab, setActiveTab] = useState("description");
 
+  useEffect(() => {
+    setActiveColor(colorOptions[0] || "");
+    setActiveSize(sizeOptions[0] || "");
+    setQuantity(1);
+  }, [colorOptions, product.id, product.publishedProductId, sizeOptions]);
+
   const sizeAvailability = useMemo(() => {
     const variants = product.variants || [];
-    const hasStockData = variants.some(
-      (variant) => variant.stockQuantity !== undefined || variant.inStock === false,
-    );
-
-    // Products without variant-level inventory cannot tell us which measure
-    // is exhausted, so keep those options usable instead of guessing.
-    if (!variants.length || !hasStockData) {
+    if (!variants.length) {
       return new Map(sizeOptions.map((size) => [size, true]));
     }
 
@@ -279,25 +289,30 @@ const ShopDetails = ({
             variantMatchesValue(variant, size, SIZE_ATTRIBUTE_KEYS),
         );
 
-        // If the product exposes a measure but the variant payload does not
-        // identify it clearly, leave it enabled rather than blocking a valid
-        // option based on incomplete metadata.
+        // Only infer an impossible color/size pair when the payload identifies
+        // both dimensions for every variant. In incomplete integrations, keep
+        // options selectable rather than hiding potentially valid inventory.
+        const hasCompleteDimensions = variants.every(
+          (variant) =>
+            variantHasFacetValue(variant, COLOR_ATTRIBUTE_KEYS, colorOptions) &&
+            variantHasFacetValue(variant, SIZE_ATTRIBUTE_KEYS, sizeOptions),
+        );
         const available = matchingVariants.length
           ? matchingVariants.some(variantIsAvailable)
-          : true;
+          : !hasCompleteDimensions;
         return [size, available];
       }),
     );
-  }, [activeColor, product.variants, sizeOptions]);
+  }, [activeColor, colorOptions, product.variants, sizeOptions]);
 
   const selectedVariant = useMemo(() => {
     const variants = product.variants || [];
     if (!variants.length) return undefined;
-    const match = variants.find((variant) =>
+    const matchingVariants = variants.filter((variant) =>
       variantMatchesValue(variant, activeColor, COLOR_ATTRIBUTE_KEYS) &&
       variantMatchesValue(variant, activeSize, SIZE_ATTRIBUTE_KEYS),
     );
-    return match || (!activeColor && !activeSize ? variants[0] : undefined);
+    return matchingVariants.find(variantIsAvailable) || matchingVariants[0] || (!activeColor && !activeSize ? variants[0] : undefined);
   }, [activeColor, activeSize, product.variants]);
   const selectedVariantLabel = useMemo(() => {
     if (!selectedVariant) return "";

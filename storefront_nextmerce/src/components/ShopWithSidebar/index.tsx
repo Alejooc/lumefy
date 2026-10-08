@@ -16,7 +16,6 @@ import { toTemplateProduct } from "@/lib/product-view-model";
 import { PublicCatalogResponse } from "@/types/storefront";
 import { useStorefrontUi } from "@/lib/storefront-ui";
 import { isTrustedPreviewMessage } from "@/lib/preview";
-import CatalogLoading from "./CatalogLoading";
 import {
   collectionTemplateContent,
   collectionTemplateSection,
@@ -467,13 +466,6 @@ const ShopWithSidebar = ({
         hideTitle
       />
       <section className={`overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6] ${previewMode && selectionMode ? "lumefy-preview--selecting" : ""}`}>
-        {isNavigating ? (
-          <CatalogLoading
-            overlay
-            variant={templateKey}
-            layout={productStyle === "list" ? "list" : "grid"}
-          />
-        ) : null}
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
           <div className="flex gap-7.5">
             {/* <!-- Sidebar Start --> */}
@@ -780,21 +772,27 @@ const ShopWithSidebar = ({
                     : "flex flex-col gap-7.5"
                 }`}
                 style={{ display: gridEnabled ? undefined : "none", order: sectionOrder(gridSectionType) }}
+                aria-busy={isNavigating}
+                aria-label={isNavigating ? "Actualizando productos" : undefined}
               >
-                {loadedItems.map((item, index) =>
-                  productStyle === "grid" ? (
-                    <SingleGridItem
-                      item={item}
-                      key={item.publishedProductId || item.id}
-                      preload={index === 0}
-                      deferRendering={index >= 4}
-                    />
-                  ) : (
-                    <SingleListItem item={item} key={item.publishedProductId || item.id} />
-                  )
-                )}
+                {isNavigating
+                  ? Array.from({ length: productStyle === "grid" ? 6 : 4 }).map((_, index) => (
+                      <ProductLoadingSkeleton key={`filter-skeleton-${index}`} list={productStyle === "list"} />
+                    ))
+                  : loadedItems.map((item, index) =>
+                      productStyle === "grid" ? (
+                        <SingleGridItem
+                          item={item}
+                          key={item.publishedProductId || item.id}
+                          preload={index === 0}
+                          deferRendering={index >= 4}
+                        />
+                      ) : (
+                        <SingleListItem item={item} key={item.publishedProductId || item.id} />
+                      )
+                    )}
               </div>
-              {!loadedItems.length && !isLoadingMore ? (
+              {!isNavigating && !loadedItems.length && !isLoadingMore ? (
                 <div className="mt-8 rounded-lg bg-white px-6 py-12 text-center shadow-1" style={{ order: sectionOrder(gridSectionType) }}>
                   <h2 className="font-semibold text-xl text-dark">{templateContent.empty_title}</h2>
                   <p className="mt-2 text-dark-4">{templateContent.empty_description}</p>

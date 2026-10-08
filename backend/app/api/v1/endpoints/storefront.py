@@ -1295,6 +1295,30 @@ def _extract_variant_facets(variants: list[ProductVariant] | None) -> tuple[list
     return sizes, colors
 
 
+def _available_variant_facets(
+    product: Product,
+    variant_stock: dict[uuid.UUID, float],
+    product_stock: float = 0.0,
+) -> tuple[list[str], list[str]]:
+    variants = product.variants or []
+    if not product.track_inventory:
+        return _extract_variant_facets(variants)
+
+    if variant_stock:
+        available_variants = [
+            variant
+            for variant in variants
+            if variant_stock.get(variant.id, 0.0) > 0
+        ]
+    elif product_stock > 0:
+        # Some catalogs keep stock at product level. In that case stock is
+        # shared by its variants, so preserve all defined combinations.
+        available_variants = variants
+    else:
+        available_variants = []
+    return _extract_variant_facets(available_variants)
+
+
 def _variant_attribute(variant: ProductVariant, *keys: str) -> str | None:
     attributes = variant.attributes if isinstance(variant.attributes, dict) else {}
     normalized = {str(key).strip().lower(): value for key, value in attributes.items()}
@@ -6165,6 +6189,26 @@ async def read_public_products(
         if published_id in published_product_ids
     }
 
+    variant_stock_by_product: dict[uuid.UUID, dict[uuid.UUID, float]] = {}
+    product_stock_by_product: dict[uuid.UUID, float] = {}
+    for (stock_product_id, variant_id), quantity in catalog_stock_map.items():
+        if variant_id is None:
+            product_stock_by_product[stock_product_id] = quantity
+        else:
+            variant_stock_by_product.setdefault(stock_product_id, {})[variant_id] = quantity
+
+    # Facet filtering must reflect sellable variants, not every variant
+    # attached to a product that happens to have stock in another size/color.
+    for context in product_contexts.values():
+        product = context["product"]
+        available_sizes, available_colors = _available_variant_facets(
+            product,
+            variant_stock_by_product.get(product.id, {}),
+            product_stock_by_product.get(product.id, 0.0),
+        )
+        context["available_sizes"] = available_sizes
+        context["available_colors"] = available_colors
+
     def matches_filters(
         published_product: PublishedProduct,
         *,
@@ -6180,8 +6224,8 @@ async def read_public_products(
         if not context:
             return False
         product_collections = context["collections"]
-        sizes_list = context["sizes"]
-        colors_list = context["colors"]
+        sizes_list = context["available_sizes"]
+        colors_list = context["available_colors"]
         category_id = context["category_id"]
         brand_name = context["brand_name"]
         matches_search = (
@@ -6325,7 +6369,7 @@ async def read_public_products(
             if matches_filters(published_product, ignore_type=True):
                 product_type_value = context["product_type"] or "OTHER"
                 type_counts[product_type_value] = type_counts.get(product_type_value, 0) + 1
-            sizes_list, colors_list = context["sizes"], context["colors"]
+            sizes_list, colors_list = context["available_sizes"], context["available_colors"]
             if matches_filters(published_product, ignore_size=True):
                 for entry in sizes_list:
                     size_counts[entry] = size_counts.get(entry, 0) + 1

@@ -12,6 +12,7 @@ from app.api.v1.endpoints.storefront import (
     _cancel_storefront_sale_and_release_reservation,
     _build_whatsapp_order_message,
     _extract_variant_facets,
+    _available_variant_facets,
     _reserve_storefront_sale,
     _format_payu_confirmation_amount,
     _has_valid_basic_auth,
@@ -120,6 +121,43 @@ class StorefrontValidationTests(unittest.TestCase):
 
         self.assertEqual(sizes, ["0,40 X 0,70 Aprox."])
         self.assertEqual(colors, ["Verde"])
+
+    def test_available_variant_facets_exclude_out_of_stock_size_and_color(self):
+        product_id = uuid4()
+        available_size = SimpleNamespace(
+            id=uuid4(), name="Azul / 1.90", attributes={"Color": "Azul", "Medida": "1.90"}
+        )
+        sold_out_size = SimpleNamespace(
+            id=uuid4(), name="Rojo / 2.10", attributes={"Color": "Rojo", "Medida": "2.10"}
+        )
+        product = SimpleNamespace(
+            id=product_id,
+            track_inventory=True,
+            variants=[available_size, sold_out_size],
+        )
+
+        sizes, colors = _available_variant_facets(
+            product,
+            {available_size.id: 3, sold_out_size.id: 0},
+        )
+
+        self.assertEqual(sizes, ["1.90"])
+        self.assertEqual(colors, ["Azul"])
+
+    def test_untracked_product_keeps_all_defined_variant_facets(self):
+        product = SimpleNamespace(
+            id=uuid4(),
+            track_inventory=False,
+            variants=[
+                SimpleNamespace(id=uuid4(), name="Azul / 1.90", attributes={"Color": "Azul", "Medida": "1.90"}),
+                SimpleNamespace(id=uuid4(), name="Rojo / 2.10", attributes={"Color": "Rojo", "Medida": "2.10"}),
+            ],
+        )
+
+        sizes, colors = _available_variant_facets(product, {})
+
+        self.assertEqual(sizes, ["1.90", "2.10"])
+        self.assertEqual(colors, ["Azul", "Rojo"])
 
     def test_public_shipping_config_serializes_orm_rows(self):
         destination = SimpleNamespace(
